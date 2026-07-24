@@ -16,6 +16,25 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-07-24 — Scope-out membership ID; align reviewer notes (Maxim direction)
+- **Asked:** rework the deletion page + Data Safety to remove any data not
+  reflected in the UI — specifically the **Costco membership number**, which is
+  never used and only saved as a trial/test remnant. Also review reviewer notes.
+  (Maxim: credential rotation is his to do, don't raise it again.)
+- **Done:** removed member_id from `delete-account.html`/`-fr` (Website PR #7,
+  reworked — still unmerged, Maxim's call to publish); removed it from
+  `Play_Data_Safety_Answers.md` (User IDs row) + added a scope note; updated
+  `PUBLISH_CHECKLIST.md` §1 (member_id now OUT OF SCOPE, don't declare) and §10
+  Purchases line. **Flagged honesty gap:** backend STILL extracts/stores
+  `receipts.member_id` (server.js, receiptsRepo.js, +test) — to make the
+  "not collected" declaration truthful, that extraction should be removed in
+  code before publish; offered to do it, awaiting Maxim.
+- **Reviewer notes:** fixed a real mismatch — they said "No location" but the
+  app uses COARSE location (nearest Costco); updated the permissions section +
+  "what we don't do" + short version to say coarse-only / no precise location /
+  no mic / no ad-ID (consistent with the stripped manifest). Demo-account TODO
+  still Maxim's to fill.
+
 ### 2026-07-24 — Play-release blockers: account-deletion web page + Data Safety answers
 - **Asked (/goal, cont.):** finish preparing for Play promotion, avoid refusals.
 - **Account-deletion web URL** (hard Play requirement): built `delete-account.html`

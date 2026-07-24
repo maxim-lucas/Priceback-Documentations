@@ -93,15 +93,23 @@ After signing in with the demo Google account above:
 - **Camera (NSCameraUsageDescription / android.permission.CAMERA)** —
   receipt scanning is the core action; required.
 - **Photo library (NSPhotoLibraryUsageDescription /
-  READ_EXTERNAL_STORAGE)** — alternate path: importing a pre-existing
-  receipt photo without re-taking it.
+  READ_MEDIA_IMAGES + photo picker)** — alternate path: importing a
+  pre-existing receipt photo without re-taking it.
 - **Notifications (NSUserNotificationsUsageDescription /
   POST_NOTIFICATIONS)** — alerting users when a watched item drops in
   price (the whole product premise).
+- **Approximate location (NSLocationWhenInUse / ACCESS_COARSE_LOCATION)** —
+  used only to pick the nearest Costco for in-warehouse price-tag scans.
+  **Coarse only; we do not request precise/fine location.**
 - **Background fetch (RECEIVE_BOOT_COMPLETED + WAKE_LOCK)** —
   expo-task-manager re-registers price-check tasks after device reboot.
 
-No location, no contacts, no microphone, no health data, no tracking.
+We deliberately strip the advertising ID (`AD_ID`), microphone
+(`RECORD_AUDIO`), and precise location (`ACCESS_FINE_LOCATION`) permissions
+that our SDKs pull in transitively but the app never uses — so the shipped
+manifest requests only the permissions listed above. No contacts, no
+microphone, no precise location, no health data, no advertising ID, no
+cross-app tracking.
 
 ---
 
@@ -155,7 +163,7 @@ Putting these here so a reviewer doesn't have to ask:
   pricing decisions, no algorithmic profiling).
 - We don't process payments directly — Apple / Google / RevenueCat handle
   all subscription billing.
-- We don't access contacts, calendar, microphone, location, or health data.
+- We don't access contacts, calendar, microphone, precise location, or health data. Location is coarse-only, used solely to pick the nearest Costco.
 
 ---
 
@@ -228,6 +236,7 @@ We respond within 1 business day to reviewer questions.
 > Privacy: https://priceback.ca/privacy-policy · Support: https://priceback.ca/support
 >
 > Permissions: camera (scan), photo library (import), notifications
-> (price-drop alerts). No location, contacts, microphone, or tracking.
+> (price-drop alerts), coarse location (nearest Costco only). No precise
+> location, contacts, microphone, advertising ID, or tracking.
 >
 > Contact: TODO@priceback.ca
