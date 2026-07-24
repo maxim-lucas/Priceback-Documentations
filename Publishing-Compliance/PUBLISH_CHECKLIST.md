@@ -132,10 +132,15 @@ both the EN and `-fr` mirrors — NOT auto-applied):**
   review (`/api/observations/tag` presigned upload), now for **30 days** (`RETENTION_TAG_PHOTOS_DAYS`,
   `backend/jobs/pruneTagPhotos.js`). Disclose that retention window + purpose and
   add Cloudflare to processors + cross-border list.
-- [ ] **List the Costco membership number as collected data.** The OCR pipeline
-  extracts `member_id` and stores it on `receipts.member_id` (never echoed to the
-  app; included only in the `/api/me/data-export` payload). It's personal info —
-  list it under data collected with the "export-only, never displayed" note.
+- [ ] **Costco membership number — OUT OF SCOPE for this release (do NOT declare).**
+  Decision (2026-07-24): the membership number is not a live feature — it isn't
+  shown in the UI or used by any user-facing function, only captured as a
+  trial/test remnant. It is therefore excluded from the privacy policy AND the
+  Play Data Safety form. ⚠️ The OCR pipeline still extracts `member_id` and stores
+  it on `receipts.member_id` — to keep the "we don't collect it" position strictly
+  truthful, **stop extracting/storing it in the backend** before publish (see
+  `Play_Data_Safety_Answers.md` scope note). Until that code change lands, this is
+  a known declaration gap to close.
 - [x] *(Soft — resolved-by-design)* **Microsoft Graph / Email Sync** — the live
   policy already covers this generically ("any data from third-party email accounts
   … if you explicitly connect them in the Email Sync feature") and names no vendors,
@@ -539,7 +544,7 @@ observed behavior. The authoritative list is derived from `backend/db/schema.js`
 Data collected and linked to the user (account-bound):
 - [ ] **Identity:** email, name, OAuth `sub`, profile picture URL (Google/Apple sign-in).
 - [ ] **Location (coarse):** postal code / province (user-entered).
-- [ ] **Purchases:** receipt metadata (store, date, totals, item names, SKUs, Costco `member_id`), subscription/credit state (via RevenueCat).
+- [ ] **Purchases:** receipt metadata (store, date, totals, item names, SKUs), subscription/credit state (via RevenueCat). *(Costco membership number is out of scope — see §1 — do not declare it.)*
 - [ ] **Identifiers:** Expo push token; hashed device fingerprint.
 - [ ] **Diagnostics:** crash data via Sentry (PII-scrubbed before send).
 

@@ -23,6 +23,15 @@ Companion: `PUBLISH_CHECKLIST.md` §10 (permissions, deletion URL) and
 | Do you provide a way for users to request that their data is deleted? | **Yes** — URL: `https://priceback.ca/delete-account` |
 | **Does your app use an advertising ID?** | **No** (the `AD_ID` permission is stripped from the manifest — see permission hygiene) |
 
+> **Scope note — Costco membership number is deliberately NOT declared.** It is
+> not a live feature: it isn't shown anywhere in the UI and isn't used by any
+> user-facing function (currently only captured as a trial/test remnant). It is
+> therefore out of scope for this release and excluded from the form below. ⚠️
+> **To keep the declaration strictly truthful, the backend should stop extracting/
+> storing `receipts.member_id` while it's undeclared** — see the reminder at the
+> bottom; ping me to make that code change if you want the form to match the DB
+> exactly.
+
 > **"Collected" vs "Shared" (Google's definitions):** *Collected* = transmitted
 > off the device. *Shared* = transferred to a **third party** who uses it for
 > their **own** purposes. Our vendors (Google Cloud Vision, Gemini, RevenueCat,
@@ -52,7 +61,7 @@ only if they use that feature.
 |---|---|---|---|---|
 | **Name** | Yes | App functionality, Account management | Optional | From Google/Apple sign-in (`users.name`). |
 | **Email address** | Yes | App functionality, Account management | **Required** | Sign-in identity (`users.email`). |
-| **User IDs** | Yes | App functionality, Account management | Required | OAuth `sub` (`users.sub`); Costco `member_id` OCR'd from receipts (export-only, never displayed). |
+| **User IDs** | Yes | App functionality, Account management | Required | OAuth `sub` (`users.sub`) — the sign-in identifier. |
 
 ### Financial info
 | Data type | Collected | Purposes | Required/Optional | Notes |
