@@ -16,6 +16,17 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-07-24 — More Google-guidance error handling: Play Billing states (PR #203)
+- **Asked (/goal):** "add more error handling based on Google's own guidances
+  (codes)". Extended beyond sign-in to the purchase/billing path.
+- **Done:** `classifyPurchaseError` now handles two more documented Play Billing
+  states that previously fell to generic "something went wrong":
+  `payment_pending` (Play PENDING / RC PaymentPendingError — cash/carrier/family
+  approval; treated as in-progress, NOT an error, "won't be charged twice") and
+  `not_allowed` (RC PurchaseNotAllowedError / Play FEATURE_NOT_SUPPORTED). New
+  EN+FR i18n keys `paywall.errPaymentPending`/`errNotAllowed`; wired into
+  `Paywall.purchaseErrorMessage`. Tests added. Full suite 3004 pass. No migration.
+
 ### 2026-07-24 — Scope-out membership ID; align reviewer notes (Maxim direction)
 - **Asked:** rework the deletion page + Data Safety to remove any data not
   reflected in the UI — specifically the **Costco membership number**, which is
