@@ -2540,3 +2540,29 @@ correctly no-ops on dev instead of silently skipping.
   `docs/PUBLISH_CHECKLIST.md` (both retention mentions) and
   `docs/Publish_Requirements.md` retention table updated.
 - **Status:** code + tests DONE. Uncommitted pending review.
+
+---
+
+## 2026-07-25 — Phantom $0.10 price drop + configurable minimum-drop threshold
+
+- **Ask:** closed-test build showed a $0.10 "price drop" on an 18% cream 1L
+  scanned at $4.39 (to $4.29) with no notification, and the source of that price
+  was unclear. Also: add an easily-configurable threshold so every price drop is
+  worth at least $1.99 (Costco doesn't run offers under ~$2).
+- **Diagnosis:** two client-side bugs. (1) `/api/check-price` returns
+  *unverified* crowd prices on purpose (display badge "Unverified · X/N
+  shoppers"), and both client detection paths treated any `currentPrice <
+  paidPrice` as a drop — so the app flagged prices the server sweep
+  (`findNotifiable`) correctly refuses to push or bill. (2) No minimum-saving
+  floor existed on any path.
+- **Fix:** new `PRICE_DROP_MIN_SAVINGS` ops knob (default $1.99, per unit,
+  `app_config`/env-tunable, auto-seeded — no migration) enforced in
+  `priceDropRepo.findNotifiable`, both legacy `server.js` sweeps, and a new
+  shared client predicate `qualifiesAsDrop()` that also rejects unverified
+  prices. Threshold shipped to the app via `pricing.json`. Full detail +
+  "detect next time" in `Operations/Bugs_Common_Fixes.md` #126.
+- **Tests:** new `__tests__/qualifiesAsDrop.test.js`; extended
+  `priceServiceDrops`, `detailScreenDropNotify`, and a new materiality-floor
+  block in `backend/tests/priceDropDb.test.js`. Backend 962/962, mobile
+  3032/3032, both suites green with coverage floors clear.
+- **Status:** DONE — merged to `main`.
