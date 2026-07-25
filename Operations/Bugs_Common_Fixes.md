@@ -4306,3 +4306,61 @@ applied to authService).
   / `isGmsNetworkError` / `isGmsDeveloperError` / `matchesGmsCode` centralize the
   matching (numeric code, numeric-string code, or message substring). Tests in
   `__tests__/authServiceSignIn.test.js`.
+
+---
+
+## #126 — Phantom sub-dollar "price drop" the app showed but the server never pushed
+
+- **Date:** 2026-07-25 · **PR:** _(this session)_ · **Area:** price-drop detection
+  (mobile `priceService` / `DetailScreen`, backend `priceDropRepo.findNotifiable`)
+- **Symptom:** closed-test build. An 18% cream 1L scanned at **$4.39**. No
+  price-drop notification ever arrived, but tapping **Refresh prices** showed a
+  **$0.10** drop to $4.29 — a price the user couldn't account for.
+- **Root cause — two independent bugs, both on the client side of the same
+  comparison:**
+  1. **Unverified prices leaked into drop detection.** `/api/check-price` is a
+     *display* endpoint: it asks `priceDropRepo.getLatestVerifiedPrice` for
+     `includeUnverified: true` so a single not-yet-corroborated crowd
+     observation can still be SHOWN, tagged "Unverified · X/N shoppers". Both
+     client detection paths (`checkAllPriceDrops`, DetailScreen's manual
+     refresh) then compared that price straight against what was paid —
+     `currentPrice < paidPrice` and nothing else. The backend sweep
+     (`findNotifiable`) correctly refused it (rule of N unmet, or the price was
+     never available *after* the purchase date), which is exactly why no push
+     ever fired. **Client and server disagreed by construction.**
+  2. **No materiality floor anywhere.** Even a verified $0.10 delta counted as a
+     drop, on every path — in-app chip, push, and the credit commission that
+     rides the notification.
+- **Fix:**
+  - New ops knob **`PRICE_DROP_MIN_SAVINGS`** (`backend/config/defaults.js`,
+    default **$1.99**, category `crowd_verification`). Per **unit**, because the
+    store grants the adjustment per unit. Live-tunable via `app_config`/env, no
+    redeploy; `0` disables it. Auto-seeds — no migration.
+  - Enforced in `priceDropRepo.findNotifiable`'s final `WHERE`
+    (`unit_paid - new_price >= floor`) so a sub-floor delta produces **no row →
+    no dedupe ledger entry → no commission charge**, and the line stays eligible
+    for a later real drop. Also in both legacy in-memory sweeps in `server.js`
+    (flyer overlay + web scrape) via `minDropSavings()`.
+  - New client predicate **`qualifiesAsDrop()`** in `src/services/priceService.js`
+    — the single definition of "real drop", used by BOTH client paths. Rejects
+    `source: "price_points_unverified"` / `verified.verified === false`, and
+    applies the same floor, shipped to the app via `pricing.json`
+    (`getMinDropSavings()`, bundled fallback in `shared/pricing.config.js`).
+    Sources with no verification block (non-Costco scrape, device re-scrape) are
+    unaffected.
+  - Compares in **whole cents** client-side: `4.39 − 2.40` is
+    `1.9899999999999998` in binary float and would fail a `>= 1.99` test at the
+    exact boundary, while the backend compares Postgres `numeric` (exact).
+- **Tests:** `__tests__/qualifiesAsDrop.test.js` (new — floor boundaries,
+  override, `0`, verification gate, malformed input); `__tests__/priceServiceDrops.test.js`
+  (floor + unverified blocks, per-unit semantics); `__tests__/detailScreenDropNotify.test.js`
+  (sub-floor and unverified refreshes notify nothing and write no drop state);
+  `backend/tests/priceDropDb.test.js` (new *materiality floor* describe — $0.10
+  not notifiable, full drop bills off the untouched paid price afterwards,
+  `minSavings: 0`/`5` overrides, per-unit on a qty-4 line).
+- **Detect next time:** "the app shows a drop but I got no notification" is
+  almost always **client detection disagreeing with `findNotifiable`**, not a
+  push-delivery problem. Check the `source` field on `/api/check-price` first:
+  `price_points_unverified` means display-only. **Rule: any client-side price
+  comparison that decides "this is a drop" must go through `qualifiesAsDrop`
+  — a display price is not a claimable price.**
