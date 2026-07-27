@@ -40,5 +40,22 @@ an unrelated .app). Target specific phrases instead:
 - Internal-link each article to the app download + relevant FAQ anchors.
 
 ## Status
-Deferred per owner decision (2026-06-22). Technical SEO (clean URLs, schema,
-redirects, font perf) shipped separately first.
+**Shipped 2026-07-27** as part of a broader organic-SEO pass (see
+[SEO-organic-2026-07.md](SEO-organic-2026-07.md) for the full audit and
+action list). Live at `/blog` (EN) and `/blog/index-fr` (FR):
+
+- `costco-price-adjustment-policy-canada(-fr)` — the pillar policy guide.
+- `how-to-get-a-price-adjustment-at-costco(-fr)` — the tactical how-to.
+
+Both target the keyword strategy above, cross-link to each other and to the
+app download CTA, carry `BlogPosting`/`HowTo`/`FAQPage`/`BreadcrumbList`
+JSON-LD, and are in `sitemap.xml` with hreflang alternates.
+
+### Remaining candidates (next batch)
+- "Costco vs [other retailer] Price Match Policy Compared"
+- Seasonal: "Costco Black Friday price drops — how to claim them"
+- A "which stores offer price adjustments in Canada" roundup (broader net
+  than Costco-only, still funnels to the Costco-first app).
+
+Previously deferred per owner decision (2026-06-22); technical SEO (clean
+URLs, schema, redirects, font perf) had shipped separately first.
