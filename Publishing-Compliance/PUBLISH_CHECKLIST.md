@@ -1,6 +1,13 @@
 # PriceBack — Publish Checklist
 
-Last updated: 2026-07-24 · App version 2.8.0 · Backend 2.7.0
+Last updated: 2026-07-26 · App version 2.8.1 · Backend 2.7.0
+
+> **Submitting to the App Store?** Read
+> [`App_Store_Submission_Audit.md`](./App_Store_Submission_Audit.md) first. The
+> 2026-07-26 audit found and fixed eleven iOS submission blockers (including a
+> store build that would have granted paid features for free, and Apple sessions
+> that broke ten minutes after sign-in) and lists the App Store Connect / EAS
+> steps that remain. §2 and §14 of this file were corrected to match it.
 
 Everything in this doc is a **manual** step that lives outside the codebase.
 The code is ready; these are the credentials, consoles, accounts, and
@@ -28,9 +35,14 @@ Quick-scan table — update as items are completed.
 | Legal pages (privacy / terms / support) | ✅ Hosted | `priceback.ca/privacy`, `/terms`, `/support`, `-fr` variants |
 | Apple Developer enrollment | ⏳ Pending | §0 — $99/yr, 24–48h approval |
 | Google Play Console enrollment | ✅ Done | §0 — enrolled |
-| RevenueCat — real API key + SKU config | ✅ Done (Play) | §2 — all 5 SKUs live in Play + RC, `default` offering resolves annual+monthly. iOS still pending (App Store Connect not launched) |
+| RevenueCat — real API key + SKU config | ✅ Done (Play) / ⚠️ **BLOCKER (iOS)** | §2 — all 5 SKUs live in Play + RC, `default` offering resolves annual+monthly. **iOS: set `REVENUECAT_API_KEY_IOS` (`appl_…`) in the EAS production environment — a production iOS build now fails without it, by design.** Audit §1.2 / §2.1 |
+| iOS in-app purchases created + submitted with the build | ⏳ Pending | Audit §2.2 — five product IDs must match `shared/pricing.config.js` exactly, be attached to RC's `default` offering, and be **submitted alongside the app version** or the reviewer finds a paywall that sells nothing |
+| App Store availability = Canada only | ⏳ Pending | Audit §2.3 — app is Canada-hardcoded; a non-CA reviewer storefront invites a 2.1 |
+| iOS privacy manifest (`NSPrivacyCollectedDataTypes`) | ✅ Done | Audit §1.5 — was an empty array while the app collects 12 data types; App Store Connect privacy answers must now match (Audit §2.4) |
+| iOS unused-permission hygiene (microphone / always-location stripped) | ✅ Done | Audit §1.6 — `plugins/withIosPrivacyStringCleanup.js`, the counterpart to the Android cleanup plugin |
 | RevenueCat prod purchase recording | ✅ Done | §2 — both `REVENUECAT_WEBHOOK_TOKEN` and `REVENUECAT_SECRET_KEY` set on Railway prod (also mirrored to dev); `/health` confirms `revenuecat.webhook: "configured"` and `revenuecat.syncApi: "configured"` (verified 2026-07-11) — see `docs/RevenueCat_Paywall_Config.md` |
-| iOS Google OAuth client + plist | ✅ Done | §3 — client created; `GoogleService-Info.plist` at repo root (gitignored); `iosUrlScheme` wired in `app.json` |
+| iOS Google OAuth client + plist | ✅ Done | §3 — client created; `GoogleService-Info.plist` at repo root (gitignored); `iosUrlScheme` wired in `app.json`; client ID now committed in `config/profiles/common.js` so no EAS var can go unset (Audit §1.4) |
+| Sign in with Apple works end to end | ✅ Done | Backend verifier deployed and probe-verified on prod 2026-07-26; Apple's 10-minute token expiry now refreshes (Audit §1.3); Apple is the first button on iOS (§1.7). Still needs the **capability enabled on the bundle ID** — see §4 |
 | Apple Sign In With Apple capability | ⏳ Pending | §4 |
 | Sentry DSN | ✅ Done | §5 — DSN in `config/profiles/common.js`; `SENTRY_DSN` + `SENTRY_AUTH_TOKEN` set as EAS secrets for both dev and prod |
 | Azure / Microsoft OAuth (Outlook sync) | ✅ Configured | §6 — verified in Azure portal 2026-07-08: redirect URI matches code, `Mail.Read`+`User.Read` granted, **public client flows enabled (was off — fixed)**, EAS secret set. Only an on-device sign-in smoke test remains |
@@ -47,7 +59,8 @@ Quick-scan table — update as items are completed.
 | Account-deletion web URL (Play requirement) | ✅ Built | `priceback.ca/delete-account` (+ `-fr`) — `Priceback-Website` PR #7; merge to deploy, then set in Play Console → Data deletion |
 | Data Safety + content-rating answers | ✅ Prepared | `docs/Play_Data_Safety_Answers.md` — copy-paste; still needs entering in the console |
 | French store listing localizations | ⏳ Pending | §15 |
-| Demo account + Review Notes | ⏳ Pending | §14 — notes content done 2026-07-11, only the demo Google account itself remains |
+| Review Notes | ✅ Done | §14 — paste-ready as of 2026-07-26, no placeholders. **iOS needs no demo account** (Sign in with Apple); a Play demo account is optional. Audit §1.10 |
+| App Store listing copy | ✅ Corrected | `marketing/app-store-description.md` — removed the retailer name from the keyword field (a routine 5.2.1 rejection) and fixed a privacy claim that contradicted the code. Audit §1.9 |
 | Privacy Impact Assessments (PIAs) | ✅ Done | §1/§12 — `legal/pia/*.md` written 2026-07-11 |
 | Store description drafts | ✅ Done | §9/§10/§13 — `marketing/*.md` written 2026-07-11, review before pasting |
 | Pre-submission smoke test | ⏳ Pending | §11 |
@@ -153,14 +166,27 @@ both the EN and `-fr` mirrors — NOT auto-applied):**
 
 ## 2. RevenueCat (BLOCKER for production IAP / subscriptions)
 
-The app reads `extra.revenueCatApiKey` from `app.json`. It's currently
-`YOUR_REVENUECAT_API_KEY` — a placeholder string. Subscriptions will
-silently no-op in production until this is filled.
+The app reads `extra.revenueCatApiKey`, which `config/profiles/` resolves into a
+**per-store** `{ ios, android }` pair — RevenueCat issues a different public SDK
+key per store and they are not interchangeable. Configuring the SDK with the
+other store's key doesn't fail loudly; it resolves zero purchasable products, so
+the paywall renders prices and buys nothing. See
+`App_Store_Submission_Audit.md` §1.2.
+
+Two guards now exist, so this is hard to get wrong silently: a production EAS
+build **fails at config resolution** when the building platform has no usable
+key (override with `ALLOW_MISSING_IAP_KEY=1`), and `purchaseService` ignores a
+wrong-store key at runtime rather than configuring with it.
 
 **You must:**
 - [ ] Go to https://app.revenuecat.com → your project → Project Settings → API Keys.
-- [ ] Copy the **public** SDK key (`appl_xxxxxxxx` for iOS / `goog_xxxxxxxx` for Android — RevenueCat exposes a single SDK key per platform).
-- [ ] Paste it into `app.json` at `expo.extra.revenueCatApiKey`, OR set the EAS secret `REVENUECAT_API_KEY` and add the read in `app.config.js` (mirror the pattern used for `GOOGLE_CLIENT_ID_IOS`).
+- [ ] Copy the **public** SDK key for each store: `appl_xxxxxxxx` (App Store) and `goog_xxxxxxxx` (Play).
+- [ ] Set them as EAS env vars in the **production** environment:
+      `eas env:create --environment production --name REVENUECAT_API_KEY_IOS --value appl_… --visibility sensitive`
+      (and `REVENUECAT_API_KEY_ANDROID` for the Play key). A pre-existing bare
+      `REVENUECAT_API_KEY` still works — it is routed to the platform its prefix
+      names, so the current Play build is unaffected — but the iOS key must be
+      set explicitly under the `_IOS` name or as an `appl_…` value.
 - [ ] In RevenueCat: configure every SKU from `shared/pricing.config.js`:
       - **Consumable packs** (non-renewing, no entitlement): `priceback_pack_starter` ($3 / 250 credits), `priceback_pack_pro` ($5 / 500 credits), `priceback_pack_max` ($10 / 1,100 credits). Mark each as a non-consumable in RC ("non-subscription" product type) and wire the RC webhook → backend ledger so credits land on purchase.
       - **Subscriptions** (auto-renewing, `unlimited` entitlement for BOTH): `priceback_unlimited_monthly` ($4.99/mo) and `priceback_unlimited_annual` ($49.99/yr — 12 months for the price of 10, marketed as "2 free months").
@@ -182,7 +208,13 @@ The code is wired (`signInWithGoogle` passes `iosClientId` when present).
 - [x] iOS OAuth client created in Google Cloud Console (bundle ID `com.priceback`).
 - [x] `GoogleService-Info.plist` downloaded and placed at repo root (gitignored — stays local + uploaded to EAS as a file secret if needed).
 - [x] `iosUrlScheme` (`com.googleusercontent.apps.695135372222-fgs51595ntobg6t83hnkhqi7jg74qrss`) wired into the `@react-native-google-signin/google-signin` plugin in `app.json`.
-- [ ] Set EAS secret `GOOGLE_CLIENT_ID_IOS` so EAS builds resolve it: `eas secret:create --scope project --name GOOGLE_CLIENT_ID_IOS --value <client-id> --type string`.
+- [x] ~~Set EAS secret `GOOGLE_CLIENT_ID_IOS`~~ — no longer needed. The iOS
+      client ID is committed in `config/profiles/common.js` next to the web and
+      Android ones (2026-07-26). It is not a secret: the identical client is
+      already public in `app.json` as the plugin's `iosUrlScheme`, which
+      prebuild writes into `Info.plist`. Leaving it env-only meant one
+      unset variable produced a dead "Continue with Google" button on the first
+      App Review screen. An EAS `GOOGLE_CLIENT_ID_IOS` still overrides if set.
 - [ ] Verify on the OAuth consent screen that the app is published (not Testing) — Testing limits sign-in to your test-user list.
 
 ---
@@ -678,18 +710,30 @@ versions to the Play aspect ratio. Saves a day of work.
 
 ## 14. App Store review prep (most common rejection cause)
 
-App Store reviewers can't sign in via Google or Apple without a
-test account or a special path. Without this, they reject within minutes.
+A reviewer who can't get past the sign-in gate rejects within minutes.
 
-- [ ] **Demo account** — create a dedicated Google account (e.g.
-  `priceback.review@gmail.com`) and pre-populate it: complete onboarding,
-  scan a few sample receipts, set a postal code (Ottawa K1A 0A6 is fine).
-- [ ] **Review Notes** — `REVIEWER_NOTES.md` content is complete (updated
-  2026-07-11: engineering contact filled in) except the demo-account
-  email/password, which need the account created first (§14 above). Paste
-  into App Store Connect → App version → App Review Information → Notes
-  once that's done. Apple's field is 4000 chars; the "Short version" at the
-  bottom fits.
+**iOS needs no demo account.** Sign in with Apple creates a real account from
+the reviewer's own Apple ID, and `REVIEWER_NOTES.md` now instructs them to use
+it. A shared *Google* account is actively worse than none: signing into an
+unfamiliar device routinely triggers Google's device-verification challenge (a
+code sent to the account owner's phone) that the reviewer can't clear, and that
+reads as a broken sign-in. See `App_Store_Submission_Audit.md` §1.10.
+
+- [x] **Review Notes** — `REVIEWER_NOTES.md` is complete and paste-ready as of
+  2026-07-26: no placeholders, Apple-sign-in instructions, the Canadian postal
+  code + province the setup step requires (`M5V 3L9` / Ontario — without these a
+  Cupertino reviewer is stuck on a validated Canada-only form), a note that any
+  receipt photo exercises the scan flow, the retailer-independence statement,
+  and an explanation of the account-gated maintainer screens. Paste into App
+  Store Connect → App version → App Review Information → Notes. Apple's field is
+  4000 chars; the "Short version" at the bottom fits.
+- [ ] (Play only) **Demo account** — Android has no Apple-sign-in equivalent. If
+  the Play reviewer won't use their own Google account, provision a dedicated
+  one and pre-populate it: complete onboarding, scan a few sample receipts, set a
+  postal code.
+- [ ] **App Store availability → Canada only.** The app hard-codes Canada and
+  requires a Canadian postal code, so a reviewer on a non-Canadian storefront
+  hits "we were unable to use the app in our region" (2.1). Audit §2.3.
 - [ ] **Contact info** — your real phone in App Review Information (email
   is filled: maxim.lucas@viacesi.fr). Apple may call if they have urgent
   questions.

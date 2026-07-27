@@ -7,24 +7,44 @@ Copy-paste this into:
 Both stores have a free-text field for reviewer notes. Apple's is 4000 chars;
 Play's is shorter. The "Short version" at the bottom of this file fits both.
 
-Before pasting: fill in the placeholders marked `TODO`. The demo account is
-the most common rejection cause — without one, the reviewer can't get past
-the Continue-with-Google gate, and they reject within minutes.
-
 ---
 
-## Demo account
+## Sign-in — how the reviewer gets in
 
-Use this Google account to sign in. Postal code and province are pre-filled
-in the onboarding to skip the manual step.
+### iOS: no demo account needed — use Sign in with Apple
 
-- **Email:** TODO — create a dedicated Google account for App Review
-- **Password:** TODO
+**Tap "Continue with Apple" on the sign-in screen.** It is the first button on
+iOS. The reviewer's own Apple ID creates a normal account, Hide My Email is
+fully supported, and the 75 free credits land immediately — the entire app is
+reviewable with no credentials from us.
 
-We use Google Sign-In (and Apple Sign-In on iOS), which means we cannot
-hand out a username/password unique to the app. Apple reviewers should
-have no trouble accepting a Google demo account; if they push back, we
-also accept Apple Sign-In on iOS and either works.
+This is deliberately the instruction we give Apple rather than a shared Google
+account, because a Google demo account is a trap on a review device: signing
+into an unfamiliar device routinely triggers Google's own verification
+challenge (a code sent to the account owner's phone), which the reviewer cannot
+clear. That failure looks like a broken sign-in and gets rejected under
+Guideline 2.1. Sign in with Apple has no such interstitial.
+
+### Onboarding after sign-in asks for a region — use these values
+
+The app serves Canadian retailer price-adjustment policies only, so the setup
+step requires a Canadian postal code and province. Any valid pair works; these
+are convenient:
+
+- **Postal code:** `M5V 3L9`
+- **Province:** Ontario
+- Country is fixed to Canada and cannot be changed.
+
+Then tick the two required agreement checkboxes (Terms of Service, Privacy
+Policy — both open the live public documents) and tap Finish. The optional
+referral-code field can be left empty.
+
+### Android / Play: same flow, Google Sign-In
+
+Android offers Google Sign-In only (Sign in with Apple is iOS-only). If the
+Play reviewer prefers not to use their own Google account, contact
+maxim.lucas@viacesi.fr and a dedicated test account will be provisioned within
+one business day.
 
 ---
 
@@ -48,12 +68,18 @@ opportunity; the user files the claim with the retailer directly.
 
 ## How to test the core flows in ~3 minutes
 
-After signing in with the demo Google account above:
+After signing in:
 
 1. **Receipt scan** — tap the camera FAB (center of the tab bar). Either
    take a photo of any receipt, or use **Choose Photo** → pick anything
    from the gallery. OCR runs; you land on the parsed-items review screen.
    Tap **Save Receipt**.
+
+   No Costco receipt to hand? Any receipt photo exercises the full path —
+   the camera, the OCR round-trip, the parsed-item review screen, and the
+   save. Items the parser can't recognise can be corrected or added by hand
+   on that screen ("+ Add item"), so a saved receipt and the tracking flow
+   behind it are reachable from any photo at all.
 
 2. **Home screen** — the saved receipt now appears under "Products you're
    tracking" with a coloured chip (green / yellow / red urgency tier based
@@ -115,8 +141,36 @@ cross-app tracking.
 
 ## Sign in with Apple (iOS only)
 
-Enabled per App Store guideline 4.8. Tap "Continue with Apple" on the
-sign-in step instead of Google if you prefer to test with an Apple ID.
+Enabled per App Store guideline 4.8 and offered as the **first** button on the
+sign-in screen. Hide My Email relay addresses are accepted end to end: the
+backend verifies Apple's RS256 identity token against Apple's JWKS and keys the
+account on the `sub` claim, so an account created with a relay address works
+identically to one with a real address. Nothing in the app requires the real
+address.
+
+---
+
+## Independence from the retailers we support
+
+PriceBack is an independent app with no relationship to any retailer. Retailer
+names appear only to identify whose published price-adjustment policy applies
+to a given receipt, and the in-app store list links to each retailer's own
+public policy page. We use no retailer logos, wordmarks, or trade dress, the
+app name and icon reference no retailer, and no retailer's name is used in our
+App Store keywords. We take no part in any retailer transaction — the user
+files their claim with the retailer directly.
+
+---
+
+## Account-gated internal tools (nothing hidden)
+
+Four maintainer screens exist in the binary — price-tag review, weekly-flyer
+ingestion, credit reconciliation, and a barcode↔SKU feeder. They are not hidden
+features: their Profile entries render only when the **server** reports the
+signed-in account is on the maintainer allow-list, and every backing endpoint
+independently rejects non-allow-listed accounts. A reviewer account will not see
+them and cannot reach them. They are internal data-curation tooling, contain no
+user-facing functionality, and gate nothing the user has paid for.
 
 ---
 
@@ -227,11 +281,19 @@ We respond within 1 business day to reviewer questions.
 > policies. Scan a receipt, we track current prices, alert you when an
 > item drops, hand you a one-tap claim flow.
 >
-> **Demo account:** TODO@example.com / TODO_PASSWORD
+> **No demo account needed.** On iOS, tap **"Continue with Apple"** (first
+> button on the sign-in screen) and use your own Apple ID — Hide My Email is
+> supported and the 75 free credits are granted immediately. We recommend this
+> over a shared Google account because Google's own device-verification
+> challenge can block sign-in on an unfamiliar review device.
 >
-> Sign in with Google or Apple → scan a receipt with the camera FAB → see
-> it appear on Home → tap to view Detail → try Profile → Download my
-> data and Delete my account.
+> Setup asks for a Canadian region (the app covers Canadian retailer policies
+> only): postal code **M5V 3L9**, province **Ontario**. Accept the two
+> agreement checkboxes and continue.
+>
+> Then: scan a receipt with the camera FAB (any receipt photo works) → see it
+> appear on Home → tap to view Detail → try Profile → Download my data and
+> Delete my account.
 >
 > Privacy: https://priceback.ca/privacy-policy · Support: https://priceback.ca/support
 >
@@ -239,4 +301,7 @@ We respond within 1 business day to reviewer questions.
 > (price-drop alerts), coarse location (nearest Costco only). No precise
 > location, contacts, microphone, advertising ID, or tracking.
 >
-> Contact: TODO@priceback.ca
+> PriceBack is independent and not affiliated with or endorsed by Costco
+> Wholesale or any other retailer named in the app.
+>
+> Contact: maxim.lucas@viacesi.fr (engineering) · privacy@priceback.ca
