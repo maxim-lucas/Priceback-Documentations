@@ -156,9 +156,13 @@ Expected result: **Everyone / PEGI 3 / ESRB Everyone / USK 0+**, with the
 ## F. Why this should pass review cleanly
 
 - **Advertising ID = No** matches the shipped APK (AD_ID stripped) — no auto-flag.
-- **No unjustified sensitive permissions** — RECORD_AUDIO and FINE_LOCATION are
-  removed; every remaining permission maps to a visible feature, so no
-  Permissions Declaration form is triggered.
+- **No unjustified sensitive permissions** — RECORD_AUDIO, FINE_LOCATION and the
+  broad media-read trio (READ_MEDIA_IMAGES / READ_MEDIA_VIDEO /
+  READ_MEDIA_AUDIO) are removed; every remaining permission maps to a visible
+  feature, so no Permissions Declaration form is triggered. Photo import uses
+  the Android system photo picker, which needs no permission — this is what
+  Play's photo-and-video permissions policy asks for, and what got version code
+  20 flagged before the trio was stripped in version code 21.
 - **Deletion URL is live and specific** — satisfies the User Data policy.
 - **Data Safety matches observable behaviour** — Google cross-checks the form
   against the APK's network calls and permissions; the rows above are the actual
