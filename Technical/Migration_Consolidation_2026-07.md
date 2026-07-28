@@ -104,9 +104,9 @@ the `enabled` / `visible` / naming values remain recoverable without it.
 
 ## How the baseline was verified
 
-`node` is not installed on the machine this ran from, so the repo's test suite
-and `drizzle-kit` could not be executed. Verification was done by comparing the
-baseline against the live production schema:
+The consolidation itself was done on a machine with no `node`, so the first
+round of verification compared the baseline against the live production schema
+directly:
 
 | Check | Baseline | Production | Result |
 | --- | --- | --- | --- |
@@ -123,9 +123,20 @@ The one hand-written block (the function + trigger) was executed for real agains
 dev inside a transaction: it created cleanly and did bump `updated_at` on UPDATE.
 The transaction was rolled back.
 
-**Not verified:** the repo's jest suite, and an end-to-end run of the full
-baseline against a genuinely empty database. Worth doing on a machine with node
-before the next fresh provision.
+### Follow-up verification (2026-07-28, node 24.18.0 installed)
+
+* `npx drizzle-kit check` → *Everything's fine*. The collapsed journal and the
+  re-rooted `0000_snapshot.json` are internally consistent; `check` reads only
+  local files, so it was run with a dummy `DATABASE_URL`.
+* Root jest suite: **141 suites / 3072 tests green**, coverage ratchets met.
+
+**Still not verified:** an end-to-end run of the full baseline against a
+genuinely empty database. `drizzle-kit check` validates the chain's metadata,
+not that the SQL executes — the schema-level equivalence above is the evidence
+for that, and a real fresh provision remains the only complete proof.
+
+`backend/`'s own 103-file `node:test` suite was **not** run: it needs
+`backend/.env` (gitignored) and executes against the live dev database.
 
 ## Standing gap this surfaced
 
