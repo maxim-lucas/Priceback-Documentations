@@ -118,9 +118,11 @@ After signing in:
 
 - **Camera (NSCameraUsageDescription / android.permission.CAMERA)** —
   receipt scanning is the core action; required.
-- **Photo library (NSPhotoLibraryUsageDescription /
-  READ_MEDIA_IMAGES + photo picker)** — alternate path: importing a
-  pre-existing receipt photo without re-taking it.
+- **Photo library (NSPhotoLibraryUsageDescription on iOS; on Android **no
+  permission at all**)** — alternate path: importing a pre-existing receipt
+  photo without re-taking it. On Android this goes through the **system photo
+  picker** (expo-image-picker on SDK 55 uses `PickVisualMedia`), which grants
+  per-item access without any media permission — see the stripped list below.
 - **Notifications (NSUserNotificationsUsageDescription /
   POST_NOTIFICATIONS)** — alerting users when a watched item drops in
   price (the whole product premise).
@@ -131,11 +133,24 @@ After signing in:
   expo-task-manager re-registers price-check tasks after device reboot.
 
 We deliberately strip the advertising ID (`AD_ID`), microphone
-(`RECORD_AUDIO`), and precise location (`ACCESS_FINE_LOCATION`) permissions
-that our SDKs pull in transitively but the app never uses — so the shipped
+(`RECORD_AUDIO`), precise location (`ACCESS_FINE_LOCATION`) and broad media-read
+(`READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_MEDIA_AUDIO`) permissions that
+our SDKs pull in transitively but the app never uses — so the shipped
 manifest requests only the permissions listed above. No contacts, no
 microphone, no precise location, no health data, no advertising ID, no
 cross-app tracking.
+
+The media-read trio came from `expo-media-library`, whose config plugin Expo
+autolinks (it is never listed in `app.json`) with a default of
+`granularPermissions: ['photo','video','audio']`. Version code 20 was flagged
+under Play's photo-and-video permissions policy for exactly this; version code
+21 removes all three at two independent layers — `android.blockedPermissions` in
+`app.json` (keeps them out of the requested permission set entirely) and
+`plugins/withAndroidPermissionCleanup.js` (neutralises any dependency manifest
+that declares them at merge time). Nothing in the app used them: all image
+picking goes through the system photo picker, and
+`READ_MEDIA_VISUAL_USER_SELECTED` (the partial-access permission Play sanctions)
+is kept.
 
 ---
 
