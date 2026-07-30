@@ -2597,3 +2597,48 @@ correctly no-ops on dev instead of silently skipping.
 - **Tests:** none — no source change; repo-hygiene only. `main` ends at
   `origin/main` with a fully clean tree and exactly one `.git`.
 - **Status:** DONE. Detail in `Operations/Bugs_Common_Fixes.md` #129.
+
+## 2026-07-30 — Full source-tree cleanup (dead code, deps, stale credentials)
+
+- **Ask:** clean the whole codebase of unnecessary code, plugins, files, keys and
+  certificates the app never uses — with no dependency breakage or regressions.
+- **Method:** three parallel static-analysis sweeps (mobile / backend / non-code cruft),
+  every finding then hand-verified. **Roughly a third of the reported "dead code" was
+  wrong** and would have broken something — see
+  `Technical/cleanup-technical-debt.md` §3.
+- **Key finding:** `src/` was already clean — all 27 screens are registered routes and
+  every component/util/constant/hook/service has a real production consumer. The dead
+  weight was in dependencies, root artifacts and a few orphaned exports.
+- **Removed (tracked):** `npm-publish-github-packages.yml` (GitHub template that ran
+  `npm publish` on a `"private": true` app, so it always failed); Neon agent-skill +
+  `skills-lock.json` (Neon retired); `zod` from `backend/package.json` (zero references);
+  `react-server-dom-webpack` devDep (expo-router peer, unused — classic AppEntry);
+  `usersRepo.getByEmail`; `receiptsRepo.setItemClaim`; mobile orphans `purchasePack`,
+  `scanCostcoTag`, `getStoresByCategory`, `getLocalizedProvinces`,
+  `missingCatalogLabels`, and UI-kit `LoadingView`/`SectionHeader`/`Toast` (+ their dead
+  styles and two now-unused theme imports).
+- **Removed (untracked, regenerable):** `GoogleService-Info.plist` (retired
+  `ca.priceback.app` bundle id, referenced by nothing), `build_info.json`, `env.download`,
+  `deployment_cert.der`, `coverage/`, `deals/`, `.expo/`, `.eas/`, a Syncthing conflict
+  file in `backend/data/`. **Preserved on request:** `android/`, `manual_build/` and
+  everything `build-and-install.ps1` needs, plus `sa.json`, `google-services.json` and the
+  Play upload keystore.
+- **Coverage discipline:** rather than delete the valuable `purchasePack` tests, they were
+  retargeted to `purchaseProduct` (the live API) so the pack money paths stay pinned. No
+  coverage floor was lowered — `purchaseService.js` functions landed at 68.59% vs its 67%
+  floor.
+- **Fixes en route:** `.gitignore` now ignores `.eas/` (EAS caches file-env secrets there)
+  and drops a dead `docs/.pr-body.md` rule; `cleanup-artifacts.yml` said 60 days in two
+  places while deleting at 45; `app.config.js` claimed the root `google-services.json` was
+  a committed placeholder (it is gitignored and real); `objectStore.js` pointed importers
+  at a non-existent `./storage`.
+- **Tests:** mobile 142 suites / 3094 passing, all coverage floors green (baseline was
+  3096 — the 2 removed were `purchasePack`-specific validation cases). Backend identical
+  to baseline at 963/707/1/255; the single failure is the pre-existing
+  `DATABASE_URL is not set` in `creditReconGuards.test.js`, reproduced on a clean tree by
+  stashing. `i18n:check` green (en=1334, fr=1334), `typecheck` clean.
+- **Flagged, NOT actioned (needs cloud console):** the orphaned `ca.priceback.app` Firebase
+  Android app, and the iOS OAuth client that may still be bound to the retired bundle id —
+  if so, iOS Google Sign-In fails with `DEVELOPER_ERROR` on the first screen. Verify before
+  App Review.
+- **Status:** DONE. Residual debt documented in `Technical/cleanup-technical-debt.md`.
