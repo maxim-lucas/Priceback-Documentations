@@ -2566,3 +2566,34 @@ correctly no-ops on dev instead of silently skipping.
   block in `backend/tests/priceDropDb.test.js`. Backend 962/962, mobile
   3032/3032, both suites green with coverage floors clear.
 - **Status:** DONE — merged to `main`.
+
+## 2026-07-30 — 135 phantom "changes" in the VS Code source-control tree
+
+- **Ask:** "I can see 135 changes in the GitHub extension (tree), check what
+  the hell is this — we had the same issue in the past and it was due to a
+  gitignore folder inside the backend folder." Follow-up: "I want the repo
+  clean when you finish."
+- **Diagnosis:** not `.gitignore` this time, and not a real dirty tree —
+  `git status` at the root was clean. `backend/` held its **own stale `.git`**
+  (orphan repo, no remote, on `master`, last commit `2026-06-23`) that VS Code
+  surfaced as a second source-control provider. Its 133 files of drift, plus 2
+  genuinely modified files at the root, made 135. Confirmed it was *not* a
+  submodule: the parent tracked all 193 `backend/**` paths at index mode
+  `100644`, not a `160000` gitlink.
+- **Fix:** bundled the orphan history to a backup, then `rm -rf backend/.git`.
+  No file content lost — the parent had been tracking those files all along.
+- **The 2 real changes:** an uncommitted `app.json` + `package.json` +
+  `package-lock.json` edit adding `expo-build-properties` with
+  `ios.useModularHeaders: true`. This was the *abandoned first attempt* at the
+  `AppCheckCore`/`GoogleUtilities` CocoaPods failure — merged PR #216
+  (`plugins/withIosModularHeaders.js`) deliberately rejects the global switch
+  in favour of per-pod `:modular_headers`, and its header comment says so
+  explicitly. Backed the diff up as a patch, discarded it, fast-forwarded
+  `main` to `origin/main` (picking up #216).
+- **Gotcha worth remembering:** the first `git status` reported only 2 modified
+  files and missed `app.json` — a stale stat-cache. A later index refresh
+  revealed it. If a diff contradicts an earlier `git status`, refresh and
+  re-read rather than trusting the first result.
+- **Tests:** none — no source change; repo-hygiene only. `main` ends at
+  `origin/main` with a fully clean tree and exactly one `.git`.
+- **Status:** DONE. Detail in `Operations/Bugs_Common_Fixes.md` #129.
