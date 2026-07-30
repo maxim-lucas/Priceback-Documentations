@@ -120,6 +120,48 @@ writes into `Info.plist`. Gmail sync's own `GoogleSignin.configure` call was
 missing `iosClientId` as well (it would have failed on iOS even after sign-in
 worked); fixed the same way.
 
+**Verified end-to-end 2026-07-30**, against the live consoles rather than the
+repo alone, because the fix above was never confirmed on Google's side and
+`.env.example` still warned the iOS client was an unprovisioned placeholder:
+
+| Checked | Result |
+|---|---|
+| GCP OAuth client `Priceback-IOS` (`…-fgs51595ntobg6t83hnkhqi7jg74qrss`) | exists; **Bundle ID `com.priceback`**, not the retired `ca.priceback.app`; last used 2026-06-29 |
+| Its registered iOS URL scheme | `com.googleusercontent.apps.695135372222-fgs51595ntobg6t83hnkhqi7jg74qrss` — byte-identical to `app.json` → plugins → `iosUrlScheme` |
+| Live probe of Google's authorize endpoint | correct reversed scheme → sign-in page; a wrong scheme → `redirect_uri_mismatch`; a fabricated client → `invalid_client`. Proves the client is real *and* that the scheme is what binds it. |
+| Other OAuth clients (`Priceback-Android`, `-LocalDebug`, `WebClient-Priceback`) | all on `com.priceback`; none bound to the old package |
+| EAS env `GOOGLE_CLIENT_ID_IOS` (production / preview / development) | **not set** — so `config/profiles/common.js` supplies the value and nothing can override it with a stale one |
+| Firebase project `priceback-905d4` | iOS app `Priceback (iOS)` present, bundle `com.priceback` |
+| App Store Connect / Play Console | name `PriceBack`, bundle/package `com.priceback` |
+
+Conclusion: **no Guideline 2.1 exposure here.** The only `ca.priceback.app`
+artefact anywhere was a dead Firebase *Android* app record (app id
+`1:695135372222:android:df12d8bffc75090960afef`), removed the same day — see
+§1.4a. `.env.example`'s stale placeholder warning was corrected, and
+`__tests__/iosGoogleClientConsistency.test.js` now fails the build if
+`googleClientIdIos` and `iosUrlScheme` ever drift apart again.
+
+### 1.4a The retired `ca.priceback.app` Firebase app
+
+An Android package rename left a second Firebase Android app in
+`priceback-905d4` for the old `ca.priceback.app` package. It was inert, but it
+kept the retired id alive in every generated `google-services.json`.
+
+Removed 2026-07-30 after confirming it was safe:
+
+- no tracked source referenced the package or its app id;
+- Play Console holds exactly one app (`com.priceback`), so the old package was
+  never published and no install can be orphaned;
+- its only SHA-1 (`5e:8f:16:06:…`) was already registered on the `com.priceback`
+  app, and no OAuth client was bound to it;
+- EAS Android builds take `googleServicesFile` from the uploaded
+  `GOOGLE_SERVICES_JSON` file secret, which a console deletion does not alter;
+  local builds match by package name, which still resolves.
+
+The dead `client[0]` entry was stripped from the local `google-services.json`.
+Firebase holds removed apps for 30 days, so the record is restorable until
+2026-08-29 if anything unexpected surfaces.
+
 ### 1.5 Empty privacy manifest vs. an app that collects plenty — Guideline 5.1.1
 
 `ios.privacyManifests.NSPrivacyCollectedDataTypes` was `[]` while the app

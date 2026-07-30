@@ -2672,3 +2672,34 @@ correctly no-ops on dev instead of silently skipping.
   hardware, which the agent does not have. A green build proves R8 links, not that R8-
   minified reflection survives at runtime. Do not ship production until the checklist is
   run against the preview APK.
+
+## 2026-07-30 — Verified iOS Google Sign-In against the live consoles; removed the retired `ca.priceback.app`
+
+- **Ask:** the retired `ca.priceback.app` still existed in Firebase and the iOS OAuth client
+  might still be bound to it — which would dead-end "Continue with Google" on iOS on the
+  first screen App Review sees (Guideline 2.1). `.env.example` still warned the iOS client
+  was an unprovisioned placeholder. Verify before submission and clean any leftover
+  configuration on any platform. Mid-task: also make the app title `PriceBack` everywhere,
+  and scan before deleting anything — no regression accepted.
+- **Verdict: the iOS client was already correct — there was never a 2.1 exposure.** GCP
+  client `Priceback-IOS` (`…-fgs5…`) is bound to **`com.priceback`**, its iOS URL scheme is
+  byte-identical to `app.json` → `iosUrlScheme`, and it was last used 2026-06-29. Confirmed
+  three independent ways: the console, Google's own generated `google-services.json`
+  (`ios_info.bundle_id`), and live probes of the authorize endpoint (correct scheme → sign-in
+  page; wrong scheme → `redirect_uri_mismatch`; fake client → `invalid_client`).
+- **Also verified:** no EAS environment sets `GOOGLE_CLIENT_ID_IOS`, so the good value in
+  `config/profiles/common.js` can't be overridden by a stale secret; the other three OAuth
+  clients are all on `com.priceback`; Firebase has an iOS app on `com.priceback`; ASC and
+  Play both read `PriceBack` / `com.priceback`.
+- **Cleaned:** removed the dead Firebase Android app for `ca.priceback.app`
+  (`1:695135372222:android:df12d8bffc75090960afef`) — only after proving no tracked source,
+  no OAuth client, no EAS build path and no published Play app depended on it. Restorable
+  until 2026-08-29. Stripped its now-dead `client[0]` from `google-services.json`.
+- **Repo:** corrected the stale `.env.example` placeholder warning; `PriceBack Canada` →
+  `PriceBack` in the Play listing draft, README, backend banner and two file headers
+  (build identifiers like the `priceback-canada` slug / Sentry project deliberately kept —
+  renaming them would break the EAS project link and Sentry symbolication).
+- **Test:** new `__tests__/iosGoogleClientConsistency.test.js` (9 tests) fails the build if
+  `googleClientIdIos` and `iosUrlScheme` ever drift, if either becomes a placeholder, or if
+  any config reintroduces `ca.priceback.app`. `npm run i18n:check` green.
+- **Status:** DONE. No device work owed — this was config verification only.
