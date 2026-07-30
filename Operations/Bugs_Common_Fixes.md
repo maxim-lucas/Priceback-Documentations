@@ -4364,3 +4364,52 @@ applied to authService).
   `price_points_unverified` means display-only. **Rule: any client-side price
   comparison that decides "this is a drop" must go through `qualifiesAsDrop`
   — a display price is not a claimable price.**
+
+## 129. VS Code shows ~135 phantom "changes" — a stale nested `.git` inside `backend/` (recurrence)
+
+**Symptom.** The Source Control tree in VS Code / the GitHub extension lists a
+huge number of modified files (135 in the 2026-07-30 occurrence) while
+`git status` at the repo root reports a perfectly clean tree.
+
+**Cause.** `backend/` contained its own `.git` directory — a leftover from when
+the backend was briefly scaffolded as a standalone repo. It was **not** a
+submodule: the parent repo tracked all 193 `backend/**` files normally (index
+mode `100644`, not a `160000` gitlink), and the nested repo had **no remote**,
+sat on `master`, and its last commit was months stale (`2026-06-23`). VS Code
+discovers nested repositories automatically and shows each one as its own
+source-control provider, so it was reporting the nested repo's 133 files of
+accumulated drift on top of the parent's real state.
+
+**Diagnosis.**
+
+```bash
+find . -name .git -maxdepth 4      # more than one hit = nested repo
+git ls-files -s backend | head -3  # 100644 => tracked normally, NOT a submodule
+git -C backend remote -v           # empty => orphan, nothing to lose upstream
+git -C backend log -1 --format=%ci # stale date => abandoned
+```
+
+**Fix.** Back the orphan history up, then delete only the nested `.git`:
+
+```bash
+git -C backend bundle create /tmp/backend-stale-repo-backup.bundle --all
+rm -rf backend/.git
+```
+
+No file content is lost — the files on disk are the same ones the parent repo
+has been tracking all along; only the orphan commits go, and the bundle keeps
+those.
+
+**Rules.**
+- **A phantom-changes count that `git status` doesn't corroborate is an editor
+  showing you a *different repository*, not a broken working tree.** Always
+  `find . -name .git -maxdepth 4` first.
+- Before deleting any nested `.git`, prove it's an orphan and not a submodule:
+  check the parent's index mode for those paths, and check for a remote.
+- Never `git init` inside a subdirectory of this repo.
+
+**Watch out for the stale stat-cache.** In this occurrence the first
+`git status` reported only 2 modified files; a later index refresh revealed a
+third (`app.json`) that had been modified all along. If a diff contradicts an
+earlier `git status`, re-run `git status` after `git update-index --refresh`
+rather than trusting the first read.
