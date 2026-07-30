@@ -2642,3 +2642,33 @@ correctly no-ops on dev instead of silently skipping.
   if so, iOS Google Sign-In fails with `DEVELOPER_ERROR` on the first screen. Verify before
   App Review.
 - **Status:** DONE. Residual debt documented in `Technical/cleanup-technical-debt.md`.
+
+## 2026-07-30 — R8 preview build failed; root-caused and fixed (`expo.modules.core.MapHelper`)
+
+- **Ask:** the R8 change from #218 had never touched a device, and the verification preview
+  build failed. Take it from there — get a green preview build, then run the on-device
+  checklist (Google/Apple sign-in, RevenueCat paywall + restore, camera/scanner, push +
+  background fetch, expo-updates, deliberate crash for Sentry symbolication).
+- **Failure:** build `f6156674` (preview, commit `e12cafd`) died in
+  `:app:minifyReleaseWithR8` — `Missing class expo.modules.core.MapHelper`, referenced from
+  `expo.modules.location.taskConsumers.LocationTaskConsumer.shouldReportDeferredLocations()`.
+  A **build-time** stop, not the runtime-reflection breakage R8 is usually feared for.
+- **Cause:** `expo-location`'s prebuilt AAR (SDK 54+ ships AARs, not source) was compiled
+  against an `expo-modules-core` that still exported `MapHelper`; SDK 55 dropped it. The
+  dangling reference is invisible until R8 has to build a full class hierarchy.
+- **Getting the log:** EAS logs are brotli-encoded and no `eas-cli` command exposes them —
+  pulled via the Expo GraphQL API (`builds.byId.logFiles`) and decompressed with
+  `zlib.brotliDecompressSync`. R8 had reported exactly one missing class.
+- **Fix:** one scoped `-dontwarn expo.modules.core.MapHelper` in `app.json` →
+  `extraProguardRules`. `-dontwarn` not `-keep` (a keep rule can't create a class that
+  doesn't exist). Scoped to the class, not `expo.modules.core.**`, so a future genuine
+  removal still fails loudly. Safe: the reference sits on the background
+  `LocationTaskConsumer` deferred-updates path and `locationService.js` only ever calls
+  `getCurrentPositionAsync`, so it is dead code here. `android/` is gitignored → EAS
+  re-prebuilds from `app.json`, no native re-commit.
+- **Shipped:** PR #219, branch `fix/r8-expo-location-missing-class`. Bug documented as
+  `Operations/Bugs_Common_Fixes.md` #130.
+- **Status:** build fix DONE. **On-device checklist still OWED** — it needs physical
+  hardware, which the agent does not have. A green build proves R8 links, not that R8-
+  minified reflection survives at runtime. Do not ship production until the checklist is
+  run against the preview APK.

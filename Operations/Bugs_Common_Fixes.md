@@ -4413,3 +4413,59 @@ those.
 third (`app.json`) that had been modified all along. If a diff contradicts an
 earlier `git status`, re-run `git status` after `git update-index --refresh`
 rather than trusting the first read.
+
+## 130. R8 build fails with `Missing class expo.modules.core.MapHelper` (a dangling reference in a prebuilt Expo AAR)
+
+**Symptom.** The first Android release build after enabling R8 (`enableMinifyInReleaseBuilds`, PR #218) dies in `:app:minifyReleaseWithR8` after ~22 minutes of otherwise-clean compilation:
+
+```
+ERROR: Missing classes detected while running R8. Please add the missing classes
+       or apply additional keep rules that are generated in
+       .../build/outputs/mapping/release/missing_rules.txt.
+ERROR: R8: Missing class expo.modules.core.MapHelper
+       (referenced from: boolean
+        expo.modules.location.taskConsumers.LocationTaskConsumer
+          .shouldReportDeferredLocations())
+> Task :app:minifyReleaseWithR8 FAILED
+```
+
+Note what this is **not**: R8's feared failure mode is silent runtime breakage of reflective lookups. This one is a hard build-time stop, which is the friendly case — the toolchain tells you exactly what it can't resolve.
+
+**Cause.** Expo SDK 54+ ships its modules as **prebuilt AARs**, not source. `expo-location`'s AAR was compiled against an older `expo-modules-core` that still exported `expo.modules.core.MapHelper`; SDK 55 dropped the class. The dangling reference is invisible without minification — nothing ever has to resolve it — but R8 must build a full class hierarchy, and it treats an unresolvable reference as fatal regardless of whether the referencing method is reachable.
+
+**Diagnosis.** EAS build logs are **brotli-encoded** (`Content-Encoding: br`) and are not exposed by any `eas-cli` command, so pull them via the GraphQL API:
+
+```bash
+curl -s -X POST https://api.expo.dev/graphql \
+  -H "Authorization: Bearer $EXPO_TOKEN" -H "Content-Type: application/json" \
+  -d '{"query":"query($id:ID!){builds{byId(buildId:$id){status error{errorCode message} logFiles}}}","variables":{"id":"<build-uuid>"}}'
+# then: curl -sL -o raw.bin "<logFiles[0]>"
+#       node -e "console.log(require('zlib').brotliDecompressSync(require('fs').readFileSync('raw.bin')).toString())"
+```
+
+Each log line is a JSON object with a `msg` field. `grep "Missing class"` gives the complete list — R8 reports **all** of them at once, so you fix them in a single pass rather than one build at a time.
+
+Then confirm the class is genuinely gone, and decide whether the call site is live:
+
+```bash
+grep -rl MapHelper node_modules/     # only the CALLER matches => the class truly does not exist
+grep -n "startLocationUpdatesAsync\|getCurrentPositionAsync" src/services/locationService.js
+```
+
+**Fix.** Additive, in `app.json` → `expo-build-properties` → `android.extraProguardRules`:
+
+```proguard
+-dontwarn expo.modules.core.MapHelper
+```
+
+`-dontwarn`, **not** `-keep`. A keep rule cannot manufacture a class that does not exist; `-dontwarn` is the mechanism that downgrades "missing class" from fatal to ignored. Reach for `-keep` only when the class exists and something looks it up reflectively.
+
+Safe here because the reference is dead code in this app: it sits on the background `LocationTaskConsumer` deferred-updates path, and `locationService.js` only ever calls `getCurrentPositionAsync` — background location updates are never started. If we ever *do* start them, that method would `NoClassDefFoundError` at runtime with or without R8; the `-dontwarn` neither causes nor hides a new bug.
+
+**Rules.**
+- **Scope `-dontwarn` to the exact class, never the package.** `-dontwarn expo.modules.core.**` would silently swallow the next genuine removal. One line per missing class, each with a comment saying why it's dead.
+- **Before suppressing, prove the call site is unreachable from this app.** If it is reachable, the fix is a dependency bump or dropping the module — not a suppression, which would only trade a build failure for a crash.
+- `android/` is gitignored: EAS re-prebuilds from `app.json`, so a proguard change needs **no** native re-commit. Editing `android/app/proguard-rules.pro` locally does nothing for a cloud build.
+- **A build-time R8 failure does not validate R8 at runtime.** Getting the build green only unblocks the on-device checklist (sign-in, IAP, camera, push, updates, Sentry symbolication) — it does not substitute for it.
+
+**Occurrence.** 2026-07-30, build `f6156674` (preview, commit `e12cafd`). Fixed in PR #219.
