@@ -157,18 +157,75 @@ byte-identical.
 macOS or Linux"), so this is a source-level analysis rather than a generated-project
 diff. The next macOS/EAS iOS build is the empirical confirmation.
 
+## First preview build failed — `expo.modules.core.MapHelper` (2026-07-30)
+
+The verification build below did not get as far as a device. Build `f6156674` (preview,
+commit `e12cafd`) failed in `:app:minifyReleaseWithR8` on a dangling reference from
+`expo-location`'s prebuilt AAR to a class SDK 55 removed. Fixed additively in PR #219 with
+a single scoped `-dontwarn`. Full write-up: `Operations/Bugs_Common_Fixes.md` #130.
+
+Worth internalising: that was a **build-time** failure. R8's dangerous failure mode is the
+silent runtime one, and a green build says nothing about it — which is exactly why the
+device pass below is not optional.
+
 ## Still owed — device smoke test before production
 
-R8 can break reflection-dependent code at runtime, not at build time. Before promoting
-this to the production track, build `eas build -p android --profile preview` (release
-buildType, APK) and exercise on a real device:
+R8 can break reflection-dependent code at runtime, not at build time. Nothing that has
+been run so far — not CI, not a green Gradle build — constitutes evidence that the
+minified app works.
 
-- Google Sign-In and Sign in with Apple
-- RevenueCat paywall + purchase restore
-- Camera / document scanner (receipt + price-tag scan)
-- Push notifications and background fetch
-- expo-updates check
-- A deliberate JS + native error, confirming Sentry symbolication still resolves
+### How much is actually at risk
+
+Smaller than it first looks, and worth knowing so the checklist is read with the right
+suspicion:
+
+- **The app owns no native code.** There is no `.java`/`.kt` outside `node_modules/` and
+  the generated `android/`. Every line of PriceBack's own logic is JS compiled to Hermes
+  bytecode, which R8 never touches.
+- **So the entire blast radius is library code** — the Java/Kotlin inside RN, the Expo
+  modules, Play Services, RevenueCat, Sentry. Anything there that resolves a class or
+  member *by name* at runtime is what can break.
+- **That is why the checklist targets exactly those seams.** Each item below is a
+  reflective boundary, not a random feature: OAuth token parsing, IAP model
+  deserialization, native module registration, JSON payload mapping, update manifest
+  parsing, stack-trace symbolication.
+
+### The checklist
+
+Install the preview APK on a real device (not an emulator — Play Services, push and IAP
+all behave differently) and work through it in order. A failure at any step should produce
+a **stack trace**, which is what pinpoints the keep rule.
+
+| # | Exercise | What a R8 failure looks like |
+| --- | --- | --- |
+| 1 | Google Sign-In — full flow to a signed-in session | `ApiException`, or a crash in Play Services token/JSON model classes |
+| 2 | Sign in with Apple | same shape, in the Apple auth credential parsing |
+| 3 | RevenueCat paywall renders with correct prices | empty/`null` offerings — Gson-style model classes stripped or renamed |
+| 4 | RevenueCat purchase **restore** | entitlements resolve to nothing despite a valid purchase |
+| 5 | Camera — receipt scan end to end | native module not found, or the frame/image bridge throwing |
+| 6 | Price-tag / document scanner | as above |
+| 7 | Push notification received (foreground **and** background) | notification silently never arrives; FCM payload mapping stripped |
+| 8 | Background fetch fires | task never runs — TaskManager resolves its consumers by class name |
+| 9 | expo-updates check completes | manifest parse failure, or update check silently no-ops |
+| 10 | Deliberate crash → Sentry event | event arrives but the stack is `a.b.c(Unknown Source)` = mapping upload broken |
+
+Item 10 is the one that is easy to half-pass. The event arriving is not the test; the
+stack trace being **readable** in Sentry is. The `-keepattributes SourceFile,LineNumberTable`
++ `-renamesourcefileattribute` rules and the Sentry mapping upload have to both be working,
+and only a real symbolicated trace proves it.
+
+### If something breaks
+
+The fix is additive — never revert R8 wholesale for a single library. Capture the stack
+trace, identify the class being resolved, and add one rule to `extraProguardRules` in
+`app.json`:
+
+- Class **exists** but is looked up reflectively → `-keep class the.package.Thing { *; }`
+- Class **does not exist** (a dangling reference, as in #130) → `-dontwarn the.package.Thing`
+
+Scope every rule to the narrowest package that fixes it, comment why, then re-run the
+affected checklist item. `android/` is gitignored, so EAS re-prebuilds from `app.json`;
+no native re-commit is needed.
 
 ## Not actionable: "Upgrade to AGP version 9.0"
 
