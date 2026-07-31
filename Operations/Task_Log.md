@@ -2703,3 +2703,21 @@ correctly no-ops on dev instead of silently skipping.
   `googleClientIdIos` and `iosUrlScheme` ever drift, if either becomes a placeholder, or if
   any config reintroduces `ca.priceback.app`. `npm run i18n:check` green.
 - **Status:** DONE. No device work owed — this was config verification only.
+
+## 2026-07-30 (cont.) — R8 preview build GREEN; device checklist handed off
+
+- **Builds:** `3ad0f21a` (R8 fix only) and `cab44944` (R8 fix + crash trigger) both
+  FINISHED. `cab44944` is the install candidate — APK:
+  https://expo.dev/artifacts/eas/nCHkvs9ugYi0rTLxjMtbWQI37tY4SMMrYXZEXujfUpE.apk
+- **Verified from the logs:** `minifyReleaseWithR8` executed with zero `Missing class`
+  lines; `uploadSentryProguardMappingsRelease` executed (2.0s), so symbolication is armed.
+- **New in `cab44944`:** admin-only Profile → Admin → "Sentry diagnostics" row firing
+  `Sentry.nativeCrash()`. Needed because checklist item 10 was otherwise impossible — a
+  minified release APK has no dev menu and the app had no crash trigger. Must be a native
+  crash: a JS throw symbolicates from the Hermes source map, which R8 never touches.
+- **Repo hygiene note:** a parallel session was working in the same worktree and left it on
+  `main`; the diagnostics commit initially landed there and was moved to a branch, with
+  `main` reset to `origin/main`. PR #220 (branched off the R8 fix) carried the `-dontwarn`
+  into `main`, so PR #219 was closed as superseded. PR #221 merged (`fb51b60`).
+- **Status:** build side DONE. **Device checklist NOT run — no adb/Android SDK/device on
+  this machine.** Handed to Maxim. Production ship stays gated on it.

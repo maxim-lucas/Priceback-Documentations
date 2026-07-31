@@ -168,6 +168,24 @@ Worth internalising: that was a **build-time** failure. R8's dangerous failure m
 silent runtime one, and a green build says nothing about it — which is exactly why the
 device pass below is not optional.
 
+## Build now links — verified 2026-07-30
+
+Preview build [`cab44944`](https://expo.dev/accounts/maximlucas/projects/priceback-canada/builds/cab44944-e594-4a33-b13d-fda014897c33)
+(commit `5db7212`) — `BUILD SUCCESSFUL in 24m 15s`, `1165 actionable tasks`. Confirmed from
+the log:
+
+- `:app:minifyReleaseWithR8` — executed, **zero** `Missing class` lines
+- `:app:uploadSentryProguardMappingsRelease` — executed (2.0s)
+- `:app:generateSentryProguardUuidRelease`, `:app:injectSentryDebugMetaPropertiesIntoAssetsRelease`,
+  `:app:uploadSentryNativeSymbolsForRelease` — all executed
+
+A second build, [`3ad0f21a`](https://expo.dev/accounts/maximlucas/projects/priceback-canada/builds/3ad0f21a-32a9-4b9c-b9ca-4ffaacb85110),
+independently confirms the R8 fix without the diagnostic row.
+
+**Read this narrowly.** It proves R8 *links* and that the mapping *uploaded*. It says
+nothing about whether minified reflection works at runtime — that is still the checklist
+below, and it is still entirely unrun.
+
 ## Still owed — device smoke test before production
 
 R8 can break reflection-dependent code at runtime, not at build time. Nothing that has
