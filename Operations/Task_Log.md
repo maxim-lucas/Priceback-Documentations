@@ -3026,3 +3026,36 @@ pinning `family_sharing → false` for Unlimited and broadens the
 - *ASC subscription levels are live config, not code.* The swap changes
   upgrade/downgrade behaviour for real purchases the moment products go live.
   No subscribers exist yet, so there is nothing to migrate.
+
+---
+
+## 2026-08-03 (cont.) — App Privacy label aligned to the binary's manifest
+
+Follow-on from the App Store Connect session above. Full write-up in
+`Operations/Bugs_Common_Fixes.md` #136.
+
+The App Privacy section was "Published" and looked complete. Diffing it against
+`app.json` → `expo.ios.privacyManifests` found three things:
+
+- **Privacy Policy URL was empty** — a hard submission blocker on its own. Set to
+  `https://priceback.ca/privacy-policy`.
+- **Four of the twelve declared data types were missing** from the label: User
+  ID, Emails or Text Messages, Other User Content, Performance Data. Added, each
+  with purpose App Functionality and tracking No; linked Yes except Performance
+  Data.
+- **Two linkage answers contradicted the manifest**: Device ID and Product
+  Interaction sat under "Data Not Linked to You" while the manifest declares both
+  linked. Product Interaction was also missing its App Functionality purpose.
+  Both corrected.
+
+Final label: 12 types, 10 linked, Crash Data + Performance Data not linked,
+nothing used for tracking — matching `NSPrivacyCollectedDataTypes` exactly.
+
+**Regression risk.** None in code — no repo files changed. The label is store
+config. It republishes on save and applies to the next submitted version; there
+are no live users to affect. The one thing to watch: **if the privacy manifest in
+`app.json` is ever edited, this label must be re-diffed by hand.** Nothing
+enforces the correspondence, and neither Apple nor the build warns on drift.
+Note also that the stale table in `PUBLISH_CHECKLIST.md` §9 still describes Device
+ID and Product Interaction as "not linked"; Audit §2.4 is the correct reference
+and now matches reality.

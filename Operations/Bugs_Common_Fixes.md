@@ -4806,3 +4806,52 @@ paying customer actually reads.
 the direction that used to assert `true` — and the "every feature unlocked" test
 enumerates the five keys Unlimited genuinely grants, so re-adding an unbacked key
 to the tier fails the suite rather than quietly widening it.
+
+---
+
+## 136. The App Store privacy label disagreed with the binary's own privacy manifest — and had no Privacy Policy URL
+
+**Symptom.** None visible. The App Privacy section read "Published", looked
+finished, and had been signed off in an earlier session. Nothing in App Store
+Connect warns you about any of what follows.
+
+**Three separate problems, found by diffing the label against
+`app.json` → `expo.ios.privacyManifests` rather than reading either on its own.**
+
+1. **The Privacy Policy URL was empty (`–`).** This alone is a hard submission
+   blocker; App Review cannot accept a version without it. It is a *different*
+   field from the reviewer-notes link and from the in-binary paywall links, all
+   of which were correctly populated — which is exactly why it went unnoticed.
+2. **Four declared data types were missing from the label.** The manifest
+   declares twelve; the label listed eight. Absent: **User ID**, **Emails or
+   Text Messages**, **Other User Content**, **Performance Data**.
+3. **Two linkage answers contradicted the manifest.** **Device ID** and
+   **Product Interaction** were filed under "Data Not Linked to You" while the
+   manifest declares both `NSPrivacyCollectedDataTypeLinked: true`. Product
+   Interaction was also missing its App Functionality purpose, carrying only
+   Analytics where the manifest lists both.
+
+Apple compares the two. A label that under-declares relative to the shipped
+manifest is a Guideline 5.1.1 finding, and it is the kind that surfaces *after*
+review rather than before.
+
+**Fix.** The manifest was treated as the source of truth — it was written
+against the actual code paths in a prior audit, and it is what ships inside the
+binary. Set the Privacy Policy URL to `https://priceback.ca/privacy-policy`,
+added the four missing types (each: purpose **App Functionality**, tracking
+**No**; linked **Yes** except Performance Data), switched Device ID and Product
+Interaction to linked, and added App Functionality to Product Interaction's
+purposes. Final state: 12 types, 10 linked, Crash Data and Performance Data not
+linked, nothing used for tracking — byte-for-byte the manifest.
+
+**Generalised rule.** **The privacy label and the privacy manifest are two
+declarations of the same facts, maintained in two places, and nothing keeps them
+in sync.** Neither console nor build will ever tell you they disagree. Diff them
+mechanically — enumerate `NSPrivacyCollectedDataTypes` and check each entry's
+presence, `Linked` flag, and purposes against the label — every time either side
+changes. "Published" on the App Privacy page means *answered*, not *correct*.
+
+**Related.** The same session found the paywall advertising a feature the store
+was never configured to deliver (#135). Both are the same failure mode: a claim
+recorded in one surface that nothing validates against the surface that has to
+honour it.
