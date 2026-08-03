@@ -2887,3 +2887,57 @@ correctly no-ops on dev instead of silently skipping.
 - **No regression is allowed or accepted on any change**, and regression risk must be stated
   proactively on every change rather than only when asked. Both PR #224 regressions were
   reported only because Maxim asked; that is the failure being corrected.
+
+---
+
+## 2026-08-03 — "Fix scan emails: worked the 1st time, then always 'Connection problem'" (Gmail **and** Outlook)
+
+**Ask.** Gmail sync succeeded once; every scan since failed with *Sync Failed — Connection
+problem, check your internet*. Mid-task: Outlook has the same problem.
+
+**Diagnosis.** Two stacked bugs; the second disguised the first (full write-up:
+`Bugs_Common_Fixes.md` #134).
+
+1. **Root cause — the access token was never refreshed.** Both sync functions used the token
+   written once at connect time. OAuth access tokens expire in ~1 h, so only the sync run
+   immediately after connecting could ever work. Gmail stored no refresh token (it doesn't need
+   one — the device holds the grant); Outlook stored a `refreshToken` field that was always
+   `null` because `offline_access` was missing from its scope list, and never used it anyway.
+2. **Wrong message — `econn` matched "rec*onn*ect".** The unanchored `econn` alternative in
+   `classifyError`'s network regex matched inside *"Please reconnect."*, so every expired
+   session rendered `err.networkBody`.
+
+**Changes.**
+- `src/services/emailSyncService.js` — `createAuthorizedFetch` (refresh once → retry once →
+  `auth_expired`); `refreshGmailAccessToken` (clearCachedAccessToken → signInSilently →
+  getTokens) and `refreshOutlookAccessToken` (`AuthSession.refreshAsync`, stores the rotated
+  refresh token); `offline_access` added to `OUTLOOK_SCOPES`; MS endpoints hoisted to
+  constants; `configureGoogleSignin` shared with `connectGmail`; **any status ≥ 400 now throws**
+  instead of silently reporting "no receipts found".
+- `src/services/errorSupport.js` — new `auth_expired` category (checks `err.code` first),
+  `econn`/`enetunreach` anchored on word boundaries.
+- `src/services/i18n.js` — `err.sessionExpiredBody`, EN + FR (i18n:check green, 1338/1338).
+
+**Tests / coverage.** New `__tests__/emailSyncTokenRefresh.test.js` (14) + 6 new
+`errorSupport` cases. **150 suites / 3181 tests green**; coverage **77.55 / 65.95 / 67.13 /
+80.32** against the 68/55/59/70 floors — up from 77.44/65.91/67.10/80.20.
+`emailSyncService.js` 87.26 %, `errorSupport.js` 96.42 %.
+
+**Regression risk — stated proactively.**
+- *Widest surface:* `classifyError` is shared by every screen, not just email sync. The
+  `auth_expired` branch sits **after** `oauth_blocked` (so `access_denied` still wins) and
+  **before** `network`. Any error message elsewhere containing "session expired" / "token
+  expired" / "invalid_grant" now shows the reconnect copy instead of "try again" — checked:
+  no other call site produces those strings. Anchoring `econn` **narrows** the network bucket;
+  the only strings it stops matching are ones with `econn` mid-word, which were mislabels.
+- *Now-throwing paths:* a 403/500 from Gmail/Graph used to render "no receipts found" and now
+  raises. This is the intended fix, but it converts a silent no-op into a visible alert — if
+  either API returns a non-200 on a routine call, users will see an error they didn't before.
+- *`offline_access`:* changes the Outlook consent screen (adds "maintain access to data you
+  have given it access to"). Existing Outlook accounts have no refresh token and will hit the
+  reconnect prompt **once**; after reconnecting they self-heal.
+- *Untested on hardware:* the Gmail silent-refresh path runs through
+  `@react-native-google-signin`, mocked in tests. `clearCachedAccessToken` is Android-first;
+  it's optional-chained, and iOS refreshes inside `getTokens()`. **Needs one real device run:
+  connect Gmail, wait > 1 h (or revoke the token), scan again — it must succeed without a
+  reconnect prompt.**
