@@ -4521,3 +4521,85 @@ tag **fails closed**.
 claims the code does or doesn't do something, that claim needs a test that fails when the
 claim stops being true. Prose can't hold a guarantee — every re-verification is a fresh
 chance to be wrong in the same direction.
+
+## 132. Play Console "recommended actions" that no code change alone can clear — and the two thirds of one that framework code owns
+
+**Symptom.** After the 2.8.1 production release, Play Console raised three recommended
+actions: deprecated edge-to-edge APIs, resizability/orientation restrictions on large
+screens, and "your app is not optimized" (R8).
+
+**The reusable lesson is in how differently the three resolved.** Reading the Play
+Console text carefully *before* writing code changed the fix in two of the three cases.
+
+**(a) "Not optimized" was already fixed — and still true.** R8 had been enabled at
+commit `e12cafd` (#218). But version code 21 was cut at `4c21f74`, *earlier*. Play scans
+the artifact on the track, not the repo. **A fix that has not been shipped in a build with
+a higher version code does not exist as far as Play is concerned.** The action here was a
+version bump, not a code change. Before "fixing" a Play recommendation, check whether the
+flagged version code predates the fix — `git log -S'"versionCode": N' -- app.json` against
+the commit that landed the fix answers it in one command.
+
+**(b) The edge-to-edge list was mostly not ours.** Play named seven call sites. Six were
+inside React Native core (`StatusBarModule`, `WindowUtilKt`) and Material Components
+(`BottomSheetDialog`, `SheetDialog`, `EdgeToEdgeUtils`, reached via react-native-screens).
+Material was *already* on 1.13.0 — the newest release — so there was nothing to upgrade to.
+Those classes sit in the dex whether or not anything calls them.
+
+Exactly one was ours: `StatusBarModule$setColor$1.runGuarded`, reached from
+`<StatusBar backgroundColor={COLORS.bg} />` in `App.js`. expo-status-bar has deprecated
+that prop — under edge-to-edge it has **no visual effect at all** — but passing it still
+routes a call into the deprecated `Window.setStatusBarColor`. Removing it is a pure win:
+zero visual change, one fewer deprecated call.
+
+The initial plan had been to strip `android:statusBarColor` / `android:navigationBarColor`
+from the generated `styles.xml`. The Play Console detail listed **no theme attribute** —
+the scan is dex-only. That work would have been wasted, and worse: those attributes are
+what keeps the bars transparent on API < 35, so removing them would have caused an opaque
+status bar on Android 10–14. **Get the actual flagged list before designing the fix.**
+
+**(c) The orientation fix needed a runtime half.** Play named three activities:
+`MainActivity` plus two closed-source Play Services scanner activities
+(`GmsBarcodeScanningDelegateActivity` from expo-camera,
+`GmsDocumentScanningDelegateActivity` from react-native-document-scanner-plugin). Deleting
+`android:screenOrientation` from our own activity is easy; the naive version of that ships
+a portrait-designed UI that now rotates on every phone.
+
+The shape that works:
+- `plugins/withAndroidLargeScreenSupport.js` deletes the attribute from MainActivity, sets
+  `android:resizeableActivity="true"`, and overrides the two library activities with
+  `tools:replace="android:screenOrientation"` (the only lever available against a
+  closed-source AAR's manifest).
+- `src/services/orientationService.js` re-applies a portrait lock **at runtime** whenever
+  the smallest screen dimension is under 600dp. Phones behave exactly as before; tablets
+  and unfolded foldables rotate. Re-runs on `Dimensions` change so folding works live.
+- `app.json` keeps `"orientation": "portrait"` because that value also drives iOS's
+  Info.plist, where there is no large-screen case (`supportsTablet: false`). Only Android's
+  copy is stripped, and only by the plugin.
+
+Play's scan reads the merged manifest, not runtime calls, so this is not a dodge — it is
+the supported way to keep a portrait phone UI while genuinely lifting the restriction that
+Android 16 will ignore anyway.
+
+**Mod ordering, again.** Deleting an attribute Expo's own `withOrientation` mod wrote works
+because plugins listed in `app.json` run *after* Expo's platform mods. Same property
+`withAndroidPermissionCleanup` relies on.
+
+**Verification without a device.** `npx expo prebuild --platform android --no-install`
+regenerates `android/` and the assertions are greppable:
+```
+grep -o '<activity[^>]*>' android/app/src/main/AndroidManifest.xml
+grep -c 'screenOrientation="portrait"' android/app/src/main/AndroidManifest.xml   # → 0
+grep enableR8 android/gradle.properties                                          # → true
+```
+
+**Guards.** `__tests__/withAndroidLargeScreenSupport.test.js`,
+`__tests__/withAndroidR8FullMode.test.js`, `__tests__/orientationService.test.js`,
+`__tests__/edgeToEdgeDeprecations.test.js`. The last one is a **source-text** scan, on
+purpose: the regression is "someone re-adds a deprecated prop", which no render test would
+catch — the prop renders fine and simply does nothing.
+
+**Generalised rule.** A store's "recommended actions" list is a set of *findings about a
+specific uploaded artifact*, not a to-do list for the repo. Split it three ways before
+touching code: what is already fixed but unshipped, what is framework-owned and can only be
+documented, and what is genuinely ours. Fixing the middle category is where the wasted
+effort lives.

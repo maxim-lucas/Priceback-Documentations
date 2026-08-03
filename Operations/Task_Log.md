@@ -2756,3 +2756,77 @@ correctly no-ops on dev instead of silently skipping.
 - **Status:** code + docs DONE. **Console work NOT started and not doable from here** —
   no gcloud CLI, and Auth Platform → Audience is a browser task for Maxim. That remains
   step 1: confirm Testing vs In production.
+
+## 2026-08-03 — Play Console's three recommended actions on the 2.8.1 production release
+
+- **Ask:** optimize the app against the three "recommended actions" Play Console raised
+  after 2.8.1 shipped to production: deprecated edge-to-edge APIs, resizability/orientation
+  restrictions on large screens, and R8 optimization.
+- **Method note that mattered:** the Play Console detail text (the specific call sites and
+  activity names) arrived mid-task and changed the fix for two of the three items. The
+  in-progress plan to strip `android:statusBarColor`/`navigationBarColor` from `styles.xml`
+  was **dropped** — the flagged list is dex-only, names no theme attribute, and removing
+  those attributes would have caused an opaque status bar on Android 10–14, where they are
+  what keeps the bars transparent.
+
+### 1. R8 — "your app is not optimized"
+- **This was already fixed and simply never shipped.** R8 landed at `e12cafd` (#218);
+  version code 21 was cut earlier, at `4c21f74`. Play scans the artifact on the track, not
+  the repo. Action: version bump to **2.8.2 / versionCode 22** (iOS buildNumber 22,
+  package.json 2.8.2).
+- Added `plugins/withAndroidR8FullMode.js` pinning `android.enableR8.fullMode=true`.
+  This is already the AGP 8 default and nothing in the Expo 55 / RN 0.83 template
+  overrides it, so **it changes no behaviour today** — it exists so a future template bump
+  that flips the default back to `false` (the RN community template shipped exactly that
+  for years) can't silently de-optimize the release.
+
+### 2. Edge-to-edge deprecations — six of seven are framework-owned
+- Play named seven call sites. Six are React Native core (`StatusBarModule`,
+  `WindowUtilKt`) and Material Components (`BottomSheetDialog`, `SheetDialog`,
+  `EdgeToEdgeUtils`, pulled in via react-native-screens). **Material is already on 1.13.0,
+  the newest release** — there is no upgrade that removes them. Those classes are in the
+  dex whether or not anything calls them. Nothing to do in this repo; documented rather
+  than pretended-away.
+- The one that *was* ours: `<StatusBar backgroundColor={COLORS.bg} />` in `App.js:324` →
+  `StatusBarModule.setColor` → deprecated `Window.setStatusBarColor`. expo-status-bar has
+  deprecated the prop and under edge-to-edge it has no visual effect, so removing it is a
+  zero-risk change. Done.
+
+### 3. Large screens — manifest lock removed, portrait preserved at runtime
+- Play named three activities: `com.priceback.MainActivity` plus two closed-source Play
+  Services scanners — `GmsBarcodeScanningDelegateActivity` (expo-camera) and
+  `GmsDocumentScanningDelegateActivity` (react-native-document-scanner-plugin).
+- **`plugins/withAndroidLargeScreenSupport.js`** — deletes `android:screenOrientation` from
+  MainActivity, sets `android:resizeableActivity="true"` on `<application>` and
+  MainActivity, and overrides the two library activities to `unspecified` via
+  `tools:replace` (the only lever against an AAR's own manifest). Relies on the same mod
+  ordering `withAndroidPermissionCleanup` does: app.json plugins run *after* Expo's
+  platform mods, so it reliably undoes what `withOrientation` wrote.
+- **`src/services/orientationService.js`** — re-applies a portrait lock at runtime when the
+  smallest screen dimension is < 600dp (every phone), unlocks at ≥ 600dp (tablets, unfolded
+  foldables). Wired into `App.js` via `startOrientationPolicy()`, re-running on every
+  `Dimensions` change so fold/unfold is handled live without a restart. **Phone behaviour is
+  unchanged from today.** iOS deliberately untouched — `app.json` keeps
+  `"orientation": "portrait"` because that drives Info.plist, and `supportsTablet` is false.
+
+### Verification
+- `npx expo prebuild --platform android --no-install` run locally and the generated manifest
+  checked: `resizeableActivity="true"` present, **zero** `screenOrientation="portrait"`
+  occurrences, both GMS activities carrying `tools:replace`, and
+  `android.enableR8.fullMode=true` in `android/gradle.properties`.
+- **Tests:** 4 new suites — `withAndroidLargeScreenSupport` (16), `withAndroidR8FullMode`
+  (14), `orientationService` (19), `edgeToEdgeDeprecations` (7, a deliberate source-text
+  scan since the regression is "someone re-adds a prop"). Full suite **150 suites / 3189
+  tests green**; coverage statements 77.48 / branches 65.94 / functions 67.20 / lines 80.24,
+  all above the 68/55/59/70 floors and up on the previous run. `orientationService.js`
+  itself is 100/92.3/100/100. `npm run i18n:check` passes (no user-facing strings added).
+- **Docs:** `Bugs_Common_Fixes.md` #132.
+
+### Status / what is owed
+- Code side **DONE**. Two things still need a human with hardware:
+  1. **Large-screen landscape has never been seen.** No tablet/foldable on this machine.
+     The phone path is unchanged by construction, but the newly-unlocked large-screen
+     landscape layouts are unverified. Worth a resizable-emulator pass before production.
+  2. **R8 on hardware is still owed from the previous session** — R8 links, but has never
+     run on a real device. A `preview` profile APK builds release-variant, so it exercises
+     R8; smoke-test one before shipping 2.8.2 to production.
