@@ -1,8 +1,14 @@
 # Google OAuth Verification + CASA — Gmail Sync
 
 **Status:** not started — Gmail sync is gated off in the app until this lands.
+The data-flow blocker found on 2026-08-03 is **fixed** (§4); console work can proceed.
 **Owner:** Maxim
 **Blocks:** the "Connect Gmail" flow on the Email Sync screen (`src/screens/EmailSyncScreen.js`).
+
+> **Read §4 before writing the scope justification.** The submission's central claim —
+> that Gmail content stays on the device — was *not* true of the code when this doc was
+> first written. It is true now, and enforced by a test, but the fix constrains what the
+> app may do with Gmail data going forward. Don't file §5 without reading §4 first.
 
 ---
 
@@ -88,6 +94,19 @@ The review team rejects on these routinely, and each rejection costs a full roun
       produces the "can only be accessed by developer-approved testers" wording.
 - [ ] `gmail.readonly` listed under *Data Access* with a written justification (§5).
 
+**Code** (§4)
+
+- [x] Gmail→backend data flow scoped: Gmail receipts are local-only, enforced by
+      `receiptSyncService.syncReceiptToBackend` + `receiptSyncGmailLimitedUse.test.js`.
+- [ ] Pin `EMAIL_SYNC_WINDOW_DAYS` to whatever value the filed justification states
+      (default 90) — it is remote-config driven and can otherwise drift out from under
+      the submission.
+- [ ] Confirm the privacy policy's Gmail section matches the *local-only* story before
+      filing; it was written against the old assumption.
+- [ ] No longer blocking, but worth doing if the opt-in contribution arm is ever built:
+      stop hardcoding `source: "ocr"` in `toApiBody` and use the existing `import` code
+      in `receipt_sources`, so non-scan rows are identifiable server-side.
+
 ---
 
 ## 4. Limited Use — the rules the assessment measures you against
@@ -109,18 +128,90 @@ The privacy policy must state compliance in words close to:
 > app will adhere to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy),
 > including the Limited Use requirements.
 
-### Where PriceBack currently stands
+### Where PriceBack currently stands — VERIFIED 2026-08-03, and it is not what we thought
 
-The Gmail path parses messages **on the device** and writes results through
-`storageService.saveReceipt`, which is local AsyncStorage — Gmail message content is not
-sent to the PriceBack backend today. That is a strong Limited Use story and it should be
-stated plainly in the submission.
+The earlier draft of this section claimed Gmail content never leaves the device. **That
+claim is false.** It was re-verified against the code before submitting, which is exactly
+what the note here told us to do, and the trace is:
 
-> **Re-verify this before submitting, and again before each annual renewal.** It is a
-> claim about current code, and it is the claim the whole assessment rests on. If any
-> future change routes Gmail-derived content through the backend, OCR, or an LLM, the
-> submission and the privacy policy both have to change first — an LLM call on Gmail
-> content in particular collides with the no-training and no-transfer rules.
+```
+EmailSyncScreen.js:124   saveReceipt(receipt)          ← receipt parsed from the Gmail message
+storageService.js:196    → receiptSyncService.syncReceiptToBackend(newReceipt)
+receiptSyncService.js:31 → toApiBody(...)  →  POST /api/receipts
+```
+
+`saveReceipt` is **not** local-only. It writes AsyncStorage *and then* mirrors the receipt
+to the backend. What `toApiBody` actually puts on the wire, for an email-sourced receipt:
+
+| Field | Value for a Gmail receipt | Gmail-derived? |
+|---|---|---|
+| `items[].name` | strings pulled out of the **message body** by `parseReceiptFromEmailBody` | **yes — message content** |
+| `items[].lineTotal` | prices pulled out of the message body | **yes — message content** |
+| `total`, `tax` | parsed from the message body | **yes** |
+| `purchaseDate` | the message's `Date` header | **yes — header** |
+| `storeId` | derived from the `From` domain | **yes — header** |
+| `deviceId` | device fingerprint | no |
+| `rawOcr`, `headerOcr` | `null` — email receipts have no OCR text | no |
+| `emailSubject`, `emailId` | **not included in `toApiBody`** — these stay on device | no |
+
+So the raw body, the subject line, and the Gmail message ID never leave the phone — but
+the **extracted item names and prices do**, and those are Gmail message content by any
+reading Google will apply.
+
+Two aggravating details:
+
+- **It feeds the crowdsourced catalog.** Receipt items become `price_points`, which are
+  pooled and served to *other* users. That is Gmail-derived data leaving the user's own
+  account boundary — the hardest version of the Limited Use "no transfer" question, and
+  it collides directly with any plan to bill for the curated price data.
+- **The rows are mislabelled.** `toApiBody` hardcodes `source: "ocr"` for every receipt,
+  so a Gmail-sourced row is indistinguishable from a camera scan server-side. There is
+  currently no way to identify, exclude, or delete Gmail-derived data on the backend —
+  which is itself a question CASA's data-flow section will ask, and `receipt_sources`
+  already has an `import` code that would fit.
+
+**Not a live incident:** `gmailSyncEnabled: false` in `config/profiles/common.js` means
+the Connect button is gated off and no Gmail data is flowing today. This is a fix owed
+*before* the gate flips — not a breach to disclose.
+
+### Resolution — Gmail receipts are now local-only
+
+Fixed on branch `feat/gmail-consent-anonymized-price-sharing`. The gate lives at the top
+of `syncReceiptToBackend` (`src/services/receiptSyncService.js`) and returns
+`{ skipped: true, gmailLocalOnly: true }` before any network call:
+
+- **A Gmail-sourced receipt never reaches the backend.** No receipt row, no items, no
+  `price_points`. It lives in AsyncStorage only.
+- **Price drops still work for them.** `checkAllPriceDrops` is a client-side sweep over
+  local receipts, so drop detection is unaffected. What Gmail receipts give up is the
+  *server-side* sweep that drives push notifications, plus reinstall recovery and
+  cross-device sync. That trade is deliberate.
+- **Outlook is not affected.** Microsoft mail isn't governed by Google's policy, so the
+  parsers now tag every receipt `emailProvider: "gmail" | "outlook"` and only Gmail is
+  gated. A legacy receipt with no provider tag **fails closed** (treated as Gmail).
+- Guarded by `__tests__/receiptSyncGmailLimitedUse.test.js` (17 tests), which asserts
+  `authedFetch` is never called for a Gmail receipt.
+
+With that in place the §5 wording — "message content is not transmitted to PriceBack
+servers" — is **true as written**, and is now enforced by a test rather than by
+convention.
+
+**Still open — the opt-in contribution arm.** The intended design is that a user may
+*explicitly* opt in to contributing the anonymized price (store + product + price + date,
+hashed device id, no identity, revocable via `DELETE /api/me/observations`). The
+preference exists (`shareEmailPrices`, default off, audit-stamped via
+`emailConsentUpdatedAt`) but is **deliberately not wired to anything yet**: the crowd
+ingestion path (`crowdRepo.recordObservation`, `POST /api/watch`) is Costco+SKU-shaped
+and drops everything else (`server.js:2045`), and email receipts carry no SKU. Shipping a
+consent toggle that silently discards the data would be worse than shipping none.
+Wiring it up needs a name-based ingestion path for the other 19 retailers — its own
+design pass, tracked separately.
+
+> **Re-run this verification before each annual renewal.** It is a claim about current
+> code. A future change routing Gmail content through the backend, OCR, or an LLM would
+> collide with the no-training and no-transfer rules as well — and note that the original
+> version of this section asserted the on-device story on the strength of a single
+> function name, which is exactly how it was wrong for so long. Trace the call chain.
 
 ---
 
@@ -144,9 +235,25 @@ The review team wants to see that a narrower scope genuinely will not work. Draf
 > Parsing happens on the device; message content is not transmitted to PriceBack
 > servers. The app never sends, modifies, or deletes mail.
 
-That filtering claim is real — see `STORE_EMAIL_PATTERNS` and the query built in
-`syncGmailReceipts` (`src/services/emailSyncService.js`). Keep the two in sync; if the
-domain list or the window changes materially, the justification on file is now wrong.
+⚠️ **Do not file this paragraph as written.** The final sentence about message content
+is false today — see §4. It becomes true only if the backend mirror is scoped to exclude
+email-sourced receipts; otherwise this paragraph has to be rewritten to describe what
+actually crosses the wire. Resolve §4 first, then fix this text to match.
+
+The *filtering* claims are real and verified:
+
+- **Domain list** — `STORE_EMAIL_PATTERNS` (`src/services/emailSyncService.js:40`), 20
+  retailers, hardcoded, no wildcard.
+- **Subject filter** — `subject:order OR subject:receipt OR subject:confirmation`.
+- **Recency window** — `newer_than:{emailWindowDays}d`, default **90 days**
+  (`pricingCatalogService.js:108`). Note this is **remote-config driven**
+  (`EMAIL_SYNC_WINDOW_DAYS`), so it can be widened server-side without an app release.
+  If it is ever widened materially, the justification on file becomes wrong — treat that
+  config key as bound to this submission.
+- **Volume cap** — 50 search results, of which at most 20 messages are fetched in full.
+
+Keep all of these in sync with the filed text; if the domain list or the window changes,
+the justification on file is now wrong.
 
 ---
 
