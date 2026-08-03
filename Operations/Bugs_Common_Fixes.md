@@ -4469,3 +4469,55 @@ Safe here because the reference is dead code in this app: it sits on the backgro
 - **A build-time R8 failure does not validate R8 at runtime.** Getting the build green only unblocks the on-device checklist (sign-in, IAP, camera, push, updates, Sentry symbolication) — it does not substitute for it.
 
 **Occurrence.** 2026-07-30, build `f6156674` (preview, commit `e12cafd`). Fixed in PR #219.
+
+## 131. A compliance claim that no longer matched the code — Gmail receipt data was reaching the backend
+
+**Class:** silent drift between a documented guarantee and the call chain that implements it.
+Worth reading even if you never touch Gmail: the failure mode generalises.
+
+**Symptom.** None. Nothing was broken, no test failed, no user complained. The defect was
+only visible if you traced a call chain that a document *asserted* was safe.
+
+`Publishing-Compliance/Google_OAuth_Verification_CASA.md` §4 stated that Gmail message
+content never leaves the device, and the whole Google OAuth restricted-scope submission
+was to be filed on that claim. The claim was written from the shape of one function name
+— `storageService.saveReceipt`, "which is local AsyncStorage".
+
+**What was actually true.** `saveReceipt` writes AsyncStorage *and then* mirrors to the
+backend:
+
+```
+EmailSyncScreen.js:124   saveReceipt(receipt)
+storageService.js:196    → receiptSyncService.syncReceiptToBackend(newReceipt)
+receiptSyncService.js:31 → toApiBody(...)  →  POST /api/receipts
+```
+
+For a Gmail receipt, `items[].name` and `items[].lineTotal` are strings and numbers parsed
+straight out of the **message body**, and they fed `price_points` — the catalog shared with
+other users. The raw body, subject and message id never crossed (they aren't in
+`toApiBody`), but the extracted content did.
+
+**Fix.** A gate at the top of `syncReceiptToBackend` returning
+`{ skipped: true, gmailLocalOnly: true }` before any network call. Gmail receipts are
+local-only, unconditionally. Parsers now tag `emailProvider: "gmail" | "outlook"` so
+Outlook (not covered by Google's policy) keeps syncing; a legacy receipt with no provider
+tag **fails closed**.
+
+**Why it survived so long.** Three things, each of which is the reusable lesson:
+
+1. **A doc asserted a property of the code without citing the call chain.** "saveReceipt is
+   local storage" was true of the function's *name* and its first line, and false of its
+   behaviour. When a document makes a safety claim, cite the chain, not the function.
+2. **The dangerous step was a fire-and-forget dynamic import**, 60 lines below the
+   AsyncStorage write and after the `return`-shaped happy path. Easy to miss when skimming.
+3. **Nothing tested the negative.** There were tests that sync *works*; none that it
+   *doesn't happen* for a class of receipt. Guarantees of the form "X never leaves the
+   device" need a test asserting the transport was never called —
+   `expect(mockAuthedFetch).not.toHaveBeenCalled()`.
+
+**Guard.** `__tests__/receiptSyncGmailLimitedUse.test.js` (17 tests).
+
+**Generalised rule.** If a compliance document, privacy policy, or store-listing answer
+claims the code does or doesn't do something, that claim needs a test that fails when the
+claim stops being true. Prose can't hold a guarantee — every re-verification is a fresh
+chance to be wrong in the same direction.

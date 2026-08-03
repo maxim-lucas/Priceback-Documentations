@@ -2721,3 +2721,38 @@ correctly no-ops on dev instead of silently skipping.
   into `main`, so PR #219 was closed as superseded. PR #221 merged (`fb51b60`).
 - **Status:** build side DONE. **Device checklist NOT run — no adb/Android SDK/device on
   this machine.** Handed to Maxim. Production ship stays gated on it.
+
+## 2026-08-03 — Gmail OAuth/CASA: re-verified the submission's central claim, and it was false
+
+- **Context:** picking up the Google OAuth verification thread. Docs PR #5 and app PR #222
+  were both already MERGED (the "still a draft" handoff note was stale). The remaining path
+  is console-side, so the first useful move was the one thing the doc told us to do before
+  submitting: re-verify that Gmail content stays on the device.
+- **Finding:** it doesn't. `saveReceipt` mirrors to the backend
+  (`storageService.js:196` → `syncReceiptToBackend` → `POST /api/receipts`), and for a Gmail
+  receipt `items[].name` / `lineTotal` are parsed out of the **message body**. Those fed
+  `price_points`, the catalog shared with other users. Raw body, subject and message id
+  never crossed. Filing §5 as drafted would have misrepresented the app to Google.
+  Not a live incident — `gmailSyncEnabled: false` means no Gmail data was flowing.
+- **Fix:** Gmail receipts are now local-only, gated at the top of `syncReceiptToBackend`.
+  Parsers tag `emailProvider: "gmail" | "outlook"`; Outlook is untouched; legacy untagged
+  receipts fail closed. Client-side price-drop detection still works for Gmail receipts —
+  what they give up is server-side push, reinstall recovery and cross-device sync.
+- **Consent design (Maxim's call):** rather than choosing between "local only" and "disclose
+  the sharing", the chosen design is an explicit opt-in to contribute the *anonymized* price
+  only. Preference scaffolding landed (`shareEmailPrices`, default OFF, audit-stamped via
+  `emailConsentUpdatedAt`) but is **deliberately unwired**: crowd ingestion is Costco+SKU-only
+  (`server.js:2045`) and email receipts have no SKU, so a toggle would silently discard data.
+  Wiring it needs name-based ingestion for the other 19 retailers — separate design pass.
+- **Also noted, not changed:** `getPrefs()` hardcodes `shareCostcoPrices: true`, so the
+  Costco "explicit opt-in" the backend comment describes is always-on from the client.
+  Worth a look before anyone cites it as consent in a compliance filing.
+- **Tests:** new `__tests__/receiptSyncGmailLimitedUse.test.js` (17). Full suite
+  146 suites / 3133 tests green; coverage statements 77.44 / branches 65.91 / functions
+  67.15 / lines 80.20, all clear of the 68/55/59/70 floors.
+- **Docs:** CASA doc §3/§4/§5 rewritten against the verified data flow (including the
+  90-day `EMAIL_SYNC_WINDOW_DAYS` window being remote-config driven, which the filed
+  justification has to be pinned to). New `Bugs_Common_Fixes.md` #131.
+- **Status:** code + docs DONE. **Console work NOT started and not doable from here** —
+  no gcloud CLI, and Auth Platform → Audience is a browser task for Maxim. That remains
+  step 1: confirm Testing vs In production.
