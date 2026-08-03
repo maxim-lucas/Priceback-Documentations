@@ -240,7 +240,7 @@ Putting these here so a reviewer doesn't have to ask:
 
 Tested via App Store / Play Store sandbox accounts. RevenueCat is wired
 end-to-end; subscription entitlements flip the in-app premium flag (unlocks
-PDF export, email sync, family sharing), and consumable credit-pack
+PDF export and email sync), and consumable credit-pack
 purchases land via the RC `NON_RENEWING_PURCHASE` webhook → backend ledger.
 
 - **Free trial** — 75 credits granted once at install (lifetime
@@ -255,8 +255,11 @@ purchases land via the RC `NON_RENEWING_PURCHASE` webhook → backend ledger.
 - **Unlimited** — auto-renewing subscription, $4.99/mo or $49.99/yr
   (annual = 12 months for the price of 10, i.e. 2 free months). Both
   cycles unlock: unlimited scans, no per-drop charge, email sync
-  (Gmail + Outlook), PDF export, family sharing, advanced analytics,
-  priority price checking (every 2 h).
+  (Gmail + Outlook), PDF export, advanced analytics, priority price
+  checking (every 2 h). **Family Sharing is deliberately off** on both
+  subscriptions in App Store Connect — the app has no family- or
+  device-sharing behaviour, and the paywall no longer claims any (see
+  Bugs_Common_Fixes #135).
 
 There are no grandfathered/legacy subscription tiers: the old monthly
 Starter/Pro subs and the `priceback_topup_50` pack were removed in

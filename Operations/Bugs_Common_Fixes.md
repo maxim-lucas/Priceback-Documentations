@@ -4664,3 +4664,145 @@ acting on one, ask what declining actually costs. Here it was: one line of advis
 against a visible orientation flip on every phone. If the fix cannot be verified on the
 hardware it affects, the correct move is to decline it and record why — including a guard
 test, so the next reader finds the decision instead of the recommendation.
+
+---
+
+## 134. Email sync worked exactly once — short-lived OAuth tokens were never refreshed, and "reconnect" was misreported as "check your internet"
+
+**Symptom.** Connect Gmail → "Scan now" imports receipts. Every later scan fails with
+**"Sync Failed — Connection problem, check your internet and try again."** Outlook behaved
+identically. The internet was fine; the message was.
+
+Two independent bugs stacked, and the second hid the first.
+
+### Bug A — the real one: the access token is never refreshed
+
+`syncGmailReceipts` / `syncOutlookReceipts` read the access token that was written **once**,
+at connect time, and used it forever:
+
+```js
+const accessToken = tokens.gmail.accessToken;      // written at connect, never again
+const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+if (res.status === 401) throw new Error("Gmail session expired. Please reconnect.");
+```
+
+OAuth **access** tokens live about an hour. So the token was valid for exactly one thing: the
+sync you ran right after connecting. Everything after it 401'd. "Worked the first time, never
+again" is the signature of a cached credential with a TTL — when you see it, look for the
+token's age, not the network.
+
+Both providers could have recovered silently, and neither did:
+
+- **Gmail** stores no refresh token (that needs `offlineAccess` + a backend code exchange) —
+  but it doesn't need one. `@react-native-google-signin` keeps the **grant** on the device, so
+  `signInSilently()` + `getTokens()` mints a new access token with no UI. Nothing called it.
+- **Outlook** stored a `refreshToken` field and never once used it — and it was `null` anyway,
+  because the scope list omitted **`offline_access`**. Without that scope Microsoft issues no
+  refresh token at all. The field existed; the grant behind it never did.
+
+**Fix.** A `createAuthorizedFetch({ providerLabel, accessToken, refresh })` wrapper per sync:
+on 401 it refreshes **once**, retries **once**, and only then throws. Both providers supply a
+`refresh` fn (Gmail: `clearCachedAccessToken` → `signInSilently` → `getTokens`; Outlook:
+`AuthSession.refreshAsync` against the `consumers` token endpoint, storing the rotated refresh
+token Microsoft returns). `offline_access` added to `OUTLOOK_SCOPES`.
+
+Two details worth keeping:
+- **Clear the cached token before asking for a new one.** `getTokens()` will otherwise hand
+  back the very token that just 401'd.
+- **The refresh flag is per-sync, not per-request.** One dead grant must not fan out into one
+  refresh attempt per message.
+
+### Bug B — why the message was wrong: `econn` matched "rec-onn-ect"
+
+`errorSupport.classifyError` routed the error to the `network` bucket:
+
+```js
+if (/network|internet|connection|fetch failed|econn|enetunreach|socket|offline/i.test(msg))
+```
+
+The unanchored `econn` — meant for `ECONNREFUSED` / `ECONNRESET` — matches the letters inside
+**"Please rec`onn`ect."** So *"Gmail session expired. Please reconnect."* classified as a
+network failure and rendered `err.networkBody`: **the one piece of advice that could never
+help.** Checking your Wi-Fi does not renew an OAuth grant.
+
+**Fix.** Anchor it (`\beconn\w*`, `\benetunreach\b`) and add a real `auth_expired` category —
+keyed on `err.code === "auth_expired"` first, so the user-facing copy never depends on the
+wording of an English error string — mapped to a new `err.sessionExpiredBody` (EN + FR).
+
+**Generalised rule.** A bare substring in an error classifier is a latent mislabel. Every
+alternative in a classification regex needs `\b` anchors, and every branch needs a test with a
+string that *nearly* matches. The cost here wasn't cosmetic: the wrong category sent the user
+to debug their router while a one-line token refresh was the actual fix, and it made a broken
+feature look like a flaky one for as long as it went unreported.
+
+**Related.** A silent-failure sibling in the same file: a non-401 error status
+(403 / 500) fell through to `data.messages === undefined`, and the screen reported a cheerful
+**"No receipts found"** for a hard API failure. `createAuthorizedFetch` now throws on any
+status ≥ 400, carrying the provider's own body text so `access_denied` still classifies as
+`oauth_blocked`. **An error path that renders as an empty-state is worse than a crash** — the
+user retries forever and never reports it.
+
+**Guards.** `__tests__/emailSyncTokenRefresh.test.js` (14 tests: refresh-and-retry succeeds,
+token persisted with the email intact, cache cleared first, one refresh per sync, revoked
+grant raises `auth_expired`, mid-loop expiry is not swallowed as a parse failure, 403/500
+surface as errors, Outlook rotation + the no-refresh-token case).
+`errorSupport.test.js` pins `"Please reconnect."` → `auth_expired`, real `ECONN*` → `network`,
+and `access_denied` still winning over both.
+
+---
+
+## 135. The paywall sold a feature the store was never configured to deliver — "Family sharing (up to 6 users)"
+
+**Symptom.** None, until someone pays. The Unlimited paywall listed
+**"Family sharing (up to 6 users)"** as a headline benefit, in both EN and FR. A
+subscriber who then tried to share Unlimited with their household would get
+nothing at all, with no error and nothing to report — the feature simply does not
+exist.
+
+**Root cause — two independent halves, each invisible on its own.**
+
+1. `shared/pricing.config.js` listed `FEATURE_KEYS.FAMILY_SHARING` in the
+   Unlimited tier's `featureKeys` *and* `"Family sharing (up to 6 users)"` in its
+   customer-facing `features` array, so `canUseFeature("family_sharing")`
+   returned `true` for any Unlimited subscriber.
+2. **Nothing in the app ever asked.** A repo-wide grep for `FAMILY_SHARING` /
+   `family_sharing` found the constant, its two uses inside the catalog, and the
+   tests — and no gate, screen, or service anywhere. The key granted access to a
+   capability that had no implementation behind it.
+
+Meanwhile Family Sharing was switched **off** on both auto-renewable
+subscriptions in App Store Connect, which is the only place the capability could
+actually have come from: StoreKit is what shares an entitlement with a family
+group, and RevenueCat only passes through what Apple grants.
+
+**Why it survived review passes.** The App Store submission audit checked the
+*store description* against the code and found the description clean — it never
+mentions family sharing. The false claim lived only in the **in-binary paywall**,
+which no metadata audit reads. The i18n checker was equally happy: the key
+existed in both EN and FR, perfectly in sync, so parity enforcement confirmed the
+lie was correctly translated.
+
+**Fix.** The claim was removed rather than the capability enabled — the app has
+no family- *or* device-sharing behaviour to expose, so turning it on at Apple
+would have promised a real entitlement the app still couldn't use. Deleted
+`FAMILY_SHARING` from `FEATURE_KEYS`, from Unlimited's `featureKeys`, and from
+its `features` array (in **both** `shared/pricing.config.js` and the
+`backend/shared/` copy, which must stay byte-identical), plus
+`catalog.tier.unlimited.features.5` from the EN and FR blocks of
+`src/services/i18n.js`. It was the last element of the list, so no index shifted
+— `catalogFeatures()` maps `features[i]` to `catalog.<kind>.<id>.features.<i>`,
+and removing a middle entry would silently relabel every item after it.
+
+**Generalised rule.** **A feature key with no consumer is a marketing claim, not
+a capability.** Before adding one to a paid tier, grep for a call site that reads
+it; if `canUseFeature("x")` is never asked anywhere, the paywall line above it is
+unbacked. The corollary for store work: **auditing store metadata is not
+auditing the paywall.** The binary's own purchase screen is a separate surface
+with its own accuracy obligation under Guideline 2.3.1, and it is the one the
+paying customer actually reads.
+
+**Guards.** `__tests__/purchaseService.test.js` now pins
+`canUseFeature("family_sharing") === false` for an active Unlimited subscriber —
+the direction that used to assert `true` — and the "every feature unlocked" test
+enumerates the five keys Unlimited genuinely grants, so re-adding an unbacked key
+to the tier fails the suite rather than quietly widening it.

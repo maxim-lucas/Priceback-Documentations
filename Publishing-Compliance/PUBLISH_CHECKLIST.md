@@ -33,17 +33,17 @@ Quick-scan table — update as items are completed.
 |---|---|---|
 | priceback.ca website | ✅ Live | Cloudflare Pages; legal pages + FR variants hosted |
 | Legal pages (privacy / terms / support) | ✅ Hosted | `priceback.ca/privacy`, `/terms`, `/support`, `-fr` variants |
-| Apple Developer enrollment | ⏳ Pending | §0 — $99/yr, 24–48h approval |
+| Apple Developer enrollment | ✅ Done | §0 — enrolled as org **Prosoft Inc**, Team `5D2TR5UWGM` (2026-07-29) |
 | Google Play Console enrollment | ✅ Done | §0 — enrolled |
-| RevenueCat — real API key + SKU config | ✅ Done (Play) / ⚠️ **BLOCKER (iOS)** | §2 — all 5 SKUs live in Play + RC, `default` offering resolves annual+monthly. **iOS: set `REVENUECAT_API_KEY_IOS` (`appl_…`) in the EAS production environment — a production iOS build now fails without it, by design.** Audit §1.2 / §2.1 |
-| iOS in-app purchases created + submitted with the build | ⏳ Pending | Audit §2.2 — five product IDs must match `shared/pricing.config.js` exactly, be attached to RC's `default` offering, and be **submitted alongside the app version** or the reviewer finds a paywall that sells nothing |
-| App Store availability = Canada only | ⏳ Pending | Audit §2.3 — app is Canada-hardcoded; a non-CA reviewer storefront invites a 2.1 |
+| RevenueCat — real API key + SKU config | ✅ Done (Play + iOS) | §2 — `REVENUECAT_API_KEY_IOS` (`appl_tqHfzJwNHDYhLLTrzSeumIxFKUz`) set in the EAS production env 2026-07-29. **2026-08-03: all 5 packages in the `default` offering held only their Play product — the App Store slot read "No product" on every one, so the iOS paywall would have resolved zero purchasable products. Both stores now attached.** Audit §1.2 / §2.1 |
+| iOS in-app purchases created + submitted with the build | ⚠️ Created, **not yet submitted** | Audit §2.2 — all 5 products exist, Canada-only, CAD-priced, EN-CA + FR-CA localised, review notes written, and attached to RC's `default` offering. **Missing: the review screenshot on each (needs a build), and they must be submitted *alongside* the app version.** See `iOS_IAP_Setup_TODO.md` |
+| App Store availability = Canada only | ✅ Done | Audit §2.3 — app + all 5 IAPs set to Canada only (1 of 175 storefronts), base currency CAD |
 | iOS privacy manifest (`NSPrivacyCollectedDataTypes`) | ✅ Done | Audit §1.5 — was an empty array while the app collects 12 data types; App Store Connect privacy answers must now match (Audit §2.4) |
 | iOS unused-permission hygiene (microphone / always-location stripped) | ✅ Done | Audit §1.6 — `plugins/withIosPrivacyStringCleanup.js`, the counterpart to the Android cleanup plugin |
 | RevenueCat prod purchase recording | ✅ Done | §2 — both `REVENUECAT_WEBHOOK_TOKEN` and `REVENUECAT_SECRET_KEY` set on Railway prod (also mirrored to dev); `/health` confirms `revenuecat.webhook: "configured"` and `revenuecat.syncApi: "configured"` (verified 2026-07-11) — see `docs/RevenueCat_Paywall_Config.md` |
 | iOS Google OAuth client + plist | ✅ Done | §3 — client created; `GoogleService-Info.plist` at repo root (gitignored); `iosUrlScheme` wired in `app.json`; client ID now committed in `config/profiles/common.js` so no EAS var can go unset (Audit §1.4) |
 | Sign in with Apple works end to end | ✅ Done | Backend verifier deployed and probe-verified on prod 2026-07-26; Apple's 10-minute token expiry now refreshes (Audit §1.3); Apple is the first button on iOS (§1.7). Still needs the **capability enabled on the bundle ID** — see §4 |
-| Apple Sign In With Apple capability | ⏳ Pending | §4 |
+| Apple Sign In With Apple capability | ✅ Done | §4 — enabled by hand on App ID `com.priceback` (`Z446L34LP3`) 2026-07-29, alongside Push Notifications |
 | Sentry DSN | ✅ Done | §5 — DSN in `config/profiles/common.js`; `SENTRY_DSN` + `SENTRY_AUTH_TOKEN` set as EAS secrets for both dev and prod |
 | Azure / Microsoft OAuth (Outlook sync) | ✅ Configured | §6 — verified in Azure portal 2026-07-08: redirect URI matches code, `Mail.Read`+`User.Read` granted, **public client flows enabled (was off — fixed)**, EAS secret set. Only an on-device sign-in smoke test remains |
 | Railway production env vars | ⏳ Pending | §8 — see `docs/Publish_Requirements.md` |
@@ -51,8 +51,8 @@ Quick-scan table — update as items are completed.
 | Credit management (referral / auto-reload / packs / ledger) | ✅ Audited | 2026-07-05 full audit + tests green — `docs/Credit_Management_Audit.md`; auto-reload prompt restored to the 50-credit threshold; prod data fixes folded into §8B |
 | Security credential rotation | ⚠️ BLOCKER | §8A — Vision key + Supabase password |
 | ADMIN_USER_SUBS set on Railway | ✅ Done | §8 — set on Railway prod |
-| Store listing assets (screenshots, icons) | ⏳ Pending | §13 |
-| App Store Connect metadata | ⏳ Pending | §9 |
+| Store listing assets (screenshots, icons) | ⏳ Pending | §13 — **the one thing blocking the iOS submission.** Needs a running build: 6.7"/6.5" iPhone product-page screenshots **plus** a review screenshot for each of the 5 IAPs. No iPad shots (`supportsTablet: false`) |
+| App Store Connect metadata | ✅ Done | §9 — completed 2026-08-03. Version **2.8.2** (was 1.0, which no 2.8.2 build could ever attach to), description + promo text + keywords + support/marketing URLs + copyright, subscription auto-renew disclosure and Terms-of-Use link added to the description per Guideline 3.1.2, App Review contact + notes, "Sign-in required" **unticked**, manual release, Content Rights = "has the necessary rights". DSA trader status skipped (Canada-only) |
 | Google Play Console metadata | ⏳ Pending | §10 |
 | Android permissions hygiene (AD_ID / RECORD_AUDIO / FINE_LOCATION stripped) | ✅ Done | §10 — `plugins/withAndroidPermissionCleanup.js`; verified against a fresh prebuild manifest 2026-07-24. Data Safety "advertising ID" = No |
 | Google Sign-In status-code error handling | ✅ Done | Bug #128 — full GMS-code classification + transient retry in `authService.signInWithGoogle` |
