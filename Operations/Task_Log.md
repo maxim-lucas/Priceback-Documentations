@@ -3109,3 +3109,104 @@ attached PDF is a **point-in-time render** of `REVIEWER_NOTES.md`. Nothing syncs
 them — this is the same two-declarations-of-one-fact shape as the privacy-label
 drift in #136. If the notes change materially before submission, re-render and
 re-upload the PDF.
+
+## 2026-08-03 (cont.) — "Generate the iOS previews and screenshots" — declined, cannot be done from here
+
+Asked whether I could produce the App Store product-page screenshots and the
+app preview video for the iOS submission, with the explicit instruction to say
+so rather than invent anything.
+
+**Answer: no, and nothing was generated.** Real App Store screenshots have to be
+frames of the app actually running. This machine is Windows 11 with no macOS,
+no Xcode, and therefore no iOS Simulator; there is no installed iOS build to
+capture; the project has no web target (`react-native-web`/`react-dom` are not
+dependencies, so the RN screens cannot be rendered in a browser) and no
+screenshot automation (`detox`/`maestro`/`playwright` absent). Any image I could
+have produced would have been a mockup, not the app — and Apple rejects
+screenshots that don't depict the real running app (Guideline 2.3.3).
+
+What is already in place: `eas.json` `preview` profile carries
+`ios.simulator: true`, so `eas build -p ios --profile preview` yields a
+Simulator `.app` — but running it still needs a Mac. The other route is a
+TestFlight/internal build on a physical iPhone.
+
+Reminder of the blocked scope this leaves: `PUBLISH_CHECKLIST.md` §13 (iPhone
+6.7"/6.5" product-page shots, 3 min) **and** the per-IAP review screenshot on
+all 5 in-app purchases (audit §2.2) — both need a running build.
+
+**Regression risk: none.** Read-only session; the only write is this log entry.
+
+## 2026-08-03 (cont.) — "Sync Failed / our service is having a hiccup" on the new email-sync build — fix every path, not just this one
+
+Maxim built the APK carrying the email-sync token-refresh fix (`99c505a`), ran
+"Scan now", and got **Sync Failed — "Our service is having a hiccup. Please try
+again in a few minutes."** The ask was explicit: fix it once and for all, make
+every path produce a realistic and accurate message, and cover everything with
+tests so the next APK isn't another round trip.
+
+**What that sentence actually was.** `createAuthorizedFetch` phrased every
+non-401 provider failure as `"<Provider> API error <status>: <body>"`, and
+`classifyError` picked the category by regex on that message — where
+`/…|server|unavailable|api error/i` matched the words **"api error"**. Every
+Gmail/Graph 4xx therefore landed in the 5xx "hiccup" bucket: a missing
+`gmail.readonly` scope, the Gmail API not enabled on the GCP project, a quota, a
+rejected query, a mailbox Graph won't `$search`. Full write-up as
+**Bugs_Common_Fixes #137**.
+
+**Fixed (mobile — `fix/email-sync-accurate-errors`).**
+
+- **Codes, not text.** `providerFailureCode(status, body)` maps a provider HTTP
+  failure to one of eleven codes; `classifyError` now consults `err.code` before
+  any heuristic. 20 categories, each with EN + FR copy (13 new keys per
+  language, `i18n:check` green at 1350/1350).
+- **The 403 that could never recover.** `GoogleSignin.configure()` is
+  process-global and `authService` reconfigures it with identity-only scopes, so
+  a valid Gmail grant can mint a token with no mail scope — which Gmail rejects
+  with **403, never 401**, and only 401 triggered the silent re-mint. A scope-403
+  now re-mints once, and if the live grant genuinely lacks the scope it calls
+  `GoogleSignin.addScopes` — a one-tap fix instead of "disconnect, reconnect".
+- **Connect-time scope check.** A consent sheet with the mailbox permission
+  unticked used to store a token that could never read mail; the failure only
+  showed up a screen later. It's now caught while the user is still in the flow.
+- **Cancel is not an error.** Backing out of the Google/Microsoft sheet raised an
+  alert reading "Something went wrong — our team has been notified". It now
+  shows nothing.
+- **Save failures stop lying.** All-N-receipts-failed-to-save was reported as
+  "already tracked". Duplicates (`saveReceipt` throws `DUPLICATE_RECEIPT`) and
+  real failures are now counted separately.
+- **Query fallbacks.** Gmail retries with a narrower query on a 400; Outlook
+  falls back from `$search` to a plain listing on 400 /
+  `MailboxNotEnabledForRESTAPI`, matching stores client-side. Gmail data stays
+  on-device throughout.
+- **No raw parser errors.** A 200 carrying HTML used to surface "JSON Parse
+  error: Unexpected character: <".
+
+**Support references — the part that avoids another blind rebuild.** Every error
+alert now ends with a short stable code (`GMAIL-403-INSUFFICIENT-SCOPE`,
+`GMAIL-403-API-DISABLED`, …) from `errorReference(err)`, and the same string is
+attached to the Sentry/analytics report. No provider text, no PII. Whatever the
+next failure is, its screenshot names the branch.
+
+**Tests.** 153 suites / **3321** tests green (was 151/3213), coverage
+78.2/66.4/67.7/81.0 against floors 68/55/59/70. Three new suites: provider
+bodies → codes, codes → the exact Alert copy in EN and FR, and a true end-to-end
+pass where only `fetch`, storage and the native Google module are faked — an
+HTTP response goes in and the user-visible sentence comes out. Table tests
+assert that **no** provider status resolves to `unknown` and that every category
+has non-empty copy in every language.
+
+**Regression risk — stated proactively.** Moderate-low, and concentrated in one
+place: `classifyError` is shared by six screens, not just email sync, so errors
+elsewhere can now land in a *new* category. That direction is strictly more
+specific (a cancel that read "Something went wrong" now reads "the action was
+cancelled"), never less, and the full suite is green. Two behaviour changes are
+worth watching on device: the scope-403 path can now show Google's consent sheet
+mid-sync (only after an explicit "Scan now" tap), and the alert body gained a
+second line. `reportHandledError`'s context gained a `reference` field — additive.
+
+**Open, and not something code can close:** if the real cause on Maxim's device
+is the **Gmail API not being enabled** for GCP project `695135372222`, or the
+restricted-scope verification still being outstanding, the app will now say so
+precisely (`GMAIL-403-API-DISABLED` / `GMAIL-403-OAUTH-BLOCKED`) but still won't
+sync until that's changed in the Google Cloud console. The reference code on the
+next run says which.
