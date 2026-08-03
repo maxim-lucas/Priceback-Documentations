@@ -2941,3 +2941,88 @@ problem, check your internet*. Mid-task: Outlook has the same problem.
   it's optional-chained, and iOS refreshes inside `getTokens()`. **Needs one real device run:
   connect Gmail, wait > 1 h (or revoke the token), scan again — it must succeed without a
   reconnect prompt.**
+
+---
+
+## 2026-08-03 — iOS App Store Connect configuration finished; RevenueCat iOS paywall unblocked
+
+**Ask.** Continue the iOS App Store configuration via Claude in Chrome and
+finalise the submission requirements so the app can be submitted tomorrow after
+on-device testing. Screenshots explicitly out of scope (no build to capture).
+
+**App Store Connect — version page (was completely empty; now saved).**
+- Version string **1.0 → 2.8.2**. This was a hard blocker rather than cosmetic: a
+  build uploads carrying `CFBundleShortVersionString` 2.8.2 and would never have
+  attached to a version record numbered 1.0.
+- Promotional text, full description, keywords, support URL
+  (`priceback.ca/support`), marketing URL, copyright `2026 Prosoft Inc` — pasted
+  from `marketing/app-store-description.md`.
+- **Added a subscription-disclosure block to the description** (price, cadence,
+  auto-renew terms, cancel path) plus Terms of Use and Privacy Policy links.
+  Guideline 3.1.2 requires these in the *metadata*, not only in the binary; the
+  paywall already carried the links but the listing did not.
+- App Review Information: contact Maxim Lucas / +1 438-868-8481 /
+  maxim.lucas@viacesi.fr, **"Sign-in required" unticked** (iOS needs no demo
+  account — Sign in with Apple), and a 3,967-char notes block condensed from
+  `REVIEWER_NOTES.md`. Release set to **manual**.
+
+**App Store Connect — App Information.** Content Rights answered **"Yes — has
+the necessary rights to its third-party content"**, matching what a reviewer
+plainly sees (retailer product names, prices, flyer data). Digital Services Act
+trader status deliberately **skipped** — it gates EU/EEA distribution only and
+availability is Canada-only.
+
+**Subscription group.** Levels swapped so **Unlimited Annual is level 1** and
+Monthly level 2. Apple treats the lower number as the higher tier, so
+Monthly → Annual was being handled as a *downgrade* deferred to the next renewal;
+it is now an immediate, prorated upgrade. Note the drag first merged both onto
+level 1 (a crossgrade, deferred for differing durations) — the second drag
+separated them, and the saved table must be re-read to confirm 1/2.
+
+**RevenueCat — the actual iOS blocker, found and fixed.** All five App Store
+products existed (the consumable-creation failure recorded on 2026-07-29 had
+since cleared), but **every package in the `default` offering held only its Play
+Store product**. The App Store slot on all five read "No product", so the iOS
+paywall would have resolved zero purchasable products and sold nothing — the
+exact failure mode audit §1.2 describes, arrived at by a different route.
+Attached `priceback_unlimited_annual`, `_monthly`, and the three packs to their
+packages and saved.
+
+**Verified state of all 5 IAPs.** Canada-only availability, CAD pricing, EN-CA +
+FR-CA localisations and review notes all present. **Only the review screenshot is
+missing on each** — it needs a running build, so it is the one item deliberately
+left for tomorrow.
+
+**Code change — see Bugs_Common_Fixes #135.** The paywall advertised "Family
+sharing (up to 6 users)" while the app implements no family or device sharing at
+all and Family Sharing is off on both ASC subscriptions. Removed the claim from
+`shared/pricing.config.js`, `backend/shared/pricing.config.js`, and the EN + FR
+i18n blocks.
+
+**Tests / coverage.** `npm run i18n:check` green (2 languages, 1,337 keys each,
+in sync). **151 suites / 3,213 tests green**; coverage 77.59 / 65.99 / 67.23 /
+80.35 against the 68/55/59/70 floors. `purchaseService.test.js` gains a test
+pinning `family_sharing → false` for Unlimited and broadens the
+"every feature unlocked" case to the five keys Unlimited actually grants.
+
+**Regression risk — stated proactively.**
+- *Removing a `FEATURE_KEYS` member is the widest edge here.* `canUseFeature`
+  is catalog-driven, so `"family_sharing"` now falls through to the free-feature
+  set and returns `false` everywhere. Verified by grep that no gate, screen, or
+  service reads it, so nothing loses access — but any **future** code that
+  hardcodes that string will silently get `false` rather than an error.
+- *The two `pricing.config.js` copies must not drift.* They are byte-identical by
+  contract; the backend copy was overwritten from the mobile one and diffed to
+  confirm. A partial edit would give the paywall and the ledger different feature
+  sets.
+- *Index-coupled i18n.* `catalogFeatures()` maps `features[i]` → `…features.<i>`.
+  The removed entry was last, so nothing shifted. Removing any earlier entry
+  without renumbering both language blocks would mislabel every later feature —
+  and `i18n:check` would **not** catch it, since parity would still hold.
+- *Untested on hardware.* The paywall's feature list is rendered from this
+  catalog; it is covered by the suite but has not been seen on a device since the
+  change. Confirm the Unlimited card shows five bullets, in both EN and FR,
+  during tomorrow's device pass.
+- *ASC subscription levels are live config, not code.* The swap changes
+  upgrade/downgrade behaviour for real purchases the moment products go live.
+  No subscribers exist yet, so there is nothing to migrate.

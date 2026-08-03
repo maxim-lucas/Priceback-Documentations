@@ -221,3 +221,84 @@ Notes:
    immediately, swap them (group page → Subscriptions → Edit).
 2. **`profile.versionLine`** in `src/services/i18n.js` still hardcodes `v2.6.0`
    while `app.json` is at `2.8.1`. Unrelated to iOS setup, but it's user-visible.
+
+---
+
+# UPDATE 2026-08-03 — everything here is DONE except the screenshots
+
+Supersedes the status lines above. Re-verified against the live consoles, not
+from memory.
+
+## App Store Connect — all 5 products verified complete
+
+| Product | ID | Price (CAD) | Availability | EN-CA | FR-CA | Review notes | Screenshot |
+|---|---|---|---|---|---|---|---|
+| Starter Pack | `priceback_pack_starter` | $2.99 | Canada only | ✅ | ✅ | ✅ | ❌ |
+| Pro Pack | `priceback_pack_pro` | $4.99 | Canada only | ✅ | ✅ | ✅ | ❌ |
+| Max Pack | `priceback_pack_max` | $9.99 | Canada only | ✅ | ✅ | ✅ | ❌ |
+| Unlimited Monthly | `priceback_unlimited_monthly` | $4.99 | Canada only | ✅ | ✅ | ✅ | ❌ |
+| Unlimited Annual | `priceback_unlimited_annual` | $49.99 (1-yr upfront) | Canada only | ✅ | ✅ | ✅ | ❌ |
+
+The "Max Pack localizations not yet saved" warning in the table near the top of
+this file was **stale** — it was already complete. Trust this section.
+
+**Subscription level order — decided and applied.** Unlimited **Annual is now
+level 1**, Monthly level 2, so Monthly → Annual is an immediate prorated upgrade
+instead of a downgrade deferred to the next renewal. Open decision #1 above is
+closed.
+
+⚠️ **Reordering gotcha.** The Edit Subscription Level dialog is drag-and-drop and
+will happily drop both subscriptions onto *the same* level, which reads as
+"1, 1" and means a crossgrade — for differing durations that defers the switch,
+i.e. the exact behaviour the swap was meant to remove. After dragging, confirm
+the saved table shows **1** and **2**, not 1 and 1.
+
+**Family Sharing stays OFF** on both subscriptions. The paywall used to advertise
+"Family sharing (up to 6 users)" while the app implements none; the claim was
+removed from the catalog rather than the capability enabled. See
+`Operations/Bugs_Common_Fixes.md` #135.
+
+## RevenueCat — the real iOS blocker, found and fixed
+
+The 3 consumable pack products **do now exist** (`prod…` records created
+2026-07-30) — the silent-form-reset failure recorded for 2026-07-29 cleared on
+its own, so no REST-API workaround was needed. All five carry the correct type,
+and the two subscriptions are attached to the `unlimited` entitlement. The packs
+correctly have **no** entitlement.
+
+**But every package in the `default` offering held only its Play Store product.**
+The "PriceBack (App Store)" slot on all five read *No product*. Nothing in either
+console flags this — the products look healthy on the Products page and the
+offering shows "5 packages". The consequence is total: `getOfferings()` on iOS
+would have returned packages with no `StoreProduct`, so the paywall renders with
+fallback catalog prices and **buys nothing**.
+
+Fixed 2026-08-03 — offering `ofrng41b525316c`, all five packages now carry both
+stores:
+
+| Package | Play product | App Store product |
+|---|---|---|
+| `$rc_annual` | `priceback_unlimited_annual:annual` | `priceback_unlimited_annual` |
+| `$rc_monthly` | `priceback_unlimited_monthly:monthly` | `priceback_unlimited_monthly` |
+| Starter Credit Pack | `priceback_pack_starter` | `priceback_pack_starter` |
+| Pro Credit Pack | `priceback_pack_pro` | `priceback_pack_pro` |
+| Max Credit Pack | `priceback_pack_max` | `priceback_pack_max` |
+
+**Check this first** whenever a second platform is added to an existing
+RevenueCat project: creating the products is only half the job, and the half that
+is silently missing is the one the SDK actually reads.
+
+Products still show **Store Status "Missing Metadata"**. Expected — Apple's API
+only exposes them once they are approved, so it resolves itself at review.
+
+## What is genuinely left
+
+1. **Review screenshots for all 5 products** — needs a running build. One capture
+   of the Buy Credits screen and one of the Unlimited paywall can be reused
+   across every product.
+2. **Upload a build** (`eas build -p ios --profile production`, then submit). The
+   version page shows an empty Build section until one lands.
+3. **Submit the IAPs together with the app version.** On a first submission,
+   products left in "Ready to Submit" are not reviewed and the reviewer finds a
+   paywall that sells nothing.
+4. **TestFlight purchase smoke test** against a sandbox account.

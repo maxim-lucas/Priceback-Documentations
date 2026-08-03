@@ -4748,3 +4748,61 @@ grant raises `auth_expired`, mid-loop expiry is not swallowed as a parse failure
 surface as errors, Outlook rotation + the no-refresh-token case).
 `errorSupport.test.js` pins `"Please reconnect."` → `auth_expired`, real `ECONN*` → `network`,
 and `access_denied` still winning over both.
+
+---
+
+## 135. The paywall sold a feature the store was never configured to deliver — "Family sharing (up to 6 users)"
+
+**Symptom.** None, until someone pays. The Unlimited paywall listed
+**"Family sharing (up to 6 users)"** as a headline benefit, in both EN and FR. A
+subscriber who then tried to share Unlimited with their household would get
+nothing at all, with no error and nothing to report — the feature simply does not
+exist.
+
+**Root cause — two independent halves, each invisible on its own.**
+
+1. `shared/pricing.config.js` listed `FEATURE_KEYS.FAMILY_SHARING` in the
+   Unlimited tier's `featureKeys` *and* `"Family sharing (up to 6 users)"` in its
+   customer-facing `features` array, so `canUseFeature("family_sharing")`
+   returned `true` for any Unlimited subscriber.
+2. **Nothing in the app ever asked.** A repo-wide grep for `FAMILY_SHARING` /
+   `family_sharing` found the constant, its two uses inside the catalog, and the
+   tests — and no gate, screen, or service anywhere. The key granted access to a
+   capability that had no implementation behind it.
+
+Meanwhile Family Sharing was switched **off** on both auto-renewable
+subscriptions in App Store Connect, which is the only place the capability could
+actually have come from: StoreKit is what shares an entitlement with a family
+group, and RevenueCat only passes through what Apple grants.
+
+**Why it survived review passes.** The App Store submission audit checked the
+*store description* against the code and found the description clean — it never
+mentions family sharing. The false claim lived only in the **in-binary paywall**,
+which no metadata audit reads. The i18n checker was equally happy: the key
+existed in both EN and FR, perfectly in sync, so parity enforcement confirmed the
+lie was correctly translated.
+
+**Fix.** The claim was removed rather than the capability enabled — the app has
+no family- *or* device-sharing behaviour to expose, so turning it on at Apple
+would have promised a real entitlement the app still couldn't use. Deleted
+`FAMILY_SHARING` from `FEATURE_KEYS`, from Unlimited's `featureKeys`, and from
+its `features` array (in **both** `shared/pricing.config.js` and the
+`backend/shared/` copy, which must stay byte-identical), plus
+`catalog.tier.unlimited.features.5` from the EN and FR blocks of
+`src/services/i18n.js`. It was the last element of the list, so no index shifted
+— `catalogFeatures()` maps `features[i]` to `catalog.<kind>.<id>.features.<i>`,
+and removing a middle entry would silently relabel every item after it.
+
+**Generalised rule.** **A feature key with no consumer is a marketing claim, not
+a capability.** Before adding one to a paid tier, grep for a call site that reads
+it; if `canUseFeature("x")` is never asked anywhere, the paywall line above it is
+unbacked. The corollary for store work: **auditing store metadata is not
+auditing the paywall.** The binary's own purchase screen is a separate surface
+with its own accuracy obligation under Guideline 2.3.1, and it is the one the
+paying customer actually reads.
+
+**Guards.** `__tests__/purchaseService.test.js` now pins
+`canUseFeature("family_sharing") === false` for an active Unlimited subscriber —
+the direction that used to assert `true` — and the "every feature unlocked" test
+enumerates the five keys Unlimited genuinely grants, so re-adding an unbacked key
+to the tier fails the suite rather than quietly widening it.
