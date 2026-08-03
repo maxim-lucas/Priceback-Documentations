@@ -4603,3 +4603,64 @@ specific uploaded artifact*, not a to-do list for the repo. Split it three ways 
 touching code: what is already fixed but unshipped, what is framework-owned and can only be
 documented, and what is genuinely ours. Fixing the middle category is where the wasted
 effort lives.
+
+## 133. The large-screen orientation "fix" was itself a regression — reverted, and must not be re-attempted
+
+**This entry exists to stop the fix from being re-applied.** Google Play will keep
+recommending "Remove resizability and orientation restrictions in your app to support large
+screen devices" on every release. **That recommendation is knowingly declined.** Anyone —
+human or agent — who reads it fresh and starts removing `android:screenOrientation` is
+repeating PR #224, which was reverted in PR #225.
+
+**Why the obvious fix regresses.** The manifest lock applies **from activity launch, before
+anything is drawn**. Any runtime replacement (`ScreenOrientation.lockAsync` in a `useEffect`)
+can only take effect once the JS bundle has mounted. A phone cold-started while held in
+landscape therefore renders the native splash in landscape and then snaps to portrait. **No
+runtime approach can close that gap, because the gap is before JS exists.**
+
+**And the runtime lock doesn't even cover everything Play flags.**
+`setRequestedOrientation` applies to our own activity only. Play also names two Play
+Services scanner activities — `GmsBarcodeScanningDelegateActivity` (expo-camera) and
+`GmsDocumentScanningDelegateActivity` (react-native-document-scanner-plugin). Those are
+closed-source AARs; a `tools:replace` override makes them rotate on phones with **no runtime
+lever to put that back.**
+
+**The third option, also rejected.** Pointing `android:screenOrientation` at an `@integer`
+resource that differs in `values-sw600dp/` would be correct from the first frame. It was not
+taken because (a) it cannot be validated without the Android SDK — aapt2 may reject a
+resource reference on an enum attribute — and (b) even if it compiled, it ships landscape
+layouts **that have never been rendered on a large screen**.
+
+**What declining costs us: an advisory in Play Console. Nothing else.** Android 16 ignores
+orientation restrictions on displays over 600dp regardless, so large-screen users get
+rotation from the platform without us shipping unverified layouts.
+
+**If it is ever revisited**, it starts with a tablet or resizable emulator in hand and every
+screen verified in landscape *first* — not with a manifest edit.
+
+**Guard.** `__tests__/androidOrientationLock.test.js` asserts the lock is present, that no
+plugin strips it, and that no runtime orientation dependency is installed.
+
+**The same applies to the edge-to-edge recommendation, for a different reason.** All seven
+call sites Play lists are framework-owned and **unreachable from this repo**:
+`android/app/build.gradle` consumes React Native as a prebuilt Maven AAR
+(`implementation("com.facebook.react:react-android")`), so the Kotlin under
+`node_modules/react-native/ReactAndroid/src/` is reference source that the build never
+compiles — `patch-package` cannot touch it. Material Components is already at 1.13.0, the
+newest release. Play's scan is **static reachability over the dex, not observed calls**,
+which is why developers report fixing all app-side usage and the warning persisting. Tracked
+upstream at react-native#48256, expo#37459, react-native-screens#2632.
+
+Note the correction that produced that conclusion: `<StatusBar backgroundColor>` was
+initially believed to be a real call into `Window.setStatusBarColor`. It is not —
+`expo-status-bar`'s `NativeStatusBarWrapper` destructures only
+`{ style, hideTransitionAnimation, animated, hidden }` and **never forwards
+`backgroundColor`**. Removing the prop silences a per-render `console.warn`; it removes no
+deprecated call. **Read the wrapper, don't trust the deprecation note.**
+
+**Generalised rule — the one worth carrying.** A store recommendation is a suggestion about
+an artifact, not a requirement, and **clearing an advisory is never worth a regression**. Before
+acting on one, ask what declining actually costs. Here it was: one line of advisory text,
+against a visible orientation flip on every phone. If the fix cannot be verified on the
+hardware it affects, the correct move is to decline it and record why — including a guard
+test, so the next reader finds the decision instead of the recommendation.

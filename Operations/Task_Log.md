@@ -2830,3 +2830,60 @@ correctly no-ops on dev instead of silently skipping.
   2. **R8 on hardware is still owed from the previous session** — R8 links, but has never
      run on a real device. A `preview` profile APK builds release-variant, so it exercises
      R8; smoke-test one before shipping 2.8.2 to production.
+
+## 2026-08-03 (same day, follow-up) — reverted the large-screen orientation change; standing no-regression rule recorded
+
+- **Trigger:** Maxim asked two questions about the PR #224 work — "is there any regression of
+  any kind?" and "why is edge-to-edge unfixable from this repo?" Both had to be answered by
+  checking rather than restating. Both answers changed the outcome.
+
+### Correction: the StatusBar prop was never a real deprecated call
+- PR #224 claimed one of the seven flagged edge-to-edge call sites was ours
+  (`<StatusBar backgroundColor>` → `Window.setStatusBarColor`). **False.**
+  `expo-status-bar`'s `NativeStatusBarWrapper` destructures only
+  `{ style, hideTransitionAnimation, animated, hidden }` and never forwards
+  `backgroundColor`. The prop was inert on every API level.
+- Removing it silences a per-render `console.warn` — a real but minor win. **All seven sites
+  are framework-owned.** Lesson: read the wrapper, don't trust the deprecation note.
+
+### Evidence that edge-to-edge is genuinely unfixable here
+- `android/app/build.gradle` → `implementation("com.facebook.react:react-android")`. RN's
+  Android code is a **prebuilt Maven AAR**; the Kotlin in `node_modules/react-native/
+  ReactAndroid/src/` is reference source the build never compiles, so `patch-package` (which
+  this repo does use, for `react-native-document-scanner-plugin`) cannot reach it. Material is
+  already 1.13.0, the newest release. Play's scan is static reachability over the dex, not
+  observed calls. Upstream: react-native#48256, expo#37459, react-native-screens#2632.
+
+### Two regressions found in PR #224, and the revert
+1. **Launch-orientation flip.** The manifest lock applied from activity launch; the runtime
+   lock only once JS mounted. A phone cold-started in landscape rendered the splash in
+   landscape then snapped to portrait. **No runtime approach can fix this — the gap is before
+   JS exists.**
+2. **The two ML Kit scanner activities rotated on phones.** `setRequestedOrientation` covers
+   our activity only; those are closed-source AARs with no runtime lever.
+- PR #224's summary said "phone behaviour is unchanged by construction" — true of MainActivity
+  only. Corrected.
+- **Maxim's call: revert entirely (and re-lock the scanners).** PR #225. `withAndroidLargeScreenSupport`,
+  `orientationService`, `expo-screen-orientation` and their tests all removed; `app.json` keeps
+  `orientation: "portrait"` so Expo's `withOrientation` writes the manifest lock again.
+- **Verified by a clean prebuild** (`rm -rf android` first — an incremental prebuild *merges*
+  into the existing manifest and had been showing stale attributes): MainActivity back to
+  `screenOrientation="portrait"`, **zero** `resizeableActivity`, no GMS overrides — byte-identical
+  to 2.8.1 — while `android.enableR8.fullMode=true` survives.
+
+### What PR #224 correctly keeps
+- **2.8.2 / versionCode 22** — the only thing that actually clears the R8 recommendation, since
+  vc21 predated the R8 commit and Play scans the artifact, not the repo.
+- `withAndroidR8FullMode` (no-op at AGP 8.12.0, where full mode is already the default).
+- The StatusBar prop removal and `edgeToEdgeDeprecations` guard test.
+
+### Tests / docs
+- 149 suites / **3158 tests green**; coverage 77.44 / 65.91 / 67.10 / 80.20 against the
+  68/55/59/70 floors. New `__tests__/androidOrientationLock.test.js` pins the lock as
+  deliberate so the Play recommendation isn't "fixed" again.
+- `Bugs_Common_Fixes.md` #133 — written explicitly as a do-not-retry record.
+
+### Standing rule recorded this session
+- **No regression is allowed or accepted on any change**, and regression risk must be stated
+  proactively on every change rather than only when asked. Both PR #224 regressions were
+  reported only because Maxim asked; that is the failure being corrected.
