@@ -3059,3 +3059,53 @@ enforces the correspondence, and neither Apple nor the build warns on drift.
 Note also that the stale table in `PUBLISH_CHECKLIST.md` §9 still describes Device
 ID and Product Interaction as "not linked"; Audit §2.4 is the correct reference
 and now matches reality.
+
+---
+
+## 2026-08-03 (cont.) — the three submission fields nobody had looked at
+
+Maxim flagged three App Store Connect version fields that earlier passes never
+evaluated: **Routing App Coverage File**, **App Clip**, and **Attachment**. All
+three were empty. Two are correctly empty; one was a real gap.
+
+**Routing App Coverage File — correctly empty, leave it.** This is only for apps
+that register `MKDirectionsApplication` and hand the user turn-by-turn routing.
+PriceBack has no maps or directions feature; there is no `MKDirections` entry
+anywhere, and the repo has no `ios/` directory at all (managed workflow, Expo
+prebuild runs on EAS). The field is optional and uploading a geoJSON we can't
+honour would invite a functionality rejection, not avoid one.
+
+**App Clip — correctly empty, and not actionable.** Expanding the section shows
+Apple's own gate: metadata can only be entered once a build containing a clip is
+uploaded. The app has no App Clip target, and the build list confirms it —
+build 21 reads `HAS APP CLIP = NO`. Nothing to configure, and nothing blocking.
+
+**Attachment — this was the actual gap, now filled.** Notes is capped at 4,000
+characters and was sitting at 3,967, so roughly two thirds of
+`Publishing-Compliance/REVIEWER_NOTES.md` (13k characters) had nowhere to go: the
+permission-by-permission rationale, the stripped-permission explanation, the
+independence-from-retailers statement, the account-gated maintainer tooling
+disclosure, the third-party/cross-border table, and the full pricing catalog.
+Rendered that content to **`PriceBack_App_Review_Guide.pdf`** (6 pages, 139 KB)
+and uploaded it to App Review Information → Attachment. Notes now ends with
+`Full guide: see attachment.` so the reviewer knows to open it — that line fit in
+the 33 characters of headroom, leaving 5.
+
+Saved and verified by reloading the version page: attachment persists, Notes
+counter reads 5, release stays **manual**. **Not submitted** — "Add for Review"
+was not touched; Maxim still submits after the device pass.
+
+Also fixed a genuine markdown defect found while rendering: `REVIEWER_NOTES.md`
+had nested `**bold**` inside a bold span in the photo-library bullet, which is
+malformed and rendered inside-out. Rewritten to `on Android: no permission at
+all`.
+
+**Regression risk: none.** No app code changed — the only repo edit is one line
+of prose in a markdown doc that nothing imports or tests. The App Store Connect
+changes are store config on an unsubmitted draft, both reversible in the UI (the
+attachment has a Delete control; the Notes line is 27 characters). No build, no
+binary, no user-facing string, no i18n key. The one thing to keep in mind: the
+attached PDF is a **point-in-time render** of `REVIEWER_NOTES.md`. Nothing syncs
+them — this is the same two-declarations-of-one-fact shape as the privacy-label
+drift in #136. If the notes change materially before submission, re-render and
+re-upload the PDF.

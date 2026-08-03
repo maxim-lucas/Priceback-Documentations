@@ -727,6 +727,17 @@ reads as a broken sign-in. See `App_Store_Submission_Audit.md` §1.10.
   and an explanation of the account-gated maintainer screens. Paste into App
   Store Connect → App version → App Review Information → Notes. Apple's field is
   4000 chars; the "Short version" at the bottom fits.
+- [x] **Attachment** (App Review Information) — done 2026-08-03. Notes is capped
+  at 4000 chars and sits at 3,995, so the full 13k-char `REVIEWER_NOTES.md` is
+  attached as `PriceBack_App_Review_Guide.pdf` (6 pages) and Notes ends with
+  `Full guide: see attachment.` The PDF is a point-in-time render — **if the
+  notes change materially, re-render and re-upload it**; nothing syncs the two.
+- [x] **Routing App Coverage File** — deliberately left empty. Only applies to
+  apps registering `MKDirectionsApplication`; PriceBack has no maps or routing
+  feature. Optional field, no action.
+- [x] **App Clip** — deliberately left empty and not actionable. Apple gates the
+  metadata behind a build containing a clip; there is no App Clip target (build
+  21 reads `HAS APP CLIP = NO`). Not a blocker.
 - [ ] (Play only) **Demo account** — Android has no Apple-sign-in equivalent. If
   the Play reviewer won't use their own Google account, provision a dedicated
   one and pre-populate it: complete onboarding, scan a few sample receipts, set a

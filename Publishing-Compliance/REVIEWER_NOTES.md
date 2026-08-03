@@ -118,8 +118,8 @@ After signing in:
 
 - **Camera (NSCameraUsageDescription / android.permission.CAMERA)** —
   receipt scanning is the core action; required.
-- **Photo library (NSPhotoLibraryUsageDescription on iOS; on Android **no
-  permission at all**)** — alternate path: importing a pre-existing receipt
+- **Photo library (NSPhotoLibraryUsageDescription on iOS; on Android: no
+  permission at all)** — alternate path: importing a pre-existing receipt
   photo without re-taking it. On Android this goes through the **system photo
   picker** (expo-image-picker on SDK 55 uses `PickVisualMedia`), which grants
   per-item access without any media permission — see the stripped list below.
