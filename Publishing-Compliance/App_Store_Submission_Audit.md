@@ -11,7 +11,13 @@ every fix below is either iOS-only or platform-neutral. The Play build's
 RevenueCat key, permissions, and sign-in flow are unchanged.
 
 Read this alongside `PUBLISH_CHECKLIST.md` (the full launch runbook) and
-`REVIEWER_NOTES.md` (the text to paste into App Review Information).
+`REVIEWER_NOTES.md` (the source for both halves of App Review Information — the
+abridged copy pasted into Notes, and the full copy rendered to
+`PriceBack_App_Review_Guide.pdf` and attached; see §2.9).
+
+**§2.9 added 2026-08-03**, covering the three optional version fields — Routing
+App Coverage File, App Clip, Attachment — that this audit's original pass never
+evaluated.
 
 ---
 
@@ -366,6 +372,52 @@ curl -s https://priceback-production.up.railway.app/health | jq '.healthy, .chec
 Expect `healthy: true`, `appleAuth.audience == "com.priceback"`, and
 `revenuecat.webhook == "configured"`. If `appleAuth` is absent, the deploy
 predates the Apple verifier — redeploy before submitting.
+
+### 2.9 App Store Connect — the three optional version fields
+
+Assessed 2026-08-03, after every other field on the version page had been
+filled. All three sat empty and none had ever been evaluated — an empty optional
+field looks identical whether it was considered and dismissed or simply never
+read, which is exactly why they were missed. Two are correctly empty. One
+wasn't.
+
+**Routing App Coverage File — leave empty. Not applicable.** This field exists
+for apps that register `MKDirectionsApplication` and hand the user turn-by-turn
+directions; the geoJSON declares which regions the app can route within.
+PriceBack has no maps, no directions, and no `MKDirections` entry anywhere — the
+repo has no `ios/` directory at all, since prebuild runs on EAS. Uploading a
+coverage file for routing we don't implement would create a functionality claim
+Apple could test and reject under 2.1, so the empty field is the correct state,
+not an oversight to fix later.
+
+**App Clip — leave empty. Not actionable even if we wanted one.** Expanding the
+section surfaces Apple's own gate: *"To provide metadata for your app clip, you
+must first upload a build to App Store Connect that contains a clip."* There is
+no App Clip target in the project, and the build list agrees — build 21 reads
+`HAS APP CLIP = NO`. Nothing here can block submission.
+
+**Attachment — this one was a real gap, now filled.** The Notes field is capped
+at 4,000 characters and was sitting at 3,967, so roughly two thirds of
+`REVIEWER_NOTES.md` (13,000 characters) had nowhere to go: the
+permission-by-permission rationale, the stripped-permission explanation
+(§1.5/§1.6 territory), the retailer-independence statement, the disclosure of
+the account-gated maintainer screens, the third-party/cross-border services
+table, and the full pricing catalog. Those are precisely the answers a reviewer
+would otherwise have to ask for — and a question from App Review costs a review
+cycle.
+
+That content is now attached as **`PriceBack_App_Review_Guide.pdf`** (6 pages,
+139 KB), rendered from `REVIEWER_NOTES.md` by
+`Publishing-Compliance/tools/render-reviewer-guide.js`. Notes ends with
+`Full guide: see attachment.` so the reviewer knows to open it; that line fit in
+the 33 characters of headroom, leaving 5.
+
+**The maintenance hazard.** The PDF is a point-in-time render and nothing syncs
+it to its source. Edit `REVIEWER_NOTES.md` and the document Apple reads goes
+stale silently — no checker, no build step, and no App Store Connect warning
+will say so. This is the same shape as the App Privacy drift in §2.4 and
+`Operations/Bugs_Common_Fixes.md` #136. **If the notes change materially before
+submission, re-render and re-upload.**
 
 ---
 
