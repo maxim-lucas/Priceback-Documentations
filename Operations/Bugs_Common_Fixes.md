@@ -4855,3 +4855,98 @@ changes. "Published" on the App Privacy page means *answered*, not *correct*.
 was never configured to deliver (#135). Both are the same failure mode: a claim
 recorded in one surface that nothing validates against the surface that has to
 honour it.
+
+---
+
+## 137. "Our service is having a hiccup" — one sentence hiding nine different email-sync failures
+
+**Symptom.** A fresh build of the email-receipt sync, "Scan now", and:
+
+> **Sync Failed**
+> Our service is having a hiccup. Please try again in a few minutes — our team
+> has been notified.
+
+Retrying, waiting, and rebuilding all produced the same sentence. Nothing in it
+named the provider, the status, or the reason, so the failure was
+indistinguishable from an outage — and there was no way to tell one build's
+failure from the next one's without shipping an instrumented APK.
+
+**Root cause — a message-shaped classifier and a catch-all bucket.**
+`createAuthorizedFetch` phrased every non-401 provider failure as
+
+```js
+new Error(`${providerLabel} API error ${res.status}${detail}`)
+```
+
+and `errorSupport.classifyError` decided the category by regex on that message:
+
+```js
+if (err?.status >= 500 || /\b5\d\d\b|server|unavailable|api error/i.test(msg)) return "server";
+```
+
+The literal words **"api error"** matched. So *every* Gmail/Graph 4xx — a token
+without the `gmail.readonly` scope (403 `ACCESS_TOKEN_SCOPE_INSUFFICIENT`), the
+Gmail API not enabled on the GCP project (403 `SERVICE_DISABLED`), a quota (403
+`rateLimitExceeded`), a rejected query (400), a mailbox Graph won't `$search`
+(400 `MailboxNotEnabledForRESTAPI`) — collapsed into the same bucket as a real
+502. Four of those five are never fixed by waiting; one of them the user fixes
+in ten seconds if you tell them.
+
+**Second-order defects the same shape was hiding.**
+
+- A **403 never triggered the silent token re-mint** — only a 401 did. But
+  `GoogleSignin.configure()` is *process-global*, and `authService`
+  reconfigures it with identity-only scopes on every silent session refresh.
+  Whichever module configured last decides what `getTokens()` mints, so a
+  perfectly valid Gmail grant can hand back a token with no mail scope. Gmail
+  answers that with **403, never 401** — so the recovery path could not fire for
+  the one case it was most needed for.
+- **A cancelled sign-in was an error alert.** Backing out of the Google sheet
+  raised `Error("Gmail login cancelled.")`, which fell through to
+  `err.unknownBody` — "Something went wrong… our team has been notified".
+- **Every failed local save was reported as "already tracked".** The screen
+  counted `imported` and swallowed save exceptions, so if all N receipts failed
+  to save the user was told they were already in their list. (Careful here:
+  `saveReceipt` signals a *duplicate* by throwing `DUPLICATE_RECEIPT`, so "it
+  threw" and "it failed" are genuinely different.)
+- **A 200 carrying HTML** (captive portal, proxy interstitial) surfaced
+  `res.json()`'s parser error verbatim: "JSON Parse error: Unexpected
+  character: <".
+
+**Fix.** Classification moved from message text to an explicit code set on the
+error at the point of failure, and every branch got its own honest copy:
+
+- `emailSyncService.providerFailureCode(status, body)` maps one provider HTTP
+  failure to one of `insufficient_scope`, `api_disabled`, `rate_limited`,
+  `oauth_blocked`, `mailbox_unsupported`, `auth_expired`, `provider_forbidden`,
+  `not_found`, `bad_request`, `provider_down`, `provider_error`.
+- `errorSupport.classifyError` consults `err.code` **before** any heuristic, and
+  the vocabulary grew to 20 categories, each with EN + FR copy.
+- The 403-scope case now re-mints once (like a 401) and, if the live grant is
+  genuinely missing the scope, calls `GoogleSignin.addScopes` — a one-tap fix in
+  place of "disconnect and reconnect".
+- Gmail falls back to a narrower query on a 400; Outlook falls back from
+  `$search` to a plain listing on 400/`MailboxNotEnabledForRESTAPI`, matching
+  stores client-side.
+- A cancelled flow shows **no alert at all**.
+
+**Support references.** Every error alert now ends with a short, stable code —
+`GMAIL-403-INSUFFICIENT-SCOPE`, `GMAIL-403-API-DISABLED`, `OUTLOOK-400-BAD-REQUEST`
+— built by `errorSupport.errorReference(err)` as `[PROVIDER-][STATUS-]CATEGORY`.
+It contains no provider text and no PII, and the identical string is attached to
+the Sentry/analytics report, so a screenshot and a telemetry entry match by eye.
+**This is the part that means the next failure needs no new build to diagnose.**
+
+**Generalised rule.** **Never classify an error by pattern-matching a message
+you also composed.** The message is for the team; the code is for the copy. If a
+failure can have several causes that need different advice, the layer that knows
+the cause has to say so explicitly — by the time a string reaches the classifier
+the information is already gone. And a bucket named "server" must contain only
+failures that are actually the server's, or it becomes a lie the user acts on.
+
+**Tests.** 3 new suites, ~100 new tests: `emailSyncErrorPaths` (real provider
+bodies → codes), `emailSyncScreenErrors` (codes → the exact Alert copy, EN + FR),
+and `emailSyncEndToEnd` (HTTP response in, user-visible sentence out, with only
+`fetch`/storage/native faked). A table test asserts **no** provider status
+resolves to `unknown`, and another asserts every category has non-empty copy in
+every language.
