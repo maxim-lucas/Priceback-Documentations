@@ -4950,3 +4950,129 @@ and `emailSyncEndToEnd` (HTTP response in, user-visible sentence out, with only
 `fetch`/storage/native faked). A table test asserts **no** provider status
 resolves to `unknown`, and another asserts every category has non-empty copy in
 every language.
+
+## 138. One rejected promise could kill the whole API — Express 4 + Node 24, and 15 routes that awaited with no try/catch
+
+**Class:** availability. **Found:** 2026-08-03 production audit. **Fixed:** `backend/lib/processSafety.js`.
+
+Two facts that are individually harmless and jointly fatal:
+
+1. **Express 4 does not forward a rejected async handler** to the error
+   middleware. That only arrives in Express 5. An `async` route whose body
+   rejects produces an *unhandled rejection*, not a 500.
+2. **Node ≥ 15 terminates the process** on an unhandled rejection.
+
+So a single failed request killed the container and dropped every other
+in-flight request with it. 15 of 60 routes were exposed, and the worst were the
+hottest: `POST /api/device/scan` and `/api/device/sync` run **on every app
+launch and every scan, for every user** — against a pooler that
+`db/client.js:231` already documents as throwing transient `EMAXCONNSESSION`
+errors. Four more routes had a `try` but awaited *before* entering it, including
+`/health`, which is Railway's own healthcheck.
+
+**Why the obvious fix was the wrong one.** Wrapping the 19 known routes by hand
+fixes today and leaves the 20th — the next route someone adds — exposed with
+the same outcome. The fix patches the *registration point*
+(`wrapAppRoutes(app)`), so every current and future route forwards rejections
+automatically. `app.use` is deliberately **not** patched: Express identifies
+error middleware by `fn.length === 4`, so wrapping would silently demote the
+global error handler to an ordinary middleware.
+
+**Two layers, on purpose.** `asyncRoute()` is the correct fix (the caller gets a
+real error response). `installCrashGuards()` is the net for anything that still
+escapes — timers, fire-and-forget calls, stray `.then` without `.catch`:
+`unhandledRejection` logs and **keeps serving** (one failed request must not
+become an outage), while `uncaughtException` drains and exits non-zero, because
+after one the process state is undefined.
+
+**The subtle part:** the guards are installed from `startServer()`, **not at
+require time**. `node --test` workers import `server.js` for route tests and
+rely on the default `uncaughtException` behaviour to attribute a failure to the
+running test file. Installing a process-level handler at require time changes
+that for the test runner too.
+
+Related: SIGTERM previously called `process.exit(0)` immediately, severing
+in-flight credit and receipt writes on every Railway redeploy. It now closes the
+listener, drains, flushes, then exits, with a hard deadline so a hung keep-alive
+socket can't block a deploy.
+
+## 139. The brute-force throttle protecting the admin token was bypassable with a header
+
+**Class:** security (auth bypass). **Found:** 2026-08-03. **Fixed:** `app.set("trust proxy", 1)`.
+
+`/api/flyer/import` throttles *before* comparing the admin token — deliberately,
+with a comment saying "so failed-auth guesses are counted too". But it keyed on
+the **leftmost** `X-Forwarded-For` hop, which is entirely client-supplied. An
+attacker rotating that header per request voided the throttle completely and
+restored unlimited admin-token guessing.
+
+The same leftmost bug sat in the `/api/check-price` and `/api/analytics`
+limiters, and in the audit log's IP hash — where it additionally let an abuser
+make their own requests unlinkable in the breadcrumb trail.
+
+**Rule of thumb:** in `X-Forwarded-For: a, b, c`, everything except the
+**rightmost** entry was supplied by the caller; only the last hop was appended
+by your own proxy. The codebase already had one function doing it right
+(`clientIpForRateKey`) and three doing it wrong — two competing notions of "the
+client's IP" in a single file.
+
+**Fix:** set `trust proxy` to the number of proxies actually in front (Railway =
+1) and use `req.ip` everywhere. Express then derives the client address
+correctly and the hand-rolled parsing disappears. If another proxy is ever added
+in front, that number must grow to match.
+
+## 140. Every referral failure showed generic copy — the client compared a machine code against prose
+
+**Class:** silent user-facing regression. **Found:** 2026-08-03 (shipped in production).
+
+The backend returned `{ code: "self_referral", error: "cannot redeem your own
+code" }` — machine code in `code`, human prose in `error`. The client stored
+`error: data.error` and then branched on `result.error === "self_referral"`.
+
+That comparison **can never be true**. So a user redeeming their own code, or a
+code they'd already used, or a code that doesn't exist, all fell through to
+"Try again in a moment." The specific, translated copy for each case existed and
+was simply never reachable.
+
+This is the concrete cost of an inconsistent error envelope: the API had **eight
+distinct shapes** across ~195 sites, and `error` sometimes held a code and
+sometimes prose. `priceService.js` has the same latent bug — it branches on
+`error === "consent_required" | "timeout" | "network_error"`, which cannot match
+any prose endpoint.
+
+**Fix:** one envelope, `backend/lib/httpError.js` —
+`{ error: <snake_case code>, code: <UPPER>, message: <English diagnostic>,
+requestId }`. `error` is always the machine code; prose lives in `message` and
+is never rendered. `tests/errorContract.test.js` scans `server.js` and fails the
+build on prose in an `error` field, which is what stops the drift recurring —
+and it immediately caught 7 interpolated backtick values a manual sweep missed.
+
+**Lesson:** when a field is read by a shipped client, "mostly a code" is the
+same as "not a code". Pin the exact strings the live build compares against in a
+test before changing any of them; users in the field cannot upgrade on demand.
+
+## 141. The most-seen screen in the app printed the raw exception, in English
+
+**Class:** UX / privacy / i18n. **Found:** 2026-08-03.
+
+`App.js`'s root `ErrorBoundary` rendered `this.state.error?.message` directly —
+raw exception text, English-only, to every user on any render crash. Its title
+and button were hardcoded English literals too.
+
+**Why CI never caught it:** `scripts/checkI18n.js` only scanned `src/`, and
+`App.js` lives outside it. The file with the app's single most visible piece of
+copy was the one file the copy checker didn't look at.
+
+Compounding it, 24 of ~28 screens had no error boundary at all, so most crashes
+unmounted the whole tree to this screen; and `ScreenErrorBoundary` — where it
+*was* used — only `console.warn`ed, so caught crashes were invisible in
+production telemetry.
+
+**Fixes:** localized copy resolved through a helper that cannot itself throw (if
+i18n is what broke, it falls back to English rather than crashing the crash
+screen); a support reference (`APP-CRASH-TYPEERROR`) shown to the user and
+attached to the Sentry event so a bug report lines up by eye; every screen
+wrapped via a **memoized** HOC — an inline wrapper would create a new component
+identity each render and remount every screen; and `checkI18n.js` now scans
+`App.js`, bans the `t("k") || "English"` pattern outright (446 instances had
+accumulated), and checks `{placeholder}` parity between languages.
