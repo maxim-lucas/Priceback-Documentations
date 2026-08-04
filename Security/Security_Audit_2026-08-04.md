@@ -54,10 +54,15 @@ are isolated defects rather than a pattern:
 ### 1. Live Cloudflare R2 credentials committed — **High** — FIXED (rotation owed)
 
 `backend/.env.example` carried real values for `R2_ACCOUNT_ID`,
-`R2_ACCESS_KEY_ID` and a 64-hex `R2_SECRET_ACCESS_KEY` — tracked on `main` since
-~PR #92. Those credentials open `priceback-receipts`, the bucket holding user
-receipt images and price-tag photos. The repo is **private**, which is the only
-reason this wasn't critical.
+`R2_ACCESS_KEY_ID` and a 64-hex `R2_SECRET_ACCESS_KEY`. Those credentials open
+`priceback-receipts`, the bucket holding user receipt images and price-tag
+photos. The repo is **private**, which is the only reason this wasn't critical.
+
+**Exposure window: 2026-05-28 → 2026-08-04, about ten weeks.** Introduced in
+`4b41643` ("Add Postgres persistence layer"), confirmed with
+`git log --all -S <secret> -- backend/.env.example` — the file's recent commits
+merely touched it without changing those lines, so reading the log by
+last-modified date understates the window by three weeks.
 
 Scrubbed to blanks (PR #237). **The file change is not the fix** — the token has
 to be revoked in Cloudflare, because it remains valid, remains in git history,

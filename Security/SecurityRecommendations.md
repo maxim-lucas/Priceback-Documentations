@@ -263,7 +263,7 @@ and receipts are excluded while preferences still restore.
 Full write-up: `Security_Audit_2026-08-04.md`. Code in PR #237.
 
 - **Live Cloudflare R2 credentials scrubbed** from `backend/.env.example`
-  (tracked on `main` since ~PR #92). Rotation in Cloudflare is still owed — the
+  (on `main` from 2026-05-28 to 2026-08-04 — ten weeks). Rotation in Cloudflare is still owed — the
   scrub stops it leaking again, it does not invalidate the key.
 - **gitleaks CI gate re-enabled** after two weeks muted with `if: false`, plus a
   value-shaped (never path-scoped) allowlist for the six identifier false

@@ -5370,11 +5370,17 @@ user-visible changed, but anything asserting the old status will fail.
 
 **Root cause — two mistakes, and the second one is the expensive one.**
 `backend/.env.example` held live Cloudflare R2 credentials (account id, access
-key, and a 64-hex secret access key) rather than blanks, on `main` since ~PR #92.
-That bucket holds user receipt and price-tag photos. A file whose entire purpose
-is to be a copyable template is the easiest place in a repo for a real value to
-get pasted "just for now" and then never removed, because it reads as
-documentation rather than as configuration.
+key, and a 64-hex secret access key) rather than blanks — on `main` from
+`4b41643` (2026-05-28) to 2026-08-04, **about ten weeks**. That bucket holds user
+receipt and price-tag photos. A file whose entire purpose is to be a copyable
+template is the easiest place in a repo for a real value to get pasted "just for
+now" and then never removed, because it reads as documentation rather than as
+configuration.
+
+**Dating a leak: use `-S`, not the file's log.** `git log -- <file>` shows when
+the file was last *touched*, which here pointed at PR #92 (2026-06-18) and
+understated the exposure by three weeks. `git log --all -S '<secret>' -- <file>`
+shows when the *value* entered and left. Always date a leak the second way.
 
 Then the secret scanner correctly found it, went red, and was muted so the PR
 gate would stay green while rotation was handled separately. Rotation didn't

@@ -3476,11 +3476,13 @@ no WebView, no hardcoded keys in `src/`; Sentry PII scrubber redacts by pattern
 ### Findings fixed — PR #237
 
 1. **Live Cloudflare R2 credentials in `backend/.env.example`** (High) — account
-   id, access key, 64-hex secret, tracked on `main` since ~#92, opening the
-   bucket that holds user receipt and price-tag photos. Repo is private, which is
-   the only reason it wasn't critical. Scrubbed; **rotation in Cloudflare is
-   still owed** — the file change stops it leaking again, it doesn't invalidate
-   the key.
+   id, access key, 64-hex secret, opening the bucket that holds user receipt and
+   price-tag photos. On `main` from `4b41643` (2026-05-28) to today — **ten
+   weeks**; dated with `git log -S` on the value, since the file's own log shows
+   only when it was last touched and understated this by three weeks. Repo is
+   private, which is the only reason it wasn't critical. Scrubbed; **rotation in
+   Cloudflare is still owed** — the file change stops it leaking again, it
+   doesn't invalidate the key.
 2. **gitleaks CI gate disabled since 2026-07-23** (High) — `if: false`, added to
    mute exactly the above. The compounding harm is the point: a muted scanner
    stops reporting *every* leak added afterwards. Re-enabled; the 6 remaining
