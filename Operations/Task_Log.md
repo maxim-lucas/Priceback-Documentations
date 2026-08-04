@@ -16,6 +16,39 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-08-04 — Release tags + GitHub releases as a safety net for published builds
+
+- **Asked (/goal):** "create the github release so i can have a reference to the
+  stable build i used on app publish as a safety net, create labels and any
+  necessary best practices for repo management" → corrected mid-task to
+  **"i meant tags instead of labels"**, then **"create everything based on the
+  actual code in repo"**, then **"create the new version based on the actual code
+  2.8.4, add the tag and release creation as a rule for every app version publish
+  to keep tracking."**
+- **Why it was needed:** `eas.json` sets `appVersionSource: "local"`, so `app.json`
+  is the only record of a binary's version. The repo had exactly one tag
+  (`Cleanup-V2`, a schema marker, not a release) — nothing pointed at the tree any
+  shipped artifact came from. Separately, six merged PRs (#229 – #234) were sitting
+  on `main` still carrying `versionCode` 23, which Play rejects — **including #230,
+  without which the live build resolves no Play subscriptions and sells nothing.**
+- **Done:**
+  - Backfilled `v2.8.2` (`fdc2af3`, first R8 build) and `v2.8.3` (`106ae9e`, the
+    published store build) as annotated tags + GitHub releases. The v2.8.3 notes
+    record its known subscription defect and list what landed on `main` after it.
+  - Bumped **2.8.4 / versionCode 24** across `app.json` + `package.json`.
+    `android/` is gitignored prebuild output (stale at 22) and left untouched.
+  - `scripts/releaseTag.js` + `npm run release:tag` — dry run by default, seven
+    fatal checks (clean tree, on `main`, HEAD pushed, version triad agrees,
+    `package.json` matches, tag free, `versionCode` increased — read back out of
+    each tag's own `app.json`, not inferred from the tag name).
+  - **Standing rule added to the app repo's `CLAUDE.md`:** no version ships to a
+    store without an annotated tag + GitHub release pinning the build commit. Tag
+    before building, build from the tag, never move a tag, rollback = roll forward.
+  - New doc: `Operations/Release_Tagging_And_Repo_Management.md`.
+- **Status:** PR #236 (app repo). No app code touched; regression risk is limited
+  to the version identity itself. Pre-existing risk carried into 2.8.4: R8 has
+  still never run on hardware — smoke-test a preview APK before promoting.
+
 ### 2026-08-04 — Profile restore loses every active receipt, product and history entry (5th report)
 
 - **Asked (/goal):** "on profile restore (after reinstall and connect or signout
