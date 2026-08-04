@@ -5138,3 +5138,170 @@ paywall". Google shows a *test* purchase sheet on every SKU — even on the live
 production app — to any account in Play Console → Settings → **License testing**.
 The developer account is on that list, which is intentional. It does not affect
 real users, and it is not evidence of a build/track mix-up.
+
+## 143. Restore brought back only expired receipts — the merge deleted the products it was supposed to restore
+
+- Date: 2026-08-04 · Area: both
+- Symptom: after a reinstall→sign-in, or a plain sign-out→sign-in, the restore
+  screen completes and the user lands on an app showing **only expired
+  receipts** — no active receipts, no products, no hero-card history. The credit
+  balance is correct. Reported four separate times; each fix held for a round or
+  two and then "regressed".
+
+**Why one cause produced all four symptoms.** Every product in the app *is* a
+receipt line, and every Home/Tracking surface gates on
+`daysRemaining(purchaseDate, storeId) > 0`. So a receipt restored with **zero
+items** is a bare header: no products, no claim history, and — once its 30-day
+window lapses — an "expired" card. The credit balance is a scalar on `users`, so
+it was unaffected. It read like four bugs and was one.
+
+**Root cause 1 (client, destructive).** `mergeServerIntoLocal` rebuilt `items`
+purely from the server payload. When the server returned `items: []` the local
+items were **overwritten with nothing** — and it stamped `syncPending: false` /
+`syncError: null`, so the push queue never sent them back. `authService.signOut()`
+only clears SecureStore tokens and leaves local receipts intact, so
+**sign-out→sign-in ran this merge over good local data** and destroyed the only
+remaining copy.
+
+**Root cause 2 (server, unrepairable).** `receiptsRepo.create` used
+`onConflictDoNothing` on `receipts.id` and early-returned `{ items: [] }`. Once a
+header existed without lines, no retry could ever add them — so root cause 1's
+damage was permanent.
+
+**Root cause 3 (data).** Production held **19 receipt headers and 7 item rows**.
+The same receipt ids on dev carried 13/2/1 items with *byte-identical*
+`created_at` timestamps (`2026-06-24 22:17:37.860861+00`). `created_at` is
+`defaultNow()`, so identical microseconds prove a row **copy**, not two uploads:
+`receipts`, `products` and `price_points` were copied between environments and
+`receipt_items` was not. 365 of 372 `receipt_ocr` price points referenced receipt
+ids absent from prod entirely.
+
+**Root cause 4 (latent).** `_hydrate` ignored `receipts.nextOffset`, so only the
+first 200 receipts ever restored — and the documented paging follow-up
+`GET /api/receipts` returned **headers with no items**, which would have fed root
+cause 1 and wiped local items for every receipt past #200.
+
+**Why nothing caught it.** The backend bootstrap test seeded **zero** receipts and
+asserted `Array.isArray(b.receipts.items)`. The mobile hydrate test hand-wrote a
+server payload and asserted `added === 1` plus "the id exists". Neither side ever
+asserted that a restored receipt was *usable*, and each invented its own payload
+shape, so they could drift apart freely. That mobile fixture also pinned
+`purchaseDate: "2026-06-01"`, which silently aged past the 30-day window — the
+test passed while asserting on a receipt the app renders as expired.
+
+**Fix:**
+- `serverItemsAreIncomplete()` — server absence never deletes local presence.
+  Deliberately **zero** items, not "fewer": item inserts are transactional, so a
+  partial server copy means a line was DELETED and the server is rightly
+  authoritative. Treating "fewer" as loss would resurrect deleted items and
+  re-queue the receipt forever.
+- `receiptsRepo.create` back-fills lines onto an existing header, gated on the
+  receipt having **no item rows at all** (not merely no *live* ones — a
+  soft-deleted row is a deliberate deletion and must never be resurrected).
+- `syncReceiptToBackend` refuses to POST an item-less receipt; `globalSkip`
+  separates "signed out, stop the pass" from "skip this one" (one bad receipt
+  used to strand every upload queued behind it).
+- `_hydrate` follows `nextOffset` via `GET /api/receipts?include=items`, bounded
+  at 25 pages, requiring strict cursor progress.
+- `receipt_items.original_price` added (migration 0002) so TPD discount context
+  survives; `ignored`, `purchaseType` and `isRefund` restored too. Internal
+  integer FKs (`store_id`, …) are now stripped from client payloads — the client
+  reads `storeCode || storeId`, so a leaked numeric id resolved to no store and
+  made every affected receipt render as expired.
+
+**Two identical latent bugs, both `Number(null) === 0`:** the client's
+`_num(null)` returned **0**, turning "no discount / no tax" into a real zero; the
+server's `Number.isFinite(Number(it.originalPrice)) ? String(...)` stringified
+null into the literal `"null"` and Postgres rejected the whole insert — which
+would have 500'd **every receipt upload in production**. Both were caught by the
+new corpus suite, not by review.
+
+- Files: `src/services/syncService.js`, `src/services/receiptSyncService.js`,
+  `src/services/storageService.js` (`retryPendingReceiptSyncs`),
+  `backend/repos/receiptsRepo.js` (`persistReceiptItems`, `create`,
+  `decorateReceiptRow`), `backend/server.js` (`POST /api/receipts`,
+  `GET /api/receipts`), `backend/db/schema.js`, migration
+  `0002_receipt_item_original_price`, `shared/receiptWireContract.js`.
+- Detect next time: the `hydrate_server_copy_incomplete` analytics event fires
+  the moment a server copy comes back with fewer items than the device holds —
+  this failure used to be completely silent. Server-side, the query is
+  `SELECT count(*) FROM priceback.receipts r WHERE r.deleted_at IS NULL AND NOT
+  EXISTS (SELECT 1 FROM priceback.receipt_items i WHERE i.receipt_id = r.id)`;
+  anything above zero is a receipt that will restore as a ghost.
+- Prevent: **`shared/receiptWireContract.js` is now the single definition of the
+  wire shape, and both sides are held to it.** All 55 captured real receipts run
+  the full device→server→device cycle in `__tests__/restoreRoundTrip.test.js`
+  (418 assertions), and `backend/tests/restoreRoundTripDb.test.js` verifies the
+  shared model against **real Postgres** — so the model can't become a
+  comfortable fiction and the mobile suite transitively tests reality.
+  `__tests__/restoreEndToEnd.test.js` asserts outcomes, not plumbing ("is my
+  receipt active?", "are my products there?"). Every date is computed from
+  `Date.now()`, never hardcoded. Verified to bite: reintroducing the merge bug
+  fails 52 tests, one per receipt, by name.
+
+**Lesson:** when two components must agree on a payload, a test on each side that
+builds its own fixture proves only that each side is self-consistent. Give them
+one shared contract, verify that contract against the real dependency, and assert
+the user-visible outcome — "a receipt was added" was true the entire time the app
+was showing an empty screen.
+
+## 144. "No price drop found" on an item that was never being watched — the server's watch rule was never mirrored on device
+
+- Date: 2026-08-04 · Area: mobile
+- Symptom: on a receipt containing items bought on sale, tapping **Refresh
+  prices** put those lines through the check and reported **"No price drop
+  found"**. It reads as "we looked and the price hasn't dropped". The truth is
+  the opposite: an already-discounted line is *never price-watched*, so nothing
+  was ever compared.
+
+**Root cause — a rule that lived on one side of the wire only.** The backend has
+always derived `receipt_items.watch_enabled` itself
+(`receiptsRepo.persistReceiptItems`): a line whose `originalPrice` is strictly
+above the paid line total is not watched, and there is *no client override*.
+`shared/receiptWireContract.serverWatchEnabled` models it, and the restore
+round-trip test pins it. But nothing on the device applied it.
+`storageService.saveReceipt` normalised `watchEnabled` from refund/ignored only,
+so a locally-scanned sale line was stored `watchEnabled: true`, and every client
+surface that gated on `watchEnabled !== false` treated it as watched.
+
+**Why it survived so long.** Two call sites had already noticed the symptom and
+patched around it *locally*: `priceService` filtered `!item.originalPrice` in two
+places (itself subtly wrong — it also excluded lines whose `originalPrice` was at
+or *below* what was paid, i.e. not a discount at all). Three other surfaces
+— DetailScreen, HomeScreen, ReceiptsScreen — had no such guard. Five copies of
+"which lines are watched", four of them disagreeing, is the actual defect; the
+misleading chip was one symptom of it.
+
+**The class of bug.** Same shape as #136 (privacy label vs manifest) and the
+`store-config-vs-binary-drift` note: *one fact declared in two places with
+nothing keeping them in step*. Here the two places were a Postgres column and a
+JS predicate, which is worse than a config drift because the client silently
+re-derives what the server already decided.
+
+**Fix:** one exported predicate pair in `src/utils/receiptMath.js` —
+`isInstantDiscountLine()` (identical rule to the server's; accepts the local
+`price` shape, the wire `lineTotal` shape, and Postgres numeric *strings*) and
+`isWatchableLine()` (unclaimed + not ignored + not toggled off + not discounted).
+Every surface now calls it: DetailScreen, HomeScreen, ReceiptsScreen,
+priceService ×2, notificationService ×2. It is also **derived at the source** in
+storageService, so new data is right rather than merely filtered later:
+`saveReceipt`, `addItemToReceipt`, and `updateReceiptItem` when an edit touches
+the money (reversible — correcting a mis-parsed discount away re-watches the
+line). Old rows on device stay wrong in storage but the predicate covers them.
+
+**Copy fixes that came with it:** the "Refresh prices" button is now hidden
+outright when nothing is watchable; the row chip splits into "Bought on sale ·
+not watched" vs a new generic "Not watched" (a bottle-deposit row used to be told
+its price was "already discounted"); and `detail.checkedNoPrice` became "No
+current price available" — on a genuinely watched line it fires when no price
+resolved, which is a different claim from "no drop".
+
+**The guard that stops the redrift:** a table test in `receiptMath.test.js`
+asserts `serverWatchEnabled(line, false) === !isInstantDiscountLine(line)` across
+the edge cases (original above / equal to / below paid, absent, null). The two
+definitions now fail loudly the moment either side moves.
+
+**Watch for:** the watch pool is now strictly *smaller* on device. A user with
+sale-heavy receipts sees their "Watching" count fall after updating — expected,
+since those lines could never have produced a claimable drop, but it will look
+like data loss if reported.
