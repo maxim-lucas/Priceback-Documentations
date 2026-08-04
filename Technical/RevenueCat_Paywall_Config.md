@@ -1,5 +1,24 @@
 # RevenueCat / Paywall configuration — "There is an issue with your configuration"
 
+> **🔴 2026-08-04 — a THIRD failure, and this one WAS app code.** On the live
+> production build (2.8.3) every subscription tap returned *"This item isn't
+> available for purchase right now"* while credit packs bought fine. Cause:
+> **Google Play names a subscription `<subscriptionId>:<basePlanId>`**, so
+> RevenueCat returns `priceback_unlimited_monthly:monthly` — and
+> `purchaseProduct` matched the offering against the bare catalog id with `===`.
+> Packs (no base plan → no suffix) matched; subscriptions never did, and the
+> paywall showed catalog prices on the sub cards because `getStorePriceLabels()`
+> keyed on the same suffixed id. Fixed by matching every id a product answers to
+> (`storeProductIds` in `src/services/purchaseService.js`). Full write-up:
+> Operations/Bugs_Common_Fixes **#142**. **The store side was healthy the whole
+> time** — don't re-audit Play/RC when this symptom appears; check the id
+> spelling first.
+>
+> **Also worth knowing before you debug a "test paywall":** any account in Play
+> Console → Settings → **License testing** sees a *test* purchase sheet on every
+> SKU, including on the live production app. `maxim.louka@gmail.com` is on that
+> list on purpose. That is not a track/build mix-up.
+
 > **Status:** RevenueCat dashboard is **live and configured** (Priceback project
 > `c7a0e77d`). **No app-code change is required** — the setup below is external
 > (dashboard + store) configuration.

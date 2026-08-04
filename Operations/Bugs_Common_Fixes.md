@@ -4950,3 +4950,191 @@ and `emailSyncEndToEnd` (HTTP response in, user-visible sentence out, with only
 `fetch`/storage/native faked). A table test asserts **no** provider status
 resolves to `unknown`, and another asserts every category has non-empty copy in
 every language.
+
+## 138. One rejected promise could kill the whole API — Express 4 + Node 24, and 15 routes that awaited with no try/catch
+
+**Class:** availability. **Found:** 2026-08-03 production audit. **Fixed:** `backend/lib/processSafety.js`.
+
+Two facts that are individually harmless and jointly fatal:
+
+1. **Express 4 does not forward a rejected async handler** to the error
+   middleware. That only arrives in Express 5. An `async` route whose body
+   rejects produces an *unhandled rejection*, not a 500.
+2. **Node ≥ 15 terminates the process** on an unhandled rejection.
+
+So a single failed request killed the container and dropped every other
+in-flight request with it. 15 of 60 routes were exposed, and the worst were the
+hottest: `POST /api/device/scan` and `/api/device/sync` run **on every app
+launch and every scan, for every user** — against a pooler that
+`db/client.js:231` already documents as throwing transient `EMAXCONNSESSION`
+errors. Four more routes had a `try` but awaited *before* entering it, including
+`/health`, which is Railway's own healthcheck.
+
+**Why the obvious fix was the wrong one.** Wrapping the 19 known routes by hand
+fixes today and leaves the 20th — the next route someone adds — exposed with
+the same outcome. The fix patches the *registration point*
+(`wrapAppRoutes(app)`), so every current and future route forwards rejections
+automatically. `app.use` is deliberately **not** patched: Express identifies
+error middleware by `fn.length === 4`, so wrapping would silently demote the
+global error handler to an ordinary middleware.
+
+**Two layers, on purpose.** `asyncRoute()` is the correct fix (the caller gets a
+real error response). `installCrashGuards()` is the net for anything that still
+escapes — timers, fire-and-forget calls, stray `.then` without `.catch`:
+`unhandledRejection` logs and **keeps serving** (one failed request must not
+become an outage), while `uncaughtException` drains and exits non-zero, because
+after one the process state is undefined.
+
+**The subtle part:** the guards are installed from `startServer()`, **not at
+require time**. `node --test` workers import `server.js` for route tests and
+rely on the default `uncaughtException` behaviour to attribute a failure to the
+running test file. Installing a process-level handler at require time changes
+that for the test runner too.
+
+**Testing note learned the hard way:** do not run two backend suites
+concurrently against the shared Supabase dev project. It exhausts the session
+pooler ("Connection terminated unexpectedly") and produces phantom failures that
+alternate pass/fail on identical code — which reads exactly like a flaky test or
+a regression you just introduced. Run them one at a time before concluding
+anything about a failure.
+
+Related: SIGTERM previously called `process.exit(0)` immediately, severing
+in-flight credit and receipt writes on every Railway redeploy. It now closes the
+listener, drains, flushes, then exits, with a hard deadline so a hung keep-alive
+socket can't block a deploy.
+
+## 139. The brute-force throttle protecting the admin token was bypassable with a header
+
+**Class:** security (auth bypass). **Found:** 2026-08-03. **Fixed:** `app.set("trust proxy", 1)`.
+
+`/api/flyer/import` throttles *before* comparing the admin token — deliberately,
+with a comment saying "so failed-auth guesses are counted too". But it keyed on
+the **leftmost** `X-Forwarded-For` hop, which is entirely client-supplied. An
+attacker rotating that header per request voided the throttle completely and
+restored unlimited admin-token guessing.
+
+The same leftmost bug sat in the `/api/check-price` and `/api/analytics`
+limiters, and in the audit log's IP hash — where it additionally let an abuser
+make their own requests unlinkable in the breadcrumb trail.
+
+**Rule of thumb:** in `X-Forwarded-For: a, b, c`, everything except the
+**rightmost** entry was supplied by the caller; only the last hop was appended
+by your own proxy. The codebase already had one function doing it right
+(`clientIpForRateKey`) and three doing it wrong — two competing notions of "the
+client's IP" in a single file.
+
+**Fix:** set `trust proxy` to the number of proxies actually in front (Railway =
+1) and use `req.ip` everywhere. Express then derives the client address
+correctly and the hand-rolled parsing disappears. If another proxy is ever added
+in front, that number must grow to match.
+
+## 140. Every referral failure showed generic copy — the client compared a machine code against prose
+
+**Class:** silent user-facing regression. **Found:** 2026-08-03 (shipped in production).
+
+The backend returned `{ code: "self_referral", error: "cannot redeem your own
+code" }` — machine code in `code`, human prose in `error`. The client stored
+`error: data.error` and then branched on `result.error === "self_referral"`.
+
+That comparison **can never be true**. So a user redeeming their own code, or a
+code they'd already used, or a code that doesn't exist, all fell through to
+"Try again in a moment." The specific, translated copy for each case existed and
+was simply never reachable.
+
+This is the concrete cost of an inconsistent error envelope: the API had **eight
+distinct shapes** across ~195 sites, and `error` sometimes held a code and
+sometimes prose. `priceService.js` has the same latent bug — it branches on
+`error === "consent_required" | "timeout" | "network_error"`, which cannot match
+any prose endpoint.
+
+**Fix:** one envelope, `backend/lib/httpError.js` —
+`{ error: <snake_case code>, code: <UPPER>, message: <English diagnostic>,
+requestId }`. `error` is always the machine code; prose lives in `message` and
+is never rendered. `tests/errorContract.test.js` scans `server.js` and fails the
+build on prose in an `error` field, which is what stops the drift recurring —
+and it immediately caught 7 interpolated backtick values a manual sweep missed.
+
+**Lesson:** when a field is read by a shipped client, "mostly a code" is the
+same as "not a code". Pin the exact strings the live build compares against in a
+test before changing any of them; users in the field cannot upgrade on demand.
+
+## 141. The most-seen screen in the app printed the raw exception, in English
+
+**Class:** UX / privacy / i18n. **Found:** 2026-08-03.
+
+`App.js`'s root `ErrorBoundary` rendered `this.state.error?.message` directly —
+raw exception text, English-only, to every user on any render crash. Its title
+and button were hardcoded English literals too.
+
+**Why CI never caught it:** `scripts/checkI18n.js` only scanned `src/`, and
+`App.js` lives outside it. The file with the app's single most visible piece of
+copy was the one file the copy checker didn't look at.
+
+Compounding it, 24 of ~28 screens had no error boundary at all, so most crashes
+unmounted the whole tree to this screen; and `ScreenErrorBoundary` — where it
+*was* used — only `console.warn`ed, so caught crashes were invisible in
+production telemetry.
+
+**Fixes:** localized copy resolved through a helper that cannot itself throw (if
+i18n is what broke, it falls back to English rather than crashing the crash
+screen); a support reference (`APP-CRASH-TYPEERROR`) shown to the user and
+attached to the Sentry event so a bug report lines up by eye; every screen
+wrapped via a **memoized** HOC — an inline wrapper would create a new component
+identity each render and remount every screen; and `checkI18n.js` now scans
+`App.js`, bans the `t("k") || "English"` pattern outright (446 instances had
+accumulated), and checks `{placeholder}` parity between languages.
+
+## 142. No one could subscribe: Play names a sub `<subscriptionId>:<basePlanId>`
+
+**Class:** money / store integration. **Found:** 2026-08-04, in production
+(2.8.3, live on Play). **Fix:** `src/services/purchaseService.js`
+(`storeProductIds` / `productMatchesId`).
+
+`purchaseProduct` picked the package to buy with strict equality:
+
+```js
+availablePackages.find((p) => p.product.identifier === productId)
+```
+
+`productId` is the catalog id (`priceback_unlimited_monthly`). But **Google Play
+addresses a subscription as `<subscriptionId>:<basePlanId>`**, and RevenueCat
+mirrors that verbatim — the StoreProduct arrives as
+`priceback_unlimited_monthly:monthly`. Consumables have no base plan, so they
+carry no suffix, and iOS never suffixes anything.
+
+So the comparison resolved **every credit pack and no subscription**:
+
+- Tapping Subscribe / Upgrade never reached the store at all. It fell into the
+  "package not in the offering" branch → `errorCode:"unavailable"` → *"This item
+  isn't available for purchase right now."*
+- `getStorePriceLabels()` keyed prices by the same suffixed identifier, so
+  `priceFor("priceback_unlimited_monthly")` missed and the sub cards printed the
+  catalog's hardcoded `$4.99` / `$49.99` instead of the CAD the store would
+  charge — the paywall *looked* like a mock, which is how it was reported.
+
+**Why nothing caught it.** Everything upstream was correct and verified — Play
+base plans Active, RC offering complete, keys injected — so every checklist
+passed. The client was the only place the two spellings met. The unit tests
+built their fixtures as `{ product: { identifier: pack.id } }`, i.e. they encoded
+the wrong assumption as the mock; a sideloaded dev build *simulates* purchases
+and never resolves a real package; and the backend already handled the suffix
+(`subscriptionSync` accepts `priceback_unlimited_annual:annual`), so the two
+halves of the codebase disagreed silently about the same string.
+
+**Fix:** resolve a product to *every* id it legitimately answers to — the
+identifier, the part before the first `:`, and Play's own
+`defaultOption.productId` / `subscriptionOptions[].productId` — and match against
+that set. Price labels are keyed under all of them, exact identifier last so a
+literal id always beats an inherited alias. Not a prefix match: a different SKU
+still fails to resolve, and a genuinely missing SKU still reports `unavailable`.
+
+**Lesson:** a store id is not one string. When a platform can rename an id
+(base plans, offers, storefront variants), match on the set of names the object
+answers to, and build test fixtures from what the SDK *actually returns* — a mock
+that echoes your own assumption proves only that the assumption is consistent.
+
+**Sibling finding (not a bug):** the same report said the paywall was "a test
+paywall". Google shows a *test* purchase sheet on every SKU — even on the live
+production app — to any account in Play Console → Settings → **License testing**.
+The developer account is on that list, which is intentional. It does not affect
+real users, and it is not evidence of a build/track mix-up.

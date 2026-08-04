@@ -16,6 +16,64 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-08-03/04 — Full security + error audit (production hardening)
+- **Asked (/goal):** "cover all paths with the more realistic error code and
+  message, i want a full security and errors audit so the app be stable in
+  production, everything should work for both android and ios platforms."
+- **Decisions (Maxim):** normalize `error` itself rather than adding a parallel
+  field (breaking by design, gated on pinning the shipped v2.8.3 strings first);
+  sweep ALL ~195 sites, not a subset; fix any iOS review-blocker and prep a
+  resubmit.
+- **Done — 3 commits on `fix/production-error-security-audit`:**
+  - **Crash safety:** `backend/lib/processSafety.js`. Express 4 + Node 24 meant
+    one rejected async handler killed the container; 15 routes awaited with no
+    try/catch, incl. /api/device/scan + /sync (every launch, every scan) and
+    /health. Patched at the registration point so future routes are covered too.
+    Graceful SIGTERM drain added. (Bugs #138)
+  - **Rate-limit bypass:** no `trust proxy`, and 3 limiters keyed on the
+    client-suppliable LEFTMOST X-Forwarded-For hop — including the brute-force
+    throttle sitting in front of the admin-token compare. (Bugs #139)
+  - **Error contract:** 8 envelopes to 1 (`backend/lib/httpError.js`); 119 prose
+    values became machine codes; 25 responses that named internal env vars to
+    unauthenticated callers now return a vague 503 and log the detail;
+    requestId surfaced in the body (it already existed in audit.js). Source-level
+    contract test. Found and fixed a SHIPPED bug: every referral failure showed
+    generic copy because the client compared a code against prose. (Bugs #140)
+  - **Mobile:** root crash screen no longer prints the raw exception in English;
+    Restore Purchases no longer fails silently (Apple tests it); account deletion
+    no longer claims an erasure it did not perform (Law 25 s.28); all screens get
+    error boundaries + Sentry reporting; ScanScreen no longer says "Saved for
+    later" when the queue write threw. (Bugs #141)
+  - **Classifier:** +9 categories with EN+FR copy (storage_full,
+    permission_denied, json_invalid = captive Wi-Fi portal, force_upgrade,
+    maintenance, conflict, too_large, payment_required, account_locked) plus a
+    real numeric status ladder — previously only 429 and >=500 were handled.
+  - **i18n:** 446 dead `t("k") || "English"` arms deleted; checkI18n now scans
+    App.js (previously unchecked — that blind spot is how the crash screen
+    shipped), bans that pattern, and checks placeholder parity.
+  - **iOS:** "Google account" copy shown on iOS Ask-to-Buy; limited photo access
+    never detected; itms-apps:// plus a double openURL on cancel; two unused
+    auto-injected purpose strings stripped (Guideline 5.1.1);
+    NSLocationDefaultAccuracyReduced added to match the privacy manifest; Apple
+    re-sign-in nulling the stored email; real safe-area inset. **Sign in with
+    Apple and Restore Purchases were both verified correctly wired — no hard
+    review blocker found.**
+- **Not done / follow-ups:** requireAuth on /api/ocr + /api/ocr-llm (blocked
+  until v2.8.3 is off the estate — it sends no token; the client now sends one,
+  so this is a two-release migration); receipt-create and credit-consume are
+  still two transactions (revenue loss on a blip, never a double-charge); the
+  admin gate is still copy-pasted per route rather than middleware; no fail-fast
+  env validation at boot; (no flaky tests — see verification note below).
+- **Verification:** mobile 155 suites / 3368 tests green, typecheck clean,
+  i18n:check green (1373 keys, EN/FR in sync); backend **1019 tests, 1018 pass,
+  0 fail** on a clean serial run. NOT device-tested; NOT pushed.
+- **Gotcha worth remembering:** mid-audit, two backend suites were running
+  concurrently against the SAME Supabase dev project. That exhausts the session
+  pooler ("Connection terminated unexpectedly") and produces phantom failures
+  that alternate pass/fail on identical code — priceDropDb "first sweep" and
+  criticalPathAtomicity "RECEIPT_ID_CONFLICT" both did this. They are NOT flaky;
+  run backend suites one at a time.
+
 ### 2026-07-24 — More Google-guidance error handling: Play Billing states (PR #203)
 - **Asked (/goal):** "add more error handling based on Google's own guidances
   (codes)". Extended beyond sign-in to the purchase/billing path.
@@ -3210,3 +3268,30 @@ restricted-scope verification still being outstanding, the app will now say so
 precisely (`GMAIL-403-API-DISABLED` / `GMAIL-403-OAUTH-BLOCKED`) but still won't
 sync until that's changed in the Google Cloud console. The reference code on the
 next run says which.
+
+## 2026-08-04 — "The live app shows a test paywall and subscriptions won't buy"
+
+- **Asked (/goal):** the published (production) Android app shows a *test*
+  paywall on every package, and subscribing fails with **"Upgrade Failed — This
+  item isn't available for purchase right now."**
+- **Two independent causes, one of them a real shipped bug.**
+  1. **Bug (fixed):** Google Play addresses a subscription as
+     `<subscriptionId>:<basePlanId>`, so RevenueCat hands the app
+     `priceback_unlimited_monthly:monthly`. `purchaseProduct` matched the
+     offering with `product.identifier === productId` against the bare catalog
+     id, so **every credit pack resolved and no subscription ever did** — the
+     paywall fell back to the catalog's hardcoded `$4.99 / $49.99` on the two sub
+     cards (which is what "test paywall" looked like), and Subscribe returned
+     `errorCode:"unavailable"`. Shipped in 2.8.3. See Bugs #142.
+  2. **Not a bug:** `maxim.louka@gmail.com` is in the Play **license-tester**
+     list (Settings → License testing → "Testers", response LICENSED). Google
+     shows that account a *test* purchase sheet on every SKU even for the live
+     production app. Real users are unaffected. Left as-is deliberately — it is
+     what keeps test buys free.
+- **Verified in the consoles (browser):** Play subs `priceback_unlimited_monthly`
+  / `_annual` each have 1 **Active** base plan (174 countries); RC `default`
+  offering carries all 5 packages with both stores attached; the production
+  2.8.3 build log confirms both RevenueCat keys were injected. So the store side
+  was healthy and the failure was client-side matching.
+- **Status:** fix + 13 tests on `fix/play-base-plan-subscription-ids`.
+  **Not live until a new build ships** — 2.8.3 users still can't subscribe.
