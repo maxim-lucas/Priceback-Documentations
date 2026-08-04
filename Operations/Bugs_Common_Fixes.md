@@ -5305,3 +5305,101 @@ definitions now fail loudly the moment either side moves.
 sale-heavy receipts sees their "Watching" count fall after updating — expected,
 since those lines could never have produced a claimable drop, but it will look
 like data loss if reported.
+
+## 145. An unauthenticated route validated the SHAPE of a key it was handed, but never its OWNERSHIP
+
+- Date: 2026-08-04 · Area: backend / security
+- Symptom: none visible in normal use — this was found by audit, not by report.
+  The observable failure would have been an admin opening the price-tag review
+  queue and finding a submitted tag's photo broken, so the tag could not be
+  verified and its contributor silently never received their credit.
+
+**Root cause.** `POST /api/observations/tag/image-uploaded` confirms that the
+client finished uploading a tag photo, so the review row can record the object
+key. It is unauthenticated on purpose (the tag POST it pairs with is too), and
+its whole guard was one regex:
+
+```js
+if (!new RegExp(`^tag-reviews/[a-f0-9]+/${Number(reviewId)}\.jpg$`).test(objectKey))
+```
+
+That checks the key *looks* server-issued. It does not check it *is this
+review's*. `[a-f0-9]+` matches any device hash, not the one stored on the row at
+creation, and `tagReviewsRepo.setImageKey` overwrites unconditionally with no
+ownership predicate. Review ids are sequential integers and the route had no
+rate limit, so they were trivially enumerable.
+
+**Why the impact is narrower than it first looks — and still real.** An attacker
+cannot point a victim's review at an image they control: the presigned PUT is
+issued for one exact key, and the regex pins the *filename* to the review id, so
+there is no key they can both write to and pass validation with. What they can do
+is repoint any pending review at a key that doesn't exist. The admin queue then
+presigns a GET for a missing object and shows a broken photo. That is an
+unauthenticated way to suppress crowd price verification and withhold rewards,
+for any review, at will.
+
+**Fix:** bind the key to the review's own stored `deviceHash` (the row already
+carries it, and `getReview` already returns it) — 404 for an unknown review id,
+403 for a mismatch — plus the per-IP credit limiter the route never had. A legacy
+row with a null `deviceHash` falls back to the old shape check rather than
+hard-failing, because rejecting a confirm for a row we can't attribute would
+orphan its image, which is the exact harm being fixed.
+
+**The class of bug — look for this shape elsewhere.** *A guard that validates the
+format of an attacker-supplied identifier and mistakes that for authorization.*
+Format validation answers "could the server have produced this?"; authorization
+answers "did the server produce this, for this caller?". They look alike in
+review, especially when the format is derived from a server-side secret-ish value
+like a device hash. The tell is a character class where a specific known value
+belongs: `[a-f0-9]+` where the row's own hash was available two lines away.
+
+**Guard:** `backend/tests/tagReviewsDb.test.js` asserts a well-formed key
+carrying a *different* device's hash is rejected, and explicitly asserts that
+same key matches the old shape regex — so the test fails against the old code
+rather than passing vacuously.
+
+**Watch for:** the mismatch response changed from 400 to 403. The client's
+confirm step is fire-and-forget with a retry loop and no UI surface, so nothing
+user-visible changed, but anything asserting the old status will fail.
+
+## 146. A real credential sat in a `.env.example`, and the fix was to mute the scanner that found it
+
+- Date: 2026-08-04 · Area: repo hygiene / CI
+- Symptom: CI's gitleaks step had been disabled with `if: false` since
+  2026-07-23, carrying a comment that it must be re-enabled before publishing.
+
+**Root cause — two mistakes, and the second one is the expensive one.**
+`backend/.env.example` held live Cloudflare R2 credentials (account id, access
+key, and a 64-hex secret access key) rather than blanks, on `main` since ~PR #92.
+That bucket holds user receipt and price-tag photos. A file whose entire purpose
+is to be a copyable template is the easiest place in a repo for a real value to
+get pasted "just for now" and then never removed, because it reads as
+documentation rather than as configuration.
+
+Then the secret scanner correctly found it, went red, and was muted so the PR
+gate would stay green while rotation was handled separately. Rotation didn't
+happen. **A muted scanner does not merely fail to report the leak it was muted
+for — it stops reporting every leak added afterwards.** That is two weeks during
+which any newly committed secret would have shipped silently. The mute converted
+one known problem into an unknown-size one.
+
+**Fix:** scrub the values to blanks, re-enable the gate, and rotate the token in
+Cloudflare (the file change alone fixes nothing — the credential stays valid, in
+history, and in every existing clone until it is revoked).
+
+Re-enabling surfaced 6 remaining findings, all false: five i18n lookup keys
+(`streak.badge.saved50.desc`) and one AsyncStorage key
+(`pending_receipt_scans_v1`), which trip `generic-api-key` because they're
+assigned to names containing "key". Allowlisted **by value shape, never by path**
+— `.gitleaks.toml` already carried that hard rule precisely so an allowlist can't
+hide a real secret that happens to share a file. Both added patterns are anchored
+end-to-end and admit only lowercase words joined by dots or underscores: no
+entropy, so no credential can be spelled that way.
+
+**Detection:** the gate itself, now that it runs. When it goes red, the answer is
+scrub + rotate, never `if: false`. Verify a change to the allowlist hasn't
+defanged it by planting a known-secret shape in one of the allowlisted files and
+confirming it still trips — path-independence is the property that matters.
+
+**Watch for:** the same pattern in any tracked `*.example`, `*.sample`, or
+`*.template` file, and in docs that paste "a working example" of a config block.

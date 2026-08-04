@@ -3446,3 +3446,95 @@ finally reflected on device — those lines were never going to yield a claimabl
 drop — but a user with sale-heavy receipts will see their "Watching" count drop
 after updating. `isWatchableLine` also adds an `ignored` (fee/deposit) exclusion
 that `priceService` did not previously apply. No backend change, no migration.
+
+---
+
+## 2026-08-04 — Full security audit (app + backend), Android/iOS-compatible, zero regressions
+
+**Ask:** run a full security audit; any change must work on both platforms, and
+no regression is acceptable.
+
+First audit since **2026-06-02**. Everything shipped after that date had never
+been reviewed: flyer scan + its admin routes, the offline tag-scan queue and
+admin OCR review, the credit ledger and price-drop commission paths, Gmail sync,
+granular notification prefs, profile restore, and the Neon→Supabase cutover.
+Scope: all 60 backend routes + repos/middleware/storage/jobs, `src/`, the Expo
+config plugins and generated Android manifest, CI, and tracked-tree secret
+hygiene. Full write-up: `Security/Security_Audit_2026-08-04.md`.
+
+### What held up
+
+Auth by issuer (Google + Apple) with opaque 401s; admin gating doubled
+(constant-time token compare **and** `ADMIN_USER_SUBS` account check); IDOR
+scoped on every `:id` route, 404-not-403 so ids aren't confirmable;
+`callerOwnsDevice` fails **closed**; all SQL parameterized through Drizzle;
+`trust proxy` set so rate-limit keys can't be forged by rotating XFF; audit log
+hashes IPs with a daily-rotating salt; tokens in SecureStore; no cleartext HTTP,
+no WebView, no hardcoded keys in `src/`; Sentry PII scrubber redacts by pattern
+*and* drops known PII keys.
+
+### Findings fixed — PR #237
+
+1. **Live Cloudflare R2 credentials in `backend/.env.example`** (High) — account
+   id, access key, 64-hex secret, tracked on `main` since ~#92, opening the
+   bucket that holds user receipt and price-tag photos. Repo is private, which is
+   the only reason it wasn't critical. Scrubbed; **rotation in Cloudflare is
+   still owed** — the file change stops it leaking again, it doesn't invalidate
+   the key.
+2. **gitleaks CI gate disabled since 2026-07-23** (High) — `if: false`, added to
+   mute exactly the above. The compounding harm is the point: a muted scanner
+   stops reporting *every* leak added afterwards. Re-enabled; the 6 remaining
+   findings were all false (i18n keys, an AsyncStorage key), allowlisted **by
+   value shape, never by path**. Bugs_Common_Fixes **#146**.
+3. **`/api/observations/tag/image-uploaded` cross-review write** (Medium) — the
+   guard validated the object key's *shape* but not its *ownership*
+   (`[a-f0-9]+` matched any device hash), and review ids are sequential, so any
+   unauthenticated caller could blank another contributor's tag photo: admin
+   can't verify, contributor never gets their credit. Bound to the review's own
+   stored `deviceHash` + rate-limited. Bugs_Common_Fixes **#145**.
+4. **`SYSTEM_ALERT_WINDOW` shipping in release** (Low-Med) — written into
+   `src/main` by the Expo template though `app.json` never asks for it. Stripped
+   via a new `PERMISSIONS_TO_STRIP_FROM_MAIN` list that **deletes** the entry
+   instead of emitting `tools:node="remove"`, because RN's own debug manifest
+   needs the permission for the dev overlay and a merger directive would have
+   taken it out of debug builds too.
+5. **`/api/device/sync` + `/api/device/scan` unthrottled** (Low) —
+   unauthenticated and keyed on a client-chosen `deviceId`, so id rotation minted
+   unbounded rows. Per-IP brake added, separate bucket each.
+6. **expo-updates OTA unsigned** (Risk) — `CHECK_ON_LAUNCH=ALWAYS` with no
+   signature meant the Expo account was the only thing between an attacker and
+   JS on every install. Code signing configured; certificate committed, private
+   key gitignored behind a `keys/` rule and bound for EAS.
+
+Re-confirmed and deliberately re-deferred: CORS `*`, DB TLS unverified, the
+drizzle advisory, the `npm audit` gate level, anonymous `DELETE
+/api/me/observations`, `allowBackup=true`. All now in a **risk register table**
+at the top of `Security/SecurityRecommendations.md` with a revisit trigger each.
+
+### Tests & regression risk
+
+Tests ship with the fixes: cross-review repoint (asserting the attacker key
+*passes the old shape regex*, so it fails against the old code rather than
+passing vacuously) + unknown/invalid review ids; device throttle + per-route
+bucket isolation; plugin strip-from-main incl. "emits no remove directive"; and
+a new `otaCodeSigning` suite covering the config, the certificate, and the
+gitignore rules that keep the key out and the certificate in.
+
+**Regression risk — low, and stated per change.** The tag-image client echoes
+back the exact key the server issued, so the tightened check can't reject a
+legitimate call; the one behaviour change is 400→403 on mismatch, on a
+fire-and-forget path with no UI surface. Rate limits are sized at caps already
+proven on `obs-tag` (heaviest existing test file makes 9 device calls against
+60/min). The manifest fix is release-only by construction. OTA signing has no
+runtime code path and no effect on shipped binaries — they carry no certificate
+and behave exactly as today. No user-facing strings changed, so no i18n work.
+Android and iOS are equally affected by the OTA change (JS layer, no native
+code); the manifest fix is Android-only.
+
+**Still owed:** rotate the R2 token; upload the OTA private key to EAS; confirm
+`priceback-receipts` has no public-read policy; git-history purge of the leaked
+key (queued after #237 merges — note a force-push does *not* remove the objects
+from GitHub, they persist via PR refs until GitHub runs gc, which is why
+rotation is the load-bearing control); and verify
+`aapt dump permissions <apk> | grep SYSTEM_ALERT_WINDOW` → no output against a
+real release artifact, folded into the R8 hardware test already outstanding.
