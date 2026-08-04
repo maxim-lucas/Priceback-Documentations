@@ -52,7 +52,7 @@ you need when triaging a user report against a stale binary.
 
 | Tag | Commit | Version / code | Status |
 |---|---|---|---|
-| [`v2.8.4`](https://github.com/maxim-lucas/Priceback/releases/tag/v2.8.4) | see release | 2.8.4 / 24 | **Current release candidate.** Carries the subscription-resolution fix (#230) that unbreaks selling, the restore data-loss fix (#233), and the production error/security audit (#231). Build from this tag. |
+| [`v2.8.4`](https://github.com/maxim-lucas/Priceback/releases/tag/v2.8.4) | `1093975` | 2.8.4 / 24 | **Current release candidate.** Carries the subscription-resolution fix (#230) that unbreaks selling, the restore data-loss fix (#233), and the production error/security audit (#231). Build from this tag. |
 | [`v2.8.3`](https://github.com/maxim-lucas/Priceback/releases/tag/v2.8.3) | `106ae9e` | 2.8.3 / 23 | **Published store build.** Known defect: Play subscriptions named `<subscriptionId>:<basePlanId>` don't resolve → the live build sells no subscriptions (fixed in #230, *after* the tag). |
 | [`v2.8.2`](https://github.com/maxim-lucas/Priceback/releases/tag/v2.8.2) | `fdc2af3` | 2.8.2 / 22 | Superseded. First build with Android R8 minification enabled (#224) — the tree to diff against if an R8-shaped crash appears. |
 | `Cleanup-V2` | — | — | Legacy schema-rebuild marker, not a release. Left alone; do not extend the pattern. |
