@@ -5083,3 +5083,58 @@ wrapped via a **memoized** HOC — an inline wrapper would create a new componen
 identity each render and remount every screen; and `checkI18n.js` now scans
 `App.js`, bans the `t("k") || "English"` pattern outright (446 instances had
 accumulated), and checks `{placeholder}` parity between languages.
+
+## 142. No one could subscribe: Play names a sub `<subscriptionId>:<basePlanId>`
+
+**Class:** money / store integration. **Found:** 2026-08-04, in production
+(2.8.3, live on Play). **Fix:** `src/services/purchaseService.js`
+(`storeProductIds` / `productMatchesId`).
+
+`purchaseProduct` picked the package to buy with strict equality:
+
+```js
+availablePackages.find((p) => p.product.identifier === productId)
+```
+
+`productId` is the catalog id (`priceback_unlimited_monthly`). But **Google Play
+addresses a subscription as `<subscriptionId>:<basePlanId>`**, and RevenueCat
+mirrors that verbatim — the StoreProduct arrives as
+`priceback_unlimited_monthly:monthly`. Consumables have no base plan, so they
+carry no suffix, and iOS never suffixes anything.
+
+So the comparison resolved **every credit pack and no subscription**:
+
+- Tapping Subscribe / Upgrade never reached the store at all. It fell into the
+  "package not in the offering" branch → `errorCode:"unavailable"` → *"This item
+  isn't available for purchase right now."*
+- `getStorePriceLabels()` keyed prices by the same suffixed identifier, so
+  `priceFor("priceback_unlimited_monthly")` missed and the sub cards printed the
+  catalog's hardcoded `$4.99` / `$49.99` instead of the CAD the store would
+  charge — the paywall *looked* like a mock, which is how it was reported.
+
+**Why nothing caught it.** Everything upstream was correct and verified — Play
+base plans Active, RC offering complete, keys injected — so every checklist
+passed. The client was the only place the two spellings met. The unit tests
+built their fixtures as `{ product: { identifier: pack.id } }`, i.e. they encoded
+the wrong assumption as the mock; a sideloaded dev build *simulates* purchases
+and never resolves a real package; and the backend already handled the suffix
+(`subscriptionSync` accepts `priceback_unlimited_annual:annual`), so the two
+halves of the codebase disagreed silently about the same string.
+
+**Fix:** resolve a product to *every* id it legitimately answers to — the
+identifier, the part before the first `:`, and Play's own
+`defaultOption.productId` / `subscriptionOptions[].productId` — and match against
+that set. Price labels are keyed under all of them, exact identifier last so a
+literal id always beats an inherited alias. Not a prefix match: a different SKU
+still fails to resolve, and a genuinely missing SKU still reports `unavailable`.
+
+**Lesson:** a store id is not one string. When a platform can rename an id
+(base plans, offers, storefront variants), match on the set of names the object
+answers to, and build test fixtures from what the SDK *actually returns* — a mock
+that echoes your own assumption proves only that the assumption is consistent.
+
+**Sibling finding (not a bug):** the same report said the paywall was "a test
+paywall". Google shows a *test* purchase sheet on every SKU — even on the live
+production app — to any account in Play Console → Settings → **License testing**.
+The developer account is on that list, which is intentional. It does not affect
+real users, and it is not evidence of a build/track mix-up.

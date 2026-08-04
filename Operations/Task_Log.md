@@ -3268,3 +3268,30 @@ restricted-scope verification still being outstanding, the app will now say so
 precisely (`GMAIL-403-API-DISABLED` / `GMAIL-403-OAUTH-BLOCKED`) but still won't
 sync until that's changed in the Google Cloud console. The reference code on the
 next run says which.
+
+## 2026-08-04 — "The live app shows a test paywall and subscriptions won't buy"
+
+- **Asked (/goal):** the published (production) Android app shows a *test*
+  paywall on every package, and subscribing fails with **"Upgrade Failed — This
+  item isn't available for purchase right now."**
+- **Two independent causes, one of them a real shipped bug.**
+  1. **Bug (fixed):** Google Play addresses a subscription as
+     `<subscriptionId>:<basePlanId>`, so RevenueCat hands the app
+     `priceback_unlimited_monthly:monthly`. `purchaseProduct` matched the
+     offering with `product.identifier === productId` against the bare catalog
+     id, so **every credit pack resolved and no subscription ever did** — the
+     paywall fell back to the catalog's hardcoded `$4.99 / $49.99` on the two sub
+     cards (which is what "test paywall" looked like), and Subscribe returned
+     `errorCode:"unavailable"`. Shipped in 2.8.3. See Bugs #142.
+  2. **Not a bug:** `maxim.louka@gmail.com` is in the Play **license-tester**
+     list (Settings → License testing → "Testers", response LICENSED). Google
+     shows that account a *test* purchase sheet on every SKU even for the live
+     production app. Real users are unaffected. Left as-is deliberately — it is
+     what keeps test buys free.
+- **Verified in the consoles (browser):** Play subs `priceback_unlimited_monthly`
+  / `_annual` each have 1 **Active** base plan (174 countries); RC `default`
+  offering carries all 5 packages with both stores attached; the production
+  2.8.3 build log confirms both RevenueCat keys were injected. So the store side
+  was healthy and the failure was client-side matching.
+- **Status:** fix + 13 tests on `fix/play-base-plan-subscription-ids`.
+  **Not live until a new build ships** — 2.8.3 users still can't subscribe.
