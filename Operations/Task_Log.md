@@ -16,6 +16,47 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-08-04 — Profile restore loses every active receipt, product and history entry (5th report)
+
+- **Asked (/goal):** "on profile restore (after reinstall and connect or signout
+  then signin) ... i can see only the expired receipts, all active receipts are
+  gone, all products are gone, all hero card history are gone, the credit is
+  loaded correctly. this is the 5th time i ask you to do the same bug and
+  everytime there is a regression after 1 or 2 rounds. make sure this never
+  happens again and i want a solid code base that make the restoring process runs
+  perfectly cover all paths possible."
+- **Decisions (Maxim):** do NOT copy dev data into prod — clean prod instead, and
+  audit every table, not just receipts (app is live but unmarketed, so no real
+  users yet). Add `receipt_items.original_price` even though it costs a
+  migration. Never delete products that have a barcode + SKU match. No regression
+  accepted; cross-apply the fix using all the receipts in the repo.
+- **Root cause (one cause, four symptoms):** every "product" is a receipt line and
+  every Home surface gates on `daysRemaining > 0`, so a receipt restored with
+  zero items is a bare header that reads as expired. (1) `mergeServerIntoLocal`
+  rebuilt items purely from the server, so an empty server item list DELETED the
+  local ones — and sign-out does not wipe local storage, so sign-in ran it over
+  good data. (2) `onConflictDoNothing` made a header-without-lines permanently
+  unrepairable. (3) Prod held 19 receipt headers / 7 item rows: `receipts` was
+  copied from dev without `receipt_items` (byte-identical `created_at`
+  microseconds prove a row copy). (4) Hydrate ignored `nextOffset`, and the
+  documented paging endpoint returned header-only receipts — a loaded gun for
+  anyone past 200 receipts.
+- **Why it kept "regressing":** neither side's tests could fail. Backend seeded
+  zero receipts and asserted `Array.isArray(items)`; mobile hand-wrote a fixture
+  and asserted `added === 1`. Nothing asserted a restored receipt was usable, and
+  the mobile fixture's hardcoded date had already rotted past the 30-day window.
+- **Done:** Parts A–D shipped — destructive merge fixed, server back-fill,
+  paging + field fidelity (`original_price` migration 0002, `ignored`,
+  `purchaseType`, `isRefund`, internal FKs stripped from payloads), and the
+  regression firewall: `shared/receiptWireContract.js` as the single wire
+  contract, all 55 real receipts through the full round trip (418 assertions),
+  the same contract verified against real Postgres, and outcome-based e2e tests.
+  Found and fixed two latent `Number(null) === 0` bugs — one of which would have
+  500'd every receipt upload in production. Bugs_Common_Fixes #143.
+- **Status:** code + tests green (mobile 157 suites / 3813 tests; backend
+  restore-contract suite 8/8 against real Postgres). Prod cleanup + the two owed
+  prod migrations (0001, 0002) pending Maxim's go-ahead.
+
 ### 2026-08-03/04 — Full security + error audit (production hardening)
 - **Asked (/goal):** "cover all paths with the more realistic error code and
   message, i want a full security and errors audit so the app be stable in
@@ -3295,3 +3336,80 @@ next run says which.
   was healthy and the failure was client-side matching.
 - **Status:** fix + 13 tests on `fix/play-base-plan-subscription-ids`.
   **Not live until a new build ships** — 2.8.3 users still can't subscribe.
+
+## 2026-08-04 — "Refresh prices says 'No price drop found' on discounted items" + home hero spend line
+
+- **Asked (/goal):** two things. (1) On the receipt screen, tapping *Refresh
+  prices* made already-discounted lines report **"No price drop found"** — but
+  discounted lines are never watched, so the app shouldn't even offer to check
+  them. (2) The Home hero card should also show **total spent this year** across
+  all stores / all scanned receipts.
+
+### 1 — The discounted-line lie (real client/server drift)
+
+The backend has always derived `receipt_items.watch_enabled` from the discount
+itself (`receiptsRepo.persistReceiptItems`: an `originalPrice` strictly above the
+paid line total ⇒ not watched; modelled in
+`shared/receiptWireContract.serverWatchEnabled`). **The client never applied that
+rule.** `storageService.saveReceipt` only forced `watchEnabled:false` for refund
+and ignored rows, so a locally-scanned sale line kept `watchEnabled:true`,
+DetailScreen put it in the *Refresh prices* batch, the lookup came back with
+nothing comparable, and the row rendered "No price drop found" — a verdict about
+a comparison that never happened.
+
+Two surfaces already worked around it privately (`priceService` filtered
+`!item.originalPrice`, which also wrongly dropped lines whose `originalPrice` was
+*at or below* what was paid), and three others didn't work around it at all.
+
+**Fix: one predicate, used everywhere.** `src/utils/receiptMath.js` now exports
+`isInstantDiscountLine()` (the same rule the server persists, accepting both the
+local `price` and wire `lineTotal` shapes, and Postgres numeric *strings*) and
+`isWatchableLine()` (unclaimed + not ignored + not toggled off + not discounted).
+Adopted by DetailScreen, HomeScreen, ReceiptsScreen, priceService (both filters),
+notificationService (both filters), and derived at the source in storageService
+(`saveReceipt`, `addItemToReceipt`, and `updateReceiptItem` when an edit touches
+the money — reversibly, so correcting a mis-parsed discount away re-watches).
+
+User-visible result: with nothing watchable the **"Refresh prices" button is
+hidden outright** (the goal's "should not mention even a check prices"), and each
+row states its own reason — "Bought on sale · not watched" for a discount vs a
+new generic "Not watched" for a fee row / user toggle, which used to *also* read
+"Price already discounted". Separately, `detail.checkedNoPrice` went from
+"No price drop found" → **"No current price available"**: on a genuinely watched
+line it fires when no price resolved, which is not the same claim as "no drop".
+
+### 2 — Home hero: spend this year
+
+New quiet second line under the savings headline: **"Spent in {year} · $X · all
+stores"** — every non-deleted receipt whose `purchaseDate` falls in the current
+calendar year, all stores combined. Refund receipts (negative totals) are left in
+deliberately: a return reduces what was actually spent. Hidden until the first
+receipt exists, so the onboarding state isn't polluted with `$0.00`.
+
+While in that card, four **hardcoded English strings** were removed (hard i18n
+rule): `· all-time`, `+$X this month`, the `Receipts` stat tile, and the
+`N claims expiring soon — act this week` urgent banner. The eyebrow also said
+**"Total Saved This Year · all-time"** — two contradictory periods on one line.
+`stats.totalSavings` is genuinely lifetime (it is even backfilled from the
+server's lifetime figure on a fresh device), so the label is now
+`home.totalSavedAllTime` = "Total saved · all-time". 7 new keys in EN + FR.
+
+### Tests & regression risk
+
+157 suites / **3836** tests green (was 3815); coverage 78.2 / 70.1 / 67.5 / 80.9
+against floors 68 / 55 / 59 / 70; `receiptMath.js` at **100/100/100/100**;
+`i18n:check` green. New coverage: the predicates (including a table test pinning
+them to the backend's own `serverWatchEnabled`, so the two can't drift again
+silently), the three DetailScreen render outcomes, the storage derivations
+(save / manual add / edit-into-discount / edit-out-of-discount / non-money edit /
+explicit override), and the spend line (sum, year + soft-delete + refund + bad-date
+exclusions, onboarding gate).
+
+**Regression risk — moderate, and concentrated in one place:** the watch pool
+gets *smaller*. Lines already discounted at the register now leave Home's tracked
+list, the Tracking tab's Products view, the `watching` filter chip, the price-watch
+registration, and the daily drop sweep. That is the backend's existing behaviour
+finally reflected on device — those lines were never going to yield a claimable
+drop — but a user with sale-heavy receipts will see their "Watching" count drop
+after updating. `isWatchableLine` also adds an `ignored` (fee/deposit) exclusion
+that `priceService` did not previously apply. No backend change, no migration.
