@@ -63,12 +63,16 @@
   so this is a two-release migration); receipt-create and credit-consume are
   still two transactions (revenue loss on a blip, never a double-charge); the
   admin gate is still copy-pasted per route rather than middleware; no fail-fast
-  env validation at boot; tests/priceDropDb.test.js "first sweep" is flaky
-  against the shared dev DB (fails then passes on identical code — dedupe-ledger
-  residue between runs).
+  env validation at boot; (no flaky tests — see verification note below).
 - **Verification:** mobile 155 suites / 3368 tests green, typecheck clean,
-  i18n:check green (1373 keys, EN/FR in sync); backend targeted suites green,
-  full run re-verified. NOT device-tested; NOT pushed.
+  i18n:check green (1373 keys, EN/FR in sync); backend **1019 tests, 1018 pass,
+  0 fail** on a clean serial run. NOT device-tested; NOT pushed.
+- **Gotcha worth remembering:** mid-audit, two backend suites were running
+  concurrently against the SAME Supabase dev project. That exhausts the session
+  pooler ("Connection terminated unexpectedly") and produces phantom failures
+  that alternate pass/fail on identical code — priceDropDb "first sweep" and
+  criticalPathAtomicity "RECEIPT_ID_CONFLICT" both did this. They are NOT flaky;
+  run backend suites one at a time.
 
 ### 2026-07-24 — More Google-guidance error handling: Play Billing states (PR #203)
 - **Asked (/goal):** "add more error handling based on Google's own guidances

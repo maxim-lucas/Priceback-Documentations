@@ -4991,6 +4991,13 @@ rely on the default `uncaughtException` behaviour to attribute a failure to the
 running test file. Installing a process-level handler at require time changes
 that for the test runner too.
 
+**Testing note learned the hard way:** do not run two backend suites
+concurrently against the shared Supabase dev project. It exhausts the session
+pooler ("Connection terminated unexpectedly") and produces phantom failures that
+alternate pass/fail on identical code — which reads exactly like a flaky test or
+a regression you just introduced. Run them one at a time before concluding
+anything about a failure.
+
 Related: SIGTERM previously called `process.exit(0)` immediately, severing
 in-flight credit and receipt writes on every Railway redeploy. It now closes the
 listener, drains, flushes, then exits, with a hard deadline so a hung keep-alive
