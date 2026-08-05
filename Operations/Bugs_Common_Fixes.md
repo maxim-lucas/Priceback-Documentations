@@ -5409,3 +5409,48 @@ confirming it still trips — path-independence is the property that matters.
 
 **Watch for:** the same pattern in any tracked `*.example`, `*.sample`, or
 `*.template` file, and in docs that paste "a working example" of a config block.
+
+---
+
+## 147. The Profile footer advertised v2.6.0 for four releases, in both languages
+
+- Date: 2026-08-05 · Area: i18n / release hygiene
+- Symptom: the Profile screen's footer read `PriceBack v2.6.0 · Built with 🍁 in
+  Canada` while `app.json` was at **2.8.4**. Found during a publishing-docs
+  audit, not by a user.
+
+**Root cause — a fact with two homes and nothing syncing them.** The version
+number was baked as a literal into the `profile.versionLine` string in *both*
+the `en` and `fr` blocks of `src/services/i18n.js`. `app.json` is the real
+record of the app's version (`eas.json` sets `appVersionSource: "local"`), so
+every release bump moved one copy and silently left the other behind. Four
+releases went by. Nothing failed, because a stale string is still a valid
+string — there is no assertion a translation bundle can fail against a value it
+has no reason to know about.
+
+**Why it mattered more than a cosmetic slip.** This is a line an App Store or
+Play reviewer reads on the settings screen while checking that the build in
+front of them matches the version record they are reviewing. A four-release
+discrepancy on the app's own version display is exactly the kind of detail that
+reads as "this binary is not what was submitted."
+
+**Fix.** Interpolate instead of duplicating. The string became
+`PriceBack v{version} · …` in both languages and the screen renders
+`t("profile.versionLine", { version: Constants.expoConfig?.version || "—" })`.
+`expo-constants` was already imported in that file for the diagnostics block, so
+the version now has exactly one source and cannot drift again.
+
+**The general rule — the one worth carrying forward.** *Never bake a value into
+a translation string that is owned somewhere else.* Translation bundles are for
+wording; anything derived from config, the database, or the build is a
+placeholder the caller fills. The moment a number, a price, a URL, or a version
+appears literally in `i18n.js`, it has been forked from its source and will
+drift — and it will drift **once per language**, so the count of stale copies
+grows with every language added. This is the same failure family as the
+store-config drift entries (#136, #142): one fact, two declarations, no
+mechanism keeping them equal.
+
+**Test.** `__tests__/i18n.test.js` now asserts, for every supported language,
+that `profile.versionLine` contains `{version}` and matches no literal
+`vN.N.N`, and that interpolation actually substitutes. Re-baking a number into
+the string fails the suite in whichever language it happens.
