@@ -29,9 +29,9 @@ This is the single source of truth for launch. It absorbs the former
 `security-prelaunch-checklist.md` (now folded into §8A/§9/§10/§12) and the
 still-open findings of the 2026-07-06 pre-publish audit (its state-corrections
 are reflected throughout; the full audit narrative lives in git history).
-Companion references: `docs/Publish_Requirements.md` (backend env vars),
-`docs/REVIEWER_NOTES.md` (store review copy), `docs/SecurityRecommendations.md`
-(deferred/optional security items), `docs/incident-response.md` (breach runbook).
+Companion references: `./Publish_Requirements.md` (backend env vars),
+`./REVIEWER_NOTES.md` (store review copy), `../Security/SecurityRecommendations.md`
+(deferred/optional security items), `../Operations/incident-response.md` (breach runbook).
 
 Order matters. Suggested sequencing at the bottom (Section 18).
 
@@ -52,15 +52,15 @@ Quick-scan table — update as items are completed.
 | App Store availability = Canada only | ✅ Done | Audit §2.3 — app + all 5 IAPs set to Canada only (1 of 175 storefronts), base currency CAD |
 | iOS privacy manifest (`NSPrivacyCollectedDataTypes`) | ✅ Done | Audit §1.5 — was an empty array while the app collects 12 data types; App Store Connect privacy answers must now match (Audit §2.4) |
 | iOS unused-permission hygiene (microphone / always-location stripped) | ✅ Done | Audit §1.6 — `plugins/withIosPrivacyStringCleanup.js`, the counterpart to the Android cleanup plugin |
-| RevenueCat prod purchase recording | ✅ Done | §2 — both `REVENUECAT_WEBHOOK_TOKEN` and `REVENUECAT_SECRET_KEY` set on Railway prod (also mirrored to dev); `/health` confirms `revenuecat.webhook: "configured"` and `revenuecat.syncApi: "configured"` (verified 2026-07-11) — see `docs/RevenueCat_Paywall_Config.md` |
+| RevenueCat prod purchase recording | ✅ Done | §2 — both `REVENUECAT_WEBHOOK_TOKEN` and `REVENUECAT_SECRET_KEY` set on Railway prod (also mirrored to dev); `/health` confirms `revenuecat.webhook: "configured"` and `revenuecat.syncApi: "configured"` (verified 2026-07-11) — see `../Technical/RevenueCat_Paywall_Config.md` |
 | iOS Google OAuth client + plist | ✅ Done | §3 — client created; `GoogleService-Info.plist` at repo root (gitignored); `iosUrlScheme` wired in `app.json`; client ID now committed in `config/profiles/common.js` so no EAS var can go unset (Audit §1.4) |
 | Sign in with Apple works end to end | ✅ Done | Backend verifier deployed and probe-verified on prod 2026-07-26; Apple's 10-minute token expiry now refreshes (Audit §1.3); Apple is the first button on iOS (§1.7). Still needs the **capability enabled on the bundle ID** — see §4 |
 | Apple Sign In With Apple capability | ✅ Done | §4 — enabled by hand on App ID `com.priceback` (`Z446L34LP3`) 2026-07-29, alongside Push Notifications |
 | Sentry DSN | ✅ Done | §5 — DSN in `config/profiles/common.js`; `SENTRY_DSN` + `SENTRY_AUTH_TOKEN` set as EAS secrets for both dev and prod |
 | Azure / Microsoft OAuth (Outlook sync) | ✅ Configured | §6 — verified in Azure portal 2026-07-08: redirect URI matches code, `Mail.Read`+`User.Read` granted, **public client flows enabled (was off — fixed)**, EAS secret set. Only an on-device sign-in smoke test remains |
-| Railway production env vars | ⏳ Pending | §8 — see `docs/Publish_Requirements.md` |
+| Railway production env vars | ⏳ Pending | §8 — see `./Publish_Requirements.md` |
 | **Production DB migrations** | ✅ Done | §8B — migration chain re-squashed into a single `0000_initial.sql` and applied to prod 2026-07-11, verified directly against the prod DB. Barcode upsert script also run against prod. Credit-management data fixes (§8B) still owed separately. |
-| Credit management (referral / auto-reload / packs / ledger) | ✅ Audited | 2026-07-05 full audit + tests green — `docs/Credit_Management_Audit.md`; auto-reload prompt restored to the 50-credit threshold; prod data fixes folded into §8B |
+| Credit management (referral / auto-reload / packs / ledger) | ✅ Audited | 2026-07-05 full audit + tests green — `../Operations/Credit_Management_Audit.md`; auto-reload prompt restored to the 50-credit threshold; prod data fixes folded into §8B |
 | Security credential rotation | ⚠️ BLOCKER | §8A — Vision key + Supabase password, **plus the Cloudflare R2 token** (committed live in `backend/.env.example` for ~10 weeks; scrubbed 2026-08-04 but **still valid until revoked in Cloudflare**). Rotation, not the history purge, is the load-bearing control. `Security/Security_Audit_2026-08-04.md` §"Open actions" |
 | OTA update code signing | ⚠️ Key upload owed | 2026-08-04 (PR #237) — `expo-updates` was serving **unsigned** OTA payloads. `app.json` now declares `codeSigningCertificate: ./certs/certificate.pem` (`keyid: main`, `rsa-v1_5-sha256`) and the cert is committed. **The private key must be uploaded to EAS before any `eas update` is published to a channel a certificate-carrying binary listens on** — a signature-expecting build rejects unsigned updates, so this blocks the OTA path, not the store submission. §8A |
 | Release tag + GitHub release | ✅ Process in place | `v2.8.2`/`v2.8.3`/`v2.8.4` cut. Standing rule: annotated tag **before** building, build from the tag, publish a GitHub release pinning the commit. `npm run release:tag` (dry run) → `-- --write --push`. Never move or delete a tag; rollback is always roll-forward. `Operations/Release_Tagging_And_Repo_Management.md` |
@@ -72,7 +72,8 @@ Quick-scan table — update as items are completed.
 | Android permissions hygiene (AD_ID / RECORD_AUDIO / FINE_LOCATION stripped) | ✅ Done | §10 — `plugins/withAndroidPermissionCleanup.js`; verified against a fresh prebuild manifest 2026-07-24. Data Safety "advertising ID" = No. **2026-08-04 (PR #237): `SYSTEM_ALERT_WINDOW` ("display over other apps") added to the strip list** — it arrives via a dev-tooling dependency rather than `app.json`, and shipping it invites a "why does a receipt scanner draw over my banking app?" review flag. **Verification owed against a real release artifact** (`aapt dump permissions <apk> \| grep SYSTEM_ALERT_WINDOW` → no output); the local `android/` dir is stale build output and proves nothing. Folds into the R8 hardware test |
 | Google Sign-In status-code error handling | ✅ Done | Bug #128 — full GMS-code classification + transient retry in `authService.signInWithGoogle` |
 | Account-deletion web URL (Play requirement) | ✅ Built | `priceback.ca/delete-account` (+ `-fr`) — `Priceback-Website` PR #7; merge to deploy, then set in Play Console → Data deletion |
-| Data Safety + content-rating answers | ✅ Prepared | `docs/Play_Data_Safety_Answers.md` — copy-paste; still needs entering in the console |
+| Data Safety + content-rating answers | ✅ Prepared | `./Play_Data_Safety_Answers.md` — copy-paste; still needs entering in the console |
+| **Google OAuth verification + CASA (Gmail sync)** | 🔴 Not started — longest lead time of anything left | `Google_OAuth_Verification_CASA.md`. Email Sync requests `gmail.readonly`, a Google **restricted** scope; until the consent screen for client `695135372222-*` is verified *for that scope*, Google refuses the grant server-side with `Error 403: access_denied`. **Enforced against the client ID, so no app update can ever clear it** — and Play approval does nothing for it; they are separate reviews in separate consoles. Requires a third-party **CASA** security assessment, which runs in weeks, not days. **Does not block launch:** `gmailSyncEnabled: false` in `config/profiles/common.js` ships the feature off, so PriceBack can publish without it — but it blocks the feature, so start it in parallel rather than treating it as post-launch. Read §4 of that doc before writing the scope justification |
 | French store listing localizations | ⏳ Pending | §15 |
 | Review Notes | ✅ Done | §14 — paste-ready as of 2026-07-26, no placeholders. **iOS needs no demo account** (Sign in with Apple); a Play demo account is optional. Audit §1.10 |
 | App Store listing copy | ✅ Corrected | `marketing/app-store-description.md` — removed the retailer name from the keyword field (a routine 5.2.1 rejection) and fixed a privacy claim that contradicted the code. Audit §1.9 |
@@ -240,7 +241,7 @@ Package was renamed `ca.priceback.app` → `com.priceback` in Play Console (GCP
 creds also rotated), which broke Google Sign-In with `DEVELOPER_ERROR`. Root
 cause was NOT a missing OAuth client — it was the stale `GOOGLE_SERVICES_JSON`
 EAS file-secret still carrying the old `ca.priceback.app` config. Full runbook +
-recovery tooling: `docs/Signin_Config_Recovery.md`, Bug #74.
+recovery tooling: `../Technical/Signin_Config_Recovery.md`, Bug #74.
 
 Google matches a native app by **package + signing SHA-1**, so every signing
 context needs its cert registered on the Firebase `com.priceback` app. All three
@@ -400,7 +401,7 @@ error message, but the rest of the app keeps working.
 - [x] `ADMIN_USER_SUBS` — ✅ set on Railway prod.
 
 **Required for receipt-image storage (tag scan reviews):**
-- [ ] `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` — Cloudflare R2 credentials. Tag-scan observations save without images if missing, but the admin review screen cannot display photos. See `docs/Publish_Requirements.md §5`.
+- [ ] `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` — Cloudflare R2 credentials. Tag-scan observations save without images if missing, but the admin review screen cannot display photos. See `./Publish_Requirements.md §5`.
 - [x] `REVENUECAT_WEBHOOK_TOKEN` — shared secret for RevenueCat webhook POSTs. Set on Railway prod and mirrored in RevenueCat → Integrations → Webhooks → Authorization header — confirmed `configured` via `/health` 2026-07-11.
 - [x] `REVENUECAT_SECRET_KEY` — RevenueCat secret REST API key, backs `POST /api/me/subscription/sync`. Set on Railway prod (and dev) — confirmed `configured` via `/health` 2026-07-11.
 
@@ -418,7 +419,7 @@ The 2026-06-02 security pass landed the code-level hardening (helmet headers,
 global error handler, two IDOR fixes, flyer-import rate limit, OCR input
 validation, tests in `backend/tests/security*.test.js`). These are the **manual**
 follow-ups that must happen before launch. Deferred/optional items:
-`SecurityRecommendations.md`; breach runbook: `docs/incident-response.md`.
+`SecurityRecommendations.md`; breach runbook: `../Operations/incident-response.md`.
 
 > During the 2026-06-02 audit, live credentials in the local working
 > `backend/.env` were read into audit output, and a (previously revoked) Vision
@@ -460,7 +461,7 @@ follow-ups that must happen before launch. Deferred/optional items:
       (`xjfrlzwonyaorwktnkpj`, session-pooler/direct, not the 6543 transaction
       pooler). Both prod and dev/test now run on Supabase — **Neon is fully
       retired** (dev project `gnedluuylimjwdmtvswl`). Double-check you are not
-      targeting the dev project when deploying prod. See `docs/Supabase_Cutover.md`.
+      targeting the dev project when deploying prod. See `../Technical/Supabase_Cutover.md`.
 - [ ] Confirm the in-app **Delete my account** flow (Apple Guideline 5.1.1(v))
       works end-to-end on a real build: Profile → Delete my account →
       `DELETE /api/me/account`.
@@ -494,7 +495,7 @@ tables have RLS disabled — fine while only the backend connects over Postgres,
 but confirm the `priceback` schema is NOT in the Data API exposed-schemas list
 (Dashboard → Settings → API), or enable RLS as defense-in-depth.
 
-See `docs/Supabase_Cutover.md` for the Supabase connection format. The prod project
+See `../Technical/Supabase_Cutover.md` for the Supabase connection format. The prod project
 uses the session pooler at port 5432 (never the 6543 transaction pooler).
 
 **Migrations — ✅ DONE on prod, 2026-07-11:**
@@ -611,7 +612,7 @@ You need a Mac with Xcode (or use the App Store Connect web UI for most fields).
 
 **Data safety form (BLOCKER):**
 
-> **✅ Copy-paste answers ready — `docs/Play_Data_Safety_Answers.md`.** That sheet
+> **✅ Copy-paste answers ready — `./Play_Data_Safety_Answers.md`.** That sheet
 > has the exact per-data-type Data Safety rows (Collected/Shared/purpose/required),
 > the advertising-ID = No answer, the IARC content-rating answers, and the other
 > App-content declarations, all derived from `backend/db/schema.js` + the shipped
@@ -838,7 +839,7 @@ in Quebec rather than a legal block.
   `privacy@priceback.ca`, `security@priceback.ca` all reach inboxes you
   actually read. Apple emails `privacy@` during review and during DSAR
   audits.
-- [ ] **Incident response runbook** — see `docs/incident-response.md`
+- [ ] **Incident response runbook** — see `../Operations/incident-response.md`
   (PIPEDA / Law 25 72-hour breach procedure: detect → contain → scope →
   notify). Also know the basics: how to roll back via EAS Update, how to flip
   the `FLYER_ADMIN_TOKEN` if it leaks, how to revoke a Vision API key.
@@ -910,6 +911,15 @@ subscription revenue and a live credential is unrevoked.
 11. **Publish the GitHub release** for whatever version ships, pinning the build
     commit — part of the release, not a follow-up chore.
 
+**Start in parallel, today, independent of all of the above:** the **Google
+OAuth verification + CASA assessment** for the `gmail.readonly` restricted scope
+(`Google_OAuth_Verification_CASA.md`). It has the longest lead time of anything
+remaining — a third-party security assessment measured in weeks — and it is
+gated on Google, not on us. It does **not** block the launch, because Email Sync
+ships disabled (`gmailSyncEnabled: false`), so it is easy to forget; but nothing
+about it gets faster by waiting, and no app update can ever clear the block,
+since Google enforces it against the OAuth client ID rather than the binary.
+
 ### 18.1 Original from-zero sequence (reference)
 
 1. **Today:** Apple Developer + Play Console enrollment (§0) — takes days for approval, start first.
@@ -951,4 +961,4 @@ First 48 hours after publishing:
 | Website repo (`Priceback-Website/`) | `privacy-policy.html`, `terms-of-service.html`, `support.html` (+ `-fr` variants) — live at `priceback.ca` via Cloudflare Pages |
 | App repo `legal/` (committed) | Only `MARKETING_CLAIMS.md` remains — the legal HTML source of truth moved to the website repo (`ffc874c`) |
 
-**Full backend env var reference:** `docs/Publish_Requirements.md`
+**Full backend env var reference:** `./Publish_Requirements.md`
