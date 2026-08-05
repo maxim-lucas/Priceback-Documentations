@@ -1,6 +1,18 @@
 # PriceBack — Publish Checklist
 
-Last updated: 2026-07-26 · App version 2.8.1 · Backend 2.7.0
+Last updated: 2026-08-05 · App version **2.8.4** (versionCode/buildNumber 24, tag
+`v2.8.4`) · Backend 2.7.0
+
+> **Version currency.** `app.json` is the only record of what version a binary
+> carries (`eas.json` sets `appVersionSource: "local"`), so every store-side
+> record has to be re-checked against it each time it moves. It has moved twice
+> since the 2026-08-03 console pass: 2.8.2 → 2.8.3 → 2.8.4. **The App Store
+> Connect version record still reads 2.8.2 and must be renamed to 2.8.4 before a
+> build is uploaded** — an uploaded binary attaches to the version record whose
+> number matches its `CFBundleShortVersionString`, and a 2.8.4 build will not
+> attach to a 2.8.2 record. Same failure mode as the original 1.0 record.
+> Release-tag discipline (tag before building, build from the tag) is in
+> `Operations/Release_Tagging_And_Repo_Management.md` and is a standing rule.
 
 > **Submitting to the App Store?** Read
 > [`App_Store_Submission_Audit.md`](./App_Store_Submission_Audit.md) first. The
@@ -49,12 +61,15 @@ Quick-scan table — update as items are completed.
 | Railway production env vars | ⏳ Pending | §8 — see `docs/Publish_Requirements.md` |
 | **Production DB migrations** | ✅ Done | §8B — migration chain re-squashed into a single `0000_initial.sql` and applied to prod 2026-07-11, verified directly against the prod DB. Barcode upsert script also run against prod. Credit-management data fixes (§8B) still owed separately. |
 | Credit management (referral / auto-reload / packs / ledger) | ✅ Audited | 2026-07-05 full audit + tests green — `docs/Credit_Management_Audit.md`; auto-reload prompt restored to the 50-credit threshold; prod data fixes folded into §8B |
-| Security credential rotation | ⚠️ BLOCKER | §8A — Vision key + Supabase password |
+| Security credential rotation | ⚠️ BLOCKER | §8A — Vision key + Supabase password, **plus the Cloudflare R2 token** (committed live in `backend/.env.example` for ~10 weeks; scrubbed 2026-08-04 but **still valid until revoked in Cloudflare**). Rotation, not the history purge, is the load-bearing control. `Security/Security_Audit_2026-08-04.md` §"Open actions" |
+| OTA update code signing | ⚠️ Key upload owed | 2026-08-04 (PR #237) — `expo-updates` was serving **unsigned** OTA payloads. `app.json` now declares `codeSigningCertificate: ./certs/certificate.pem` (`keyid: main`, `rsa-v1_5-sha256`) and the cert is committed. **The private key must be uploaded to EAS before any `eas update` is published to a channel a certificate-carrying binary listens on** — a signature-expecting build rejects unsigned updates, so this blocks the OTA path, not the store submission. §8A |
+| Release tag + GitHub release | ✅ Process in place | `v2.8.2`/`v2.8.3`/`v2.8.4` cut. Standing rule: annotated tag **before** building, build from the tag, publish a GitHub release pinning the commit. `npm run release:tag` (dry run) → `-- --write --push`. Never move or delete a tag; rollback is always roll-forward. `Operations/Release_Tagging_And_Repo_Management.md` |
+| **Play: ship 2.8.4 — live 2.8.3 sells no subscriptions** | 🔴 BLOCKER (live defect) | The live build resolves Play subscriptions by `<subscriptionId>` while Play returns `<subscriptionId>:<basePlanId>`, so **every subscription purchase fails on the store right now**. Fixed in PR #230, shipped in **2.8.4 / versionCode 24** — which has not been released to Play. Until it is, the Play listing takes no subscription revenue. Note Maxim is **no longer a license tester**: his own test purchases are real charges. §10 |
 | ADMIN_USER_SUBS set on Railway | ✅ Done | §8 — set on Railway prod |
 | Store listing assets (screenshots, icons) | ⏳ Pending | §13 — **the one thing blocking the iOS submission.** Needs a running build: 6.7"/6.5" iPhone product-page screenshots **plus** a review screenshot for each of the 5 IAPs. No iPad shots (`supportsTablet: false`) |
-| App Store Connect metadata | ✅ Done | §9 — completed 2026-08-03. Version **2.8.2** (was 1.0, which no 2.8.2 build could ever attach to), description + promo text + keywords + support/marketing URLs + copyright, subscription auto-renew disclosure and Terms-of-Use link added to the description per Guideline 3.1.2, App Review contact + notes, "Sign-in required" **unticked**, manual release, Content Rights = "has the necessary rights". DSA trader status skipped (Canada-only) |
+| App Store Connect metadata | ⚠️ Re-check version | §9 — the metadata pass completed 2026-08-03, but it was done against a **2.8.2** version record and the app is now **2.8.4**. Rename the version record to 2.8.4 (App Store Connect → the version → the number field) *before* uploading; the metadata itself carries over. Everything else below still holds. Version **2.8.2** (was 1.0, which no 2.8.2 build could ever attach to), description + promo text + keywords + support/marketing URLs + copyright, subscription auto-renew disclosure and Terms-of-Use link added to the description per Guideline 3.1.2, App Review contact + notes, "Sign-in required" **unticked**, manual release, Content Rights = "has the necessary rights". DSA trader status skipped (Canada-only) |
 | Google Play Console metadata | ⏳ Pending | §10 |
-| Android permissions hygiene (AD_ID / RECORD_AUDIO / FINE_LOCATION stripped) | ✅ Done | §10 — `plugins/withAndroidPermissionCleanup.js`; verified against a fresh prebuild manifest 2026-07-24. Data Safety "advertising ID" = No |
+| Android permissions hygiene (AD_ID / RECORD_AUDIO / FINE_LOCATION stripped) | ✅ Done | §10 — `plugins/withAndroidPermissionCleanup.js`; verified against a fresh prebuild manifest 2026-07-24. Data Safety "advertising ID" = No. **2026-08-04 (PR #237): `SYSTEM_ALERT_WINDOW` ("display over other apps") added to the strip list** — it arrives via a dev-tooling dependency rather than `app.json`, and shipping it invites a "why does a receipt scanner draw over my banking app?" review flag. **Verification owed against a real release artifact** (`aapt dump permissions <apk> \| grep SYSTEM_ALERT_WINDOW` → no output); the local `android/` dir is stale build output and proves nothing. Folds into the R8 hardware test |
 | Google Sign-In status-code error handling | ✅ Done | Bug #128 — full GMS-code classification + transient retry in `authService.signInWithGoogle` |
 | Account-deletion web URL (Play requirement) | ✅ Built | `priceback.ca/delete-account` (+ `-fr`) — `Priceback-Website` PR #7; merge to deploy, then set in Play Console → Data deletion |
 | Data Safety + content-rating answers | ✅ Prepared | `docs/Play_Data_Safety_Answers.md` — copy-paste; still needs entering in the console |
@@ -65,7 +80,7 @@ Quick-scan table — update as items are completed.
 | Store description drafts | ✅ Done | §9/§10/§13 — `marketing/*.md` written 2026-07-11, review before pasting |
 | Pre-submission smoke test | ⏳ Pending | §11 |
 | GitHub Actions CI | ✅ Re-enabled | Was disabled 2026-07-11 (free-tier minutes exhausted); `push`/`pull_request`/`release` triggers restored 2026-07-23 in both workflows under `.github/workflows/`. Watch Actions usage so it doesn't re-exhaust before publish. |
-| Gitleaks secret scan (in CI) | ⚠️ Disabled | 2026-07-23 — the gitleaks step in `.github/workflows/test.yml` (`security` job) is muted via `if: false` because it's currently flagging 8 leaks in the tree, tangled up with the §8A credential-rotation blocker below. Step is kept in the file (not deleted) for a one-line revert. **MUST re-enable (remove the `if: false`) before publish**, once the §8A rotation/investigation is resolved. |
+| Gitleaks secret scan (in CI) | ✅ Re-enabled | **2026-08-04 (PR #237)** — the `if: false` mute is gone; the `security` job runs pinned gitleaks 8.18.4 with `--redact --exit-code 1`. The leak it was muted for (a live Cloudflare R2 token in `backend/.env.example`) is scrubbed; public-by-design tokens are allowlisted **by value shape** in `.gitleaks.toml`, never by path. CI scans the working tree (`--no-git`) so it stays decoupled from the history purge — run `gitleaks git .` by hand until that purge lands. **Do not mute this step again:** a muted scanner stops reporting every leak added after the mute, not just the one it was muted for. |
 
 ---
 
@@ -420,8 +435,27 @@ follow-ups that must happen before launch. Deferred/optional items:
 - [ ] **Supabase database password** (inside the production `DATABASE_URL`) —
       reset in the Supabase dashboard, update `DATABASE_URL` in Railway. Confirm
       it is **not** in any tracked file (`.env*` is gitignored — keep it so).
+- [ ] **Cloudflare R2 API token** — the 2026-08-04 audit found a **live** R2
+      token committed in `backend/.env.example`, present in the tree for roughly
+      ten weeks. The value is scrubbed as of PR #237, but a scrub is not a
+      revocation: **Cloudflare → R2 → API Tokens → revoke the leaked token,
+      create a replacement, update the `R2_*` vars on the Railway backend.**
+      Until that happens the credential is live for anyone who cloned the repo.
+- [ ] **Git history purge** of that R2 key — queued behind PR #237. State the
+      caveat plainly so nobody treats it as the fix: a force-push does **not**
+      remove the old blobs from GitHub. They stay reachable through PR refs
+      until GitHub runs gc, which normally takes a support request. **Rotation
+      is the load-bearing control; the purge is hygiene.**
+- [ ] **Upload the OTA signing private key to EAS.** `app.json` now declares
+      `updates.codeSigningCertificate` (`certs/certificate.pem`, keyid `main`,
+      `rsa-v1_5-sha256`), so `eas update` must be able to sign. Do this before
+      publishing any update to a channel a certificate-carrying binary listens
+      on — such a binary rejects unsigned payloads, which would silently kill
+      the OTA channel rather than fail loudly.
+- [ ] **Confirm the `priceback-receipts` R2 bucket has no public-read policy.**
 - [ ] Confirm no secrets are committed:
       `git grep -nE "AIza|npg_|postgres://|sk_"` returns only placeholders/docs.
+      Date any leak you find with `git log -S "<value>"` before assuming scope.
 - [ ] Confirm the production `DATABASE_URL` points at the **prod Supabase** project
       (`xjfrlzwonyaorwktnkpj`, session-pooler/direct, not the 6543 transaction
       pooler). Both prod and dev/test now run on Supabase — **Neon is fully
@@ -504,7 +538,11 @@ DATABASE_URL=postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com
 You need a Mac with Xcode (or use the App Store Connect web UI for most fields).
 
 **App information:**
-- [ ] Name: **PriceBack Canada**
+- [ ] Name: **PriceBack** — *not* "PriceBack Canada". This field is the name
+  shown on the product page and the home screen; only internal slugs still carry
+  the old name. Verify it against `app.json` → `expo.name` rather than typing it.
+- [ ] Version number: **must match `app.json` → `expo.version`** (2.8.4 today).
+  The record currently reads 2.8.2 — rename it before uploading a build.
 - [ ] Subtitle: (max 30 chars) e.g. "Track price drops, get refunds"
 - [ ] Bundle ID: `com.priceback` (already set)
 - [ ] Primary category: **Finance**
@@ -548,8 +586,17 @@ You need a Mac with Xcode (or use the App Store Connect web UI for most fields).
 
 ## 10. Google Play Console — Android metadata
 
+> 🔴 **Before any metadata work: the live 2.8.3 build sells no subscriptions.**
+> It resolves Play subscriptions by `<subscriptionId>` while Play returns
+> `<subscriptionId>:<basePlanId>`, so every purchase attempt fails on the live
+> listing. Fixed in PR #230 and shipped in **2.8.4 / versionCode 24** (tag
+> `v2.8.4`) — which has not been released. Releasing it is the highest-priority
+> Play item. Also note **Maxim is no longer a license tester**, so his own
+> purchase tests are now real charges against a real card.
+
 **Store listing:**
-- [ ] App name: **PriceBack Canada**
+- [ ] App name: **PriceBack** — *not* "PriceBack Canada". The user-facing name is
+  plain "PriceBack" everywhere; only internal slugs still carry the old name.
 - [ ] Short description (80 chars): "Scan receipts, track price drops, get refunds from Canadian stores"
 - [ ] Full description (4000 chars): drafted 2026-07-11 in `marketing/play-store-description.md` — review/edit before pasting into Play Console.
 - [ ] App icon: `assets/icon.png` (Expo provides; verify 512×512 PNG variant).
@@ -823,6 +870,47 @@ in Quebec rather than a legal block.
 ---
 
 ## 18. Suggested order of operations
+
+### 18.0 Where this actually stands (2026-08-05) — the real remaining path
+
+The numbered plan below is the original from-zero sequence and is kept for
+reference, but most of it is done (enrollment, legal pages, RevenueCat, OAuth,
+prod migrations, ASC metadata). **This is what is genuinely left**, in order.
+Two of these are live defects, not launch prep — Play is currently taking no
+subscription revenue and a live credential is unrevoked.
+
+1. **Revoke + rotate the Cloudflare R2 token** (§8A). Independent of everything
+   else; the credential is live right now. Also Vision key + Supabase password.
+2. **Ship 2.8.4 to Play.** The live 2.8.3 cannot complete a single subscription
+   purchase (base-plan id bug, PR #230). The fix is already tagged `v2.8.4` —
+   build **from the tag**, not from `main`.
+3. **Device-test before either store ships.** 2.8.4 is still the first build
+   carrying R8 minification, and R8 has never run on hardware. Same pass
+   verifies `SYSTEM_ALERT_WINDOW` is absent from the real artifact and that the
+   Unlimited paywall card shows five bullets in EN *and* FR (post family-sharing
+   removal). Test a phone **and** a ≥600dp device.
+4. **Rename the App Store Connect version record 2.8.2 → 2.8.4** (§9) before
+   uploading anything. A 2.8.4 binary will not attach to a 2.8.2 record.
+5. **`eas build -p ios --profile production`** from the tag; env vars for a
+   non-interactive Apple build are in the iOS credentials notes.
+6. **Screenshots (§13) — still the one hard iOS blocker.** iPhone 6.5"/6.7"
+   product-page shots **plus a review screenshot on each of the 5 IAPs** (one
+   Buy-Credits capture + one paywall capture can be reused across all five). No
+   iPad shots — `supportsTablet: false`.
+7. **Submit the 5 IAPs *with* the app version**, not after. On a first
+   submission, products left in "Ready to Submit" are not reviewed, and the
+   reviewer lands on a paywall that sells nothing → rejection.
+8. **Play Console metadata + Data Safety** (§10) — answers are prepared in
+   `Play_Data_Safety_Answers.md`, still need entering. Set the account-deletion
+   URL to `priceback.ca/delete-account`.
+9. **French store listings** (§15).
+10. **Upload the OTA signing key to EAS** (§8A) — needed before the first
+    `eas update`, not before the store submission. Do it before you need it in a
+    hurry to patch something.
+11. **Publish the GitHub release** for whatever version ships, pinning the build
+    commit — part of the release, not a follow-up chore.
+
+### 18.1 Original from-zero sequence (reference)
 
 1. **Today:** Apple Developer + Play Console enrollment (§0) — takes days for approval, start first.
 2. **Day 1:** Verify `curl -I https://priceback.ca/privacy` returns 200. Check `_redirects` in `Priceback-Website/` if any path is 404 (§1).

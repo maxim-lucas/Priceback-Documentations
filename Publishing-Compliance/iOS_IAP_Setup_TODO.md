@@ -219,8 +219,12 @@ Notes:
    tier, so switching Monthly → Annual currently counts as a *downgrade* and is
    deferred to the next renewal. If you'd rather that switch take effect
    immediately, swap them (group page → Subscriptions → Edit).
-2. **`profile.versionLine`** in `src/services/i18n.js` still hardcodes `v2.6.0`
-   while `app.json` is at `2.8.1`. Unrelated to iOS setup, but it's user-visible.
+2. ~~**`profile.versionLine`** in `src/services/i18n.js` still hardcodes
+   `v2.6.0`.~~ ✅ **FIXED 2026-08-05.** It had drifted to four releases behind
+   (`app.json` reached 2.8.4) in *both* language blocks, on a line a store
+   reviewer reads. The string is now `PriceBack v{version} · …` and the Profile
+   screen interpolates `Constants.expoConfig.version` at render time, so it can
+   never go stale again; a test pins the placeholder in EN and FR.
 
 ---
 

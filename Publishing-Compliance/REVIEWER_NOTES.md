@@ -1,4 +1,4 @@
-# Reviewer Notes — PriceBack Canada
+# Reviewer Notes — PriceBack
 
 Copy-paste this into:
 - **App Store Connect → App version → App Review Information → Notes**

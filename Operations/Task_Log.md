@@ -3540,3 +3540,68 @@ from GitHub, they persist via PR refs until GitHub runs gc, which is why
 rotation is the load-bearing control); and verify
 `aapt dump permissions <apk> | grep SYSTEM_ALERT_WINDOW` → no output against a
 real release artifact, folded into the R8 hardware test already outstanding.
+
+---
+
+## 2026-08-05 — Publishing documentation audit: bring it current with 2.8.4
+
+**Asked:** check the publishing documentation, update it where it is wrong, and
+complete what is missing.
+
+**What was actually wrong.** The publishing docs were last touched 2026-08-03
+and had gone stale against three merges since (#230, #236, #237). Five factual
+defects in `PUBLISH_CHECKLIST.md`:
+
+1. **Version.** Header said 2.8.1, summary table said 2.8.2; the app is 2.8.4
+   (versionCode/buildNumber 24, tag `v2.8.4`). More than cosmetic: the **App
+   Store Connect version record still reads 2.8.2**, and a 2.8.4 binary will not
+   attach to it — the identical failure mode as the 1.0 record caught on 08-03.
+   Flagged as a pre-upload action in the header, the summary table and §9.
+2. **Gitleaks row said "⚠️ Disabled — MUST re-enable before publish."** It was
+   re-enabled 2026-08-04 in PR #237. A checklist that reports an open blocker
+   which is already closed trains its reader to skim it.
+3. **§8A credential rotation listed only the Vision key and the Supabase
+   password** — the leaked Cloudflare R2 token, the item with an actually-live
+   credential behind it, was absent. Added, along with the OTA signing-key
+   upload, the bucket public-read check, and the history purge *with* the caveat
+   that a force-push does not remove objects from GitHub.
+4. **No mention anywhere that the live 2.8.3 build sells no subscriptions.** The
+   base-plan-id bug (#230) means the Play listing currently completes zero
+   subscription purchases; the fix is tagged in 2.8.4 and unreleased. That is a
+   live revenue defect, not launch prep — now a 🔴 row and the top of §10.
+5. **Store-listing name said "PriceBack Canada"** in both the App Store (§9) and
+   Play (§10) name fields, against the standing rule that the user-visible name
+   is plain "PriceBack". Corrected in both, plus the titles of `REVIEWER_NOTES`
+   and `App_Store_Submission_Audit`.
+
+**What was missing.** §18's sequence was still the generic from-zero plan (day 1
+= enrollment, long since done), so nothing in the docs answered "what is
+actually left." Added **§18.0**, an ordered eleven-step remaining path, with
+§18.1 keeping the original for reference. Also recorded the `SYSTEM_ALERT_WINDOW`
+strip from #237 and the release-tag discipline as summary rows.
+
+**One code fix fell out of the audit** — `iOS_IAP_Setup_TODO.md` carried an open
+note that `profile.versionLine` hardcoded `v2.6.0`. Still true, and by now four
+releases stale, in EN and FR both. The Profile footer is a line store reviewers
+read while confirming the build matches the submitted version. Fixed by
+interpolation (`PriceBack v{version} · …` + `Constants.expoConfig.version` at
+the call site, `expo-constants` already imported there), so the value has one
+source and cannot drift again. Bugs #147.
+
+**Tests.** `__tests__/i18n.test.js` gains a per-language assertion that
+`profile.versionLine` holds `{version}`, contains no literal `vN.N.N`, and
+interpolates — so re-baking a version into the string fails the suite in
+whichever language it happens. Pushed to CI rather than run locally.
+
+**Regression risk — low, and stated per change.** The docs changes carry none.
+The code change touches one `<Text>` on the Profile screen and one key in each
+language block; `t()` already supported `{}` interpolation (its `vars`
+parameter defaults to `{}` and short-circuits when empty), so no other caller of
+that key changes behaviour, and there is no other caller. If
+`Constants.expoConfig` were ever undefined the line renders `PriceBack v— · …`
+rather than throwing. No native, backend, or purchase-path code involved;
+identical on iOS and Android.
+
+**Not done — needs Maxim, not the repo.** Rotating the R2 token, releasing 2.8.4
+to Play, renaming the ASC version record, the screenshots, and the R8/permission
+hardware test. All are itemised in §18.0.

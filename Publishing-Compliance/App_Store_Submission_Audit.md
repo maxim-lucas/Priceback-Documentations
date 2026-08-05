@@ -1,4 +1,4 @@
-# App Store submission audit — PriceBack Canada
+# App Store submission audit — PriceBack
 
 **Audited:** 2026-07-26 · against app version 2.8.1 / iOS build 20 (`com.priceback`)
 **Scope:** everything that could get the first iOS submission refused — App
