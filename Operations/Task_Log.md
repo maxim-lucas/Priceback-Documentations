@@ -3605,3 +3605,87 @@ identical on iOS and Android.
 **Not done — needs Maxim, not the repo.** Rotating the R2 token, releasing 2.8.4
 to Play, renaming the ASC version record, the screenshots, and the R8/permission
 hardware test. All are itemised in §18.0.
+
+---
+
+## 2026-08-05 — Scan review notifications: only when the scan was actually deferred
+
+**Asked:** "I scanned a price tag and I got a notification after reviewing and
+submitting it. It should only notify if the user had a poor connection when
+scanning and the OCR didn't send back the results — same for receipts. Never pop
+it if the user has a connection and the OCR returns quickly. And the user should
+get a message that there will be a notification for review, so he can quit the
+screen."
+
+**Which notification it actually was.** Two can arrive around a tag submit, and
+Maxim confirmed it was the second: (a) the local offline-queue alert "📷 Your
+price-tag scan is ready", and (b) the **backend push "Price tag awaiting
+review"**, fired inside the submit request itself to every sub in
+`ADMIN_USER_SUBS`. His sub is in that list on dev, so submitting a tag pushed him
+a request to verify his own tag one second after tapping Submit — an alert about
+work he had just finished, and one he can't act on (nobody reviews their own
+submission).
+
+**Three more ways the offline-queue alert reached an online user.** Tracing (a)
+found the same defect by other routes, all fixed here:
+
+- The alert fired **with the app open**. Five triggers drain the scan queues;
+  three run in the foreground, including a 60-second `setInterval` poll in
+  `App.js` and the "Process now" button on the review screen itself. With
+  `shouldShowBanner: true`, a drain banner-ed "come back and review this" over
+  the app the user was holding.
+- `probeReachable` was a single 3.5 s `GET /health`. A cold-starting Railway
+  dyno or a waking radio answered late and was read as **offline**, so a photo
+  that could have been read live was queued and notified about later.
+- `runOcrBatch` queued on **any** per-photo OCR error and did it **silently** —
+  an unreadable photo in an otherwise-fine batch was re-read minutes later and
+  notified a user who had already reviewed and submitted the rest.
+
+**What shipped.** Backend: the submitter is skipped in the admin push loop, via
+`optionalAuthUser` (not `resolveScanOwner`, which upserts the user row and claims
+the device — side effects that belong to the credit path). Mobile: one
+`AppState.currentState === "active"` gate inside both scan-ready senders (the
+choke point all five triggers pass through — in the foreground the existing "N
+waiting for review" pill is the surface); `probeReachable` retries once before
+concluding offline; the batch path queues only `classifyError → network|timeout`
+— the same helper the receipt screen uses, so the two definitions can no longer
+drift — and **announces** anything it queued, with everything else becoming a
+blank manual-entry card (rule 11). Both scan screens gained a **"Save it — we'll
+notify you"** button at 8 s, guarded by a `scanRunId` so a read that resolves
+after the user leaves can neither spend a credit nor pull them into a review
+step for a photo the queue now owns. `tag_review` taps now route to the admin
+review screen instead of doing nothing.
+
+**i18n.** The "saved for later" copy in EN and FR now says a notification is
+coming and the screen can be closed; new `deferred*` / `saveAndNotify` keys
+cover the user-chosen deferral (which must not claim "no connection"). Both
+scan-ready notification bodies were **hardcoded English** — moved to
+`notif.*ScansReady*` keys in both languages. `npm run i18n:check` green at
+1396 keys per language.
+
+**Tests.** Second admin added to `tagReviewAdminPushDb.test.js` so "the submitter
+is skipped" is proven by the other admin still receiving it, not by an absence;
+foreground gate pinned in both directions plus the `tag_review` route
+(`notificationTapRouting.test.js`); probe retry (`tagScanQueue.test.js`); new
+`priceTagScanDeferral.test.js` and additions to `scanScreenOfflineQueue.test.js`
+for the batch queue-entry boundary, the 8-second escape and the dropped late
+result. Pushed to CI rather than run locally.
+
+**Regression risk — stated per change.** The foreground gate is the one to watch:
+it is a behaviour *removal*. A queued scan that finishes while the app is open
+now surfaces only through the in-app pill; users who left still get the alert
+unchanged. The probe retry lengthens the worst case before "saved for later" on
+a slow link (~3.5 s → ~7 s) — deliberately, because today that wait ends in a
+wrong answer; a genuinely offline device fails at connect in milliseconds and is
+unaffected. The batch narrowing strictly *reduces* what enters the queue. The
+backend filter only removes a self-directed push and returns `null` for
+anonymous scans, i.e. today's behaviour. The defer button is the largest new
+surface, which is why the stale-resolution guard is tested explicitly. No native,
+schema, migration or purchase-path code; iOS and Android identical.
+
+**Deliberately not changed** (so it isn't read as an oversight): `error` /
+`rejected` receipt entries still count as "ready" and still notify — deliberate,
+with existing tests, and suppressing them would let an unreadable offline receipt
+sit silently; the alert still carries the total pending-review count rather than
+a delta; and the scan-ready alerts remain gated by the master switch only, with
+no granular pref.

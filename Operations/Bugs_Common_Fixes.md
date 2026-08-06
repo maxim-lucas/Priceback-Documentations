@@ -5454,3 +5454,106 @@ mechanism keeping them equal.
 that `profile.versionLine` contains `{version}` and matches no literal
 `vN.N.N`, and that interpolation actually substitutes. Re-baking a number into
 the string fails the suite in whichever language it happens.
+
+---
+
+## 148. A notification fired at a user who had just done the thing it was asking them to do
+
+- Date: 2026-08-05 · Area: mobile scan flows / backend push
+- Symptom: "I scanned a price tag and I got a notification after reviewing and
+  submitting it." The connection was fine and the OCR came back fast — the whole
+  review-notification family is only supposed to appear when a scan *couldn't*
+  be read live.
+
+**Root cause — four independent ones, which is the interesting part.** The
+report named one symptom; the flow had four separate ways to produce it, and
+only the first was the alert actually seen.
+
+1. **The submitter was in the audience for their own alert.** `POST
+   /api/observations/tag` pushes "Price tag awaiting review" to every sub in
+   `ADMIN_USER_SUBS` so an admin doesn't have to poll the review screen. Maxim's
+   sub is in that list, so submitting a tag pushed him a request to verify his
+   own submission, about a second after he tapped Submit. He can't be the
+   reviewer of his own tag either, so the push was never actionable.
+2. **The "your scan is ready" alert fired with the app open.** Five things drain
+   the offline scan queues — cold boot, the background→active transition, a
+   **60-second poll in `App.js`**, the daily background fetch, and the "Process
+   now" button on the review screen itself. Three run in the foreground, and
+   `setNotificationHandler` asks for a banner, so a drain would banner "come
+   back and review this" over the app the user was already holding.
+3. **Photos entered the offline queue while the device was online.**
+   `probeReachable` was a single 3.5 s `GET /health`: a cold-starting Railway
+   dyno or a radio still waking answered late and was read as "offline". And
+   `runOcrBatch` queued on **any** per-photo OCR error — not just connection
+   ones — **silently**, so an unreadable photo in an otherwise-fine batch was
+   re-read in the background minutes later and notified a user who had already
+   reviewed and submitted the rest.
+4. **Nothing told the user a notification was coming.** The only control on a
+   dragging read was *Cancel*, which threw the capture away.
+
+**Fix.**
+
+- Skip the caller in the admin push loop (`optionalAuthUser(req)?.sub`, **not**
+  `resolveScanOwner` — that one upserts the user row and claims the device, side
+  effects that belong to the credit path).
+- One foreground gate (`AppState.currentState === "active"`) inside both
+  `sendTagScansReadyNotification` and `sendReceiptScansReadyNotification` — the
+  single choke point all five triggers pass through. In the foreground the
+  existing "N waiting for review" pill is the surface.
+- `probeReachable` retries once before concluding offline; `runOcrBatch` queues
+  only `classifyError → network|timeout` (the same helper the receipt screen
+  uses, so the two definitions can't drift again) and **announces** anything it
+  queued; everything else becomes a blank manual-entry card (rule 11).
+- Both scan screens grow a "Save it — we'll notify you" button at 8 s, with a
+  `scanRunId` guard so a read that resolves after the user leaves cannot spend a
+  credit or drag them into a review step for a photo the queue now owns.
+- `data.type === "tag_review"` taps now route to the admin review screen; they
+  previously matched no branch and did nothing.
+- Both scan-ready notification bodies were hardcoded English — moved to
+  `notif.*ScansReady*` keys in EN and FR.
+
+**The general rule — the one worth carrying forward.** *A notification whose job
+is "come back to the app" must check whether the user ever left.* More broadly:
+before sending anyone a message about an event, ask whether they are the person
+who caused it. Both defects here are the same shape — a fan-out that never asked
+who the recipient was relative to the trigger. The audience of an alert is part
+of its correctness, not a delivery detail.
+
+Second rule, from cause 3: *a single probe is not evidence.* Any boolean derived
+from one timed network call ("are we online?") will be wrong under exactly the
+conditions it exists to detect, and a wrong "offline" here didn't fail loudly —
+it silently deferred work that resurfaced later as an unexplainable
+notification. Retry before concluding, and never widen a fallback path
+("something went wrong → queue it") past the specific failure it was written
+for.
+
+**Test.** `backend/tests/tagReviewAdminPushDb.test.js` adds a second admin and
+asserts the submitting admin is skipped **while the other one still receives it**
+(so the absence proves exclusion, not a broken push).
+`__tests__/notificationTapRouting.test.js` pins the foreground gate in both
+directions and the `tag_review` route; `__tests__/tagScanQueue.test.js` pins the
+probe retry (one failed attempt then success → reachable);
+`__tests__/priceTagScanDeferral.test.js` (new) and
+`__tests__/scanScreenOfflineQueue.test.js` pin the batch queue-entry boundary,
+the 8-second escape, and the dropped late result.
+
+**Two test-harness traps this fix walked into, both worth knowing.**
+
+*Never register a REAL module as a virtual mock.* The new suite declared
+`jest.mock("expo-image-picker", factory, { virtual: true })`. `expo-image-picker`
+is a real dependency, and marking a real module virtual makes it unresolvable
+for **other** suites sharing the worker. `priceTagSourceGone.test.js` reaches the
+picker through `await import("expo-image-picker")`, which then yielded nothing —
+its gallery path silently did nothing and four assertions failed **on CI only**,
+while passing in isolation *and* when the two files were run together. The tell
+for this whole family: *a suite you never touched fails, and only under the full
+run.* `virtual: true` is for modules that genuinely do not exist on disk.
+
+*A slow-path UI test must prove it reached the slow path.* Asserting on a "this
+is taking too long" affordance means the screen has to actually be parked in the
+scanning step first — four awaits deep here (document scanner → source probe →
+reachability probe → credit gate → OCR). Two microtask ticks raced the render,
+so the escape timer could be advanced before the effect that arms it had run.
+Flush generously and assert you are parked (the intro's shutter is *gone*) before
+advancing timers, rather than asserting the absence of a button that was never
+going to be there yet.
