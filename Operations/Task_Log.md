@@ -3745,3 +3745,93 @@ means found *and fixed*. They go in with each repair, numbering from **#149**.
 **Regression risk: none.** Documentation-only change, confined to
 `Priceback-Documentations`. `i18n:check` (green, 1396×2) and `typecheck` (exit 0)
 were re-run after the write-up to confirm the document doesn't contradict them.
+
+## 2026-08-07 — Fixing the whole-app audit, highest priority first
+
+**Asked:** "fix all bugs start with the highest priority" — against
+`Roadmap/App_Audit_2026-08-07.md` (PR #20), which had deliberately fixed nothing.
+
+**Status: all 13 findings actioned.** Twelve fixed and merged; one (**L5**) is an
+ops decision that is still owed, and is called out below rather than quietly
+counted as done. Five code PRs in `Priceback`, one in `Priceback-Website`, two
+docs PRs here. Batched exactly as the audit's §6 suggested, in its order.
+
+| # | PR | Findings |
+|---|---|---|
+| 1 | Priceback#242 | **H2** — admin-token throttle |
+| 2 | Priceback#243 | **M2 M3 M4 L7** — i18n batch |
+| 3 | Priceback#244 | **H1 M1** — EAS channel + APP_ENV |
+| 4 | Priceback#245 | **L1 L2 L3 L4** — cleanup |
+| 5 | Priceback#246 | **L5** — make it answerable |
+| 6 | Priceback-Website#13 | **L6** — `_headers` |
+
+**H1 was worse than the audit could establish.** It was filed as VERIFY because
+channel binding is not knowable from the repo. Checked against EAS:
+`eas channel:list` returns exactly ONE channel (`dev`), and every production and
+preview build reports `channel: null` — **including the Android 2.8.3 live on
+Play**. So OTA hotfixes have never been deliverable to a single store user, and
+the fix only binds *future* builds: 2.8.3 stays unreachable forever. That is the
+release whose Play base-plan id bug means it sells no subscriptions, so the
+escape hatch was missing for exactly the incident it existed for.
+
+**Three places the implementation deliberately diverges from the audit's
+sketch**, each recorded in its Bugs entry because the obvious version is worse:
+
+1. **H2 — separate rate-limit buckets, not the shared flyer one.** Same secret,
+   opposite traffic shapes; one budget would let routine admin work lock out the
+   weekly flyer import. And successes are *refunded*, so only failed guesses
+   accumulate — a budget that charges correct credentials is an outage dressed as
+   a security control. The property that matters (429 before a valid token is
+   accepted) is pinned by test.
+2. **M1 — the preflight warns instead of skipping.** Setting `APP_ENV` makes
+   `assertStoreBuildIsPurchasable`'s comment true by making it stop checking
+   preview builds. That would have silently deleted coverage on the one build
+   type where a RevenueCat misconfiguration should be caught before a store sees
+   it. Production still throws; everything else warns loudly.
+3. **L5 — the service reports it rather than someone checking a dashboard.**
+   See below.
+
+**L5 is NOT closed.** `DATA_DIR` is unset in `railway.json`, so file-backed state
+(the watch registry, the notify dedupe ledger, the flyer overlay) may sit on
+ephemeral container disk. It could not be settled from the repo, and could not be
+settled during the fix pass either — the Railway CLI is not authenticated here.
+`GET /health` (admin) now carries `checks.storage` with a `local | volume |
+ephemeral` verdict, the resolved path, and the on-disk files with mtimes.
+**Still owed, on BOTH the production and development services:** mount a Railway
+Volume, set `DATA_DIR` to its mount path, then confirm `checks.storage.status`
+reads `volume`.
+
+**Also owed before the next production build:** M1 changes the Sentry
+`environment` tag for preview builds from `production` to `preview`, so any
+Sentry alert, dashboard or release-health rule filtered on
+`environment:production` stops seeing preview traffic. That is the intent, but it
+should be a decision rather than a discovery. And the first production
+`eas update` after H1 should be a **no-op bundle verified on a device**, not a
+real hotfix — it activates a delivery path that has never carried traffic.
+
+**One finding the audit's table missed.** L1 listed six stale `docs/` references;
+a full re-sweep during the fix found a seventh (`backend/.env.example` ->
+`Technical/Supabase_Cutover.md`). An audit's list is a sample — the fix pass
+should re-run the search, not work from the table.
+
+**Regression risk, stated for each batch** (full detail in each PR):
+`/api/flyer/import` throttling behaviour is byte-identical after the shared
+window helper was extracted; five admin routes now 429 an IP that fails auth 10x
+in an hour, and existing suites fail admin auth at most twice per process against
+that cap; the deal-badge EN copy is rewritten (sentence case, no "BUY NOW"), so
+it is a visible change in both languages, not a silent refactor; two backend
+endpoints now return 404, both verified callerless from the app, the scripts and
+the website; deleting `PaywallScreen.js` plus its smoke test nudges `src/**`
+coverage down by roughly 0.03%, well inside the ratchet headroom but downward
+rather than neutral.
+
+**Tests shipped with the fixes, per the standing rule:**
+`backend/tests/adminTokenRateLimit.test.js` (own process — the buckets are per-IP
+and every supertest request shares one loopback address),
+`__tests__/dealBadgeI18n.test.js`, `__tests__/easBuildProfiles.test.js`,
+`backend/tests/healthDataDir.test.js`, plus the 404 tombstones and the
+replacement `/api/watch`-replaces-the-list assertion in `routes.test.js`.
+`i18n:check` green (1404 x 2 after the new keys), `typecheck` exit 0. Suites were
+not run locally — CI is the authority (standing rule).
+
+Bugs_Common_Fixes **#149-#154**.

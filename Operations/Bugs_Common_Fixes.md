@@ -5652,3 +5652,296 @@ pins all three properties, plus the one that matters most for regressions: after
 the bucket is drained by wrong guesses, a request carrying the **correct** token
 still gets 429. If someone later moves the compare above the throttle, that test
 is the one that fails.
+
+## 150. The badge translated four of its five lines, and the safety net for the fifth was unreachable code
+
+- Date: 2026-08-07 · Area: mobile i18n · Audit 2026-08-07 **M2 + M3 + M4 + L7**
+- Symptom: a French user scans a price tag, gets the payoff badge, and reads
+  *"Price ends in .97 — Costco corporate officially marked this down. Limited
+  time. BUY NOW."* in English, underneath a correctly-translated title.
+
+**Root cause (M2).** `DealBadge` rendered `detail` straight off the backend's
+`DealSignal`. There was no `priceTag.deal.*Detail` key for any of the five signal
+codes. On the *same badge*, `tier`, `label`, `asterisk_note` and `organic_note`
+were all correctly routed through `t()` — which is what makes this an oversight
+rather than a decision, and what let it survive review: the badge *looks*
+localized.
+
+**The interesting part (M3) — the fallback that could never fire.** The author
+had written what looks like exactly the right defence:
+
+```js
+{t(`priceTag.deal.${signal.signal}`) || label}
+```
+
+That `|| label` is **unreachable**. `t()` resolves *active language → English →
+**the key itself***, and a key is a non-empty string, so the left side is always
+truthy. Worse, both keys are built dynamically, so `npm run i18n:check` — which
+validates literal `t("…")` calls — could not see them either.
+
+Nothing was broken *today*: the producer enum is closed and all five codes plus
+all three tiers were mapped. The failure was scheduled. Add a sixth signal code
+backend-side and the badge renders the literal string `priceTag.deal.<new_code>`
+on screen — worse than the raw code — while the intended fallback to the server's
+English `label` sits there looking like it handles this.
+
+The primitive for it already existed and was already used for exactly this case:
+`hasKey()`, per the `catalogLabels.js` pattern.
+
+```js
+const k = `priceTag.deal.${signal.signal}`;
+const text = hasKey(k) ? t(k) : label;   // now reachable
+```
+
+**Root cause (M4 + L7) — three strings that were never keys.** `QTY` on the
+receipt-review screen (a core path, every scan), `placeholder="Item name"`
+sitting directly beside a correctly-translated `t("detail.editName")`, and
+`placeholder="YYYY-MM-DD"`. The last one is the sharp one: the FR bundle already
+says `AAAA-MM-JJ` in **all five** other date strings, so a French user got an
+error message telling them to use a format the field beside it contradicted.
+
+**Fix.** Five `priceTag.dealDetail.*` keys in EN + FR (FR keeps the decimal as a
+period, `.97`, because that is what is physically printed on the shelf tag — the
+whole point of the signal); `hasKey()` on both dynamic lookups; the two
+literal-key sites drop their unreachable `|| note` arms instead of keeping the
+crutch; `scan.qtyLabel` (**QTÉ**), `detail.editNamePlaceholder`, `scan.dateMask`
+(**AAAA-MM-JJ**). Also guards `signal.tier` before `.charAt(0)` — a malformed
+cached signal from the offline queue would have thrown inside render.
+
+**Two rules worth carrying forward.**
+
+*A fallback you cannot reach is worse than no fallback,* because it stops anyone
+from writing a real one. `x || fallback` is only a safety net when `x` can
+actually be falsy — and `t()` was documented as never returning falsy, in its own
+header, the whole time. Before writing `||`, check what the left side does on the
+failure path you are guarding against.
+
+*A green checker is evidence about what it checks.* `i18n:check` structurally
+cannot catch M4 or L7: it validates keys that are *referenced*, not display text
+that never became a key, and it cannot see a dynamically-built key at all. Both
+gaps are why these survived. So the test added here checks the **producer**
+instead: it reads the signal codes out of `backend/services/priceSignalService.js`
+and asserts each has EN + FR entries. It fails in CI the moment the backend grows
+a sixth code — the only moment that is cheap to act on.
+
+**Test.** `__tests__/dealBadgeI18n.test.js`. The render half deliberately uses the
+REAL i18n bundle rather than a `t: (k) => k` stub, which would hide a missing key
+— and asserts that an **unknown** code falls back to the server's English and
+never to a `priceTag.*` string. (`priceTagScreen.smoke.test.js` stubs
+`hasKey: () => false`, so it exercises the fallback branch by accident, which is
+a useful accident.)
+
+**Gotcha for the next person writing a render test here.** `renderer.create()`
+alone returns an *uncommitted* tree under React's concurrent root: `toJSON()`
+answers `null` and every `toContain` silently compares against `""`. All six
+render cases failed on the first CI run while the static contract cases passed,
+which made it look like a component bug rather than a harness one. Wrap in
+`act()` — the pattern `priceTagScreen.smoke.test.js` already uses.
+
+## 151. Two build settings nobody set, and a default that quietly answered for both
+
+- Date: 2026-08-07 · Area: EAS build config · Audit 2026-08-07 **H1 + M1**
+- Symptom: none, twice over. No build failed, no error was logged. One capability
+  simply did not exist, and one number was quietly wrong.
+
+**H1 — OTA updates could not reach a single production build.** `eas.json`
+declared `"channel"` on the `dev` profile only. A build created without a channel
+is not bound to an update branch, so `eas update --branch <x>` has nothing to
+match it against. It fails **silently in the direction that looks like success**:
+the CLI publishes the bundle and reports OK; the bundle reaches nobody.
+
+The audit could not settle this from the repo and marked it VERIFY. Checked
+against EAS, it was worse than suspected:
+
+```
+$ eas channel:list          ->  exactly ONE channel: "dev"
+ANDROID  production  ch=NONE  v=2.8.3  FINISHED   <- live on Play
+IOS      production  ch=NONE  v=2.8.1
+IOS      preview     ch=NONE  v=2.8.1
+IOS      dev         ch=dev   v=2.8.1
+```
+
+Everything in the repo says this capability exists: `updates.url`, a **committed
+code-signing certificate** deliberately re-allowed past the blanket `*.pem` rule
+in `.gitignore`, `codeSigningMetadata`, `runtimeVersion: appVersion`. Someone did
+the hard 90%. The one-line binding was missing, and nothing anywhere reports its
+absence.
+
+**The part that does not get fixed.** Adding the channel only affects **future**
+builds. The Android 2.8.3 currently live on Play was built channel-less and stays
+that way — those users cannot be reached by OTA, ever. Which matters, because
+2.8.3 is the build whose Play base-plan id bug means it sells no subscriptions.
+The escape hatch was never available for the incident it would have been for.
+
+**M1 — `preview` builds filed their crashes under `production`.** Only `dev` set
+`APP_ENV`, and *both* consumers default the missing value the same way:
+
+```
+config/profiles/eas.js:17   const APP_ENV = process.env.APP_ENV || "production";
+app.config.js:71            const appEnv = process.env.APP_ENV || "production";
+```
+
+So a preview build — pointing at the **development** Railway backend — reported
+`environment: production` to Sentry. Production error rate, crash-free sessions
+and release health were all polluted by internal test traffic, at launch, which
+is exactly when those numbers have to be trustworthy.
+
+**Fix.** A `channel` and an explicit `APP_ENV` on every profile, production
+included. The `|| "production"` default stays as a safety net but is no longer
+load-bearing, and the header comment now says which is which.
+
+**The trap inside the fix, and why the obvious version is wrong.**
+`assertStoreBuildIsPurchasable` documented itself as production-only but gated on
+`APP_ENV || "production"` — so it had in fact been running for preview and
+development all along. Setting `APP_ENV` makes the comment true *by making the
+code stop checking them*. That is a silent deletion of coverage: preview is
+precisely where a RevenueCat misconfiguration should be caught before it reaches
+a store, and this project has already shipped that class of bug. So
+non-production EAS builds now **warn loudly** where production **throws** —
+failing an internal build over a missing IAP key is the wrong trade; losing the
+signal entirely is worse.
+
+**The general rule.** *A default that is never overridden is not a default — it
+is the value, written somewhere nobody looks.* Both findings are the same shape:
+a field left unset, a fallback quietly standing in for it, and no signal anywhere
+that the fallback was doing the work. When you write `x || SOME_DEFAULT` for a
+config value, ask what happens when *every* caller takes the default, because
+that is the state you will actually be in.
+
+Corollary, from the fix: *making a comment true by narrowing the code is not
+free.* Check whether the behaviour you are about to delete was load-bearing
+before you delete it, even when it was only happening by accident.
+
+**Test.** `__tests__/easBuildProfiles.test.js` — static assertions over
+`eas.json` (every profile declares both facts; **no two share a channel**, which
+would cross-deliver updates; the profile that `extends` another still states both
+itself, since inheritance is how a channel goes missing without anyone editing
+the broken profile; **only `dev` resolves as the Vision-key-bundling
+sub-profile**, so a second profile adopting that value cannot ship the embedded
+Google Vision key in an APK never meant to carry it) plus the preflight severity
+matrix.
+
+## 152. Four kinds of dead thing, and only one of them was harmless
+
+- Date: 2026-08-07 · Area: repo hygiene / backend routes · Audit 2026-08-07 **L1-L4**
+- Symptom: none. Everything here worked, or rather, everything here was never
+  reached.
+
+**L1 — six comments cited a `docs/` directory this repo no longer has.** The hub
+moved to `Priceback-Documentations`; the prefixes did not. Comment-only. One of
+the six (`backend/.env.example` -> `Supabase_Cutover.md`) was not in the audit and
+turned up on a full sweep — worth noting that an audit's *list* is a sample, and
+the fix pass should re-run the search rather than work from the table.
+
+**L2 — an orphaned screen that was a trap, not dead weight.** `PaywallScreen` and
+route `"Paywall"` were registered and reachable by nobody; all three real gates
+use `navigate("Scan", { showPaywall: true, paywallOnly: true })`. What made it
+worth deleting rather than leaving was its own docstring: *"Usage:
+`navigation.navigate("Paywall")` from any screen that needs to gate on credits."*
+The next person adding a credit gate would have followed that instruction onto a
+second, divergent presentation path bypassing ScanScreen's close/resume handling.
+
+**L3 — an unauthenticated read with no ownership guard.** `GET
+/api/me/contributions` took `deviceId` off the query string — no `requireAuth`,
+no IDOR check — and returned that device's observation count. Its sibling `DELETE
+/api/me/observations` does the same lookup behind `optionalAuthUser` +
+`callerOwnsDevice`, **with a comment explaining why**. The two had drifted.
+Deleted rather than guarded: no mobile code called it, and its docstring claimed
+a Profile-screen consumer that does not exist, so guarding it would have
+protected a capability nobody uses. Its only repo function,
+`crowdRepo.countForDevice`, went with it.
+
+**L4 — a route whose job was already done by another route.** `POST /api/unwatch`
+had no callers and never had any: `/api/watch` **replaces** the whole list for a
+key, and the client always posts its full active set, so omission *is* the
+unwatch.
+
+**The general rule.** *Dead code is not neutral — it is documentation, and it is
+lying.* A registered endpoint reads as a live contract; an exported repo function
+reads as a supported capability; a screen with a usage docstring reads as an
+instruction. Each of these would have cost the next author real time, and in L3's
+case the dead thing carried an actual auth hole. The question to ask is not "does
+this run?" but "**what would someone conclude from finding this?**"
+
+Second rule: *when you delete, leave a tombstone.* Both removed routes keep a
+comment at the site saying what was there, why it went, and what to do instead —
+and both are pinned as **404** in `routes.test.js`, so neither can creep back
+unguarded without someone consciously deleting a test that explains itself.
+
+Third, from L4's replacement test: *when a property is what makes something else
+redundant, assert the property.* The `/api/unwatch` tests were replaced by one
+asserting that `/api/watch` replaces the whole list — the behaviour the deletion
+depends on, which nothing had been checking.
+
+## 153. A cache rule that could not match anything it was written for
+
+- Date: 2026-08-07 · Area: `Priceback-Website` `_headers` · Audit 2026-08-07 **L6**
+- Symptom: content and SEO edits were not reliably live immediately, and the
+  config that was supposed to guarantee that looked correct.
+
+**Root cause.** `_headers` set `Cache-Control: public, max-age=0,
+must-revalidate` on `/*.html`. But `_redirects` 301s every `.html` URL to its
+extensionless form (and Cloudflare Pages does that automatically anyway), so **no
+request is ever served at a `.html` path**. The rule matched nothing; HTML fell
+back to Cloudflare's defaults.
+
+Two correct configuration files, each right on its own, combining into a rule
+that cannot fire. Nothing reports an unmatched header rule.
+
+**Fix.** Enumerate the ten clean paths. **Not `/*`** — a catch-all would also
+match `/assets/*`, and the two rules would then be fighting over `Cache-Control`
+by declaration order; getting that precedence wrong silently either drops the
+favicon's one-year cache or leaves CSS stale. Ten lines that can only do one
+thing beat a wildcard whose behaviour depends on semantics you would be guessing
+at.
+
+**The general rule.** *A routing rule and a matching rule have to be read
+together.* Any config that selects on a URL shape is invalidated by anything else
+that rewrites that shape — redirects, rewrites, clean-URL defaults. And a pattern
+that matches nothing is indistinguishable from a pattern that works, because both
+produce no error.
+
+## 154. "Is DATA_DIR set?" was a question only a dashboard could answer
+
+- Date: 2026-08-07 · Area: backend `/health` · Audit 2026-08-07 **L5**
+- Symptom: unknown, which is the entry.
+
+**Root cause.** `backend/railway.json` sets no `DATA_DIR`, so `server.js` falls
+back to `path.join(__dirname, "data")` — inside the container image, which
+Railway recreates empty on every deploy. At stake: `watched.json` (the whole
+price-watch registry), `notifyLedger.json` (the send-once dedupe ledger — a reset
+**re-notifies drops already sent**), and `flyerOffers`/`flyerHistory.json` (the
+active flyer overlay, the *primary* price source). Degradation rather than
+permanent loss — flyer offers and the OCR budget have `kv_state` counterparts and
+clients re-register watches on focus — but silent.
+
+The code had warned about this in two comments for months. The audit marked it
+**VERIFY** and correctly declined to call it a defect: whether `DATA_DIR` is set
+as a Railway *service variable* is not knowable from the repository. It was not
+settleable during the fix pass either — the Railway CLI is not authenticated in
+that environment.
+
+**Fix — for the shape of the problem, not the value.** `GET /health` (admin) now
+carries `checks.storage`: the resolved path, whether it came from the env,
+writability, the files actually on disk **with their mtimes**, and one of three
+verdicts — `local` (not on Railway, nothing to warn about), `volume`, or
+`ephemeral` — with a note naming the fix. Admin-only; the path and the listing
+are infrastructure detail and stay out of the anonymous payload.
+
+**This did not close the finding.** Mounting a Volume and setting `DATA_DIR` on
+both the production and development services is still owed. What changed is that
+verifying it is now a five-second authenticated call that stays true after the
+next config change, instead of a dashboard hunt nobody repeats.
+
+**The general rule.** *When a fact about production can only be learned by
+opening a dashboard, it will be learned once and then assumed forever.* The
+useful response to "I cannot verify this from here" is often not to go and verify
+it, but to make the system report it — the same instinct behind the `/health`
+dependency probes and the Apple-auth key whose mere presence on `/health`
+confirms a deploy carries the verifier. Prefer mtimes over "is it configured":
+one answers *did this survive*, the other only *should it have*.
+
+Note the boundary bug this class of check invites, and which the test pins: "is
+the path inside the app directory?" is a prefix comparison, and a naive one also
+matches a **sibling** (`/app-elsewhere` for `/app`). Compare with the separator,
+and handle the directory itself.
