@@ -5557,3 +5557,98 @@ so the escape timer could be advanced before the effect that arms it had run.
 Flush generously and assert you are parked (the intro's shutter is *gone*) before
 advancing timers, rather than asserting the absence of a button that was never
 going to be there yet.
+
+## 149. A rate limit written for one route protected one route, while four siblings guarded the same secret with nothing
+
+- Date: 2026-08-07 · Area: backend auth (`backend/server.js`) · Audit 2026-08-07 **H2**
+- Symptom: none. Nothing misbehaved, no alert fired, no user noticed. That is the
+  point — this is a capability that was believed to exist and did not.
+
+**Root cause.** `_adminTokenOk` is the shared `x-admin-token` gate. It did a
+length-guarded `crypto.timingSafeEqual` and nothing else: no throttle. Five
+money- and access-adjacent routes sat behind it — flag a user (blocks their
+credits and subscription), unflag, verify a price point (**releases deferred
+credits**), revoke granted credits, and kick the province-wide sweep — and every
+one of them accepted unlimited token guesses.
+
+`/api/flyer/import` had had the throttle since the day it was written, with a
+comment explaining exactly why and calling `checkFlyerImportRateLimit(ip)`
+**before** the compare so failed guesses were counted. The decision was already
+made in this codebase; four routes just never received it.
+
+**The sharp edge, and the reason this was ranked High.** `ADMIN_TOKEN` falls back
+to `FLYER_ADMIN_TOKEN`:
+
+```js
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || FLYER_ADMIN_TOKEN || null;
+```
+
+Unless `ADMIN_TOKEN` is set separately in Railway they are the **same secret**.
+So the throttle on `/api/flyer/import` was not merely inconsistent — it was
+**bypassable**. Brute-force the token unthrottled against
+`/api/admin/users/:sub/flag`, then spend it on the throttled route. A control
+that can be routed around protects nothing, and its presence makes the gap harder
+to see: the codebase looked like it had this covered.
+
+**Fix.**
+
+- The throttle moved **inside** `_adminTokenOk`, before the compare. Per-route
+  limiting is a step that gets forgotten; a gate that throttles itself covers the
+  next route to adopt it for free.
+- `/api/admin/price-tag-credits/revoke` carried its own inline copy of the
+  constant-time compare — which is precisely how it missed the throttle — and now
+  calls the shared helper. One admin-token path, nowhere left to forget.
+- The fixed-window counter is one implementation (`consumeTokenAttempt`) shared
+  by both throttles, with a **separate bucket** each.
+- Successful calls are **refunded** (`refundTokenAttempt`), so only failed
+  guesses accumulate.
+
+**Two judgement calls worth recording, because the obvious version of this fix is
+worse than it looks.**
+
+*Separate buckets, not one.* Reusing the flyer bucket is tempting — same secret,
+so one budget. But the two surfaces have opposite traffic shapes: one weekly
+upload versus ops calls that arrive in bursts. A shared budget means an operator
+working through a queue of price-point verifications silently loses the ability
+to import that week's flyer. What actually defeats brute force is that neither
+surface is *unbounded*; 10/hour in one bucket versus 10 in each is a rounding
+error against a high-entropy token, and it is not worth an availability coupling
+between two unrelated ops tasks. (It also removes a trap for future tests: a
+shared bucket put `routes.test.js` within one call of failing on a limit it never
+mentions.)
+
+*Refund on success, charge on failure.* A brute-force budget that also charges
+correct credentials is a self-inflicted outage dressed as a security control —
+the tenth *successful* verification locks the operator out. Charging before the
+compare and refunding after is what keeps both halves: an exhausted IP is still
+429'd even when it finally sends the right token, so the 401/429 boundary can
+never be used to confirm a guess.
+
+**The general rule.** *A security control implemented per-call-site is a control
+you have on some call sites.* If a check must accompany another check — throttle
+with compare, ownership with shape validation (#145), auth with the DB gate — put
+them in the same function and give callers no way to take one without the other.
+The audit's phrasing is the test: not "is this route protected?" but "**can this
+protection be routed around?**" An unthrottled sibling doesn't weaken the
+throttled route, it *deletes* it.
+
+Same family as **#139** (bypassing this same throttle by rotating a header) and
+**#145** (an unauthenticated route that validated a key's shape but not its
+ownership). #139 fixed the key the limiter counts on; this one fixes *where the
+limiter is called from*. `app.set("trust proxy", 1)` is still in place, so
+`req.ip` is not forgeable and the #139 fix holds.
+
+**Deliberately left alone.** `GET /health` has its own inline token compare and
+is **not** throttled. It is a read-only diagnostic elevation that returns 200
+either way, and it is what Railway's probes and the ops dashboard poll — putting a
+10/hour cap on it would break monitoring to protect a payload that reveals counts
+and a masked hostname. Not an oversight; if a future audit flags it, this is the
+answer.
+
+**Test.** `backend/tests/adminTokenRateLimit.test.js`, in its own process — the
+buckets are per-IP and module-scoped and every supertest request arrives from the
+same loopback address, so a drained bucket would leak into unrelated suites. It
+pins all three properties, plus the one that matters most for regressions: after
+the bucket is drained by wrong guesses, a request carrying the **correct** token
+still gets 429. If someone later moves the compare above the throttle, that test
+is the one that fails.
