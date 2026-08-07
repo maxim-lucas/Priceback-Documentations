@@ -6,6 +6,17 @@ When picking up the next round of work, **skip everything tagged ✅** and use i
 as already-baseline. Treat 🟡 items as candidates for completion before any new
 🔵 work is started.
 
+> **Defects take priority over this file.** The known-and-unfixed register is
+> [`App_Audit_2026-08-07.md`](./App_Audit_2026-08-07.md) — a whole-app path +
+> bug audit at `66a14e4` / v2.8.4. **0 Critical, 2 High** (OTA update channel
+> missing on the production build profile; five admin-token routes unthrottled),
+> 4 Medium, 7 Low. Clear those before starting anything below.
+>
+> ⚠️ **This file itself is stale.** Its "recently shipped" table stops at
+> 2026-05-20 and it cites a 187-test suite that has since grown into the
+> thousands. Treat the ✅ table as a floor, not as current state, until it is
+> rewritten (see §7 of the audit).
+
 ---
 
 ## ✅ Recently shipped — skip in next rounds

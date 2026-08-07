@@ -3689,3 +3689,59 @@ with existing tests, and suppressing them would let an unreadable offline receip
 sit silently; the alert still carries the total pending-review count rather than
 a delta; and the scan-ready alerts remain gated by the master switch only, with
 no granular pref.
+
+## 2026-08-07 — Whole-app audit: path accuracy + bugs, documented by criticality
+
+**Asked:** "audit the app and check that all paths are accurate and check if there
+is bugs and document everything by criticity to the roadmap docs."
+
+**Status: documentation only — NOTHING WAS FIXED.** Do not assume the repairs
+landed with the write-up. The register is
+`Roadmap/App_Audit_2026-08-07.md`; `Roadmap/FUTURE_ROADMAP.md` gained a pointer to
+it. No file under `Priceback/` was modified — that tree stayed clean throughout.
+
+**Scope and method.** Read-only, at `66a14e4` / v2.8.4. Twelve mechanical checks,
+each scripted rather than eyeballed: relative-import resolution across 465
+first-party files, asset + `app.json` path existence, navigation targets (including
+indirect `route:` / `navigate:` config strings) against `App.js`, all 62 backend
+routes against every mobile `fetch` URL, the four public legal URLs against
+`Priceback-Website`, `*.md` references, the version triad, consolidated schema vs
+migrations, secrets hygiene, `i18n:check`, `typecheck`, and a debt-marker sweep.
+The Jest and backend suites were **not** run locally (standing rule — CI is the
+authority).
+
+**Result: 0 Critical, 2 High, 4 Medium, 7 Low.** Every path check came back clean —
+zero unresolved imports, zero missing assets, zero dangling routes, zero API
+contract mismatches, all four legal URLs live, versions consistent, schema in sync,
+no TODO/FIXME debt. Both High findings are *capability* gaps rather than broken
+code: **H1** — `eas.json` declares an update `channel` on the `dev` profile only, so
+EAS Update cannot deliver to production builds even though `app.json` wires the URL,
+the code-signing certificate and `runtimeVersion` (needs verifying against EAS, not
+knowable from the repo); **H2** — `_adminTokenOk` (`server.js:3282`) has no rate
+limit, leaving five admin routes open to unlimited token guessing, and because
+`ADMIN_TOKEN` falls back to `FLYER_ADMIN_TOKEN` it is usually the *same secret* the
+throttled `/api/flyer/import` protects — so the throttle isn't just missing
+elsewhere, it's defeated. That's a stronger form of Bugs #139.
+
+Medium: an English backend sentence rendered verbatim on the price-tag deal badge in
+both languages (`PriceTagScanScreen.js:924`, no i18n key exists); `t(k) || fallback`
+being dead code throughout that badge because `t()` returns the key on a miss, so
+the intended server-string fallback can never fire (`hasKey()` already exists for
+this — the `catalogLabels.js` pattern); `preview`/`development` EAS builds
+self-reporting `appEnv: "production"` and so polluting production Sentry with
+test-backend traffic; and two hardcoded English strings `i18n:check` structurally
+cannot catch.
+
+**Deliberately recorded as sound, not silent.** The audit doc devotes a section to
+what was checked and found *correct* — notably that the 16 async routes without
+`try`/`catch` are already covered by `wrapAppRoutes(app)` ordering, and that the
+ordinal-indexed receipt-item routes are safe because both sides index the same
+non-deleted, position-ordered set. Without that section the next audit re-derives
+the same conclusions, or "fixes" the 16 routes by hand and undoes the #138 design.
+
+**No `Bugs_Common_Fixes.md` entries yet** — by that file's own convention an entry
+means found *and fixed*. They go in with each repair, numbering from **#149**.
+
+**Regression risk: none.** Documentation-only change, confined to
+`Priceback-Documentations`. `i18n:check` (green, 1396×2) and `typecheck` (exit 0)
+were re-run after the write-up to confirm the document doesn't contradict them.
