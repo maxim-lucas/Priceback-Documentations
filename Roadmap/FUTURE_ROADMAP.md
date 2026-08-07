@@ -6,11 +6,28 @@ When picking up the next round of work, **skip everything tagged ✅** and use i
 as already-baseline. Treat 🟡 items as candidates for completion before any new
 🔵 work is started.
 
-> **Defects take priority over this file.** The known-and-unfixed register is
-> [`App_Audit_2026-08-07.md`](./App_Audit_2026-08-07.md) — a whole-app path +
-> bug audit at `66a14e4` / v2.8.4. **0 Critical, 2 High** (OTA update channel
-> missing on the production build profile; five admin-token routes unthrottled),
-> 4 Medium, 7 Low. Clear those before starting anything below.
+> **Defects take priority over this file.** The register is
+> [`App_Audit_2026-08-07.md`](./App_Audit_2026-08-07.md) — a whole-app path + bug
+> audit at `66a14e4` / v2.8.4: 0 Critical, 2 High, 4 Medium, 7 Low.
+>
+> **All 13 findings were fixed the same day** (Priceback #242–#246,
+> Priceback-Website #13; write-ups in `Operations/Bugs_Common_Fixes.md`
+> **#149–#154**). The audit document is now a *history* of what was found, not a
+> to-do list — read it for the reasoning, not for outstanding work.
+>
+> **One item is NOT closed: L5.** `DATA_DIR` is unset in `backend/railway.json`,
+> so the price-watch registry, the notify dedupe ledger and the flyer overlay may
+> be sitting on ephemeral container disk. It is an ops action, not a code change:
+> mount a Railway Volume on **both** the production and development services, set
+> `DATA_DIR` to its mount path, then confirm `GET /health` + `x-admin-token` →
+> `checks.storage.status` reads `volume`. Do that before anything below.
+>
+> Two consequences of the fixes that need a human decision, not a commit: preview
+> builds now tag Sentry `environment: preview` (alerts filtered on
+> `environment:production` stop seeing them), and the first production
+> `eas update` must be a no-op bundle verified on a device — H1 activated a
+> delivery path that has never carried traffic, and store binaries up to 2.8.3
+> can never receive one at all.
 >
 > ⚠️ **This file itself is stale.** Its "recently shipped" table stops at
 > 2026-05-20 and it cites a 187-test suite that has since grown into the
