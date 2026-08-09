@@ -3835,3 +3835,69 @@ replacement `/api/watch`-replaces-the-list assertion in `routes.test.js`.
 not run locally — CI is the authority (standing rule).
 
 Bugs_Common_Fixes **#149-#154**.
+
+## 2026-08-09 — The first iPhone build crashed on Sign in with Apple; fix every Sentry error from the last week
+
+**Asked:** "i used testflight to test the 2.8.1 version as a first version on an
+iphone, the app crashed on iphone when i clicked on signin with apple" — then,
+mid-investigation: "all errors are in Sentry, also fix all sentry errors in the
+last week."
+
+**Four issues open on `priceback-canada` for the last 7 days. Three fixed in
+code; one is an ops action that is Maxim's to take.**
+
+| Sentry | What | Platform | Outcome |
+|---|---|---|---|
+| `PRICEBACK-CANADA-9` | `Invariant Violation: new NativeEventEmitter()` — **fatal, the crash** | iOS 2.8.1 | Fixed, Priceback#247 |
+| `PRICEBACK-CANADA-A` | "React Native unavailable" | iOS 2.8.1 | Same fix — the caught sibling |
+| `PRICEBACK-CANADA-5` | Outlook `400 SearchWithOrderBy`, 16 events since 2.7.0 | Android | Fixed, Priceback#247 |
+| `PRICEBACK-CANADA-8` | Gmail `403 SERVICE_DISABLED` | Android 2.8.3 | **Ops — Maxim, see below** |
+
+**The crash was one property read.** `signInWithApple()` did
+`(await import("react-native")).Platform`. Metro compiles a dynamic import to
+`importAll`, which for a module without `__esModule` assigns every key — invoking
+every getter on react-native's index, including the deprecated
+`PushNotificationIOS`, whose module body constructs a `NativeEventEmitter` around
+a native module that is null in Expo. That invariant is guarded by
+`Platform.OS === 'ios'`, which is why Android shipped it for months. Fixed with a
+static named import at both call sites — `_loadAppleAuth()` had the same line and
+backs the ten-minute Apple token refresh, so a *successful* sign-in would have
+crashed later regardless.
+
+**The Outlook one had never worked at all.** `$search` + `$orderby` is rejected
+by Graph outright, so the store-targeted search failed for every mailbox since
+2.7.0 and was absorbed by a `catch` written for a rarer problem. Every Outlook
+sync has silently been "the 50 most recent messages from anyone".
+
+**Gmail — settles an open question.** `[[email-sync-error-references]]` recorded
+"is the Gmail API enabled on GCP 695135372222?" as unknown. It is **not**. The
+app requests `gmail.readonly` correctly and the error is already classified and
+messaged properly, so there is nothing to fix in code. Enable it at
+`console.developers.google.com/apis/api/gmail.googleapis.com/overview?project=695135372222`;
+until then Gmail sync cannot work for anyone.
+
+**Why the suite was green, and what the guard had to be.** Jest transpiles the
+same syntax through Babel's `_interopRequireWildcard`, which *re-defines* getters
+rather than reading them; Metro reads them. The two runtimes disagree precisely
+at the crashing line, so no behavioural test can reproduce it — one written
+against the broken code passes. The regression guard is therefore a source
+invariant (`__tests__/noReactNativeNamespaceImport.test.js`) banning dynamic and
+namespace imports of `react-native` anywhere under `src/`.
+
+**Regression risk, stated:** the static `react-native` import in `authService.js`
+is the only structural change; the Outlook search path goes live for the first
+time (real behaviour change — better recall, no longer date-ordered, parsing
+untouched); and everything past step 1 of Apple sign-in has never executed on a
+device, so a second unrelated defect behind this one is possible.
+
+**Tests shipped with the fix:** `__tests__/noReactNativeNamespaceImport.test.js`
+(new), plus the `$orderby` assertions in `emailSyncErrorPaths.test.js` and the
+platform-guard case in `authServiceSignIn.test.js`. `typecheck` exit 0,
+`i18n:check` green (1404 x 2, no string changes). Suites not run locally — CI is
+the authority.
+
+**Shipped as 2.8.5** (buildNumber/versionCode 25) — `v2.8.4` is already tagged
+and tags are never moved. Tag before building, build from the tag, TestFlight,
+GitHub release.
+
+Bugs_Common_Fixes **#155-#156**.
