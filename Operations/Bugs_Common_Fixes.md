@@ -5945,3 +5945,105 @@ Note the boundary bug this class of check invites, and which the test pins: "is
 the path inside the app directory?" is a prefix comparison, and a naive one also
 matches a **sibling** (`/app-elsewhere` for `/app`). Compare with the separator,
 and handle the directory itself.
+
+## 155. Reading one property off `react-native` loaded a push-notification module that killed the app
+
+- Date: 2026-08-09 · Area: `src/services/authService.js` · Sentry
+  `PRICEBACK-CANADA-9` (fatal) + `PRICEBACK-CANADA-A`
+- Symptom: on the first-ever iPhone build (2.8.1, TestFlight), tapping "Continue
+  with Apple" crashed the app. Android had shipped the same code for months
+  without a single event, and the whole Jest suite was green.
+
+**Root cause.** `signInWithApple()` opened with
+
+```js
+Platform = (await import("react-native")).Platform;
+```
+
+which wanted exactly one property. Metro compiles a dynamic import to
+`importAll` (`metro-runtime/src/polyfills/require.js:130`), and `importAll`
+short-circuits **only** when the target sets `__esModule`. `react-native`'s
+`index.js` is plain CommonJS — `module.exports = { get X() {…} }` — so it fell
+through to `for (const key in exports) importedAll[key] = exports[key]`, which
+**invokes every getter on the module**.
+
+One of them is `get PushNotificationIOS()`, a deprecated lazy re-export. Reading
+it requires a module whose *body* runs
+`new NativeEventEmitter(NativePushNotificationManagerIOS)`. In an Expo app that
+native module is null — `RCTPushNotificationManager` isn't linked, expo-notifications
+is — and `NativeEventEmitter`'s non-null invariant is guarded by
+`if (Platform.OS === 'ios')`. Android passed `null` happily; iOS threw
+`Invariant Violation` out of a module factory, which Metro's `guardedLoadModule`
+hands to `ErrorUtils.reportFatalError`. Unhandled, fatal, app gone.
+
+The second Sentry issue, "React Native unavailable", is the same event caught by
+this function's own `catch` — a message invented for a failure mode that cannot
+happen, sitting on top of one that very much can.
+
+**Fix.** `import { Platform } from "react-native"` — static, named. A named
+import compiles to a member access, so exactly one getter is read. The lazy
+import of `expo-apple-authentication` stays: it is real ESM, so Metro marks it
+`__esModule` and `importAll` returns before enumerating. Both call sites needed
+it — `_loadAppleAuth()` had the identical line, and it backs the ten-minute Apple
+token refresh, so even a sign-in that *succeeded* would have crashed later.
+
+**Why no test caught it, and what that means for the guard.** Jest transpiles the
+same syntax through Babel's `_interopRequireWildcard`, which copies getters with
+`Object.defineProperty` — it *re-defines* them rather than reading them. Metro
+assigns, which reads. The two module runtimes disagree precisely at the line that
+crashes, so **no behavioural Jest test can reproduce this**; one written against
+the broken code passes. The regression guard is therefore a source assertion
+(`__tests__/noReactNativeNamespaceImport.test.js`): nothing under `src/` may
+dynamic-import or `import * as` from `react-native`.
+
+**The general rule.** *A namespace import is a request to evaluate every export,
+not the one you named.* Any barrel of lazy getters — and `react-native`'s index is
+the biggest one in the tree — turns that into "run every deprecated module in the
+framework". Import the binding you want by name; reach for `import * as` or
+`await import()` only for modules you genuinely want loaded whole.
+
+And the corollary that made this expensive: *a green suite proves the Babel
+bundle works, not the Metro one.* Anything whose failure lives in module-loading
+semantics — dynamic imports, side-effecting module bodies, native-module presence
+— is invisible to Jest by construction. The first build on a new platform is the
+first real test of the bundler, and it deserves to be treated as one.
+
+## 156. A search that had never once run, failing quietly for a month
+
+- Date: 2026-08-09 · Area: `src/services/emailSyncService.js` · Sentry
+  `PRICEBACK-CANADA-5` (16 events since release 2.7.0)
+- Symptom: none visible. Outlook sync "worked" — it just found fewer receipts
+  than it should have.
+
+**Root cause.** The Graph query asked for both at once:
+
+```
+/me/messages?$search="(from:… ) AND (subject:…)"&$top=50&$orderby=receivedDateTime desc
+```
+
+Microsoft Graph rejects `$search` combined with `$orderby` outright —
+`400 SearchWithOrderBy` — because search results come back ranked by relevance
+and there is nothing to re-order. So the request failed for **every** mailbox,
+every time, since it was written.
+
+It failed into a fallback built for a different problem. The `catch` was there to
+handle mailboxes that can't do `$search` at all (`MailboxNotEnabledForRESTAPI`),
+and it accepts any `bad_request` — so a permanent, universal syntax error was
+absorbed by a branch meant for a rare per-mailbox capability gap. The fallback
+lists the 50 most recent messages from *any* sender and parses the first 20. The
+store filter the whole function is built around never executed once.
+
+**Fix.** Drop `$orderby` from the `$search` request only. The fallback keeps it —
+it sends no `$search`, so it's legal there, and recency is exactly what that path
+wants.
+
+**The general rule.** *A fallback that is always taken is not a fallback, it is
+the implementation — and it hides the fact that the primary path is dead.* When a
+`catch` broadens from a specific provider code to a whole status class, it stops
+distinguishing "this mailbox is unusual" from "this request is malformed". The
+tell was in Sentry the entire time: 16 events, `handled: yes`, nobody looking,
+because handled errors on a working feature read as noise.
+
+Pin the shape of an outbound request, not just its failure handling — the test
+that would have caught this is one line asserting the search URL carries no
+`$orderby`.
