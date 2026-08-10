@@ -6047,3 +6047,72 @@ because handled errors on a working feature read as noise.
 Pin the shape of an outbound request, not just its failure handling — the test
 that would have caught this is one line asserting the search URL carries no
 `$orderby`.
+
+## 157. A restore that worked reported failure, because the success path threw and the error path caught it
+
+`Paywall.handleRestore` resolved the restored tier's display name with
+`catalogText(...)`. The file never imported it. Every other consumer does —
+`ManageSubscriptionScreen.js`, `StoresAndProfileScreens.js` — so this was one
+missing name in one import list.
+
+What makes it worth an entry is the *shape*, not the typo. The call sat inside
+the handler's `try`, alongside the error handling, which inverted the failure
+mode completely:
+
+- restore **succeeds** → `ReferenceError` → the `catch` tells the user
+  "Restore failed", and `onPurchased` never fires, so an entitlement RevenueCat
+  had just handed back is silently dropped;
+- restore **fails** → the `else` branch runs → works perfectly.
+
+So the bug was invisible in exactly the situation you would test it in
+(no subscription to restore), and fired only for the users who had paid.
+
+`Paywall.js` is the app's only restore surface. Apple exercises that control
+directly when reviewing an auto-renewable subscription (Guideline 3.1.1), so
+this was also a live rejection on a submission that had not happened yet.
+
+**Why it survived CI.** The existing suite mocked `restorePurchases` to resolve
+`{ success: false }`. Every assertion passed; the success branch had never once
+been executed. The new `__tests__/paywallRestore.test.js` mocks it succeeding.
+
+**The general rule.** *When a handler's happy path and its error path share one
+`try`, a bug in the happy path presents as the error path.* The message the user
+reports then names the branch that did not run, and sends you to read the wrong
+code. Two habits fall out of it: keep the `try` around the operation that can
+genuinely fail rather than the whole handler, and treat "mock it succeeding" as
+the mandatory test, not the optional one — failure paths are usually the ones
+that get mocked, because they are easier to construct.
+
+## 158. `allowsEditing: true` means "let them crop" on Android and "square crop" on iOS
+
+Both of PriceBack's content-ingest paths — the receipt library upload in
+`ScanScreen`, the price-tag capture in `PriceTagScanScreen` — passed
+`allowsEditing: true` to `expo-image-picker`.
+
+From the library's own type definitions:
+
+> "This is only applicable on Android, since on iOS the crop rectangle is
+> **always a square**."
+
+A receipt is a tall portrait strip. On iPhone the user was forced through a
+square crop that guillotined the receipt before OCR ever saw it, so the parse
+failed or returned a wrong total — and there was no way at all to submit a full
+receipt from the photo library on iOS. On Android the same flag opens a
+free-form crop and the flow works, which is why it never surfaced.
+
+The comment directly above the call asserted the opposite: "iOS … keep the
+system picker with its manual editor". It named the difference and then assumed
+the two editors were equivalent.
+
+**Fix.** `allowsEditing: Platform.OS !== "ios"`. iOS passes the whole image
+through to OCR, which is the same input shape the camera path
+(`takePictureAsync` → `processImage`) has always shipped uncropped on both
+platforms — a known-good path rather than a new one. Android is byte-identical.
+
+**The general rule.** *A cross-platform boolean can still mean two different
+things per platform, and the difference is worst when the flag governs
+user-visible geometry.* `allowsEditing` reads as a capability ("can the user
+crop?") but is really a policy ("which crop UI?"). Before trusting one on a
+path that produces data another system has to parse, read the platform notes —
+and be suspicious of any comment that names a platform difference in prose
+without encoding it in the code beneath.
