@@ -6724,12 +6724,29 @@ without encoding it in the code beneath.
 - **Fix:** `backend/tests/helpers/uniq.js` — `runId()`, `testSku()`,
   `testWarehouseCode()`, all drawn from `node:crypto`, never from the clock. The
   load-bearing part is not the entropy but a **namespace invariant**: generated
-  SKUs are 9 digits starting with `9`, generated warehouse codes are 9 digits
-  starting with `8`, and every hardcoded fixture SKU and seeded Costco warehouse
-  code is at most 7 digits. Different lengths cannot be equal, so the collision is
-  impossible by construction rather than merely improbable. `node --test` runs
-  each file in its own process, so the draw is per-file — which also closes the
-  cross-suite band reuse.
+  SKUs are **8 digits starting with `5`**; the `` `N${RUN}` `` fixture SKUs occupy
+  8 digits starting with 6/7/8/9; every other hardcoded fixture SKU is at most 7
+  digits; generated warehouse codes are **5 digits starting with `9`** while every
+  real Costco code is 2–4 digits (`51`…`8099`, plus one `00000`). Lengths that
+  differ cannot be equal, and inside the 8-digit space the leading digit separates
+  the three populations — so collisions are impossible by construction rather than
+  merely improbable. `node --test` runs each file in its own process, so the draw
+  is per-file, which also closes the cross-suite band reuse.
+- **The first fix attempt failed 12 tests, and the reason is the more useful
+  lesson.** It used a hex `runId()` and 9-digit ids, treating both as opaque. Both
+  shapes were **contracts**:
+  - `String(Date.now()).slice(-7)` is *seven numeric digits*, and call sites
+    concatenate onto it. `` `7${RUN}` `` / `` `9${RUN}` `` build 8-digit numeric
+    Costco SKUs, and `` `1137482950${RUN}` `` builds a Google-shaped sub that
+    `accountIdentity.providerOfSub` matches with `/^\d+$/`. Hex turned those into
+    400s and an `existingProvider: "unknown"`.
+  - 9 digits overran two separate ceilings: `POST /api/observations/tag` enforces
+    `/^\d{3,8}$/` on the sku (`server.js`), and the receipt header-OCR footer is
+    parsed as `/\bWHSE\s*[:#]?\s*\d{2,5}\b/i` (`shared/ocrCleanup.js`) — so a
+    9-digit warehouse code was **stored yet echoed back null**, surfacing as
+    `0 !== 825306100`, which looks nothing like a length problem.
+  A grep of `shared/` and `middleware/` missed all of it because the validation
+  lives in `server.js` and the shape dependencies live in the *tests*.
 - **Detect next time:** when a test invents an id, ask *what else can write that
   same id* — including hardcoded fixtures in sibling suites, not just other runs.
   And when a lookup ignores the test's own scope (no user, no run filter), a
@@ -6739,6 +6756,16 @@ without encoding it in the code beneath.
   **verify, not to trust** — this one was false in three ways and had been read
   past for months. Prefer invariants a reader can check by looking (a reserved
   length/prefix) over ones that need arithmetic about clock periods.
+- **Prevent, second rule, learned the hard way:** when you replace a generated
+  value, **keep its shape and change only its source.** A value's format is an
+  undocumented API the moment anything concatenates onto it, pattern-matches it,
+  or casts it. `runId()` is a random 7-digit numeric string *specifically* so it is
+  shape-identical to what it replaced — every call site is then satisfied by
+  construction instead of by audit. Widening a format is a separate change from
+  fixing its entropy, and it needs its own check against the real validators
+  (`grep` for the route regex, don't reason from the column type — `sku` and
+  `warehouses.code` are both plain `text`, and neither column is where the limits
+  actually live).
 - **Still open, deliberately:** this does **not** make concurrent backend runs
   safe. The suites share hardcoded user subs (`SUB = "test-pricepoints-user"`) and
   call `deleteAccount(SUB)` between tests, so two runs still delete each other's

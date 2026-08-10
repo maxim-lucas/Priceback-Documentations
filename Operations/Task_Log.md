@@ -4421,9 +4421,25 @@ now — so a colliding tag row always won. Full analysis in Bugs #174.
 Fixed with `backend/tests/helpers/uniq.js` (`runId`, `testSku`,
 `testWarehouseCode`) over `node:crypto`, and a namespace invariant that makes
 collisions structurally impossible rather than improbable: generated SKUs are
-9 digits leading `9`, warehouse codes 9 digits leading `8`, every fixture id at
-most 7 digits. 29 test files converted; `node --test`'s per-file process model
-means the draw is per-file, which also closes the cross-suite band reuse.
+**8 digits leading `5`**, the `` `N${RUN}` `` fixture SKUs hold 8 digits leading
+6/7/8/9, every other fixture id is ≤7 digits, and warehouse codes are **5 digits
+leading `9`** against real codes of 2–4 digits. 29 test files converted;
+`node --test`'s per-file process model means the draw is per-file, which also
+closes the cross-suite band reuse.
+
+**The first attempt at this failed 12 CI tests, and that is the part worth
+keeping.** It used a hex `runId()` and 9-digit ids — both treated as opaque when
+both shapes were contracts. `slice(-7)` is *seven numeric digits* and call sites
+concatenate onto it: `` `7${RUN}` `` builds an 8-digit numeric Costco SKU and
+`` `1137482950${RUN}` `` builds a Google-shaped sub that `providerOfSub` matches
+with `/^\d+$/`. Separately, 9 digits broke `POST /api/observations/tag`'s
+`/^\d{3,8}$/` and the header-OCR footer's `\d{2,5}`, so a 9-digit warehouse code
+was **stored yet echoed back null** (`0 !== 825306100` — nothing like a length
+error). `runId()` is now shape-identical to the value it replaced, so every call
+site is satisfied by construction rather than by audit. Lesson recorded in
+Bugs #174: when replacing a generated value, keep its shape and change only its
+source; widening a format is a separate change needing its own check against the
+real validators, which live in `server.js`, not the column types.
 
 ### Ops steps — what I could verify, and what is still owed
 
