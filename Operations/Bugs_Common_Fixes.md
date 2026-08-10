@@ -6387,6 +6387,12 @@ without encoding it in the code beneath.
   `src/services/emailSyncService.js`, `src/services/storageService.js`,
   `src/screens/SplashScreen.js`; test
   `__tests__/secureStoreAccessibility.test.js`.
+- **The second-order trap, which also bit:** `secureStore.js` is imported by
+  three widely-imported services, so anything it imports at **module scope**
+  lands in the import graph of most of the app. The first version imported
+  `AsyncStorage` statically and broke `ocrService.test.js` — a suite with no
+  reason to mock it — with `NativeModule: AsyncStorage is null`. It now imports
+  nothing at module scope; the migration's flag store is required lazily.
 - **Detect next time:** any cross-platform storage/crypto wrapper with a
   per-platform default that isn't in the shared signature. Read the native
   options struct, not the JS docstring.
@@ -6445,11 +6451,25 @@ without encoding it in the code beneath.
   subscription re-pushes both the iOS categories and the Android channels.
 - **Files:** `src/services/notificationService.js`, `src/services/i18n.js`; test
   `__tests__/notificationI18n.test.js`.
+- **The mistake made while fixing it, which CI caught:** rewriting the copy
+  freely also **moved information between title and body** — the store name left
+  the price-drop title, the amount left three claim-window bodies. Six
+  assertions in the existing `notificationService.test.js` failed, and they were
+  right to. A claim reminder whose body doesn't restate the amount is weaker
+  copy, and a title is often all a user reads on a lock screen. The shipped
+  version keeps every field where it was and changes only the wording, so
+  exactly one assertion changed: an exact-equality pin on the price-drop title
+  (`💰 Price Drop at Costco!` → `💰 Price drop at Costco`).
 - **Detect next time:** grep for `title:` / `body:` / `buttonTitle:` followed by a
   quote or backtick. It is now a test.
-- **Prevent:** *labels you hand to the OS are cached by the OS.* Translating the
-  string is only half the job; something has to re-register it when the language
+- **Prevent:** two rules, and the second is the less obvious one.
+  *(1) Labels you hand to the OS are cached by the OS* — translating the string
+  is only half the job; something has to re-register it when the language
   changes, or the user sees the old language until reinstall.
+  *(2) When you rewrite user-facing copy, the FIELDS it carries are the
+  contract; the sentence around them is not.* A test asserting
+  `toContain("$12.50")` pins the contract, and a rewrite that breaks it is
+  usually removing information rather than improving prose.
 
 ## 167. The only profile that can build an iPhone binary warned instead of failing
 
