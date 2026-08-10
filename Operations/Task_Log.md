@@ -3901,3 +3901,71 @@ and tags are never moved. Tag before building, build from the tag, TestFlight,
 GitHub release.
 
 Bugs_Common_Fixes **#155-#156**.
+
+---
+
+## 2026-08-09 — Deep iOS audit: parity with Android + first-pass App Review readiness
+
+**Ask.** Full, deep audit of the iOS code; make iOS behave the same as Android;
+no regression on either platform; ask before acting on anything doubtful. The
+stated goal above all: **get approved by Apple on the first submission**, so
+cover the recurring App Store Connect rejection motifs.
+
+**Context.** The app ships on Play but has never reached an App Store review.
+The one TestFlight build (2.8.1) crashed on the Sign in with Apple tap (fixed
+separately, PR #247). The premise of this task was that the crash was a symptom
+of thin iOS exposure. It was.
+
+**Six findings, all confirmed against primary evidence** — library type
+definitions, Expo's prebuild plugin sources, the installed
+`@react-navigation/bottom-tabs` source, and the module import graph — not
+inferred from reading app code. Full register:
+`Technical/iOS_Audit_2026-08-09.md`.
+
+| # | Finding | Platforms |
+|---|---|---|
+| F1 | Restore Purchases failed on the **success** path (Guideline 3.1.1) | both |
+| F3 | iOS forces a **square crop** on receipt/tag upload | iOS |
+| F5 | Tab bar discards the bottom safe-area inset | both, severe iOS |
+| F2 | `userInterfaceStyle: "dark"` on a light-themed app | iOS |
+| F4 | Custom Sign in with Apple button (Guideline 4.8 / HIG) | iOS |
+| F6 | iOS permission prompts English-only; photo purpose string incomplete | iOS |
+
+**Two decisions taken to the user before implementing**, per the ask: whether to
+adopt Apple's native sign-in button (yes — it changes the iOS onboarding look),
+and how iOS should behave without the square-crop editor (target: parity with
+Android *or better results*, so the full image now goes to OCR).
+
+**Confirmed clean, deliberately unchanged:** in-app account deletion (5.1.1(v)),
+no external purchase links (3.1.1), purchase simulation correctly gated to local
+builds, the existing iOS privacy-string cleanup plugin, `UIBackgroundModes`,
+when-in-use-only location, `supportsTablet: false`. One open question left
+explicitly unresolved: Guideline 1.2 (UGC) is judged out of scope because no
+path was found where one user sees another user's uploaded photo — flagged in
+the audit doc as needing a proper pass if such a surface exists.
+
+**Regression risk, stated proactively.** Every fix is shaped so Android cannot
+move: F2 is provably inert on Android (the plugin only warns; `expo-system-ui`
+is absent), F3/F4 are `Platform.OS`-gated to today's Android literal, F5 is
+additive so a zero bottom inset reproduces the historical 70/8 exactly. **The
+one exception is F5 on Android**: a device with a non-zero bottom inset gets a
+taller tab bar (~24dp on gesture nav). That is the fix, and it is the only
+change in the branch that moves Android pixels. F3 and F4 visibly change iOS.
+
+**Tests shipped with the fixes:** `__tests__/paywallRestore.test.js`,
+`__tests__/tabBarMetrics.test.js`, `__tests__/iosParityConfig.test.js`,
+`__tests__/onboardingAppleButton.test.js`, plus `easBuildProfiles.test.js`
+extended for the new `device` profile. `i18n:check` green (1404 × 2),
+`typecheck` exit 0. Suites not run locally — CI is the authority (standing rule).
+
+**Still owed — this is not done.** Nothing has run on an iPhone. A `device` EAS
+profile was added because none existed that could produce an installable iOS
+binary (`preview` is simulator-only). Note the trap it was written around:
+`"ios": {}` does **not** cancel an inherited `"simulator": true` — EAS deep-merges
+extended profiles, so it must say `false`. On-device checklist in the audit doc.
+
+**Sequencing.** `chore/release-2.8.5` was already open. This branch carries no
+version bump, so the release branch stays the only place the version moves;
+rebase it on `main` after this merges and 2.8.5 ships with all six fixes.
+
+Bugs_Common_Fixes **#157-#158**.
