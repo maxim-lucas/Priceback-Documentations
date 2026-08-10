@@ -6393,6 +6393,17 @@ without encoding it in the code beneath.
   `AsyncStorage` statically and broke `ocrService.test.js` — a suite with no
   reason to mock it — with `NativeModule: AsyncStorage is null`. It now imports
   nothing at module scope; the migration's flag store is required lazily.
+- **…and the trap inside THAT fix.** Going lazy, the code read
+  `(await import("…/async-storage")).default`. Correct under Metro, where the
+  module is ESM and `default` is the store. But this repo rewrites `import()` to
+  a bare `require()` **with no interop** in the test env
+  (`babel-plugin-import-to-require.js`, added so jest-expo's CJS VM doesn't need
+  `--experimental-vm-modules`), so `.default` was `undefined`, the flag read
+  threw, and the migration **returned early having done nothing while looking
+  like it ran**. Eight tests caught it. The fix is the idiom `autoCrop.js` and
+  `exportService.js` already use: `const mod = await import(x); const M =
+  mod?.default || mod;`. Treat `mod?.default || mod` as load-bearing on every
+  dynamic import in this repo, not defensive noise.
 - **Detect next time:** any cross-platform storage/crypto wrapper with a
   per-platform default that isn't in the shared signature. Read the native
   options struct, not the JS docstring.
