@@ -6475,3 +6475,38 @@ without encoding it in the code beneath.
 - **Prevent:** *derive a check's severity from what the build is FOR, not from a
   variable that happens to correlate.* `APP_ENV` describes which backend to talk
   to; it was never a statement about how much a broken paywall would cost.
+
+## 168. The claim share sheet's subject line was hardcoded English
+
+- **Date:** 2026-08-10 · **Area:** mobile (i18n) · **Found by:** iOS audit #2
+- **Symptom:** both platforms. Sharing a completed price-adjustment claim
+  produced an English header and an English chooser/subject line regardless of
+  app language — on the screen the whole product exists to reach. A receipt
+  referencing an unknown store additionally rendered the literal string
+  `undefined` in both.
+- **Root cause:** `ClaimAssistantScreen.handleShare` built `message` and `title`
+  as template literals. `title` is easy to read as decoration; it is not — it is
+  the **chooser heading on Android and the Mail subject line on iOS**, so it is
+  user-visible on both. `${store?.name}` had no fallback.
+- **How it was found:** not by looking for i18n bugs. It surfaced during the
+  platform-divergence sweep of `Share`/`expo-print` (checking whether any call
+  passed a `url`, which Android silently ignores). The sweep itself came back
+  clean — but it put eyes on a call nobody had localized. Worth keeping as
+  method: a parity sweep is also a reading pass over code that shared-behaviour
+  reviews skim.
+- **Fix:** both strings moved to `i18n.js` (EN + FR); `store?.name || ""`
+  matching every other interpolation on that screen.
+- **Files:** `src/screens/ClaimAssistantScreen.js`, `src/services/i18n.js`; test
+  `__tests__/claimAssistantScreen.test.js`.
+- **The testing note that matters:** that test file mocks i18n with
+  `t: (k) => k`, so a **rendered** assertion cannot distinguish a translated
+  string from a hardcoded one — both appear as text in the tree. The guard has
+  to be a source assertion. Key existence and cross-language parity are already
+  enforced by `npm run i18n:check`, so the test only has to prove nothing is
+  baked in.
+- **Detect next time:** grep the arguments of `Share.share`, `Alert.alert`,
+  `Linking.openURL(mailto:…)` and any other API that hands a string to another
+  app. They are user-visible but live outside the JSX that i18n reviews scan.
+- **Prevent:** *a string is user-visible if any app renders it, not just yours.*
+  Share titles, mail subjects, chooser headings, notification action buttons and
+  channel names all leave the app and come back on screen.

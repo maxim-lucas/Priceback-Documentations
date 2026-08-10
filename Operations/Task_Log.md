@@ -4141,7 +4141,7 @@ analyzing to detect also if there is any difference between iOS and Android
 behavior, everything should be documented if not fixed."
 
 **Full register: `Technical/iOS_Audit_2026-08-10.md`. Bugs_Common_Fixes
-#164–#167.** Branch `fix/ios-parity-audit-2`; no version bump.
+#164–#168.** Branch `fix/ios-parity-audit-2`; no version bump.
 
 **The previous iOS audit (2026-08-09, PR #249) stopped at the sign-in screen.**
 It was scoped, correctly, to what a reviewer taps — restore, crop, tab bar,
@@ -4157,6 +4157,7 @@ documented by the user's decision.
 | A3 | App-icon badge set, never cleared | iOS only | Fixed |
 | A4 | 12 user-visible notification strings hardcoded in English | both | Fixed |
 | A5 | The only profile that builds an installable iPhone binary *warns* on a missing IAP key | iOS only | Fixed |
+| A6 | The claim share sheet's header and subject line hardcoded in English | both | Fixed |
 
 **The two worst are invisible on Android by construction** — not "less likely",
 structurally unobservable. Android's SecureStore has no lock-state restriction
@@ -4207,9 +4208,21 @@ read and does **not** re-open the 2.8.1 crash, `patch-package` runs via
 `postinstall` so the iOS half of the scanner patch does reach an EAS build, and
 the paywall carries its 3.1.2 disclosures.
 
+**A6 is worth recording as method.** It was not found by looking for i18n bugs.
+It surfaced during the platform-divergence sweep of `Share`/`expo-print` —
+checking whether any call passed a `url`, which Android silently ignores. That
+sweep came back clean, but it put eyes on a call nobody had localized:
+`Share.share`'s `title` is the chooser heading on Android and the **Mail subject
+line on iOS**, and both it and the message header were English literals on the
+screen the whole product exists to reach. A parity sweep is also a reading pass
+over code that shared-behaviour reviews skim.
+
 **Noticed, not actioned:** `BuyCreditsScreen` is the one purchase surface with
-no terms/privacy small print. 3.1.2's link requirement is written for
-auto-renewable subscriptions, so this is very likely fine.
+no terms/privacy small print (3.1.2's link requirement is written for
+auto-renewable subscriptions, so this is very likely fine); and `ScanScreen` /
+`PriceTagScanScreen` both import `KeyboardAvoidingView` without rendering it —
+dead imports from the move to `KeyboardAwareScrollView`, not worth diff noise in
+two large screens during an audit branch.
 
 ### Tests & regression risk
 
@@ -4219,7 +4232,9 @@ behaviour, the skip-what-you-can't-read rule, run-once, and never-throws),
 `__tests__/notificationBadge.test.js`, `__tests__/notificationI18n.test.js`
 (language list derived from the bundle; no bare literal survives in a
 notification `content`). Extended: `__tests__/easBuildProfiles.test.js` for the
-`device`-profile fatality.
+`device`-profile fatality, and `__tests__/claimAssistantScreen.test.js` for A6 —
+source assertions, because that file mocks i18n to echo keys, so a rendered
+assertion literally cannot tell a translated string from a hardcoded one.
 
 **Regression risk, stated proactively.** A1 carries the blast radius: a failed
 migration leaves that key on the old attribute (degraded to today, never worse),
@@ -4228,14 +4243,15 @@ Contained by reading first, skipping unreadable keys, and leaving the migration
 unflagged so it retries — and worth stating plainly, **iOS installs today are
 TestFlight only**, so the exposed population is about one person. There will
 never be a cheaper time. A1's second deliberate change: restoring an iPhone from
-backup now starts signed out. **A4 changes live Android notification copy** — by
-choice, and the only change here a current Play user can see. A3 cannot move
-Android (`setBadgeCountAsync` is inert there); A5 only narrows which profiles
-fail a build and changes no shipped binary. The three services now sharing
+backup now starts signed out. **A4 and A6 change live Android copy** — by
+choice, and the only changes here a current Play user can see (every price-drop
+and claim-window notification, and the claim share sheet's header and subject).
+A3 cannot move Android (`setBadgeCountAsync` is inert there); A5 only narrows
+which profiles fail a build and changes no shipped binary. The three services now sharing
 `secureStore.js` each kept their own error policy, so no call site's failure
 behaviour moved.
 
-`i18n:check` green (1428 × 2), `typecheck` exit 0. Suites not run locally — CI
+`i18n:check` green (1430 × 2), `typecheck` exit 0. Suites not run locally — CI
 is the authority (standing rule).
 
 **Still owed.** Nothing has run on an iPhone, and that debt is now larger: F1–F6
