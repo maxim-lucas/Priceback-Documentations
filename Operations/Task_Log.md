@@ -3969,3 +3969,87 @@ version bump, so the release branch stays the only place the version moves;
 rebase it on `main` after this merges and 2.8.5 ships with all six fixes.
 
 Bugs_Common_Fixes **#157-#158**.
+
+---
+
+## 2026-08-10 — Three receipt-scan defects from the 2.8.5 iOS TestFlight build
+
+**Asked:** three bugs found on 2.8.5 via TestFlight, all described as "handled
+before": (1) the auto-crop scanner allows multiple scans, so uploading several
+receipts at once leaves no accurate reference; (2) OCR was clean but the first
+two products picked up header text or lost part of the label; (3) two receipts
+with an accurate, *past* printed date were filled with today's date instead —
+"date of the day is only if the date is unknown". Mid-task the user re-scanned
+one receipt: labels parsed fine, the date bug reproduced, and they committed it.
+
+**Priceback#250.** Bugs_Common_Fixes **#159–#161**.
+
+**The date bug was not what it looked like, and it was the expensive one.**
+It was not an OCR failure, a compliance-scrub failure, or a regression of #71's
+header re-sourcing — the date was extracted correctly and then discarded by its
+own validity check. `extractDate`'s `buildIso` parsed `…T00:00:00` in **local**
+time and confirmed it with **UTC** getters, so at any positive UTC offset local
+midnight fell on the previous UTC day, the round-trip failed, and `null` came
+back for *every date on every receipt*. `ScanScreen` filled today.
+
+**Why it shipped, and the lesson worth keeping:** the check is only wrong at a
+non-zero offset. **CI runs at UTC — the one value where it cannot reproduce** —
+so the suite was green, including the per-fixture `date` invariant #71 added
+specifically to guard this field. The reporter's device is at UTC+3. Every date
+test now runs a nine-timezone matrix; a green UTC-only run is not evidence for
+date logic. Fixed by removing `Date` from calendar validation entirely.
+
+**Evidence over inference.** The reporter's own committed receipt settled it:
+prod row `r_1786356914240_m7ruw`, `purchase_date = 2026-08-10`, `raw_ocr` ending
+`2026/03/08 17:55:13`. Worth repeating as method — the DB row carries the exact
+OCR the parser saw, so it reproduces the field failure without a device.
+
+**Bug 2 was a known hole left half-closed.** #67 taught the NAME→PRICE pairing to
+refuse the warehouse address above a *discount* row; the identical case with a
+*positive* price was never closed, and geometry could additionally fold the first
+item's price into the address row. Both now consult one shared predicate
+(`isWarehouseInfoLine`), whose priced-line exemption is what makes it safe to run
+while items are still being parsed. When a guard is added for one sign of a
+value, check the other sign immediately.
+
+**Bug 3 was a platform-parity defect.** `maxNumDocuments` is Android-only; iOS
+never read it, so VisionKit accepted unlimited pages and the JS kept `[0]`.
+VisionKit has no public mid-session page cap, so the patched native layer
+truncates on the way out and reports `capturedPageCount` — the user is told what
+was not used. Chose this over private API (App Review risk) and over processing
+all captures (a credit per receipt, and a bigger change than the report warranted).
+
+**Behaviour change, deliberate.** An unreadable date is now left **empty** rather
+than prefilled with today. The guess is indistinguishable from a real reading and
+is wrong exactly when it matters most — an old receipt, whose adjustment deadline
+is the product. **10 of 31** captured real receipts carry no date at all (Costco
+prints it at the very bottom). The UI was already built for this — invalid field,
+"couldn't read purchase date" hint, `doSave()` refusal — and none of it had ever
+fired, because the fallback pre-empted it. Cost: one extra tap when the bottom of
+the receipt wasn't photographed.
+
+**Regression risk, stated proactively.** The date fix strictly widens acceptance
+at UTC+ offsets and is byte-identical at UTC and west of it. **The one to watch is
+the header guard**: a product whose name looks like a header line would be
+dropped. Contained by the priced-line exemption plus the address/city patterns
+requiring lowercase (item lines are ALL CAPS). Verified by diffing the parse of
+all 31 committed real-OCR fixtures before and after — **items, names, sums,
+totals and dates are unchanged on every one**. The geometry change could in
+principle leave an orphan price unfolded; a test pins that a normal orphan still
+merges. The iOS native patch cannot be verified without an iOS build.
+
+**Tests shipped with the fixes:** nine-timezone matrices in
+`receiptParsingShared.test.js` and `receiptPipeline.live.test.js` (the latter over
+the real prod OCR through parse → validate → `toApiBody`), `isWarehouseInfoLine`
+units in `ocrCleanup.test.js`, the header-anchor case in `receiptGeometry.test.js`,
+the multi-capture contract in `autoCrop.test.js`, and a new
+`scanCaptureAlerts.test.js`. New copy in EN + FR. Suites not run locally — CI is
+the authority (standing rule).
+
+**Still owed.** Nothing has run on an iPhone; the native patch in particular needs
+a real build. Ship needs a version bump, annotated tag and GitHub release, and the
+EAS build is the user's call (standing budget rule).
+
+**Noticed, not actioned:** the **production** `priceback.receipts` table held a
+single row — the one the user committed during this session — despite the app
+being live on Play since 2.8.5. Flagged to the user; not investigated here.
