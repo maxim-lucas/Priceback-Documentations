@@ -6252,3 +6252,99 @@ without encoding it in the code beneath.
   cross-platform wrapper takes a constraint that only one platform enforces, the
   other platform needs an explicit boundary check, and any data the wrapper drops
   must be counted and reported — never `[0]` with the remainder thrown away.
+
+## 162. The fix for a silent wrong date became a mandatory calendar trip
+
+- **Date:** 2026-08-10 · **Area:** mobile (scan review) · **Reported:** 2.8.5 iOS TestFlight
+- **Symptom:** after #159, a receipt whose printed date OCR couldn't read arrived
+  at the review screen with an **empty** purchase-date field, an "unreadable date"
+  hint and a Save button that refused. Reporter: "WHAT I ASKED is that when the
+  date is in the OCR you get it from the OCR, otherwise you fill the date field
+  with the actual date (today) — you can also require validation by the user."
+- **Root cause:** not a defect — a deliberate behaviour change shipped alongside
+  #159, and the wrong trade. Silent prefill (≤2.8.5) and empty are the two ends of
+  one axis, and both are wrong: the first stamps the scan date on an old receipt
+  with nothing saying so, the second costs a calendar interaction on the **10 of
+  31** real captures where Costco's bottom-printed date wasn't photographed. The
+  axis itself was the mistake — the field carried a value with no record of where
+  the value came from, so the UI could only ever trust it completely or not at all.
+- **Fix:** `resolveScannedDate` (`src/utils/purchaseDate.js`) returns the date
+  **and its provenance** — `"ocr"` (read off the receipt), `"assumed"` (today,
+  offered because nothing was readable), `"user"` (confirmed or picked). Today is
+  prefilled again, but `"assumed"` renders an amber bar, disables Save and is
+  refused by `doSave()`; one tap on **Confirm** — or picking any day, which is
+  itself a statement — clears it. Cost is one tap, on the receipts that need it,
+  and no assumed date can reach the database unvouched-for.
+- **Files:** `src/utils/purchaseDate.js` (new), `src/screens/ScanScreen.js`,
+  `src/components/index.js` (`Button` gains an optional `disabled`, distinct from
+  `loading`), `src/services/i18n.js` (EN + FR); tests
+  `__tests__/purchaseDate.test.js` (nine-timezone matrix — the module is pure
+  string work and holds no `Date`, which is what keeps #159 from recurring).
+- **Detect next time:** a field that is auto-filled from a fallible source and
+  read back as if authoritative. Ask what the screen would render differently if
+  it knew the value was a guess; if the answer is "nothing", the provenance is
+  missing.
+- **Prevent:** *when a value can be a guess, store where it came from, not just
+  what it is.* "Prefill or leave blank" is a false choice; the third option is
+  prefill **and** mark it, which is the only one that keeps both the convenience
+  and the honesty.
+
+## 163. One person, one email, two accounts — because the primary key belongs to the identity provider
+
+- **Date:** 2026-08-10 · **Area:** backend (identity) + mobile (onboarding) · **Reported:** first iOS sign-up
+- **Symptom:** "when I signed up for the first time on iOS, the Apple account used
+  the same email. At first it started restoring all the data, then redirected to
+  the sign-up form to choose country, province, postal code, terms… and then
+  created a new account, also giving 75 free credits. There wasn't any data in the
+  app when it launched."
+- **Root cause:** `users.sub` is the primary key and a `sub` is issued **by the
+  provider** — Apple's bears no relation to Google's for the same human, and
+  `users.email` (indexed) was never consulted for identity. Worse, the account was
+  created by the *restore*: `/api/me/bootstrap` calls `upsertFromOAuth` before it
+  reads anything, so the "Restoring your account…" screen itself inserted the row
+  and fired the one-time `FREE_TRIAL_CREDITS` grant. The empty payload then sent
+  `decideSignInRoute` down its `"setup"` branch. Every step behaved as written;
+  the app simply had no concept of one person holding two provider identities.
+- **Fix — and the option deliberately NOT taken.** The obvious fix is identity
+  linking (a `user_identities` table mapping provider subs to one canonical user).
+  It was rejected on **RevenueCat** grounds: the client binds RC to whichever
+  provider `sub` it holds, and the webhook writes subscription state and purchased
+  credits to `users.sub = event.app_user_id`. Under linking, an iOS purchase lands
+  on the Apple sub while the signed-in account is the Google row — entitlements and
+  paid credits on the wrong user. Closing that means re-`logIn`-ing the RC
+  app-user-id on devices that have already purchased, and whether the entitlement
+  follows depends on a RevenueCat dashboard transfer setting and on real store
+  transactions. Untestable in CI, and it touches money.
+  So instead: **one ACTIVE account per verified email.** `upsertFromOAuth` refuses
+  the second provider with a typed `EmailClaimedError`; `/api/me` and
+  `/api/me/bootstrap` answer **403 `email_claimed`** carrying the owning provider;
+  onboarding routes that to `"blocked_email"`, names the provider and signs back
+  out. The block is **temporary by construction** — deleting the first account is
+  a *soft* delete, so the address stops being an active claim — and the
+  replacement account gets **no** welcome credits, because the tombstone still
+  carries `trial_credits_granted_at`. That is the existing per-sub guard widened
+  to per-email; without it, delete-and-switch-provider farms 75 credits a lap.
+  **No migration:** `users.status`, `trial_credits_granted_at` and `users_email_idx`
+  already existed.
+- **Files:** `backend/lib/accountIdentity.js` (new), `backend/repos/usersRepo.js`,
+  `backend/lib/httpError.js`, `backend/server.js`, `src/services/syncService.js`,
+  `src/screens/OnboardingScreen.js`, `src/services/i18n.js` (EN + FR); tests
+  `backend/tests/{accountIdentityUnit,duplicateAccountGuardDb,emailClaimedRouteDb}.test.js`,
+  `__tests__/{onboardingSignInRecovery,syncServiceHydrate}.test.js`.
+- **The containment that matters.** A guard like this fails by locking a
+  legitimate user out. Four rails: it only fires when the provider asserted
+  `email_verified` (an unverified address could otherwise be aimed at someone
+  else's account); only when the incoming sub has **no active row**, so nobody is
+  ever refused the account they are already signed into; never on the webhook or
+  placeholder paths; and pairs of active rows that already share an address are
+  untouched, so deploying it cannot lock out anyone who is currently signed in.
+- **Known and accepted:** Apple's "Hide My Email" relay address cannot match a
+  Google address, so those users still get a separate account — unavoidable
+  without linking. The per-email trial suppression expires with the tombstone
+  after 30 days (`purgeExpiredDeletions`), the same window that already exists for
+  same-sub re-signup.
+- **Detect next time:** any table whose primary key is a value a third party
+  mints. Ask what happens when the same human returns holding a different one.
+- **Prevent:** *account creation must not be a side effect of a read.* A
+  "restore my account" endpoint that upserts before it reads will create the very
+  account it was asked to find, and will pay out a signup grant while doing it.
