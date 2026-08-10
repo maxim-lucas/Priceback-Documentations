@@ -342,6 +342,22 @@ that never talked to it.
   `ImageManipulator.manipulateAsync(… SaveFormat.JPEG)` before upload, so the
   backend never receives a HEIC it cannot decode.
 
+**Noticed, not actioned:**
+
+- **The price-tag queue spends its OCR retry budget on auth failures.**
+  `tagScanQueue` allows `MAX_OCR_ATTEMPTS = 5` and then strands the entry in
+  `error`, recoverable only by an explicit user retry. The budget exists for
+  "this image cannot be OCR'd", but every failure class counts against it — so
+  five transient 401s or network blips permanently strand a perfectly good scan.
+  Before A1 (the locked-keychain fix) and A2, an Apple-signed-in iPhone left in a
+  pocket could burn all five on 401s without the user ever seeing a camera. Both
+  root causes are now fixed, which is why this is recorded rather than repaired:
+  the trigger is largely gone, and separating the error classes in the drain
+  deserves its own change with its own tests rather than a rider on an audit
+  branch. `receiptSyncService` already models the right answer — `isRetryableStatus`
+  treats 401 as retryable specifically so an expired token cannot drop a receipt
+  forever. The tag queue should borrow it.
+
 Also still true from audit #2's divergence table (re-checked, unchanged): the
 Android-only in-scanner gallery import, iOS-only camera-roll suggestions,
 notification channels, `stopOnTerminate`/`startOnBoot`, and iOS-only swipe-
