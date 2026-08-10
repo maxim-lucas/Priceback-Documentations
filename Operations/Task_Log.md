@@ -4131,3 +4131,116 @@ does not merge it: remediation is through the product's own surface — signed i
 with Apple, Profile → Delete Account, then sign in with Google. Nothing has run
 on an iPhone. Ship needs a version bump, annotated tag and GitHub release, and
 the EAS build is the user's call.
+
+---
+
+## 2026-08-10 — Deep iOS audit #2: everything that happens after sign-in
+
+**Asked:** "run a full audit specially for the iOS system, i want a deep
+analyzing to detect also if there is any difference between iOS and Android
+behavior, everything should be documented if not fixed."
+
+**Full register: `Technical/iOS_Audit_2026-08-10.md`. Bugs_Common_Fixes
+#164–#167.** Branch `fix/ios-parity-audit-2`; no version bump.
+
+**The previous iOS audit (2026-08-09, PR #249) stopped at the sign-in screen.**
+It was scoped, correctly, to what a reviewer taps — restore, crop, tab bar,
+dialog chrome, the Apple button, permission strings. This pass took the paths
+behind it: background execution, locked-device behaviour, token lifetime, and
+the labels the OS caches on the app's behalf. Five findings; four fixed, one
+documented by the user's decision.
+
+| # | Finding | Platforms | Status |
+|---|---|---|---|
+| A1 | Keychain items written `WHEN_UNLOCKED` — unreadable while the phone is locked | iOS only | Fixed |
+| A2 | Apple sessions can never authenticate in the background | iOS only | **Documented** |
+| A3 | App-icon badge set, never cleared | iOS only | Fixed |
+| A4 | 12 user-visible notification strings hardcoded in English | both | Fixed |
+| A5 | The only profile that builds an installable iPhone binary *warns* on a missing IAP key | iOS only | Fixed |
+
+**The two worst are invisible on Android by construction** — not "less likely",
+structurally unobservable. Android's SecureStore has no lock-state restriction
+at all, and Android launchers own the badge the app forgot to clear. That is the
+argument for auditing *for a difference* rather than for bugs: the reference
+implementation is healthy, so the only symptom is the divergence.
+
+**A1 is the one that matters, and its trap is worth keeping.** `expo-secure-store`
+defaults to `WHEN_UNLOCKED`, so on iPhone the session token is unreadable
+whenever the screen is locked — killing the daily price check, both offline
+queue drains and push-token sync. `authedFetch` then sends an *unauthenticated*
+request, gets 401, and the client treats 4xx as terminal: the exact signature
+already on file as "the scan worked but no DB row appeared", previously blamed
+on a stale Google token. **The migration is where this gets interesting.**
+`SecItemUpdate` cannot change `kSecAttrAccessible`, and expo's `set()` falls
+back to `update()` with an update dictionary of `[kSecValueData]` only — so
+re-writing the value leaves the old attribute in place while every plausible
+assertion still passes. The item has to be deleted first. The migration reads
+before it deletes and skips any key it cannot read, because the bug being fixed
+*is* an unreadable keychain and "invisible" must not be read as "absent".
+
+**Three decisions were taken to the user before implementing**, per the ask:
+how far to go on A2 (→ document only), which keychain level (→
+`AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`, so a restored iPhone starts signed out
+and no token rides a backup onto other hardware), and whether the notification
+i18n rewrite should also improve the copy (→ yes, knowing it changes what
+current Play users receive).
+
+**A2 is a real gap left open, deliberately.** Apple identity tokens live ~10
+minutes and `expo-apple-authentication` has no silent re-issue — the code's own
+comment says a background task cannot present UI. Google has `signInSilently`.
+Since Guideline 4.8 makes Apple sign-in mandatory once Google is offered, a
+large share of iPhone users get a materially different product. The fix is to
+stop using the provider id-token as the API bearer and mint a first-party
+session; that is an auth-core rewrite touching both platforms and both
+providers, and bundling it here would have risked the working Google path to
+repair the broken Apple one. Design sketch is in the audit doc; it depends on
+A1 having landed.
+
+**Also verified and deliberately left alone** (recorded so the next pass doesn't
+re-investigate): the deliberate divergence table — Android-only gallery import
+inside the scanner, iOS-only camera-roll suggestions, notification channels,
+`stopOnTerminate`/`startOnBoot`, iOS-only swipe-dismiss on modals (and the two
+Pending* screens that inconsistently allow it). Confirmed clean: no `elevation`
+without a matching `shadow*`, every `SafeAreaView` from `safe-area-context`, the
+`require("react-native").Platform.OS` in `purchaseService` is a single-property
+read and does **not** re-open the 2.8.1 crash, `patch-package` runs via
+`postinstall` so the iOS half of the scanner patch does reach an EAS build, and
+the paywall carries its 3.1.2 disclosures.
+
+**Noticed, not actioned:** `BuyCreditsScreen` is the one purchase surface with
+no terms/privacy small print. 3.1.2's link requirement is written for
+auto-renewable subscriptions, so this is very likely fine.
+
+### Tests & regression risk
+
+New: `__tests__/secureStoreAccessibility.test.js` (source sweep that no module
+outside `secureStore.js` touches the keychain, plus the delete-before-re-add
+behaviour, the skip-what-you-can't-read rule, run-once, and never-throws),
+`__tests__/notificationBadge.test.js`, `__tests__/notificationI18n.test.js`
+(language list derived from the bundle; no bare literal survives in a
+notification `content`). Extended: `__tests__/easBuildProfiles.test.js` for the
+`device`-profile fatality.
+
+**Regression risk, stated proactively.** A1 carries the blast radius: a failed
+migration leaves that key on the old attribute (degraded to today, never worse),
+but the delete→re-add window means a process death there signs the user out.
+Contained by reading first, skipping unreadable keys, and leaving the migration
+unflagged so it retries — and worth stating plainly, **iOS installs today are
+TestFlight only**, so the exposed population is about one person. There will
+never be a cheaper time. A1's second deliberate change: restoring an iPhone from
+backup now starts signed out. **A4 changes live Android notification copy** — by
+choice, and the only change here a current Play user can see. A3 cannot move
+Android (`setBadgeCountAsync` is inert there); A5 only narrows which profiles
+fail a build and changes no shipped binary. The three services now sharing
+`secureStore.js` each kept their own error policy, so no call site's failure
+behaviour moved.
+
+`i18n:check` green (1428 × 2), `typecheck` exit 0. Suites not run locally — CI
+is the authority (standing rule).
+
+**Still owed.** Nothing has run on an iPhone, and that debt is now larger: F1–F6
+plus A1, A3 and A4 all change device behaviour. A2 needs its own task.
+**`REVENUECAT_API_KEY_IOS` must exist in the EAS environment before the next
+`device` build** — it will now stop without it, which is the point. Ship needs a
+version bump, annotated tag and GitHub release; the EAS build is the user's call
+(standing budget rule).

@@ -6348,3 +6348,130 @@ without encoding it in the code beneath.
 - **Prevent:** *account creation must not be a side effect of a read.* A
   "restore my account" endpoint that upserts before it reads will create the very
   account it was asked to find, and will pay out a signup grant while doing it.
+
+## 164. The keychain would not hand back the token while the phone was locked
+
+- **Date:** 2026-08-10 · **Area:** mobile (auth storage) · **Found by:** iOS audit #2
+- **Symptom:** iOS-only, and silent. Background work — the daily price check,
+  both offline scan-queue drains, push-token sync — behaved as if the user were
+  signed out whenever the phone was locked. Downstream it presents as the
+  already-filed "the scan worked but no row appeared in the database", because
+  `authedFetch` sends the request with **no** `Authorization` header when the
+  token read returns null, the backend answers 401, and the client treats 4xx as
+  terminal.
+- **Root cause:** `expo-secure-store` defaults to `WHEN_UNLOCKED`
+  (`ios/SecureStoreOptions.swift`: `var keychainAccessible: SecureStoreAccessible
+  = .whenUnlocked` maps to `kSecAttrAccessibleWhenUnlocked`), and not one of the
+  app's three writers passed an option. That attribute makes the item readable
+  *only* while the screen is unlocked. Android's SecureStore is Keystore-backed
+  SharedPreferences with no `setUserAuthenticationRequired`, so lock state is
+  irrelevant there — the platform has no knob that corresponds to the broken one,
+  which is why months of Play traffic never surfaced it.
+- **Fix:** one owner module, `src/services/secureStore.js`, writes everything with
+  `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY` — readable after the first unlock
+  following a reboot, and never copied into an encrypted iCloud backup (a session
+  token should not ride a device restore onto different hardware). The three
+  previous writers delegate to it and keep their own error policies unchanged.
+- **The trap that makes this worth reading:** an existing keychain item keeps the
+  attribute it was **created** with, so a migration is mandatory — and the obvious
+  migration silently does nothing. `SecItemUpdate` cannot change
+  `kSecAttrAccessible`, and expo's `set()` falls back to `update()` on
+  `errSecDuplicateItem` with an update dictionary of `[kSecValueData]` only.
+  Re-writing the value leaves `WHEN_UNLOCKED` in place while every plausible
+  assertion ("we called `setItemAsync` with the option") passes. The item must be
+  **deleted first** so the write takes the `SecItemAdd` path.
+  `migrateKeychainAccessibility()` reads before it deletes and **skips any key it
+  cannot read** — the bug being fixed *is* an unreadable keychain, so treating
+  "invisible" as "absent" would delete a live token.
+- **Files:** `src/services/secureStore.js` (new), `src/services/authService.js`,
+  `src/services/emailSyncService.js`, `src/services/storageService.js`,
+  `src/screens/SplashScreen.js`; test
+  `__tests__/secureStoreAccessibility.test.js`.
+- **Detect next time:** any cross-platform storage/crypto wrapper with a
+  per-platform default that isn't in the shared signature. Read the native
+  options struct, not the JS docstring.
+- **Prevent:** *"is it encrypted?" is the wrong question; "when can it be read?"
+  is the one that decides whether background work exists.* A storage API that
+  looks identical on both platforms can still differ in availability, and
+  availability is what unattended code depends on.
+
+## 165. The app-icon badge went on with the first price drop and never came off
+
+- **Date:** 2026-08-10 · **Area:** mobile (notifications) · **Found by:** iOS audit #2
+- **Symptom:** iOS only. A red badge appeared on the PriceBack icon at the first
+  price-drop alert and stayed there permanently — through reading it, claiming
+  the refund, and every subsequent launch.
+- **Root cause:** `setNotificationHandler` asks for `shouldSetBadge: true` and
+  `sendPriceDropNotification` carries `badge: 1`, but `setBadgeCountAsync` was
+  never called anywhere in the repo. On iOS the icon badge is **app-owned** state
+  and persists until the app zeroes it. Android launchers tie the badge to the
+  notification and clear it on dismiss, so the platform quietly did the work the
+  app had forgotten — no Play user could ever have reported it.
+- **Fix:** `clearBadge()` in `notificationService`, called when the app returns to
+  the foreground (deliberately outside `App.js`'s 5-minute hydrate throttle — one
+  native call, and the only thing there the user can see on their home screen) and
+  again after a notification tap is routed. Fire-and-forget: a badge failure must
+  never swallow the tap or block a boot.
+- **Files:** `src/services/notificationService.js`, `App.js`; test
+  `__tests__/notificationBadge.test.js`.
+- **Detect next time:** any state the app *sets* on an OS surface. Search for the
+  clearing call at the same time you write the setting call.
+- **Prevent:** *when one platform cleans up after you, the missing cleanup is
+  invisible until you ship on the other one.* Badges, channels, categories and
+  shortcuts are all app-owned on at least one platform.
+
+## 166. Twelve notification strings were English no matter the language
+
+- **Date:** 2026-08-10 · **Area:** mobile (i18n) · **Found by:** iOS audit #2
+- **Symptom:** both platforms. Every price-drop and claim-window notification —
+  title, body, and the four action buttons revealed by pulling the notification
+  down — rendered in English for French users. Money was formatted `$12.34`
+  rather than `12,34 $`.
+- **Root cause:** the strings were template literals inside
+  `notificationService`. Drift, not an unmade decision: the
+  `sendTagScansReadyNotification` / `sendReceiptScansReadyNotification` senders in
+  the *same file* already used `t()`. A rule followed in one function and not its
+  neighbour needs a test, not a reminder.
+- **The iOS-specific half:** notification **categories** (iOS) and notification
+  **channels** (Android) hand the OS a *copy* of their labels, which the OS caches
+  and redraws from. Nothing re-reads them on a language change, so even after
+  translation a user who switched to French would have kept English buttons and
+  English channel names in system settings until reinstalling.
+- **Fix:** all twelve moved to `i18n.js` (EN + FR), rewritten for a shopper rather
+  than transliterated — so the English copy changed too, deliberately. The amount
+  is interpolated so each language positions its own currency symbol. A singular
+  variant covers the one-day case, because `expiryWarnDays` is DB-tunable and
+  could legally be `1` ("closes in 1 days"). One guarded `onLanguageChange`
+  subscription re-pushes both the iOS categories and the Android channels.
+- **Files:** `src/services/notificationService.js`, `src/services/i18n.js`; test
+  `__tests__/notificationI18n.test.js`.
+- **Detect next time:** grep for `title:` / `body:` / `buttonTitle:` followed by a
+  quote or backtick. It is now a test.
+- **Prevent:** *labels you hand to the OS are cached by the OS.* Translating the
+  string is only half the job; something has to re-register it when the language
+  changes, or the user sees the old language until reinstall.
+
+## 167. The only profile that can build an iPhone binary warned instead of failing
+
+- **Date:** 2026-08-10 · **Area:** build config · **Found by:** iOS audit #2
+- **Symptom:** an EAS `device` build with no `REVENUECAT_API_KEY_IOS` produced an
+  installable iPhone binary whose paywall could sell nothing, announcing it only
+  as a line in the build log.
+- **Root cause:** `app.config.js`'s store-build preflight is fatal only when
+  `APP_ENV === "production"`. The `device` profile — added by the previous iOS
+  audit as the *only* profile that can produce an installable iPhone binary,
+  `preview` being simulator-only — extends `preview` and therefore inherits
+  `APP_ENV: "preview"`. So the one build you take an on-device checklist through
+  was the one exempted from the check, and that checklist's item 5 is "Restore
+  Purchases with a sandbox subscription".
+- **Fix:** severity is keyed off `EAS_BUILD_PROFILE` rather than `APP_ENV`, with
+  `device` joining `production` as fatal. Every other profile still warns rather
+  than skipping, and `ALLOW_MISSING_IAP_KEY=1` remains the explicit opt-out. The
+  message now names the profile, so it points at the thing to change.
+- **Files:** `app.config.js`; test `__tests__/easBuildProfiles.test.js`.
+- **Detect next time:** whenever a build profile is added by `extends`, list what
+  it inherits and ask which *checks* keyed off those inherited values just changed
+  meaning for it.
+- **Prevent:** *derive a check's severity from what the build is FOR, not from a
+  variable that happens to correlate.* `APP_ENV` describes which backend to talk
+  to; it was never a statement about how much a broken paywall would cost.
