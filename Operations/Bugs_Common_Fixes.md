@@ -6116,3 +6116,139 @@ crop?") but is really a policy ("which crop UI?"). Before trusting one on a
 path that produces data another system has to parse, read the platform notes —
 and be suspicious of any comment that names a platform difference in prose
 without encoding it in the code beneath.
+
+## 159. Every purchase date became "today" east of Greenwich — a local-time parse validated with UTC getters
+
+- **Date:** 2026-08-10 · **Area:** mobile (parsing) · **Reported:** 2.8.5 iOS TestFlight
+- **Symptom:** Receipts whose printed date was months in the past were saved with
+  the scan date. The raw OCR was perfect and the date was visibly in it. Prod row
+  `r_1786356914240_m7ruw` saved `purchase_date = 2026-08-10` while its `raw_ocr`
+  ends with the printed `2026/03/08 17:55:13`. Reproduced on demand: a re-scan of
+  the same receipt did it again.
+- **Root cause:** `extractDate`'s `buildIso` (receiptParsingShared.js) built
+  `new Date(iso + "T00:00:00")` — **no `Z`, so parsed in LOCAL time** — and then
+  confirmed the round-trip with `getUTCMonth()` / `getUTCDate()`. East of UTC,
+  local midnight falls on the **previous day in UTC**, so `getUTCDate()` returned
+  d−1, the check failed, and `extractDate` returned `null` for **every date on
+  every receipt**. `ScanScreen` then did `setDate(data.date || todayLocalISO())`.
+  Nothing was wrong with the OCR, the compliance scrub (verified: loses the date
+  on 0 of 31 fixtures), or the #71 header re-sourcing — the date was extracted
+  correctly and then thrown away by its own validity check.
+- **Why every test passed:** the check only misbehaves at a **non-zero UTC
+  offset**. CI runs at UTC — offset 0, the single value where local midnight and
+  UTC midnight coincide — so the entire suite was green, *including* the
+  per-fixture `date` invariant added by #71 specifically to catch this field. The
+  reporter's device is at UTC+3.
+- **Fix:** the day-of-month check is now pure arithmetic (days-in-month + leap
+  year); `buildIso` never constructs a `Date`. A calendar validity check has no
+  business depending on where the phone is. Verified byte-identical across
+  UTC−8…UTC+12 and against all 31 real-OCR fixtures.
+  Same defect one function away: `scanWithVeryfi` ran the provider's wall-clock
+  stamp through `new Date(x).toISOString()`, which reinterprets a local timestamp
+  as UTC and rolls the day **backwards** east of Greenwich — extracted as
+  `normalizeProviderDate`, which takes the printed Y-M-D literally.
+- **Files:** `src/services/receiptParsingShared.js` (`buildIso`, `daysInMonth`),
+  `src/services/ocrService.js` (`normalizeProviderDate`),
+  `src/screens/ScanScreen.js` (no more today-fallback); tests
+  `__tests__/receiptParsingShared.test.js` (nine-timezone matrix),
+  `__tests__/receiptPipeline.live.test.js` (the prod OCR through the real chain,
+  per timezone), `__tests__/ocrServiceExtra.test.js`.
+- **Detect next time:** a saved `purchase_date` equal to `created_at::date` is the
+  signal — query it directly:
+  `select id, purchase_date, created_at::date, raw_ocr from priceback.receipts where purchase_date = created_at::date order by created_at desc;`
+  then check whether the row's own `raw_ocr` contains a printed date. If it does,
+  the parser is discarding it, not missing it.
+- **Prevent:** **never mix local-time parsing with UTC getters.** `new Date("…T00:00:00")`
+  is LOCAL; `new Date("…T00:00:00Z")` and `Date.UTC(…)` are UTC — pick one and use
+  the matching getters throughout, or (better) do calendar arithmetic without
+  `Date` at all. And: **a green CI run at UTC is not evidence for date logic.**
+  Any test covering date parsing/validation must drive `process.env.TZ` across
+  both sides of the meridian; Node applies a reassignment at runtime, so a
+  `test.each` over zones costs nothing.
+
+## 160. The warehouse address was sold as a product, and it ate the first item's label
+
+- **Date:** 2026-08-10 · **Area:** mobile (parsing + geometry) · **Reported:** 2.8.5 iOS TestFlight
+- **Symptom:** "the first 2 products was gathering bad informations from the header
+  or missing a part of the label", with clean OCR. Intermittent — a re-scan of the
+  same receipt parsed every label correctly. Reproduced:
+  `Gloucester, ON K1J 1A5 @7.99` shipped as an item **and** the real `RUFFLES REG`
+  vanished, because the pairing consumed its price.
+- **Root cause:** `stripWarehouseInfo` deliberately runs **post-parse**
+  (`receiptParser.js`) because store detection needs the "COSTCO" keyword — so
+  while items are being extracted the header block is still live text, sitting
+  directly above the first item. That adjacency is the whole bug, and it is why
+  only the FIRST items were ever affected. Two consumers:
+  1. `extractItems`' 2-line NAME→PRICE pairing refused only **negative** amounts.
+     #67 closed exactly this hole for discounts ("fabricates a phantom item out of
+     whatever text sits above the discount row (e.g. the warehouse address line)")
+     and left the **positive**-price case open. A header line clears every other
+     guard: it isn't a summary keyword, it has ≥3 alpha chars, it's >2 long.
+  2. `reconstructRowsFromAnnotation` Pass 2 folds letter-less orphan rows into the
+     nearest name-bearing anchor. Header rows are full of letters, so they were
+     eligible anchors — and the first item's bare price is the orphan physically
+     nearest to the address.
+  Framing-dependent (it needs the price OCR'd as its own row), hence intermittent.
+- **Fix:** one shared predicate, `isWarehouseInfoLine` in `shared/ocrCleanup.js` —
+  factored out of `stripWarehouseInfo` so there is exactly ONE definition of "this
+  is a header line" and it cannot drift from what gets stripped. The pairing
+  refuses it as a name; geometry excludes it from `anchors` (mirroring the existing
+  `isTpd` exclusion). **The safety property is the priced-line exemption**: a line
+  carrying an amount is never header, so a real product can never be dropped by
+  either guard.
+  Deliberately NOT reordering the pipeline to strip the header before parsing —
+  store/warehouse/province detection reads those lines, and moving the strip would
+  put all of them at risk to fix a name-pairing bug.
+- **Files:** `shared/ocrCleanup.js` (`isWarehouseInfoLine`),
+  `src/services/receiptParsingShared.js` (`extractItems` guard),
+  `src/services/receiptGeometry.js` (anchor exclusion, `rowText` extracted); tests
+  `__tests__/ocrCleanup.test.js`, `__tests__/receiptGeometry.test.js`,
+  `__tests__/receiptPipeline.live.test.js`.
+- **Detect next time:** an item named after a city, street or the store itself. Diff
+  the parse against the fixtures before/after any change here — all 31 committed
+  captures must produce identical items, names, sums and totals.
+- **Prevent:** when a cleanup step is deliberately deferred until after parsing,
+  every parser stage that runs in the meantime is exposed to the text it will
+  remove. Guard the consumers with the *same predicate* the stripper uses rather
+  than a second regex — and when a guard is added for one sign/shape of a value,
+  ask immediately whether the opposite sign has the same hole. #67 fixed the
+  negative case; the positive one sat there for another six weeks.
+
+## 161. iOS let the user scan any number of receipts and silently kept one
+
+- **Date:** 2026-08-10 · **Area:** mobile (capture) + native patch · **Reported:** 2.8.5 iOS TestFlight
+- **Symptom:** "scanning a receipt auto crop allows multiple scans … if the user
+  tries to upload few receipts at the same time, there will be no accurate
+  reference." Scanning three receipts in one scanner session produced one receipt,
+  with nothing indicating which of the three it was or that anything was dropped.
+- **Root cause:** `autoCrop.scanDocumentWithAutoCrop` passes `maxNumDocuments: 1`,
+  which the plugin documents as **Android only** — and it is: Android's
+  `DocumentScannerModule.kt` forwards it to MLKit `setPageLimit()`, while iOS's
+  `DocumentScanner.swift` forwards **only** `responseType` and
+  `croppedImageQuality` and never reads it. VisionKit therefore accepted unlimited
+  pages, and the JS took `result.scannedImages[0]` and discarded the rest with no
+  message. Textbook platform-parity defect: the option looked honoured because the
+  code passed it.
+- **Fix:** VisionKit exposes **no public API to cap page count mid-session** (there
+  is no per-shutter delegate hook), so it cannot be prevented in the scanner UI
+  without private API — an App Review risk. The cap is applied on the way out
+  instead: the patched `DocumentScanner.swift` truncates to `maxNumDocuments` and
+  returns `capturedPageCount` (the pre-truncation count); Android returns the same
+  field for a uniform JS contract. `scanDocumentWithAutoCrop` derives
+  `discardedCount` and every capture surface surfaces a non-zero value via
+  `notifyDiscardedScans` (EN + FR). Losing a capture is tolerable; losing it
+  silently is not.
+- **Files:** `patches/react-native-document-scanner-plugin+2.0.4.patch` (iOS Swift,
+  Android Kotlin, both `.ts` declarations — the upstream "Android only" doc comment
+  is corrected in place), `src/services/autoCrop.js`,
+  `src/utils/scanCaptureAlerts.js` (new), `src/screens/{ScanScreen,PriceTagScanScreen}.js`,
+  `src/services/i18n.js`; tests `__tests__/autoCrop.test.js`,
+  `__tests__/scanCaptureAlerts.test.js`.
+- **Detect next time:** any option whose doc comment says "Android only" / "iOS
+  only" but which the shared code passes unconditionally. Read the native source
+  for both platforms — `node_modules/<plugin>/{ios,android}/` — rather than
+  trusting the JS signature.
+- **Prevent:** *passing an option is not the same as it being honoured.* When a
+  cross-platform wrapper takes a constraint that only one platform enforces, the
+  other platform needs an explicit boundary check, and any data the wrapper drops
+  must be counted and reported — never `[0]` with the remainder thrown away.
