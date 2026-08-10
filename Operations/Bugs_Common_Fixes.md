@@ -6689,3 +6689,128 @@ without encoding it in the code beneath.
 - **Prevent:** *user-visible text is wherever it is composed, not wherever the UI
   lives.* Any process that can address a user needs the same i18n rule and its
   own guard.
+
+## 174. "Unique per run" test ids that were neither unique nor random
+
+- **Symptom:** a DB-backed backend suite failed with a `price_points` row whose
+  source was `price_tag_scan` where the test asserted `receipt_ocr`. It passed on
+  a rerun and passed on `main` at the same commit, so it read as a flake caused by
+  two overlapping CI runs sharing the pooler.
+- **That diagnosis was wrong.** Overlapping runs were a coincidence. The suites
+  built "unique" ids as `String(Date.now()).slice(-6)` / `.slice(-7)`, with a
+  comment asserting a prior run's row could not be picked up. Three separate
+  defects sat in that one expression:
+  1. **It recurs on a schedule.** The low 6 digits of the epoch clock repeat every
+     10^6 ms (16.7 min), the low 7 every 10^7 ms (2.8 h). Two runs separated by a
+     multiple of that produce byte-identical ids. Not bad luck — a cycle.
+  2. **The derived SKU ranges contained other suites' hardcoded SKUs.** Tests
+     computed `String(5000000 + base)`, `String(7000000 + base)` and friends.
+     `crowdsourceDb.test.js` writes `price_tag_scan` points on the literals
+     `5551234`, `5559876`, `5550011`, `5552468`, `5559001`, `5557777`, `7654321`;
+     `barcodeLink.test.js` uses `9876543`. Every one of those falls inside a
+     computed range, so **no concurrency was required** — one run could collide
+     with itself. Band prefixes (`3000000`, `4000000`, `6100000`–`6600000`) were
+     also reused across two or three suites each.
+  3. **Warehouse codes were far worse than the SKUs.** `` `80${last 2 digits}` ``
+     is 100 possible codes and `` `54${last 1 digit}` `` is 10, against a global
+     `warehouses` table — a 1-in-100 and 1-in-10 collision that nobody had hit yet.
+- **Why the collision was deterministic, not 50/50.** `pricesRepo.latestForSku`
+  resolves the product **globally** by `(sku, storeCode)` and returns
+  `ORDER BY observed_at DESC LIMIT 1` — it is not scoped to the test user or run.
+  Receipt price points are stamped `observedAt = purchaseDate`
+  (`receiptsRepo.js`, a fixed **past** date in these fixtures); tag and
+  crowdsource points are stamped ~now. So once the SKUs matched, the tag row
+  **always** won the ordering. The assertion never had a chance.
+- **Fix:** `backend/tests/helpers/uniq.js` — `runId()`, `testSku()`,
+  `testWarehouseCode()`, all drawn from `node:crypto`, never from the clock. The
+  load-bearing part is not the entropy but a **namespace invariant**: generated
+  SKUs are **8 digits starting with `5`**; the `` `N${RUN}` `` fixture SKUs occupy
+  8 digits starting with 6/7/8/9; every other hardcoded fixture SKU is at most 7
+  digits; generated warehouse codes are **5 digits starting with `9`** while every
+  real Costco code is 2–4 digits (`51`…`8099`, plus one `00000`). Lengths that
+  differ cannot be equal, and inside the 8-digit space the leading digit separates
+  the three populations — so collisions are impossible by construction rather than
+  merely improbable. `node --test` runs each file in its own process, so the draw
+  is per-file, which also closes the cross-suite band reuse.
+- **The first fix attempt failed 12 tests, and the reason is the more useful
+  lesson.** It used a hex `runId()` and 9-digit ids, treating both as opaque. Both
+  shapes were **contracts**:
+  - `String(Date.now()).slice(-7)` is *seven numeric digits*, and call sites
+    concatenate onto it. `` `7${RUN}` `` / `` `9${RUN}` `` build 8-digit numeric
+    Costco SKUs, and `` `1137482950${RUN}` `` builds a Google-shaped sub that
+    `accountIdentity.providerOfSub` matches with `/^\d+$/`. Hex turned those into
+    400s and an `existingProvider: "unknown"`.
+  - 9 digits overran two separate ceilings: `POST /api/observations/tag` enforces
+    `/^\d{3,8}$/` on the sku (`server.js`), and the receipt header-OCR footer is
+    parsed as `/\bWHSE\s*[:#]?\s*\d{2,5}\b/i` (`shared/ocrCleanup.js`) — so a
+    9-digit warehouse code was **stored yet echoed back null**, surfacing as
+    `0 !== 825306100`, which looks nothing like a length problem.
+  A grep of `shared/` and `middleware/` missed all of it because the validation
+  lives in `server.js` and the shape dependencies live in the *tests*.
+- **Detect next time:** when a test invents an id, ask *what else can write that
+  same id* — including hardcoded fixtures in sibling suites, not just other runs.
+  And when a lookup ignores the test's own scope (no user, no run filter), a
+  colliding row is not a tie the test might win; it is a loss with a tie-break
+  that decides it. `git log -S` on the id expression is faster than re-running.
+- **Prevent:** a comment claiming an invariant ("unique per run") is a claim to
+  **verify, not to trust** — this one was false in three ways and had been read
+  past for months. Prefer invariants a reader can check by looking (a reserved
+  length/prefix) over ones that need arithmetic about clock periods.
+- **Prevent, second rule, learned the hard way:** when you replace a generated
+  value, **keep its shape and change only its source.** A value's format is an
+  undocumented API the moment anything concatenates onto it, pattern-matches it,
+  or casts it. `runId()` is a random 7-digit numeric string *specifically* so it is
+  shape-identical to what it replaced — every call site is then satisfied by
+  construction instead of by audit. Widening a format is a separate change from
+  fixing its entropy, and it needs its own check against the real validators
+  (`grep` for the route regex, don't reason from the column type — `sku` and
+  `warehouses.code` are both plain `text`, and neither column is where the limits
+  actually live).
+- **Still open, deliberately:** this does **not** make concurrent backend runs
+  safe. The suites share hardcoded user subs (`SUB = "test-pricepoints-user"`) and
+  call `deleteAccount(SUB)` between tests, so two runs still delete each other's
+  user mid-flight. Running two backend suites at once remains unsupported.
+
+## 175. The first receipt from a new warehouse came back with no warehouse
+
+- **Symptom:** `POST /api/receipts` returns 200 and stores everything correctly,
+  but the response's `receipt.warehouseId` is `null` — for exactly the **first**
+  receipt anyone ever files from a given warehouse. Every later receipt from that
+  same warehouse echoes the code fine. A client that renders the warehouse label
+  from the create response shows nothing until it refetches.
+- **Cause:** `receiptsRepo.create()` upserts the warehouse **inside its own
+  transaction** (deliberately — the FK has to be set before the receipt row is
+  inserted, and a failure must roll the whole receipt back). It then shaped the
+  response through `decorateReceiptRow` → `warehouseCodeById`, which resolved the
+  `warehouses.id` pk back to the store-issued code with a read on **`getDb()` — a
+  separate connection**. The warehouse row is still uncommitted at that moment, so
+  the other connection cannot see it, the lookup returned no rows, and the helper
+  answered `null`. Nothing errored; a value simply went missing.
+- **Fix:** thread the transaction through — `decorateReceiptRow(row, tx)` →
+  `warehouseCodeById(id, tx)`, falling back to `getDb()` when called outside a
+  transaction. The function's other lookups read seeded tables committed long ago
+  and were left alone.
+- **A trap adding that second parameter:** one call site was
+  `rows.map(decorateReceiptRow)`. `Array#map` passes `(item, index, array)`, so
+  the index would have arrived as `tx`. It happens to be harmless here (`0` is
+  falsy, so it degrades to `getDb()`), but only by luck. Changed to
+  `rows.map((r) => decorateReceiptRow(r))`, with a note on the function saying
+  why. **Adding a parameter to a function used point-free in `map` is a silent
+  change to every such call site.**
+- **Why no test caught it — the useful part.** `receiptWarehouseLink.test.js`
+  built its warehouse code as `` `54${one digit}` `` → 540…549. All ten are **real
+  seeded Costco warehouses** ("Kanata", "Nepean", …). The row therefore always
+  pre-existed, the cross-connection read always succeeded, and the first-sighting
+  path — the only broken one — was never executed. The test asserted the right
+  thing and still could not fail. It only surfaced when the code was randomised
+  into a reserved unused band (Bugs #174).
+- **Detect next time:** when a helper reads a row that the current transaction
+  just wrote, check **which connection it reads on**. Inside a transaction,
+  `getDb()` is a different session and sees a pre-transaction snapshot; the bug
+  presents as a silent `null`, never as an error. Grep for repo helpers that take
+  no `tx` parameter and are called from inside one.
+- **Prevent:** *a fixture that happens to match seeded data tests the wrong
+  branch.* If a test's meaning depends on a row being new, it must **assert the row
+  is new** — `receiptWarehouseLink` now draws until it finds an unused code and
+  fails loudly if the reserved band is exhausted, rather than quietly sliding back
+  onto the easy path.
