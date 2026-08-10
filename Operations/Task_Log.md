@@ -4483,3 +4483,41 @@ risk is mechanical (a missed call site, or a suite asserting SKU/warehouse-code
 *length*), which CI catches immediately. **This narrows a flake class; it does
 not make the backend suite concurrency-safe** — the shared-`SUB` problem above
 is untouched and its own task.
+
+### Addendum — the test-id work uncovered a production bug (Bugs #175)
+
+Randomising the warehouse code exposed a real defect in the receipt write path,
+and it is worth stating plainly that the *test* was what hid it.
+
+`POST /api/receipts` returned `receipt.warehouseId: null` for the **first**
+receipt ever filed from a given warehouse. `receiptsRepo.create()` upserts the
+warehouse inside its own transaction (correctly — the FK must be set before the
+receipt inserts), then shaped the response via `warehouseCodeById`, which read on
+`getDb()`: a separate connection that cannot see the uncommitted row. No error,
+just a missing value, and only ever on the first receipt from that warehouse.
+
+`receiptWarehouseLink.test.js` could not have caught it: its warehouse codes were
+`` `54${one digit}` `` → 540–549, and all ten are **real seeded Costco
+warehouses**, so the row always pre-existed and the broken branch never ran.
+
+Fixed by threading the transaction through `decorateReceiptRow` into
+`warehouseCodeById`. One call site was `rows.map(decorateReceiptRow)` — adding a
+second parameter would have made `map` pass the array **index** as `tx`, so that
+site is now an explicit arrow with a comment saying why. The test now draws until
+it finds a genuinely unused code and fails loudly if the reserved 9000–9999 band
+is exhausted.
+
+**Three CI rounds were spent getting the id shapes right, and each failure taught
+something the code did not say out loud:** `runId()` must stay 7 numeric digits
+(call sites concatenate onto it); generated SKUs must fit `/^\d{3,8}$/`; and
+warehouse codes must be 4 digits — not because of a length rule, but because
+widening them was chasing a length hypothesis that was simply wrong. The real
+cause was the cross-connection read above. Recording that mainly as a caution
+against my own first explanation: "it stopped working when I made the value
+longer" is not evidence that length is the constraint.
+
+**Regression risk, restated.** `receiptsRepo` is now touched — production code, on
+the receipt write path. The change is additive (an optional trailing parameter,
+`tx || getDb()`), affects only the warehouse code echoed in a response, and can
+only turn a `null` into the correct value. The `map` call site is the one place
+where behaviour could have changed silently, and it is now explicit.

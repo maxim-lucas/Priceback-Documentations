@@ -6770,3 +6770,47 @@ without encoding it in the code beneath.
   safe. The suites share hardcoded user subs (`SUB = "test-pricepoints-user"`) and
   call `deleteAccount(SUB)` between tests, so two runs still delete each other's
   user mid-flight. Running two backend suites at once remains unsupported.
+
+## 175. The first receipt from a new warehouse came back with no warehouse
+
+- **Symptom:** `POST /api/receipts` returns 200 and stores everything correctly,
+  but the response's `receipt.warehouseId` is `null` — for exactly the **first**
+  receipt anyone ever files from a given warehouse. Every later receipt from that
+  same warehouse echoes the code fine. A client that renders the warehouse label
+  from the create response shows nothing until it refetches.
+- **Cause:** `receiptsRepo.create()` upserts the warehouse **inside its own
+  transaction** (deliberately — the FK has to be set before the receipt row is
+  inserted, and a failure must roll the whole receipt back). It then shaped the
+  response through `decorateReceiptRow` → `warehouseCodeById`, which resolved the
+  `warehouses.id` pk back to the store-issued code with a read on **`getDb()` — a
+  separate connection**. The warehouse row is still uncommitted at that moment, so
+  the other connection cannot see it, the lookup returned no rows, and the helper
+  answered `null`. Nothing errored; a value simply went missing.
+- **Fix:** thread the transaction through — `decorateReceiptRow(row, tx)` →
+  `warehouseCodeById(id, tx)`, falling back to `getDb()` when called outside a
+  transaction. The function's other lookups read seeded tables committed long ago
+  and were left alone.
+- **A trap adding that second parameter:** one call site was
+  `rows.map(decorateReceiptRow)`. `Array#map` passes `(item, index, array)`, so
+  the index would have arrived as `tx`. It happens to be harmless here (`0` is
+  falsy, so it degrades to `getDb()`), but only by luck. Changed to
+  `rows.map((r) => decorateReceiptRow(r))`, with a note on the function saying
+  why. **Adding a parameter to a function used point-free in `map` is a silent
+  change to every such call site.**
+- **Why no test caught it — the useful part.** `receiptWarehouseLink.test.js`
+  built its warehouse code as `` `54${one digit}` `` → 540…549. All ten are **real
+  seeded Costco warehouses** ("Kanata", "Nepean", …). The row therefore always
+  pre-existed, the cross-connection read always succeeded, and the first-sighting
+  path — the only broken one — was never executed. The test asserted the right
+  thing and still could not fail. It only surfaced when the code was randomised
+  into a reserved unused band (Bugs #174).
+- **Detect next time:** when a helper reads a row that the current transaction
+  just wrote, check **which connection it reads on**. Inside a transaction,
+  `getDb()` is a different session and sees a pre-transaction snapshot; the bug
+  presents as a silent `null`, never as an error. Grep for repo helpers that take
+  no `tx` parameter and are called from inside one.
+- **Prevent:** *a fixture that happens to match seeded data tests the wrong
+  branch.* If a test's meaning depends on a row being new, it must **assert the row
+  is new** — `receiptWarehouseLink` now draws until it finds an unused code and
+  fails loudly if the reserved band is exhausted, rather than quietly sliding back
+  onto the easy path.
