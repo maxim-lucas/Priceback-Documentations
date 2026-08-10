@@ -4053,3 +4053,81 @@ EAS build is the user's call (standing budget rule).
 **Noticed, not actioned:** the **production** `priceback.receipts` table held a
 single row — the one the user committed during this session — despite the app
 being live on Play since 2.8.5. Flagged to the user; not investigated here.
+
+## 2026-08-10 — Prefill the purchase date again (but make the user vouch for it), and stop Sign in with Apple creating a second account
+
+**Asked:** two things, from the first iOS sign-up. (1) Pushback on the behaviour
+change shipped with Priceback#250: "when the date is in the OCR you get it from
+the OCR, otherwise you fill the date field with the actual date (today) — you can
+also require validation by the user, like a validate mini button for the date or
+a warning message." (2) "When I signed up for the first time on iOS, the Apple
+account used the same email. At first it started restoring all the data, then
+redirected to the sign-up form … and then created a new account, also giving 75
+free credits. There wasn't any data in the app when it launched."
+
+**Bugs_Common_Fixes #162–#163.**
+
+**The date field was missing a third state, not a better default.** Silent
+prefill and empty are the two ends of one axis and both are wrong — the first
+stamps the scan date on an old receipt with nothing saying so, the second costs a
+calendar trip on the 10-of-31 captures where Costco's bottom-printed date wasn't
+photographed. The field carried a value with no record of where it came from, so
+the UI could only trust it completely or not at all. `resolveScannedDate` now
+returns provenance alongside the date; `"assumed"` prefills today, shows an amber
+bar, disables Save and is refused by `doSave()`, and one tap on Confirm — or
+picking any day — clears it. The helper holds no `Date` at all, which is what
+keeps #159 from recurring; its tests run the nine-timezone matrix.
+
+**The account bug was a primary key owned by a third party.** `users.sub` is the
+PK and providers mint it, so Apple's sub is simply a different user. The account
+was created by the *restore*: `/api/me/bootstrap` upserts before it reads, so the
+"Restoring your account…" screen inserted the row and fired the one-time
+75-credit grant, and the empty payload then routed to new-user setup.
+
+**Identity linking was designed, then rejected — on the user's own challenge.**
+The plan was a `user_identities` table mapping provider subs to one canonical
+user. Asked directly whether that risked purchases and entitlements, the honest
+answer was yes: the client binds RevenueCat to whichever provider sub it holds
+and the webhook writes subscription state to `users.sub = event.app_user_id`, so
+a linked iOS purchase lands on the wrong row — and fixing that means re-`logIn`-ing
+the RC app-user-id on devices that have already purchased, whose outcome depends
+on a dashboard transfer setting and real store transactions. Nothing in CI could
+have cleared it. The user chose the block instead, with a condition of their own:
+it must lift once the first account is deleted, and the replacement must not
+collect the free credits again.
+
+That fell out of mechanisms already in the schema, so **no migration**: account
+deletion is soft, so the address stops being an *active* claim the moment it is
+deleted, while the tombstone keeps `trial_credits_granted_at` — the existing
+per-sub grant guard widened to per-email. `users.status`, that column and
+`users_email_idx` all already existed.
+
+### Tests & regression risk
+
+New: `__tests__/purchaseDate.test.js` (nine timezones),
+`backend/tests/accountIdentityUnit.test.js` (pure predicates),
+`backend/tests/duplicateAccountGuardDb.test.js` (refusal, case-folding, the
+delete→switch→no-credits sequence, the revive-while-live case, both lookups),
+`backend/tests/emailClaimedRouteDb.test.js` (403 envelope on both routes, and
+the owner still served). Extended: `onboardingSignInRecovery` (the
+`blocked_email` route wins over `retry`; provider labels never render a raw
+code), `syncServiceHydrate` (403 body parsing, no failure telemetry, non-JSON
+body still degrades to `http_<status>`).
+
+**Regression risk, stated proactively.** The date change reintroduces a prefill
+but it can no longer be persisted silently — the gate is what makes it safe; the
+failure mode to watch is the gate firing when OCR *did* read a date, which would
+add a tap to the 21-of-31 captures that carry one. `Button` gains an optional
+`disabled`, default `undefined`, so every existing call site is byte-equivalent.
+The sign-in block is the one with real blast radius — a false positive locks a
+legitimate user out — contained by four rails: verified-email only, never for a
+sub that already holds an active row, never on the webhook/placeholder paths, and
+existing active pairs sharing an address (including the reporter's own) are left
+alone, so deploying it cannot lock out anyone currently signed in. RevenueCat is
+not touched anywhere. Suites not run locally — CI is the authority.
+
+**Still owed.** The duplicate account already exists in production and the fix
+does not merge it: remediation is through the product's own surface — signed in
+with Apple, Profile → Delete Account, then sign in with Google. Nothing has run
+on an iPhone. Ship needs a version bump, annotated tag and GitHub release, and
+the EAS build is the user's call.
