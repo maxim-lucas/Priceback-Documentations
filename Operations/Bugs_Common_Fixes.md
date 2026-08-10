@@ -6541,3 +6541,151 @@ without encoding it in the code beneath.
 - **Prevent:** *a string is user-visible if any app renders it, not just yours.*
   Share titles, mail subjects, chooser headings, notification action buttons and
   channel names all leave the app and come back on screen.
+
+## 169. No iPhone could buy anything, because every sandbox purchase was refused
+
+- **Symptom:** on iOS, a purchase completes and the store charges the (sandbox)
+  account — and the server records nothing. The entitlement appears for a moment
+  and then vanishes on the next `reconcileWithServer`. Credit packs are worse:
+  the balance never moves and the transaction is dropped from the retry queue
+  permanently, so it cannot heal after a fix ships.
+- **Cause:** three independent paths refused `environment: SANDBOX` — the
+  RevenueCat webhook (`subscriptionGate.applyEvent` → `reason:"sandbox"`),
+  `POST /api/me/credits/topup` (`402 sandbox_purchase`, **`retryable:false`**),
+  and the subscriber→tier mapper used by `/api/me/subscription/sync`. The escape
+  hatch `RC_ALLOW_SANDBOX=1` was referenced only in those branches and their
+  tests; it was set in no config file, `.env.example` or `railway.json`.
+- **Why iOS only, structurally:** **there is no non-sandbox purchase on iOS
+  before the app is live.** TestFlight is sandbox; App Review is sandbox. Android
+  has a real production purchase path beside its license testers, which is the
+  case the refusal was written to defend against — a correct answer to a question
+  nobody had asked yet.
+- **The compounding defect:** `retryable:false` is a *terminal* refusal, and
+  `confirmPackPurchaseDurably` dequeues terminal failures. A **paid** transaction
+  was therefore deleted from the durable confirm queue.
+- **Fix:** grant and **tag**. Migration `0003` adds
+  `users.subscription_is_sandbox`, `credit_ledger.is_sandbox`,
+  `subscription_events.is_sandbox` (default `false`, so existing rows read as
+  genuine). `RC_ALLOW_SANDBOX` deleted — it existed only to un-block.
+- **The guard that makes acceptance safe:** a sandbox purchase must **never
+  settle a referral**. That is the only path where a $0 transaction mints real
+  spendable credits *for a third party*; without the guard, "accept sandbox"
+  becomes buy-in-sandbox → pay-a-referrer → repeat. Test it **behaviourally**
+  against the referrer's balance, and include a **production control** — a guard
+  that passes because referrals are broken entirely is not a guard.
+- **Detect next time:** for any policy branch keyed on an environment or test
+  flag, ask "**can the reviewer's flow reach the allowed branch at all?**" If the
+  only way to test a platform is the mode you refuse, you have shipped an
+  unreviewable app.
+- **Prevent:** *never refuse test-environment traffic outright; accept it and
+  label it.* A tag keeps the money separable, which was the real requirement —
+  refusal was an over-broad implementation of "don't count test revenue".
+
+## 170. Android and iOS mint different Google ID tokens, and only Android's was accepted
+
+- **Symptom (latent):** a Google-signed-in iPhone gets 401 on every
+  `/api/me/*` call. Android is perfectly healthy.
+- **Cause:** `GOOGLE_AUDIENCES = [GOOGLE_CLIENT_ID, GOOGLE_CLIENT_ID_ANDROID]` —
+  the iOS client ID was never listed, though the app ships one and passes it to
+  the native SDK.
+- **The divergence is in the SDKs, not our code**, which is why reading our code
+  never showed it. Android (`Utils.java:66`) calls
+  `requestIdToken(webClientId)` — a token explicitly addressed to the **web**
+  client. iOS (`RNGoogleSignin.mm:100`) builds
+  `GIDConfiguration initWithClientID:iosClientId serverClientID:webClientId` and
+  returns `GIDGoogleUser.idToken`, issued for the **clientID**. `serverClientID`
+  feeds `serverAuthCode`, which is non-null only with `offlineAccess:true` — and
+  we deliberately do not request offline access.
+- **Fix:** add `GOOGLE_CLIENT_ID_IOS` to the audience list. Correct whichever
+  token iOS actually mints, and safe because the added client is ours, in our own
+  GCP project.
+- **Why the fix would have sat dormant, and the two things that fixed that:**
+  `backend/.env.example` never documented the sign-in client IDs at all, so the
+  var would never have been set on Railway; and `/health` reported a bare
+  audience **count**, which reads `"configured"` from the web+android pair while
+  every iPhone 401s. It now names which of web/android/ios are present.
+- **Prevent:** *a cross-platform auth SDK can hand you tokens with different
+  audiences per platform.* "Is the token valid?" is the question everyone asks;
+  "**who is it addressed to?**" is the one that decides whether a platform can
+  authenticate at all. And **a config fix nobody can tell is unapplied is not a
+  fix** — ship it with a health signal.
+
+## 171. Deleting an account left it listed in the user's Apple ID settings
+
+- **Symptom:** a user deletes their PriceBack account, and PriceBack is still
+  listed under **Settings → Apple ID → Sign in with Apple**. App Review checks
+  this; Guideline 5.1.1(v) requires the app to call Apple's revocation endpoint
+  on deletion. iOS-only — Google has no equivalent, which is why the
+  Android-shaped deletion flow never surfaced it.
+- **Fix:** the client obtains a **fresh** authorization code at deletion time
+  (one Face ID confirmation), the server exchanges it and revokes, and nothing is
+  persisted.
+- **The design choice worth keeping:** the obvious implementation captures
+  `authorizationCode` at sign-in and keeps the resulting Apple **refresh token**
+  for the life of the account. That is a long-lived third-party credential held
+  for every user to serve one call that may never come. Obtaining it on demand
+  removes the liability entirely, and a biometric check on an irreversible action
+  is behaviour you would design anyway.
+- **Deletion must never be blocked by it.** Missing key material, a stale
+  single-use code, a slow Apple, a malformed PEM — every path resolves rather
+  than throws and the account is erased regardless. Report the outcome
+  (`appleRevoked` / `appleRevokeReason`) so an unconfigured deployment is a
+  *visible* compliance gap, not a silent one.
+- **Two traps, both pinned by tests:** Apple's client secret must be ES256 with a
+  **raw `r||s`** signature — Node emits DER by default and Apple rejects it as
+  malformed without saying why (`dsaEncoding: "ieee-p1363"`). And a PEM from an
+  env var almost always carries literal `\n` rather than newlines, failing deep
+  inside `crypto` with an unhelpful error.
+- **Found while here:** the users row is only **soft**-deleted on this path, so
+  the `ON DELETE cascade` that removes first-party sessions never fires. Revoke
+  sessions explicitly whenever the "delete" is a soft delete.
+
+## 172. Rotating refresh tokens plus concurrency signs busy users out
+
+- **Symptom (caught before shipping):** an app that wakes several queues at once
+  fires five parallel authenticated requests. All five find the access token
+  expired, all five present the same refresh token, and the backend's reuse
+  detection — correctly — reads four of them as a replayed stolen token and
+  revokes the whole family. **Being busy logs the user out.**
+- **Cause:** refresh-token rotation and request concurrency are individually
+  correct and jointly hostile. Rotation means a token is good exactly once;
+  concurrency means it gets presented N times.
+- **Fix:** one in-flight refresh shared by every caller, on **both** sides — the
+  client coalesces onto a single promise, and the repo takes a per-token advisory
+  lock so two requests that do arrive together serialize instead of racing.
+- **Detect next time:** any credential that is *consumed* by use needs a
+  single-flight guard the moment more than one caller can hold it. Look for the
+  same shape in nonces, one-time codes and idempotency keys.
+- **Prevent:** *reuse detection cannot tell a thief from a busy client* — so the
+  client must never look like a thief. Design the single-flight guard at the same
+  time as the rotation, not after.
+
+## 173. The client's notification strings were localized; the server's were not
+
+- **Symptom:** a French-Canadian user sets the app to French, sees French
+  in-app notifications, and keeps receiving **English** pushes — including price
+  drops, the app's single most important notification. Both platforms.
+- **Cause:** Bugs #166 moved twelve hardcoded strings into the mobile i18n bundle
+  and shipped `notificationI18n.test.js` to keep them there. **That test reads
+  `src/services/notificationService.js`.** Nine more notifications are composed
+  and sent by the *backend*, where every title and body was still an English
+  template literal — and money was formatted with a hardcoded `$` and
+  `toFixed(2)`, baking the English currency shape in (Canadian French writes
+  `12,34 $`).
+- **Fix:** `backend/lib/pushI18n.js` keyed on `user_preferences.language`;
+  `sendUserPush` gains `build(lang)` so copy is composed once the recipient's
+  language is known.
+- **The two that needed a different mechanism:** the price-drop and flyer sweeps
+  compose notifications **keyed by push token** and never resolve a `sub`, so the
+  per-user lookup does not apply. They use `usersRepo.languageByToken()` — one
+  query up front. Stopping at the seven easy ones would have left the app's
+  primary notification English.
+- **A smaller bug found by writing the test:** `Number(null)` is `0`, so a
+  missing amount rendered as `$0.00` — a notification promising a zero saving.
+  Absent must mean absent.
+- **Detect next time:** when a rule is enforced by a test, **ask what the test
+  can see.** A source-sweep guard is scoped to the files it reads, and the same
+  defect on the other side of a network boundary is invisible to it.
+- **Prevent:** *user-visible text is wherever it is composed, not wherever the UI
+  lives.* Any process that can address a user needs the same i18n rule and its
+  own guard.

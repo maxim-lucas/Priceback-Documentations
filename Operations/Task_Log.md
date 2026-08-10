@@ -4260,3 +4260,125 @@ plus A1, A3 and A4 all change device behaviour. A2 needs its own task.
 `device` build** — it will now stop without it, which is the point. Ship needs a
 version bump, annotated tag and GitHub release; the EAS build is the user's call
 (standing budget rule).
+
+---
+
+## 2026-08-10 — iOS audit #3: the money and identity paths
+
+**Ask:** a full, deep iOS audit with security first — authentication, credit
+management, RevenueCat, account management, receipt scans, price-tag scans —
+detecting iOS/Android behavioural differences, documenting anything not fixed.
+
+**Full register: `Technical/iOS_Security_Audit_2026-08-10.md`. Bugs_Common_Fixes
+#169–#173.** Branch `audit/ios-security-money-identity`, PR #253; no version bump.
+
+**The two prior iOS audits stopped short of these paths, and said so.** #1
+(2026-08-09, PR #249) covered what App Review taps; #2 (2026-08-10, PR #252)
+covered background execution, the keychain and OS-cached labels. That left the
+**money and identity** surfaces unexamined on the platform with a fraction of
+Android's real-device exposure — and PriceBack has **never completed a single
+real transaction on an iPhone**. Six findings; five fixed, one documented.
+
+| # | Finding | Platforms | Status |
+|---|---|---|---|
+| S1 | Every sandbox purchase refused server-side | iOS in effect | Fixed — **submission blocker** |
+| S2 | The iOS Google client ID was not an accepted audience | iOS only | Fixed |
+| S5 | No Apple credential revocation on account deletion | iOS only | Fixed — **submission blocker** (5.1.1(v)) |
+| A2 | Apple sessions could never authenticate in the background | iOS only | Fixed (deferred from audit #2) |
+| S4 | Server-sent push notifications were English-only | both | Fixed |
+| S3 | The `device` build targets a different backend than App Review's | iOS only | **Documented** |
+
+**S1 is the one that would have failed review in under a minute.** Three server
+paths refused `environment: SANDBOX`, and on iOS there is **no non-sandbox
+purchase before the app is live** — TestFlight and App Review are both sandbox.
+A reviewer taps Subscribe, pays, and the server records nothing. The credit-pack
+path was worse: `402 … retryable:false` made the client dequeue a **paid**
+transaction permanently, so it could never heal after a fix shipped. Android hid
+it by having a real production purchase path beside its license testers — which
+is exactly the case the refusal was written to defend against. **The original
+reasoning was right about the danger and wrong about the remedy**: refusing was
+an over-broad implementation of "don't count test revenue". Now granted and
+**tagged** (migration 0003), with one guard that makes acceptance safe — a
+sandbox purchase never settles a **referral**, the only path where a $0
+transaction mints real credits for a third party. Tested behaviourally against
+the referrer's balance, with a production control so the guard can't pass by
+having disabled referrals.
+
+**S2 is the finding that argues for the method.** The divergence is in the two
+native SDKs, not in our code, so reading our code could never have shown it:
+Android calls `requestIdToken(webClientId)` — a token addressed to the *web*
+client — while iOS configures `GIDSignIn` with the *iOS* client and returns that
+user's `idToken`. The backend listed only web + android. Every Google-signed-in
+iPhone would 401 on every call. Two things stopped the fix from sitting dormant:
+`backend/.env.example` never documented the sign-in client IDs at all (so the var
+would never have been set on Railway), and `/health` reported a bare audience
+**count** — "configured" from the web+android pair while every iPhone fails. It
+now names which of web/android/ios are present.
+
+**Three decisions were taken to the user before implementing**, per the standing
+pattern: the sandbox policy (→ accept and tag, not refuse), whether to take on
+the A2 auth rewrite (→ yes), and its scope (→ **"keep actual android behavior for
+android and optimize only iOS"**). That constraint shaped the whole design: the
+backend change is purely **additive** (a third `requireAuth` branch resolving to
+the same `req.user.sub`), the client change is iOS-only, and **Android's request
+shape is asserted unchanged by test rather than assumed**. Every session failure
+falls back to the provider token, so the worst case is exactly today's behaviour.
+
+**The trap in A2 that would have shipped.** Refresh-token rotation and request
+concurrency are individually correct and jointly hostile: five parallel requests
+each present the same refresh token, and the backend's reuse detection correctly
+reads four of them as theft and revokes the family. **Being busy would have
+signed the user out.** Single-flight on both sides — a shared promise on the
+client, a per-token advisory lock in the repo.
+
+**S4 is a lesson about tests, not about i18n.** Audit #2's A4 fixed twelve
+hardcoded notification strings and shipped a guard so none could return. That
+guard reads `src/services/notificationService.js` — it cannot see the backend,
+where nine more pushes were still English template literals, including **price
+drops**, the app's most important notification. Money used a hardcoded `$` and
+`toFixed(2)`, which bakes the English currency shape into every language. The
+general rule: **when a rule is enforced by a test, ask what the test can see.**
+
+**Also verified and deliberately left alone** (recorded so pass #4 doesn't
+re-investigate): `APPLE_BUNDLE_ID` matches `app.json`; the RevenueCat webhook
+secret is compared timing-safely; `/api/me/credits/topup` is genuinely trustless
+and fails **closed**; top-up idempotency is global and survives a data reset;
+`_simulationAllowed()` cannot fire in any EAS-produced binary; device-scoped
+erasure is IDOR-safe and fails closed; the offline-scan buffer cannot overdraw;
+every iOS ingest path converts to JPEG before upload, so no HEIC reaches the
+backend.
+
+### Tests & regression risk
+
+New: `sessionTokens.test.js` (16 — alg pinning, type confusion, timing-safe
+compare, expiry/skew, opaque hashed refresh tokens, and that an unset secret
+disables the feature rather than defaulting one), `sessionRoutesDb.test.js`
+(rotation, reuse→family revocation, one indistinguishable 401 for every failure,
+revoke-one vs revoke-all, cascade on delete), `appleRevoke.test.js` (12 — ES256
+raw `r||s`, escaped-newline PEMs, and that **every** failure mode still lets
+deletion proceed), `pushI18n.test.js` (12 — key parity derived from the bundle,
+no bare literal survives in a server push, locale money), `googleAudiences.test.js`
+(5), `iosFirstPartySession.test.js` (15 — led by **Android is untouched**).
+Updated to the new contract: `subscriptionGate`, `subscriptionSync`,
+`creditTopupSecurity`, `errorContract`.
+
+**Regression risk, stated proactively.** S1 changes production money handling —
+sandbox purchases that granted nothing now grant, deliberately, bounded by the
+tag and the referral guard. A2 adds a new accepted credential type to every
+authenticated route, contained by the same `sub` shape, an additive branch, an
+iOS-only client change and a provider-token fallback. **S4 changes live Android
+copy** — every price-drop, flyer, referral, low-balance and store-launch push,
+and the only change here a current Play user can see. `sandbox_purchase` is
+**retired, not renamed** (the shipped v2.8.3 client only used it to give up).
+**Prod owes migrations 0003 and 0004.** iOS is TestFlight-only, so the exposed
+population is about one person.
+
+`i18n:check` green (1430 × 2), `typecheck` exit 0. DB-gated suites are CI's.
+
+**Still owed.** Nothing has run on an iPhone, and that debt is now larger again.
+Before the first App Store submission: **provision the Apple Sign-In `.p8` key**
+(it downloads exactly once) or deletion cannot revoke; set `GOOGLE_CLIENT_ID_IOS`
+and `SESSION_TOKEN_SECRET` on both Railway services and confirm via
+`GET /health` → `auth.clients.ios`; run migrations 0003 + 0004 on production.
+Apple **server-to-server notifications** are still unwired — consent withdrawal
+is only detected on-device today; its own task, needing the same key.
