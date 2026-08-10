@@ -4382,3 +4382,88 @@ and `SESSION_TOKEN_SECRET` on both Railway services and confirm via
 `GET /health` → `auth.clients.ios`; run migrations 0003 + 0004 on production.
 Apple **server-to-server notifications** are still unwired — consent withdrawal
 is only detected on-device today; its own task, needing the same key.
+
+## 2026-08-10 — Clearing the iOS-audit session's leftovers: one dead branch, one false uniqueness claim
+
+Two items the audit sessions logged and deliberately did not act on, plus a
+read-only check of the four ops steps that were still listed as owed.
+
+### The dead branch (mobile)
+
+`throw lastErr` at `src/services/authService.js:269` was unreachable. On the
+second attempt the `attempt === 0 && isTransientGmsError(e)` guard is false, so
+every catch path returns or throws, and the `try` block returns or throws — the
+retry loop can never fall through. All three sites (`let lastErr`, the
+assignment, the trailing throw) were dead, and the first error was recorded and
+then discarded; line 266 already surfaced the second one. Deleted rather than
+made reachable: the alternative would change **which** error object reaches
+Sentry for no benefit, and deleting removes three permanently uncoverable lines
+instead of fighting the coverage ratchet.
+
+The existing test named "two transient Play Services failures surface the
+original error" **could not fail** — it rejected twice with the same
+`INTERNAL_ERROR` message, so it passed whichever error surfaced. It now rejects
+with two distinct error objects and asserts identity (`rejects.toBe(retry)`),
+which pins the behaviour the deletion defines.
+
+### The uniqueness claim that was false three ways (backend tests)
+
+The recap carried this as "worth its own small change" and blamed a
+`price_tag_scan`/`receipt_ocr` mismatch on two overlapping CI runs. **The
+overlap was a coincidence.** `String(Date.now()).slice(-6/-7)` recurs every
+16.7 min / 2.8 h; the derived SKU ranges *contain* hardcoded `price_tag_scan`
+SKUs from `crowdsourceDb.test.js` and `barcodeLink.test.js`, so one run could
+collide with itself; and the warehouse derivations were only 100 and 10 possible
+codes. `latestForSku` resolves the product globally and orders by `observed_at`,
+while receipt points are stamped with a past purchase date and tag points with
+now — so a colliding tag row always won. Full analysis in Bugs #174.
+
+Fixed with `backend/tests/helpers/uniq.js` (`runId`, `testSku`,
+`testWarehouseCode`) over `node:crypto`, and a namespace invariant that makes
+collisions structurally impossible rather than improbable: generated SKUs are
+9 digits leading `9`, warehouse codes 9 digits leading `8`, every fixture id at
+most 7 digits. 29 test files converted; `node --test`'s per-file process model
+means the draw is per-file, which also closes the cross-suite band reuse.
+
+### Ops steps — what I could verify, and what is still owed
+
+Checked read-only, no changes made:
+
+- `GET /health` on **both** Railway services: `healthy: true`, `db: ok`, and
+  `appleAuth: {status: "configured", audience: "com.priceback"}` present.
+  **Production already carries the Apple verifier from #253** — so the `.p8`
+  key is the only missing piece of that path, not the code.
+- `auth.clients.ios` is **admin-gated** (`server.js`, behind `x-admin-token`).
+  The public payload cannot confirm `GOOGLE_CLIENT_ID_IOS`; that check needs the
+  token. `SESSION_TOKEN_SECRET` has **no** health signal at all.
+- Supabase prod (`xjfrlzwonyaorwktnkpj`) migration ledger ends at
+  `0001_receipt_member_id_prod` / `0002_receipt_warehouse_header_ocr_prod`
+  (2026-07-10) — **no 0003, no 0004**, confirming the debt. Worth noting those
+  names do **not** match the repo's `0001_store_launch_subscriptions` /
+  `0002_receipt_item_original_price`: prod's numbering has diverged from the repo
+  chain, so "just run migrate" is not a safe assumption.
+- ⚠️ `0003_sandbox_purchase_tagging.sql` is three bare `ALTER TABLE ADD COLUMN`
+  statements — **not idempotent**, and it assumes the v2 `priceback` schema. 0004
+  is fully `IF NOT EXISTS`-guarded. Confirm `priceback.users` / `credit_ledger` /
+  `subscription_events` exist before running 0003 or it aborts partway.
+
+Still owed and untouched: the Apple `.p8` key (downloads once),
+`GOOGLE_CLIENT_ID_IOS` and `SESSION_TOKEN_SECRET` on both services, migrations
+0003 + 0004 on prod. **Nothing has run on an iPhone** — device checklist items
+10–15 live in `Technical/iOS_Security_Audit_2026-08-10.md`. No EAS build was
+started; that stays Maxim's call.
+
+### Tests & regression risk
+
+Updated: `__tests__/authServiceSignIn.test.js` (the vacuous assertion above).
+New: `backend/tests/helpers/uniq.js`. 29 backend suites converted mechanically.
+Every changed file `node --check`s clean; the suites themselves are CI's.
+
+**Regression risk, stated proactively.** The mobile change deletes unreachable
+code — the only observable behaviour is which error object surfaces after two
+transient GMS failures, and that is unchanged (line 266 already threw the
+second). The backend change touches **no** runtime file, only tests; its real
+risk is mechanical (a missed call site, or a suite asserting SKU/warehouse-code
+*length*), which CI catches immediately. **This narrows a flake class; it does
+not make the backend suite concurrency-safe** — the shared-`SUB` problem above
+is untouched and its own task.

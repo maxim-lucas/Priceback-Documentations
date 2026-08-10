@@ -6689,3 +6689,57 @@ without encoding it in the code beneath.
 - **Prevent:** *user-visible text is wherever it is composed, not wherever the UI
   lives.* Any process that can address a user needs the same i18n rule and its
   own guard.
+
+## 174. "Unique per run" test ids that were neither unique nor random
+
+- **Symptom:** a DB-backed backend suite failed with a `price_points` row whose
+  source was `price_tag_scan` where the test asserted `receipt_ocr`. It passed on
+  a rerun and passed on `main` at the same commit, so it read as a flake caused by
+  two overlapping CI runs sharing the pooler.
+- **That diagnosis was wrong.** Overlapping runs were a coincidence. The suites
+  built "unique" ids as `String(Date.now()).slice(-6)` / `.slice(-7)`, with a
+  comment asserting a prior run's row could not be picked up. Three separate
+  defects sat in that one expression:
+  1. **It recurs on a schedule.** The low 6 digits of the epoch clock repeat every
+     10^6 ms (16.7 min), the low 7 every 10^7 ms (2.8 h). Two runs separated by a
+     multiple of that produce byte-identical ids. Not bad luck — a cycle.
+  2. **The derived SKU ranges contained other suites' hardcoded SKUs.** Tests
+     computed `String(5000000 + base)`, `String(7000000 + base)` and friends.
+     `crowdsourceDb.test.js` writes `price_tag_scan` points on the literals
+     `5551234`, `5559876`, `5550011`, `5552468`, `5559001`, `5557777`, `7654321`;
+     `barcodeLink.test.js` uses `9876543`. Every one of those falls inside a
+     computed range, so **no concurrency was required** — one run could collide
+     with itself. Band prefixes (`3000000`, `4000000`, `6100000`–`6600000`) were
+     also reused across two or three suites each.
+  3. **Warehouse codes were far worse than the SKUs.** `` `80${last 2 digits}` ``
+     is 100 possible codes and `` `54${last 1 digit}` `` is 10, against a global
+     `warehouses` table — a 1-in-100 and 1-in-10 collision that nobody had hit yet.
+- **Why the collision was deterministic, not 50/50.** `pricesRepo.latestForSku`
+  resolves the product **globally** by `(sku, storeCode)` and returns
+  `ORDER BY observed_at DESC LIMIT 1` — it is not scoped to the test user or run.
+  Receipt price points are stamped `observedAt = purchaseDate`
+  (`receiptsRepo.js`, a fixed **past** date in these fixtures); tag and
+  crowdsource points are stamped ~now. So once the SKUs matched, the tag row
+  **always** won the ordering. The assertion never had a chance.
+- **Fix:** `backend/tests/helpers/uniq.js` — `runId()`, `testSku()`,
+  `testWarehouseCode()`, all drawn from `node:crypto`, never from the clock. The
+  load-bearing part is not the entropy but a **namespace invariant**: generated
+  SKUs are 9 digits starting with `9`, generated warehouse codes are 9 digits
+  starting with `8`, and every hardcoded fixture SKU and seeded Costco warehouse
+  code is at most 7 digits. Different lengths cannot be equal, so the collision is
+  impossible by construction rather than merely improbable. `node --test` runs
+  each file in its own process, so the draw is per-file — which also closes the
+  cross-suite band reuse.
+- **Detect next time:** when a test invents an id, ask *what else can write that
+  same id* — including hardcoded fixtures in sibling suites, not just other runs.
+  And when a lookup ignores the test's own scope (no user, no run filter), a
+  colliding row is not a tie the test might win; it is a loss with a tie-break
+  that decides it. `git log -S` on the id expression is faster than re-running.
+- **Prevent:** a comment claiming an invariant ("unique per run") is a claim to
+  **verify, not to trust** — this one was false in three ways and had been read
+  past for months. Prefer invariants a reader can check by looking (a reserved
+  length/prefix) over ones that need arithmetic about clock periods.
+- **Still open, deliberately:** this does **not** make concurrent backend runs
+  safe. The suites share hardcoded user subs (`SUB = "test-pricepoints-user"`) and
+  call `deleteAccount(SUB)` between tests, so two runs still delete each other's
+  user mid-flight. Running two backend suites at once remains unsupported.
