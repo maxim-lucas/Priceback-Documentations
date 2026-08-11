@@ -7003,3 +7003,51 @@ without encoding it in the code beneath.
   the conjunction of all N — and if one of them is a schema object, probe the
   schema. Config presence is the input that is easiest to read and the one
   least likely to be what is actually missing.
+
+## 182. An iOS build failure with no compile error in it — the Swift compiler crashed
+
+- **Symptom:** `eas build -p ios` fails at `RUN_FASTLANE` with
+  `EAS_BUILD_UNKNOWN_FASTLANE_ERROR`, "(2 failures)", `Exit status: 65`. Reads
+  exactly like a broken build, and costs a build credit each time.
+- **What it actually is:** the Swift compiler **segfaulted**. The Xcode log
+  contains **zero `error:` lines** — nothing failed to compile:
+  ```
+  Apple Swift version 6.2.3 (swiftlang-6.2.3.3.21)
+  While running pass #53831 SILFunctionTransform "SendNonSendable"
+    on SILFunction SharedObject.emit(event:arguments:)
+    at node_modules/expo-modules-core/ios/Core/SharedObjects/SharedObject.swift:73
+  Stack dump: ... swift::ActorIsolation::printForDiagnostics ...
+  ```
+  `swift-frontend` crashed **while formatting a Sendable diagnostic** in
+  `expo-modules-core` — library code, in a pod we do not own.
+- **The tell that it is not yours:** "0 errors" plus a `Stack dump:` plus
+  `Please submit a bug report`. A real build break names a file *of yours* and a
+  reason. The reported failing targets (`ExpoModulesCore`, and a knock-on
+  `Script 'Copy generated compatibility header' failed └─Pods/RevenueCat`) are
+  both collateral — the second only fails because the first never produced its
+  module.
+- **Fix: retry the same commit.** It is non-deterministic (whole-module
+  optimization, shared runner). 2026-08-11: the `device` profile at `v2.8.6`
+  crashed, and the *identical* tag rebuilt clean seven minutes later.
+- **Before spending the retry, rule out the real causes** — this took four
+  checks and all four are cheap:
+  1. `git diff <lastGoodTag>..<tag> -- package-lock.json` — if it is empty, no
+     dependency moved.
+  2. Compare the SDK line (`iPhoneOS26.2.sdk`) against the last **successful**
+     build's Xcode log. Same SDK ⇒ the builder image did not roll forward.
+     (Note: `Apple Swift version` is only printed *on a crash*, so its absence
+     from a good log is expected and proves nothing.)
+  3. If a `patches/` file changed, check whether it touches `podspec`,
+     `Podfile`, `SWIFT_VERSION` or `STRICT_CONCURRENCY` — if not, it cannot
+     affect how a *different* pod compiles.
+  4. Check whether the same profile succeeded recently.
+- **Reading the logs at all takes an API call.** `eas build:view` does not print
+  them. Query `builds.byId(buildId).logFiles` on `https://api.expo.dev/graphql`
+  with `Authorization: Bearer $EXPO_TOKEN`; it returns two signed URLs (the
+  worker log and the much larger Xcode log). In a sandboxed shell `curl` may
+  fail on missing CA certs while node's `fetch` works — use node.
+- **Prevent:** *an iOS build failure is not a code failure until you have found
+  a file of yours in the log.* Grep for `error:` first; if the count is zero,
+  look for `Stack dump:` before changing anything. Retry once (the standing
+  limit is two) rather than pre-emptively pinning a builder image — a pin is a
+  code change, so it invalidates the tag the release already points at.
