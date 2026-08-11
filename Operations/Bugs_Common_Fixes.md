@@ -6850,3 +6850,110 @@ without encoding it in the code beneath.
   right; the weakness is `res.candidates`, which is a *global* number being used as
   a precondition for a *user-scoped* expectation. Asserting a user-scoped candidate
   count would turn this from a flake into a clear pass/fail.
+
+## 177. A revocation that authenticates with the credential being revoked
+
+- **Symptom:** a user turns off **Settings → Apple ID → Sign in with Apple →
+  PriceBack**. Their handset signs out and looks correct. Every OTHER device they
+  are signed in on keeps working for up to 60 days.
+- **Cause:** `authService.js` deleted the stored provider token and then called
+  `revokeFirstPartySession({ all: true })`. That call builds its `Authorization`
+  header from `getValidIdToken()`, whose first statement is
+  `if (!idToken) return null` — so the request went out with **no bearer**, the
+  route took its `all:true` branch, `optionalAuthUser` found nothing, and the
+  server answered 401 having revoked nothing. A `.catch(() => {})` swallowed it,
+  and the local keychain wipe made the visible outcome look right.
+- **The obvious fix hangs the app.** Swapping the two lines makes
+  `getValidIdToken()` run for real: it finds the token stale, calls
+  `refreshSessionToken()` → `refreshAppleIdTokenInteractive()`, which returns
+  `_appleReauthInFlight` — the promise **currently executing this very block**.
+  Awaiting it from inside itself never settles, and every request queued behind
+  it hangs.
+- **Fix:** revoke first, delete second, and read the token with a plain
+  `secureGet` instead of the refresh path. Plus a second, independent proof: the
+  refresh token now rides along, and the server's `all` branch accepts it via
+  `sessionsRepo.userSubForToken`.
+- **Why accepting a refresh token there is safe:** holding one can only ever
+  **remove** access. It is deliberately matched without filtering `revoked_at` or
+  `expires_at` — a dead token still identifies its owner, and the alternative is
+  a user who cannot sign themselves out.
+- **Prevent:** *when you write a revocation path, ask what credential it
+  authenticates with — and whether that credential still exists at the moment it
+  runs.* Consent withdrawal, account deletion and token expiry are exactly the
+  situations where the usual credential is gone. And a `.catch(() => {})` around
+  a security operation hides the only signal that it failed.
+
+## 178. Account deletion undone by a subscription renewal
+
+- **Symptom:** a user deletes their account. Thirty days pass. The row is still
+  there, marked active, and the monthly purge job has never touched it. Nothing
+  errored; every individual step succeeded.
+- **Cause:** `usersRepo.upsertFromOAuth` reactivated a soft-deleted row
+  unconditionally (`status: true, deletionRequestedAt: null`), and it is called
+  from **eleven** places — only one of which is a person signing back in.
+  Deleting a PriceBack account does not cancel the store subscription, so the
+  next RevenueCat `RENEWAL` webhook upserted the tombstone back to life and
+  cleared the very stamp `purgeExpiredDeletions` selects on. A price-tag scan
+  from a stale device did the same via `resolveScanOwner`.
+- **Second path:** any surviving credential. On **Android** it is unbounded —
+  `signInSilently` re-mints Google id tokens with no server involvement, so a
+  second signed-in handset resurrects the account on its next foreground hydrate
+  forever. (iOS degrades more safely here: an Apple token dies in ten minutes.)
+- **Fix:** `upsertFromOAuth(user, { reactivate })`, defaulting to **false**.
+  Passed `true` only from the two genuine sign-in entry points (`POST
+  /api/auth/session` and `GET /api/me`) and from `GET /api/me/bootstrap?reason=signin`,
+  which the client stamps only on the hydrate that follows a real sign-in.
+  Bootstrap additionally refuses a tombstone with `403 account_deleted`, and the
+  client signs itself out on that code.
+- **Prevent:** *reactivating an account is an act, not a side effect.* Any
+  function called from a dozen routes should do the minimum they all need; the
+  privileged extra belongs behind an explicit flag. When a retention job selects
+  on a column, grep every writer of that column — the bug is never in the job.
+
+## 179. Sign-out was not an account boundary
+
+- **Symptom:** user B signs in on a handset user A used, and is notified about a
+  receipt they never scanned. Reviewing and saving it files A's items, totals and
+  warehouse under B's account, and spends B's credits doing it.
+- **Cause:** `signOut()` cleared six keychain items and touched no AsyncStorage
+  and no files. The offline scan queues (`pending_tag_scans_v1`,
+  `pending_receipt_scans_v1`) and their photos in `documentDirectory` survived,
+  and their workers drain on boot, on foreground, on a 60 s poll and on
+  background fetch **without checking who is signed in**. `clearAllData()` missed
+  them too — it does no filesystem work at all.
+- **Fix:** `clearAllTagScans` / `clearAllReceiptScans` on each queue (empty the
+  list, delete the images, never throw), called from a new
+  `clearAccountScopedLocalState()` in `signOut` and from `clearAllData`. Each
+  queue is isolated so one failing import cannot skip the other.
+- **Related, same shape, still open (money batch):**
+  `last_known_credit_balance_v1`, `offline_scan_log_v1`, `account_is_admin_v1`
+  and the auto-reload opt-in leak across the same boundary.
+- **Prevent:** *"what does sign-out delete?" is a list, and the list is every
+  place account data is written — not every place it is written **encrypted**.*
+  A useful check: for each background worker, ask what happens if it fires one
+  second after a different user signs in.
+
+## 180. The iOS document scanner filled Documents/ forever
+
+- **Symptom:** iPhone storage grows with every scan and never shrinks. Deleting a
+  receipt does not reclaim it; deleting the account does not either. The photos
+  ride into iCloud backups.
+- **Cause:** `react-native-document-scanner-plugin` writes captures to
+  `FileManager.default.urls(for: .documentDirectory)` as
+  `DOCUMENT_SCAN_<page>_<timestamp>.jpg` — permanent storage, backed up by
+  default. `autoCrop.materializeCapturedImage` copies the file into the cache and
+  walks away; `storageService.deletePersistedImage` refuses any URI outside
+  `documentDirectory/receipts/`, so nothing in the app could delete it.
+- **Android does not have this** — ML Kit writes into the Play-services cache,
+  which the OS reclaims. That asymmetry is exactly why `materializeCapturedImage`
+  exists in the first place.
+- **It has to be a sweep, not a delete of the returned URI.** VisionKit accepts
+  unlimited pages, so our `maxNumDocuments` patch truncates the result array
+  **after** every page is already on disk. Pages 2..N never reach JS, so nothing
+  keyed on the returned path could ever reach them.
+- **Fix:** `sweepScannerCaptures(keepUri)` — read `documentDirectory`, delete
+  every `DOCUMENT_SCAN_*` entry, skip the one still in use (materialize falls
+  back to the source when its copy fails), never recurse, never throw.
+- **Prevent:** *when a native module hands you a file path, find out which
+  directory it is in and who is responsible for deleting it.* "Documents" on iOS
+  means permanent and backed-up, not scratch.
