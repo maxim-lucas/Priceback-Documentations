@@ -6814,3 +6814,39 @@ without encoding it in the code beneath.
   is new** — `receiptWarehouseLink` now draws until it finds an unused code and
   fails loudly if the reserved band is exhausted, rather than quietly sliding back
   onto the easy path.
+
+## 176. Flaky: "at least one of BUYER's drops was pushed" (priceDropWindowSourceDb)
+
+**Not fixed — recorded so the next person does not repeat the diagnosis.**
+
+- **Symptom:** `priceDropWindowSourceDb.test.js:331` fails with
+  `at least one of BUYER's drops was pushed` (`actual: false`). Notably the line
+  *above* it passes — `res.candidates >= 1` — so the sweep did find candidates; no
+  push simply reached `BUYER_TOKEN`. Seen once on `main` at `c16b663`
+  (2026-08-10 23:48); an immediate re-run of the same commit passed.
+- **What it is NOT**, all checked:
+  - **Not the concurrent-run/pooler problem.** The PR run on the identical tree
+    finished 23:47:37 and main's started 23:48:28 — no overlap.
+  - **Not the change that was merged alongside it.** The only edit to that file was
+    swapping `String(Date.now()).slice(-7)` for `runId()`, which returns the *same
+    shape* (7 numeric digits).
+  - **Not a monotonicity dependency.** The one plausible mechanism for that swap
+    mattering — the clock value always increasing while `runId()` is random — does
+    not apply: nothing orders or ranges on a run-scoped id, and every id in the
+    file is a run-scoped string that is equally fresh either way.
+  - **Not the dedupe ledger going stale across runs.** `notifyLedger.json` lives in
+    `DATA_DIR`, which is a fresh container directory per CI job.
+- **Most likely cause:** accumulated state in the shared dev database. `candidates`
+  passing while `sent` carries nothing for this run's tokens fits a sweep whose
+  candidate set includes leftover users from earlier runs (the dev DB holds
+  hundreds of abandoned test accounts with in-window ON drops), with this run's own
+  buyer either suppressed or not the one pushed.
+- **If it recurs, start here** rather than at the top: does
+  `runVerifiedDropSweep({ userSub })` scope its **push** as tightly as it scopes its
+  **candidate count**? A count that is region-wide while the push is user-scoped
+  would explain the exact asymmetry between lines 329 and 331 — and would be a real
+  bug, not a flake.
+- **Prevent:** the test asserts on `sent` filtered to this run's tokens, which is
+  right; the weakness is `res.candidates`, which is a *global* number being used as
+  a precondition for a *user-scoped* expectation. Asserting a user-scoped candidate
+  count would turn this from a flake into a clear pass/fail.
