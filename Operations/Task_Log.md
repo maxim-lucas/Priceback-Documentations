@@ -4521,3 +4521,200 @@ the receipt write path. The change is additive (an optional trailing parameter,
 `tx || getDb()`), affects only the warehouse code echoed in a response, and can
 only turn a `null` into the correct value. The `map` call site is the one place
 where behaviour could have changed silently, and it is now explicit.
+
+---
+
+## 2026-08-11 â€” iOS audit #4: session security, account isolation, and the money paths
+
+**Ask:** same standing brief as #3 â€” a full, deep iOS audit with security first
+(authentication, credit management, RevenueCat, account management, receipt
+scans, price-tag scans), detecting iOS/Android differences and documenting
+anything not fixed.
+
+**Full register: `Technical/iOS_Audit_2026-08-11.md`. Bugs #177â€“#180.** Branch
+`audit/ios-session-security-and-account-isolation`; no version bump. Delivered in
+**two batches by decision** â€” security/isolation first, money second.
+
+**33 findings.** This is the first audit that could look at the code the previous
+three produced, and that is where most of it came from: **audit #3 shipped a
+brand-new authentication subsystem (first-party sessions, `user_sessions`,
+rotation, reuse detection) in the same branch that audited everything else, and
+nothing had ever audited it.** It is also still switched off in production â€”
+`SESSION_TOKEN_SECRET` is unset â€” which is the single most useful fact in the
+register: A1 and A3 both become live the moment that secret is set, and both are
+fixed before the feature carries its first real request.
+
+Two themes, neither reachable by the earlier passes:
+
+1. **Lifecycle state is written but never re-read.** Deletion, Apple consent
+   withdrawal and sign-out each write a marker nothing on the read path consults.
+   All three were, in practice, undoable.
+2. **Sign-out is not an account boundary.** It cleared six keychain keys and
+   nothing else.
+
+### Batch 1 â€” fixed
+
+| # | Finding | Platforms |
+|---|---|---|
+| A1 | Withdrawing "Sign in with Apple" revoked nothing server-side | iOS |
+| A2 | "Delete my account" silently undone; the 30-day purge never fired | both |
+| A3 | A stale iOS session token could authenticate the *next* user | iOS |
+| A4 | Account deletion prompted Face ID twice | iOS |
+| S1 | Offline scan queues + photos survived sign-out (**Critical**) | both |
+| S2 | Every iOS scanner capture persisted in `Documents/`, into iCloud backups | iOS |
+| S4 | Unauthenticated endpoint minted presigned R2 PUTs with no size cap | server |
+| P1 | Deletion never mentioned the App Store subscription â€” 5.1.1(v) | iOS |
+| A5â€“A8, S5â€“S9, P2, P4, P5 | rate limits, session pruning, `/health` signal, tag re-submit, denied-location recovery, membership number, Veryfi gating, privacy manifest, locale-correct dates | mixed |
+
+**A1 is the one worth remembering as a class.** The comment above it explains
+exactly why the revoke must be `all` â€” and one line earlier the code deletes the
+credential the revoke authenticates with. The request went out with no bearer,
+the server 401'd, and the local wipe made the handset in your hand look correct
+while every other device kept a live session for 60 days. **And the obvious fix
+hangs the app:** reordering makes `getValidIdToken()` re-enter
+`refreshAppleIdTokenInteractive` and await the in-flight promise from inside
+itself. The fix reads the stored token directly and adds the refresh token as an
+independent proof â€” safe because holding one can only ever *remove* access.
+
+**A2 has the largest blast radius and the most mundane trigger.** Deleting an
+account does not cancel the store subscription, so the next `RENEWAL` webhook
+upserted the tombstone back to active and cleared the stamp the purge job selects
+on. `reactivate` now defaults to false on `upsertFromOAuth` and is passed by the
+two real sign-in routes plus `bootstrap?reason=signin`.
+
+**Three findings are in code that carries a comment describing the correct
+behaviour** (A1, S3, C2). Reading comments as statements of intent rather than of
+fact is what found them.
+
+### Decisions taken to the user before implementing
+
+Three, per the standing pattern: the credit gate (â†’ **refuse server-side, and
+don't create the receipt locally either â€” hardened on both sides**), the Android
+blast radius (â†’ **fix both platforms**, superseding audit #3's iOS-only
+constraint), and delivery shape (â†’ **security first, then money**).
+
+### Deliberately documented rather than fixed
+
+- **P3, app-switcher snapshot protection.** Real, both platforms, small fix â€” and
+  iOS reports `"inactive"` for Control Centre, notification-shade drags and
+  **every system permission dialog**, so an overlay wired to it can flash over
+  the camera prompt. Nothing has ever run on an iPhone; shipping a repaint on
+  every backgrounding blind, against a hard no-regressions rule, is the wrong
+  trade. On the device checklist as item 22, to ship as its own change.
+- **P6, "Rate PriceBack" pre-launch.** Self-resolving at publication; any
+  workaround written now is wrong the day it goes live.
+- **iOS background execution** is materially weaker than Android's
+  (`setMinimumBackgroundFetchInterval`, deprecated since iOS 13;
+  `stopOnTerminate`/`startOnBoot` are Android-only). `checkAllPriceDrops` runs
+  ONLY in that task, so price-drop detection â€” the product's core promise â€” is
+  best-effort on iPhone. Its own task.
+- **The anti-reinstall fingerprint is weaker on iOS** (IDFV resets on delete;
+  Android's SSAID does not).
+
+### Tests & regression risk
+
+New: `__tests__/iosSessionAccountBoundary.test.js` (A1's ordering, the
+non-deadlock, A3's identity binding, A4's single Apple prompt, A8, S1 â€” led by
+**Android is untouched**, per audit #3's precedent),
+`__tests__/scanAccountBoundary.test.js` (queue clears, the S2 sweep including the
+truncated pages, S5's persisted results),
+`backend/tests/accountDeletionTombstoneDb.test.js` (the webhook must not revive;
+a real re-signin must; the trial grant still never re-fires),
+`backend/tests/sessionHardeningDb.test.js` (revoke-all from a refresh token
+alone, including an already-revoked one; 429s; the oldest live session retired,
+never the newest; pruning keeps reuse detection intact).
+
+**Regression risk, stated proactively.** **A2 is the widest** â€” eleven routes
+plus the money webhook â€” contained by keeping today's behaviour on the one path
+that should reactivate and withholding it everywhere else; a wrong call site
+costs a returning user a re-sign-in, not data. **S1 deletes local state on
+sign-out**: the failure mode is a queued scan lost rather than leaked, which is
+the right direction, and it deliberately also fires on `clearAllData` because
+that is only reached from an explicit erase. **S2 deletes files**, scoped to the
+plugin's own `DOCUMENT_SCAN_*` prefix, directly inside `documentDirectory`, never
+recursing, and skipping the URI still in use. **S4 changes who can upload a tag
+photo** â€” signed-out contributors no longer get an upload URL; their observation
+still records, and their photo could never have earned them a credit anyway.
+**P1 changes live Android copy** (the deletion modal) and is the only batch-1
+change a current Play user can see. A1/A3/A4/A8 are iOS-only and cannot move
+Android. **A5's limits are sized so a busy client is never throttled into a
+sign-out** â€” own bucket prefixes, 20/min against a real cadence of ~4/hour.
+
+`i18n:check` green (1435 Ã— 2), `typecheck` exit 0. Suites are CI's (standing
+rule). No EAS build started.
+
+### Still owed
+
+Batch 2 (money): R1 the `TRANSFER` webhook leaving two accounts entitled, C1 the
+credit cache surviving sign-out, C2 the server never refusing a scan, S3
+gas/refund receipts charged nothing while telling the user otherwise, plus
+R2â€“R6 and C3â€“C5. All documented with evidence in the register.
+
+Ops, unchanged from #3: the Apple `.p8` key, `GOOGLE_CLIENT_ID_IOS` and
+`SESSION_TOKEN_SECRET` on both Railway services (**land this branch first** â€”
+A1/A3 go live with it), migrations 0003 + 0004 on production. Two items need a
+post-prebuild check rather than code: SDK privacy manifests in `ios/Pods`, and
+the Sentry iOS dSYM upload phase.
+
+## 2026-08-11 — The session health signal, and the two migrations production was missing
+
+Asked for, in order: give `SESSION_TOKEN_SECRET` a health signal; check the
+production database and run the last two migrations if it needs them; then merge
+everything open and start an Android production build and an iOS preview build.
+
+### The health signal
+
+A7 had already been actioned once, reporting `sessionTokens.isConfigured()`.
+That reads the environment variable, and the variable is not the gate:
+`sessionsUnavailable()` refuses on no secret, on `USE_DB` off, **and** on a
+missing sessions repo — whose table arrives with migration 0004. Production had
+not run 0004, and setting the secret there is item one of the iOS release
+checklist. In that order, `/health` would have read `configured` while every
+iPhone sign-in 500'd on a missing relation. Full write-up: Bugs #181.
+
+So `checks.sessions` is now the conjunction — secret, secret strength, and a
+live `to_regclass` probe of `priceback.user_sessions` — reported as
+`configured` / `degraded` / `unconfigured` with a `blockers` list that names the
+migration. Two constraints shaped it: an `unknown` probe result is **no
+verdict** rather than a red light (a check that cries wolf on its own flakiness
+is a check nobody reads), and a weak secret is reported but never enforced
+(refusing it at mint time would take a running deployment offline to fix a
+warning). The public payload gets the verdict alone, with `degraded` collapsed
+into `unconfigured`, because the reasons name a weak signing key and an
+un-migrated database. `healthy` is untouched: an iOS-only readiness gap must not
+flap Railway's deploy gate.
+
+The block had **no test at all**; `backend/tests/healthSessions.test.js` is new.
+
+### The migrations
+
+Checked first, and the check changed the plan. Production was missing both
+0003 (`is_sandbox` on users / credit_ledger / subscription_events) and 0004
+(`user_sessions`) — so the answer to "if needed" was yes for both.
+
+**`drizzle-kit migrate` would have been the wrong tool.** Production's
+`drizzle.__drizzle_migrations` rows are hand-maintained: their `created_at`
+values do not match the journal's `when`, and `0000_initial`'s hash is absent
+entirely because production was migrated on the pre-squash 0001→0008 chain. A
+blind `db:migrate` compares by hash, finds `0000_initial` missing, and tries to
+re-create the whole schema over a live database. Applied the two migrations'
+DDL directly instead (`ADD COLUMN IF NOT EXISTS` for 0003's non-idempotent
+`ALTER`s), each followed by its own bookkeeping row keyed on the file's real
+SHA-256 so a future `db:migrate` agrees.
+
+Verified after: `user_sessions` present with 11 columns, 5 indexes and its FK;
+all three `is_sandbox` columns present; both hashes recorded. Production now
+matches dev. Both migrations are purely additive and the tables are small
+(5 users, 30 ledger rows), so the `ALTER`s were metadata-only.
+
+`SESSION_TOKEN_SECRET` itself is still unset on both Railway services — that is
+the remaining half of the ops item, and it is now a thing `/health` will tell
+you rather than a thing you have to remember.
+
+### Note on the branch history
+
+A parallel session committed `6b7c94a` (the mint rate-limit relaxation) into the
+same working tree mid-edit. Its change was read as uncommitted work, reverted,
+and re-applied across two commits, so `942eafa`/`04ac6a0` contain a spurious
+revert-and-reapply pair. The **net branch diff is correct** and the PR
+squash-merges; not force-pushed, because the parallel session shares this tree.
