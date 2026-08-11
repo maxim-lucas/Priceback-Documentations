@@ -7051,3 +7051,59 @@ without encoding it in the code beneath.
   look for `Stack dump:` before changing anything. Retry once (the standing
   limit is two) rather than pre-emptively pinning a builder image — a pin is a
   code change, so it invalidates the tag the release already points at.
+
+## 183. A webhook the route rejected as malformed before the handler could see it
+
+**Class: the guard that runs before the special case.** RevenueCat's `TRANSFER`
+event is the one shape that carries **no `app_user_id`** — it sends
+`transferred_from` / `transferred_to` instead. The webhook route opened with
+`if (!event?.app_user_id) return 200 "no_app_user_id"`, so every transfer was
+logged as a malformed payload and discarded. An audit had located the bug one
+layer deeper, in the gate's `switch`, which the event never reached.
+
+The consequence was money: a Restore Purchases under an Apple ID that already
+owned a subscription re-homed the entitlement onto account B while **A's row
+kept `tier=unlimited`** until its stale expiry lapsed. One payment, two
+credit-exempt accounts, for up to a full billing period.
+
+- **Symptom:** a webhook type that "does nothing", with a log line blaming the
+  payload rather than the handler.
+- **Fix:** handle the special-shaped event **before** the generic validity
+  guard, and pin the ordering with a test that asserts what the guard returns
+  for that event — so a later "simplification" that moves the handler back
+  below it fails loudly.
+- **Prevent:** when a provider documents an event as carrying different fields,
+  check the route's own preconditions before assuming the handler is at fault.
+  Grep the guard, not just the branch.
+
+**A second, opposite trap in the same fix.** `SUBSCRIBER_ALIAS` sat in the same
+`case` group and looks like the same thing. It is not: aliasing means two ids
+for the **same person**, so applying the transfer downgrade to it would strip a
+paying customer. Grouping two event types in one `case` is a claim that they
+mean the same thing — verify it before writing the shared handler.
+
+## 184. A ledger note that interpolated another user's account id
+
+**Class: server "notes" fields are display copy the moment a client renders
+them.** The referral settlement wrote the referrer's credit-ledger row as
+`` `referral bonus (referrer) — ${refereeSub} made first purchase` ``. The
+client's `ledgerNote` maps known notes to translated labels and **falls back to
+printing an unrecognised note verbatim** — a deliberate choice (English beats a
+blank row). Because the note was dynamic it never matched, so the referrer's
+Credit History screen rendered a *different user's* stable Google/Apple `sub`.
+
+Three rules broken by one line: a raw identifier rendered as display text,
+another user's identifier disclosed, and untranslated English in a French UI.
+
+- **Symptom:** none. It reads as a normal ledger row unless you know what the
+  digits are.
+- **Fix:** make the note **static** so it can be mapped and translated, and keep
+  the identifier in the relational column that already stores it
+  (`user_referrals.referee_sub`) — the audit trail loses nothing.
+- **Also fix the client**, and this is the part that is easy to skip: rows
+  written before the server fix **already exist in production** and would keep
+  leaking. Match the legacy prefix and translate it too.
+- **Prevent:** a "notes"/"description"/"reason" string that reaches a UI is
+  user-facing copy. Never interpolate an id into one. When a renderer has a
+  raw-text fallback, treat that fallback as a rendering surface — anything the
+  server can put in the field, a user can read.

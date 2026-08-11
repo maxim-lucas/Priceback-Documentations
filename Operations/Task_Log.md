@@ -16,6 +16,66 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-08-11 — iOS audit #5: close the owed money batch, then sweep new ground
+
+- **Asked (/goal):** "run a full detailed and deep audit specially for the IOS
+  system … detect also if there is any difference between IOS and Android
+  behavior, everything should be documented if not fixed. the most important is
+  the security to be the best as possible, authentification, credit managamenet,
+  revenueCat, account management, receipt scans, price tag scans."
+- **Decision/constraints:** deliver **both** — close audit #4's owed money batch
+  first, then run a genuine pass #5 — as **one PR** (Maxim's call, given
+  backend CI is serialized repo-wide and Actions minutes are tight). Fix both
+  platforms, not iOS-only.
+- **Why it was needed:** audit #4 (same day) shipped only its security half as
+  Priceback#255 and left **12 money findings (4 High) documented but unfixed** —
+  and those covered two of the six areas the goal names (credit management,
+  RevenueCat). All 12 were re-verified as still live on `main` before any code
+  was written.
+- **Files/areas:** `backend/subscriptionGate.js`, `backend/server.js`,
+  `backend/repos/referralsRepo.js`, `src/services/{purchaseService,authService,
+  storageService,receiptSyncService,receiptScanQueue,subscriptionManager,
+  bootService,creditLedger,i18n}.js`, `src/screens/{ScanScreen,
+  ManageSubscriptionScreen,OnboardingScreen,BuyCreditsScreen,
+  BarcodeScanScreen}.js`, `src/components/Paywall.js`, `App.js`.
+- **Three places the fix diverged from audit #4's sketch** (all recorded in the
+  doc, because the obvious version is worse in each):
+  **R1** — the finding was in the *route's* `app_user_id` guard, not the gate; a
+  TRANSFER carries no `app_user_id` at all. And the proposed client-side
+  `originalAppUserId` check was **not** implemented: it false-positives on every
+  anonymous-first user and cannot fix R1 anyway, since a check on B's device
+  cannot downgrade A. **C1** — cleared rather than flushed-then-cleared;
+  flushing needs `authedFetch` after the session tokens are gone, which presents
+  a Face ID sheet mid-sign-out. **C4** — worse than filed: a retired pack is
+  also absent from `TOPUP_PRODUCTS`, so the webhook cannot rescue it either.
+- **New in pass #5:** N1 (barcode gallery-permission dead end on iOS — which
+  also corrects audit #4's "verified clean" claim) and N2 (the referrer's credit
+  history printed the referee's raw provider `sub`). Plus the first full
+  **iOS/Android divergence inventory** — all 35 `Platform.OS` sites, verdicted,
+  plus the implicit divergences that have no `Platform.OS` to grep for.
+- **Status:** branch `audit/ios-money-and-parity` → PR. Full mobile suite green
+  (177 suites / 4178 tests), backend gate units 101/101, i18n EN/FR in sync.
+  Doc: `Technical/iOS_Audit_2026-08-11_Pass5.md`. Bugs #183, #184.
+  **Still open, documented not fixed:** iOS background-fetch weakness leaves
+  price-drop detection best-effort on iPhone (needs its own task — foreground
+  sweep or server-side push); P3 app-switcher overlay still needs a handset.
+
+### 2026-08-09 → 08-11 — iOS audits #1–#4 (backfilled; the log had missed them)
+
+Recorded late — these four ran while this log was not being updated, and the
+entries matter because later work keeps building on their decisions.
+
+- **#1 (PR #249)** — what App Review taps: restore, crop, safe area, dark mode,
+  the Apple button, permission prompts. Added the EAS `device` profile.
+- **#2 (PR #252)** — after sign-in: keychain accessibility, background auth, the
+  badge, notification i18n.
+- **#3 (PR #253)** — money + identity: sandbox purchases, Google audience, Apple
+  revocation, and a **brand-new first-party session subsystem** (iOS-only,
+  inert until `SESSION_TOKEN_SECRET` is set).
+- **#4 (PR #255)** — 33 findings. Batch 1 (security + account isolation) merged;
+  **batch 2 (money) deliberately deferred** → closed by audit #5 above.
+  Doc: `Technical/iOS_Audit_2026-08-11.md`.
+
 ### 2026-08-04 — Release tags + GitHub releases as a safety net for published builds
 
 - **Asked (/goal):** "create the github release so i can have a reference to the
