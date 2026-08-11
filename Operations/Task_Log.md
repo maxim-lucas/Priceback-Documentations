@@ -4655,3 +4655,66 @@ Ops, unchanged from #3: the Apple `.p8` key, `GOOGLE_CLIENT_ID_IOS` and
 A1/A3 go live with it), migrations 0003 + 0004 on production. Two items need a
 post-prebuild check rather than code: SDK privacy manifests in `ios/Pods`, and
 the Sentry iOS dSYM upload phase.
+
+## 2026-08-11 — The session health signal, and the two migrations production was missing
+
+Asked for, in order: give `SESSION_TOKEN_SECRET` a health signal; check the
+production database and run the last two migrations if it needs them; then merge
+everything open and start an Android production build and an iOS preview build.
+
+### The health signal
+
+A7 had already been actioned once, reporting `sessionTokens.isConfigured()`.
+That reads the environment variable, and the variable is not the gate:
+`sessionsUnavailable()` refuses on no secret, on `USE_DB` off, **and** on a
+missing sessions repo — whose table arrives with migration 0004. Production had
+not run 0004, and setting the secret there is item one of the iOS release
+checklist. In that order, `/health` would have read `configured` while every
+iPhone sign-in 500'd on a missing relation. Full write-up: Bugs #181.
+
+So `checks.sessions` is now the conjunction — secret, secret strength, and a
+live `to_regclass` probe of `priceback.user_sessions` — reported as
+`configured` / `degraded` / `unconfigured` with a `blockers` list that names the
+migration. Two constraints shaped it: an `unknown` probe result is **no
+verdict** rather than a red light (a check that cries wolf on its own flakiness
+is a check nobody reads), and a weak secret is reported but never enforced
+(refusing it at mint time would take a running deployment offline to fix a
+warning). The public payload gets the verdict alone, with `degraded` collapsed
+into `unconfigured`, because the reasons name a weak signing key and an
+un-migrated database. `healthy` is untouched: an iOS-only readiness gap must not
+flap Railway's deploy gate.
+
+The block had **no test at all**; `backend/tests/healthSessions.test.js` is new.
+
+### The migrations
+
+Checked first, and the check changed the plan. Production was missing both
+0003 (`is_sandbox` on users / credit_ledger / subscription_events) and 0004
+(`user_sessions`) — so the answer to "if needed" was yes for both.
+
+**`drizzle-kit migrate` would have been the wrong tool.** Production's
+`drizzle.__drizzle_migrations` rows are hand-maintained: their `created_at`
+values do not match the journal's `when`, and `0000_initial`'s hash is absent
+entirely because production was migrated on the pre-squash 0001→0008 chain. A
+blind `db:migrate` compares by hash, finds `0000_initial` missing, and tries to
+re-create the whole schema over a live database. Applied the two migrations'
+DDL directly instead (`ADD COLUMN IF NOT EXISTS` for 0003's non-idempotent
+`ALTER`s), each followed by its own bookkeeping row keyed on the file's real
+SHA-256 so a future `db:migrate` agrees.
+
+Verified after: `user_sessions` present with 11 columns, 5 indexes and its FK;
+all three `is_sandbox` columns present; both hashes recorded. Production now
+matches dev. Both migrations are purely additive and the tables are small
+(5 users, 30 ledger rows), so the `ALTER`s were metadata-only.
+
+`SESSION_TOKEN_SECRET` itself is still unset on both Railway services — that is
+the remaining half of the ops item, and it is now a thing `/health` will tell
+you rather than a thing you have to remember.
+
+### Note on the branch history
+
+A parallel session committed `6b7c94a` (the mint rate-limit relaxation) into the
+same working tree mid-edit. Its change was read as uncommitted work, reverted,
+and re-applied across two commits, so `942eafa`/`04ac6a0` contain a spurious
+revert-and-reapply pair. The **net branch diff is correct** and the PR
+squash-merges; not force-pushed, because the parallel session shares this tree.
