@@ -7153,3 +7153,211 @@ Two smaller notes from the same run:
 - **Sweep for affected fixtures on the ROUTE STRING, not the call shape.**
   Several suites reach `/api/receipts` through a local `post()` helper, so a
   grep for `request(app).post("/api/receipts")` misses them.
+
+---
+
+## 186. A guard test that swept a narrower surface than it claimed
+
+**Class: the regression test passed because it was looking somewhere else.**
+`pushI18n.test.js` carried a source sweep asserting *"no bare literal survives in
+a user-facing push the server sends"*. It read `backend/server.js` — and only
+that file. `backend/priceDropNotifier.js`, a separate module carrying the two
+most important pushes the product sends (the verified price drop and the notice
+that credits were spent to unlock it), was never in the sweep. It shipped English
+template literals and hardcoded `$` money for months, under a green test whose
+name promised otherwise.
+
+This is the second time the same lesson has been paid for: iOS audit #5's N1
+found a "verified clean" claim about permission handling that was true only of
+the screens that pass happened to read. **A guard is only as wide as the surface
+it reads, and its NAME is not evidence of its scope.**
+
+- **Prevent:** when a guard sweeps source, DERIVE its file list from a property
+  of the code rather than naming files. Here: every backend file that calls
+  `sendPushNotificationsAsync`. Then add a meta-assertion that the derived list
+  still contains what you expect, so a future refactor that empties it fails
+  loudly instead of passing vacuously.
+- A sweep that finds nothing and a sweep that looks nowhere are indistinguishable
+  from the test output. Only the meta-assertion separates them.
+
+**The second trap, inside the first.** Widening the file list alone would still
+have missed the defect. The sweep's heuristic looks for two adjacent plain words
+to distinguish prose from codes — and a body built as
+"Now {interpolation} (save {interpolation}). {interpolation}." has none: every
+whitespace boundary has an interpolation on one side. What actually catches it is
+a second, different check — **a push-sending file that defines its own money
+formatter and never calls the shared localized one**. When a heuristic filters by
+shape, assume the defect can be shaped around it, and add an orthogonal check.
+
+---
+
+## 187. A health check whose status was a string literal
+
+**Class: a check that cannot fail (third occurrence).** The Apple-auth block of
+`/health` set `status` to the constant string `"configured"`, and its only other
+field came from an env var with a hardcoded default. There is no deployment, no
+environment and no input under which it reports anything but green.
+
+Meanwhile `appleRevoke.isConfigured()` — the real capability check, for the
+`APPLE_SIGNIN_KEY_ID` / `APPLE_TEAM_ID` / `APPLE_SIGNIN_PRIVATE_KEY` trio —
+existed for two audits with **no caller anywhere**. Without it, account deletion
+cannot revoke the Apple credential (App Store Guideline 5.1.1(v)), and the `.p8`
+downloads exactly once, so the gap surfaces at submission rather than at deploy.
+
+Previous occurrences: the Google iOS client ID (a bare audience *count* reported
+"configured" while every iPhone got a 401) and the session secret (a config-only
+flag would have said "configured" against an un-migrated table). Same shape three
+times.
+
+- **Prevent, mechanically:** grep every health check for a status that is a
+  literal or a single `!!process.env.X`. If the value cannot vary with anything
+  the feature depends on, it is decoration.
+- **Prevent, by design:** write the check as the CONJUNCTION of everything the
+  feature needs, then ask "what is the most likely thing to be missing, and would
+  this check see it?" If a capability function already exists, it has a caller
+  or it is a lie.
+- **Report, never enforce.** Degrade the check's own verdict; never move the
+  top-level `healthy` flag on a platform-specific readiness gap, or the deploy
+  gate starts flapping and people learn to ignore it. Keep the *named blocker*
+  behind the admin token and publish the verdict, so a pre-release check is one
+  anonymous `curl` while the reasons (which secret is absent) stay private.
+
+---
+
+## 188. The only record of an external object's key was cascade-deleted
+
+**Class: an FK made the cleanup path unreachable.** Receipt photos live in object
+storage; the only record of their keys was `receipts.image_object_key`. The
+monthly account purge hard-deletes the user row and cascades the receipts away —
+so after the purge, the objects still existed and **nothing left in the system
+knew their keys.** Unreachable, undeletable, billed for, forever.
+
+It had not bitten yet, and the reason is the interesting part: it worked only
+because `RETENTION_DELETED_RECEIPT_IMAGES_DAYS` (7) was smaller than
+`DELETION_GRACE_DAYS` (30), so the sweep always ran before the cascade. Both are
+independently tunable `app_config` values. Nothing enforced the inequality,
+nothing warned when it broke, and the job's own docstring asked a future
+maintainer to *"keep the window well under DELETION_GRACE_DAYS"*.
+
+**A code comment doing a constraint's job is a defect with a delay on it.**
+
+- **Prevent:** any record of a resource that lives OUTSIDE the database — an
+  object key, an external job id, a third-party subscription id — needs a home
+  whose lifetime is at least as long as the resource's. If deleting a user can
+  cascade it away, the cleanup path is only as reliable as whoever remembers the
+  ordering.
+- **The fix shape:** a dedicated ledger table with **no FK to `users`**, written
+  at the moment the key is MINTED (before the object can exist), and swept by the
+  object's own age. A row is kept after deletion, flagged, as the erasure audit
+  trail — what we held, and when it stopped existing.
+- **Ordering inside the sweep:** delete the object, then the pointer that could
+  presign a URL for it, then mark the ledger. A crash mid-way leaves a 404 until
+  the next run; the reverse order leaves a ledger claiming an erasure that never
+  happened.
+- **Never mark a failed delete as done.** The retry is cheap; a false erasure
+  record is not.
+- **Watch the UI consequence of switching to age-based retention:** something
+  still alive can now outlive its attachment. Clear the pointer that would
+  presign a URL for the purged object, or the screen renders a broken image
+  instead of no image.
+
+---
+
+## 189. Hardening applied to one of two twin routes
+
+**Class: the same code in two places, fixed in one.** The price-tag image presign
+was capped and account-gated (iOS audit #4, S4). The receipt image presign — the
+same four lines, on the far busier route — kept minting unbounded upload URLs, so
+any signed-in account could PUT an object of arbitrary size into the production
+bucket. The audit that fixed one twin never looked at the other.
+
+- **Prevent:** when fixing a defect, grep for the CALL you are hardening
+  (`getPresignedPutUrl`), not the route you are in. Every call site is a
+  candidate.
+- **Then remove the duplication rather than adding a second copy of the check.**
+  Two copies that agree today are two copies that can drift tomorrow. One shared
+  decision function, plus a test asserting that *both* call sites go through it
+  and that no route computes the rule inline. A test that exercises only the
+  route you noticed will pass again on the next divergence.
+
+**A related pair, same commit, both from "the caller didn't send it" being read as
+"the caller wants it cleared":** an upsert preserved `email` on absence but
+coalesced `name` and `picture` to NULL, one and two lines below it. Two of that
+function's eleven call sites can never supply identity — a webhook that carries
+none, and a first-party session token that asserts identity rather than profile —
+so a paying user's name was erased on every renewal. **When one field in a
+`.set()` is deliberately preserved and its neighbours are not, that is a bug until
+proven otherwise.**
+
+- **Also check `Number()` before treating a value as absent.** `Number(null)` and
+  `Number("")` are both `0`, which is finite — so "the client declared nothing"
+  silently becomes "the client declared zero". Check for absence *before*
+  coercion. This exact trap appeared twice in one audit: once in a money
+  formatter (already documented) and once in an upload-size cap, where it
+  refused a legitimate upload on the first test run.
+
+---
+
+## 190. A realistic-looking secret in a test fixture
+
+**Class: making the scanner cry wolf, then muting it.** A `/health` test needed
+the Apple signing-key env var set. The fixture used a real PEM envelope, on the
+reasoning that a realistic value keeps the test honest. CI's gitleaks step failed
+the build in nine seconds.
+
+The tempting fix — a path exclusion for `backend/tests/` — is the wrong one, and
+the standing rule already forbids it: **allowlist by value shape, never by path.**
+A scanner taught to ignore key-shaped strings in test files is a scanner that
+cannot catch a genuinely leaked key checked in beside them.
+
+- **Prevent:** ask what the code under test actually reads. Here,
+  `isConfigured()` checks the *presence* of three variables and never parses the
+  key — so the fixture never needed to look like one. A plain
+  `"test-...-not-a-real-pem"` string tests exactly the same behaviour and trips
+  nothing.
+- If a test genuinely needs a parseable key, generate it at runtime rather than
+  committing one.
+
+---
+
+## 191. A new lookup table broke every DB test at once
+
+**Class: the seeder is a hard dependency of every repo call.** A migration added
+`object_retention_types` and `db/seed.js` gained an upsert for it. CI went red
+with dozens of unrelated suites failing together — barcode resolution, catalog
+reads, credit reconciliation, claim IDOR guards, account-deletion revival.
+
+One cause. `seedLookups` upserts into the new table; `ensureSeeded()` runs on
+nearly every repo call through `lookupId`; the table did not exist on the shared
+dev database yet. So `ensureSeeded` threw and took everything DB-touching with
+it.
+
+**CI points at the shared Supabase dev project and never runs migrations.** That
+is a deliberate property (the suites gate on `DATABASE_URL`), but it means a new
+migration is an out-of-band step — and *adding a row to the seeder* is precisely
+what converts "the new tests fail" into "every test fails".
+
+- **The failure spread is the diagnostic.** Thirty unrelated suites failing
+  together is one cause, never thirty. Grep the log for the FIRST distinct error
+  string before reading any individual assertion; here it was one line,
+  `relation "priceback.object_retention_types" does not exist`, repeated.
+- **Prevent:** when a migration adds a lookup table, apply it to the dev database
+  in the same working session as the code, before pushing. Apply additively
+  (`CREATE TABLE IF NOT EXISTS`, guarded FK, `ON CONFLICT DO NOTHING` backfill)
+  and insert the drizzle bookkeeping row keyed on the migration file's real
+  SHA-256 — the ledgers on both dev and prod are hand-maintained, because their
+  rows predate the `0000_initial` squash, so `db:migrate` would try to re-run the
+  whole schema.
+- **Do not make the seeder tolerant of a missing table.** That would hide genuine
+  migration drift, which is worse than a loud failure.
+
+**The second lesson is about working while CI is red.** A separate defect in the
+same push was found by re-reading the diff, not by CI, which could not have
+distinguished it: a new route suite sent no `Authorization` header, and
+`requireAuth` matches that header **before** it calls `verifyAuth` — so injecting
+`app.locals.verifyAuth` is not sufficient on its own, and the request
+short-circuits to 401 without ever reaching the injected verifier. Every sibling
+suite sends a throwaway `Bearer x` for exactly this reason.
+
+**A red run hides the next bug.** When CI fails for a known reason, re-read the
+diff rather than waiting for the rerun to tell you what else is wrong.

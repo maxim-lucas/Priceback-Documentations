@@ -4778,3 +4778,156 @@ same working tree mid-edit. Its change was read as uncommitted work, reverted,
 and re-applied across two commits, so `942eafa`/`04ac6a0` contain a spurious
 revert-and-reapply pair. The **net branch diff is correct** and the PR
 squash-merges; not force-pushed, because the parallel session shares this tree.
+
+---
+
+## 2026-08-12 — iOS audit #6: the paths the first five never walked
+
+**Asked for:** a deep iOS-focused audit — security first, then authentication,
+credit management, RevenueCat, account management, receipt scans and price-tag
+scans — plus an iOS/Android behavioural comparison, with anything not fixed
+documented. Explicitly: **do not re-open the bugs the earlier audits already
+documented.**
+
+**Delivered:** ten new findings, all fixed, in three batches on
+`audit/ios-pass6-push-i18n-health-retention` → Priceback#258. Full write-up in
+`Technical/iOS_Audit_2026-08-12_Pass6.md`; recurring classes in
+`Operations/Bugs_Common_Fixes.md` #186–#190.
+
+### How a sixth pass found anything
+
+The useful question was not "what did passes #1–#5 get wrong" but **"what did
+none of them look at."** Their *Verified clean* registers cover Apple token
+verification, sessions, keychain, deletion/revocation, RevenueCat, credit
+atomicity, the scan queues and the tag presign. So this pass took five untouched
+surfaces: the server-side identity/profile write path, the portability export,
+the object-store presign and retention model, filesystem backup exposure, and the
+one server push nobody had localized.
+
+Four of the ten came from asking a different question about code the earlier
+passes had already read — not *"is this route authorized?"* but **"does this
+write preserve what it wasn't given?"**
+
+### The three that mattered
+
+- **H1** — `priceDropNotifier` was the one backend push sender audit #3's S4
+  never swept behind `pushI18n`, and it carries the verified price-drop alert
+  (the product's core promise) and the credits-were-spent notice. Both English,
+  with hardcoded `$` money, on both platforms.
+- **H2** — `/health`'s Apple check had `status: "configured"` as a string
+  literal. `appleRevoke.isConfigured()` had existed for two audits with no
+  caller. Third instance of "a config-presence check where a capability check was
+  needed."
+- **H3** — the account purge cascades `receipts.image_object_key` away, and the
+  prune job found objects *through that column*. Deleting what we stored worked
+  only because one app_config value happened to be smaller than another, with
+  nothing enforcing it.
+
+### Decisions taken to the user before implementing
+
+Two, both about M1 (scan photos riding into iCloud/Drive backups):
+
+1. **Android backup.** Chosen: `allowBackup: false` — with the qualification
+   *"I don't want the backup to lose any data, and I want the receipt/tag photos
+   kept even after deletion; a cron deletes them after N days, not tied to the
+   account."*
+
+   That qualification **changed the plan materially.** It made H3 a blocker
+   rather than a finding: age-based retention decoupled from the account is not
+   expressible while the only record of a key dies with the user. So the ledger
+   was built first, then the sweeps rewritten, then the backup exclusion shipped
+   on top.
+
+   It also forced a correction to my own analysis. I had assumed turning Android
+   backup off would strand the photos; it does not — `GET /api/receipts/:id`
+   already presigns a GET and `syncService` sets `imageUri: null` with a comment
+   saying the detail screen fetches it on open. What `allowBackup: false`
+   genuinely costs is narrower: never-synced captures, the pending queue (drained
+   next launch) and the local OCR cache.
+
+2. **iOS backup exclusion.** Chosen: write the config plugin now and verify at
+   the next build, rather than deferring it the way P3's overlay was deferred.
+   Defensible because the failure modes here are benign — a non-Swift AppDelegate
+   or a missing anchor both warn and leave the file untouched — unlike P3, where
+   a wrong implementation flashes an overlay over the camera prompt.
+
+### One concern raised, then built as asked
+
+Retaining receipt photos past account deletion is a legitimate retention decision,
+but `profile.deleteAccountBody` promises *"We'll erase your profile, credits,
+history…"*, which a user reasonably reads as covering their photos. Shipping the
+backend change alone would have left an in-app claim the backend no longer
+honours. So the deletion screen now states the retention window, **EN + FR**,
+driven from the same `app_config` value the sweep reads — change the number and
+the copy follows.
+
+### Deliberately documented rather than fixed
+
+- Everything carried forward from passes #4/#5 (iOS background execution, the
+  app-switcher overlay, IDFV vs SSAID) — explicitly out of scope.
+- `requestDeletion` does not null `email`/`name`/`picture` despite the route
+  docstring saying deletion "wipes personal data". Retaining the email for the
+  grace window is **load-bearing** (it stops trial-credit farming across a
+  delete-and-resignup) and the whole row goes at the hard purge. Code/comment
+  drift; recorded so it is not "fixed" into a regression.
+- `/api/me` reactivates a soft-deleted account unconditionally, bypassing audit
+  #4's A2 `reason=signin` gate. Dormant — the mobile client never calls it — and
+  the route claims the exemption deliberately.
+
+### Tests & regression risk
+
+Widened the `pushI18n` guard to derive its file list from every backend file that
+sends a push, plus a meta-assertion so it cannot silently narrow again. New:
+`healthAppleAuth`, `imagePresignCap`, `objectRetentionDb`, `profileWriteGuardsDb`,
+`dataExportIdentityDb`, `priceDropPushLanguage`, `withIosBackupExclusion`.
+Rewrote `pruneReceiptImages` and one `lifecycleDedupe` case to assert the
+*opposite* of what they used to — deliberately, since the retention contract
+inverted.
+
+The presign test earned its keep on the first run: it caught that `Number(null)`
+and `Number("")` are both `0`, so an explicit `imageBytes: null` was being read as
+"declared zero bytes" and refused.
+
+### One CI round-trip, and why it was right
+
+The Security job failed in 9 s: the Apple health fixture used a real
+`-----BEGIN PRIVATE KEY-----` envelope. The tempting fix — a gitleaks path
+exclusion for `backend/tests/` — is exactly what the standing rule forbids, and
+would have muted the one control that catches a genuinely leaked `.p8`. Fixed the
+*value* instead: `isConfigured()` checks presence, never parses, so the fixture
+never needed to look like a key.
+
+### Still owed
+
+- **On-device items 30–36** (`Technical/iOS_Audit_2026-08-12_Pass6.md`). Item 34
+  — confirming `NSURLIsExcludedFromBackupKey` on a real handset — is the only one
+  in this audit that cannot be verified any other way.
+- **`GET /health` with `x-admin-token` on both Railway services** should now
+  report `checks.appleAuth.revocation: "missing"`. That is the change working;
+  provisioning the `.p8` is still the open ops task.
+- Migration `0005_object_retention` is applied to dev by CI. **Production must be
+  applied by hand** — its drizzle ledger is hand-maintained and `db:migrate`
+  there would try to re-run `0000_initial`.
+- Release notes must mention the Android `allowBackup` change: a device transfer
+  no longer carries local app data, and restore goes through `/api/me/bootstrap`
+  plus on-open image fetch.
+
+**Post-push addendum (same day).** The Backend CI job went red with dozens of
+unrelated suites failing together — one cause, not thirty. `db/seed.js` gained an
+upsert for the new `object_retention_types` lookup, `ensureSeeded()` runs on
+nearly every repo call via `lookupId`, and the table did not exist on the shared
+dev database yet. **CI points at Supabase dev and never runs migrations**, so a
+new migration is an out-of-band step; adding a row to the seeder is what turns a
+missing migration into a total failure rather than a local one.
+
+Applied `0005_object_retention` to the **dev** project (`gnedluuylimjwdmtvswl`)
+additively, with the drizzle bookkeeping row keyed on the migration file's real
+SHA-256 — the hand-maintained procedure the 0003/0004 apply used. Verified: both
+tables present, 2 types seeded, 8 existing keys backfilled, FK and ledger row
+recorded. **Production still owes 0005, by hand.**
+
+A second defect surfaced from re-reading the diff while that job was red, not from
+CI: the new export suite sent no `Authorization` header, and `requireAuth` matches
+that header *before* calling `verifyAuth` — so injecting `app.locals.verifyAuth`
+is not enough on its own. Recorded as Bugs #191, with the general form: **a red
+run hides the next bug; read the diff rather than waiting for the rerun.**
