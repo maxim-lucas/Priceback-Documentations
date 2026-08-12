@@ -7,7 +7,7 @@ credit management, RevenueCat, account management, receipt scans and price-tag
 scans, plus an iOS/Android behavioural comparison; document whatever is not
 fixed; **do not re-open anything the earlier audits already documented.**
 
-**Result: ten new findings, all fixed.** Two independent re-verifications of
+**Result: ten new findings — nine fixed, one (L2) deliberately reverted and documented after the fix proved worse than the defect.** Two independent re-verifications of
 earlier work. Nothing carried forward from passes #1–#5 was re-investigated.
 
 ---
@@ -65,7 +65,7 @@ preserve what it wasn't given?"*
 | **M3** | `upsertFromOAuth` destroys `name`/`picture` on every call that lacks them | Medium | Both, iOS-amplified | Fixed |
 | **M4** | The portability export builds `identity` from the token, not the row | Medium | iOS | Fixed |
 | **L1** | `pushToken` and `postalCode` are written unvalidated | Low | Both | Fixed |
-| **L2** | `devices.owner_sub` transfers silently on assertion | Low | Both | Fixed |
+| **L2** | `devices.owner_sub` transfers silently on assertion | Low | Both | **Reverted — documented, not fixed** |
 | **L3** | `/api/me/data-export` is the only unthrottled expensive route | Low | Both | Fixed |
 
 Plus one minor, additive, found while writing a test: `creditRateLimited` was the
@@ -392,21 +392,45 @@ rejecting a US ZIP becomes a bug on the first expansion. What it stops is the ac
 defect — arbitrary unbounded content in a column the iOS privacy manifest declares
 as `PhysicalAddress`.
 
-**L2 — device ownership transferred on assertion.** All three `devicesRepo` upserts
-let any non-null `ownerSub` win, with no check that the device was unowned or
-already the caller's. Downstream, `callerOwnsDevice` then authorised `DELETE
-/api/me/observations` against the previous owner's entire crowdsourced
-contribution history.
+**L2 — device ownership transfers on assertion. Fixed, then REVERTED.** This one
+is worth reading in full, because the fix was written, shipped to CI, and turned
+out to be worse than the finding.
 
-The fix is `COALESCE(existing, new)`, and it is **not a new policy**: it is exactly
-the rule `callerOwnsDevice` already applies (refuse when owned by someone else,
-claim only when unowned). The repo was the one path that disagreed with it — and it
-ran *first*, which is what made the guard bypassable. Exploitation needs the
-victim's `deviceId`, a hashed value never published, so this is hardening rather
-than a live hole; it is recorded because the legitimate case (a handed-down phone)
-and the hostile one are indistinguishable from the server. Keeping a stale owner
-costs little: `resolveScanOwner` prefers the Bearer token, so a signed-in user on a
-resold phone is credited correctly regardless, and account deletion removes the row.
+All three `devicesRepo` upserts let any non-null `ownerSub` win, with no check
+that the device was unowned or already the caller's. Downstream,
+`callerOwnsDevice` then authorises `DELETE /api/me/observations` against the
+previous owner's crowdsourced contributions, and scopes the DSAR device block. A
+caller who knew someone else's `deviceId` could take it by asserting it.
+
+The obvious fix was `COALESCE(existing, new)` — claim only when unowned, which is
+exactly the rule `callerOwnsDevice` itself applies. It looked like a pure
+consistency fix: the repo was the one path that disagreed with the guard, and it
+ran *first*, which is what made the guard bypassable.
+
+**CI disagreed, and CI was right.** `barcodeDeviceDb.test.js` asserts the
+behaviour outright — *"Signing into the same physical device as B re-attributes it
+(account switch)"* — and that is not fixture drift, it is a stated invariant. This
+is the second time this repo's own lesson has paid for itself: **a test name that
+states an invariant is load-bearing; read it before assuming drift** (Bugs #185).
+
+Refusing the transfer breaks the legitimate case badly. On a shared, resold or
+hand-me-down phone, the second account would be **permanently unable to delete
+that device's observations or export its data** — `callerOwnsDevice` answers false
+for them forever. That converts a hardening item into a data-rights regression for
+a real user, in order to defend against an attacker who must first obtain a hashed
+device id that is never published, logged, or returned by any endpoint.
+
+So the transfer stays. What was kept from the attempt is the audit trail: a
+transfer is now **logged** with both subs truncated, so a device changing hands is
+visible after the fact instead of silent. That is pure gain and costs nothing.
+
+**Closing it properly is a different change to a different function.** The
+dangerous capability is not owning the device row — it is that
+`crowdRepo.revokeForDevice` deletes every observation ever made from that device
+hash, including the previous owner's. Scoping that deletion to the caller's *own*
+contributions would remove the risk without touching the claim rule at all. That
+is its own task, with its own test for "an anonymous observation from before the
+switch", and it is not an audit fix.
 
 **L3 — the export was the only unthrottled expensive route.** Every money and auth
 sibling carries `creditRateLimited`. One export call reads up to 500 receipts with
@@ -501,7 +525,7 @@ and falls back to the provider token rather than retrying blind.
 | **M2** | A cap below real capture size rejecting legitimate uploads. | The client declares its size; undeclared keeps the unbounded path, so shipped builds are unaffected; 900 KB and 11 MB fixtures assert real captures pass. |
 | **M3** | Preserve becoming freeze, or resurrecting a name after deletion. | A real sign-in still updates the name (asserted); deletion nulls separately. |
 | **L1** | Rejecting a token shape Expo accepts, silencing notifications. | Uses `Expo.isExpoPushToken`, the predicate `/api/watch` already trusts; explicit `null` still clears; a rejected write leaves the *previous* token intact. |
-| **L2** | Refusing a claim and stranding a legitimately handed-down phone. | Claim when unowned or already the caller's; `resolveScanOwner` prefers the Bearer token, so a signed-in user is unaffected; refusals are logged. |
+| **L2** | **This is the row that fired.** Refusing the claim stranded a legitimately handed-down phone: the second account could never delete that device's observations or export its data. Caught by an existing test that states the invariant. **Reverted**; only the ownership-transfer LOG was kept. |
 
 ### The CI round-trip worth keeping
 
