@@ -7317,3 +7317,47 @@ cannot catch a genuinely leaked key checked in beside them.
   nothing.
 - If a test genuinely needs a parseable key, generate it at runtime rather than
   committing one.
+
+---
+
+## 191. A new lookup table broke every DB test at once
+
+**Class: the seeder is a hard dependency of every repo call.** A migration added
+`object_retention_types` and `db/seed.js` gained an upsert for it. CI went red
+with dozens of unrelated suites failing together — barcode resolution, catalog
+reads, credit reconciliation, claim IDOR guards, account-deletion revival.
+
+One cause. `seedLookups` upserts into the new table; `ensureSeeded()` runs on
+nearly every repo call through `lookupId`; the table did not exist on the shared
+dev database yet. So `ensureSeeded` threw and took everything DB-touching with
+it.
+
+**CI points at the shared Supabase dev project and never runs migrations.** That
+is a deliberate property (the suites gate on `DATABASE_URL`), but it means a new
+migration is an out-of-band step — and *adding a row to the seeder* is precisely
+what converts "the new tests fail" into "every test fails".
+
+- **The failure spread is the diagnostic.** Thirty unrelated suites failing
+  together is one cause, never thirty. Grep the log for the FIRST distinct error
+  string before reading any individual assertion; here it was one line,
+  `relation "priceback.object_retention_types" does not exist`, repeated.
+- **Prevent:** when a migration adds a lookup table, apply it to the dev database
+  in the same working session as the code, before pushing. Apply additively
+  (`CREATE TABLE IF NOT EXISTS`, guarded FK, `ON CONFLICT DO NOTHING` backfill)
+  and insert the drizzle bookkeeping row keyed on the migration file's real
+  SHA-256 — the ledgers on both dev and prod are hand-maintained, because their
+  rows predate the `0000_initial` squash, so `db:migrate` would try to re-run the
+  whole schema.
+- **Do not make the seeder tolerant of a missing table.** That would hide genuine
+  migration drift, which is worse than a loud failure.
+
+**The second lesson is about working while CI is red.** A separate defect in the
+same push was found by re-reading the diff, not by CI, which could not have
+distinguished it: a new route suite sent no `Authorization` header, and
+`requireAuth` matches that header **before** it calls `verifyAuth` — so injecting
+`app.locals.verifyAuth` is not sufficient on its own, and the request
+short-circuits to 401 without ever reaching the injected verifier. Every sibling
+suite sends a throwaway `Bearer x` for exactly this reason.
+
+**A red run hides the next bug.** When CI fails for a known reason, re-read the
+diff rather than waiting for the rerun to tell you what else is wrong.

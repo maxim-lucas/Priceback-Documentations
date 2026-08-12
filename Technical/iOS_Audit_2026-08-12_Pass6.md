@@ -503,6 +503,37 @@ and falls back to the provider token rather than retrying blind.
 | **L1** | Rejecting a token shape Expo accepts, silencing notifications. | Uses `Expo.isExpoPushToken`, the predicate `/api/watch` already trusts; explicit `null` still clears; a rejected write leaves the *previous* token intact. |
 | **L2** | Refusing a claim and stranding a legitimately handed-down phone. | Claim when unowned or already the caller's; `resolveScanOwner` prefers the Bearer token, so a signed-in user is unaffected; refusals are logged. |
 
+### The CI round-trip worth keeping
+
+The Backend job went red with **dozens of unrelated suites failing at once** —
+barcode resolution, catalog reads, credit reconciliation, claim IDOR guards,
+account-deletion revival. That spread is the tell: it is one cause, not thirty.
+
+`seedLookups` now upserts `object_retention_types`. `ensureSeeded()` runs on
+nearly every repo call, through `lookupId`. The table did not exist yet, so
+`ensureSeeded` threw and took every DB-touching test with it.
+
+**CI points at the shared Supabase dev database and never runs migrations.** A
+new migration is therefore an out-of-band step, and *adding a row to the seeder*
+is what turns a missing migration from "the new tests fail" into "everything
+fails". Applied 0005 to dev additively (`CREATE TABLE IF NOT EXISTS`, guarded FK,
+`ON CONFLICT DO NOTHING` backfill) with the drizzle bookkeeping row keyed on the
+migration file's real SHA-256 — the same hand-maintained procedure the 0003/0004
+apply used, because that ledger's rows predate the `0000_initial` squash.
+Verified after: both tables present, 2 types seeded, 8 existing keys backfilled,
+FK and ledger row recorded.
+
+**Production still owes 0005**, and must be applied by hand for the same reason:
+`db:migrate` there would try to re-run `0000_initial` over a live database.
+
+A second defect was found by re-reading the diff while that job was red, and is
+worth noting because CI could not have told them apart: the new export suite sent
+no `Authorization` header. `requireAuth` matches the header **before** it calls
+`verifyAuth`, so injecting `app.locals.verifyAuth` is not enough on its own — the
+request short-circuits to 401 and never reaches the injected verifier. Every
+sibling suite sends a throwaway `Bearer x` for exactly this reason. **A red CI run
+hides the next bug; read the diff rather than waiting for the rerun.**
+
 **Verification:** 58/58 non-DB backend and 47/47 mobile suites green locally;
 `npm run i18n:check` passing (EN/FR, 1439 keys each); migration `0005` plus a
 regenerated consolidated deploy schema (6 migrations). Four new DB-backed suites

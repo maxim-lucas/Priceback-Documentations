@@ -4911,3 +4911,23 @@ never needed to look like a key.
 - Release notes must mention the Android `allowBackup` change: a device transfer
   no longer carries local app data, and restore goes through `/api/me/bootstrap`
   plus on-open image fetch.
+
+**Post-push addendum (same day).** The Backend CI job went red with dozens of
+unrelated suites failing together — one cause, not thirty. `db/seed.js` gained an
+upsert for the new `object_retention_types` lookup, `ensureSeeded()` runs on
+nearly every repo call via `lookupId`, and the table did not exist on the shared
+dev database yet. **CI points at Supabase dev and never runs migrations**, so a
+new migration is an out-of-band step; adding a row to the seeder is what turns a
+missing migration into a total failure rather than a local one.
+
+Applied `0005_object_retention` to the **dev** project (`gnedluuylimjwdmtvswl`)
+additively, with the drizzle bookkeeping row keyed on the migration file's real
+SHA-256 — the hand-maintained procedure the 0003/0004 apply used. Verified: both
+tables present, 2 types seeded, 8 existing keys backfilled, FK and ledger row
+recorded. **Production still owes 0005, by hand.**
+
+A second defect surfaced from re-reading the diff while that job was red, not from
+CI: the new export suite sent no `Authorization` header, and `requireAuth` matches
+that header *before* calling `verifyAuth` — so injecting `app.locals.verifyAuth`
+is not enough on its own. Recorded as Bugs #191, with the general form: **a red
+run hides the next bug; read the diff rather than waiting for the rerun.**
