@@ -108,7 +108,35 @@ one's paid packs under its own token.
 the device-scoped anti-reinstall counters, and wiping them would turn sign-out
 into a free-scan reset.
 
-### C2 — the charge moved *before* the receipt exists
+### C2 — the charge moved *before* the receipt exists, and what that cost
+
+**Read this before touching the ordering again.** Moving the consume ahead of
+`create()` introduced a regression that backend CI caught, and the test that
+caught it named the invariant in its own title: *"POST /api/receipts maps a
+cross-account id collision to 409 and charges nothing"*, over the comment
+*"charge follows create"*.
+
+Charging first means a `create()` that **fails** leaves the charge behind. The
+resolution is to classify create failures by whether the client retries:
+
+- **Transient** (DB blip → 503/500): the client retries the same id,
+  `consumeScanCreditOnce` answers `alreadyConsumed`, and the user is charged
+  exactly once for a receipt they do get. No compensation needed.
+- **Terminal** (the receipt id already belongs to another account → 409): the
+  client never retries a 409. The credit is gone, for a receipt that never
+  existed.
+
+There is exactly one terminal case, so it is pre-checked —
+`receiptsRepo.ownerSubOf`, which ignores `deleted_at` for the same reason
+`create()`'s own guard does: a soft-deleted row still occupies the id.
+`create()`'s `RECEIPT_ID_CONFLICT` stays as the backstop for a genuine race.
+
+**A compensating refund was considered and rejected.** Reversing the charge on
+failure leaves the ledger row in place, so the client's retry sees
+`alreadyConsumed` and creates the receipt without charging — trading a stranded
+charge for a free receipt. The pre-check has neither failure mode.
+
+
 
 Refusing required reordering, not just reading the result. `consumeScanCreditOnce`
 ran after `receiptsRepo.create()`, so by the time an `insufficient` verdict was
@@ -348,9 +376,29 @@ Stated proactively, per the standing rule.
 | **R5/R6** | Purchase surfaces now show store prices. | Falls back to the catalog label on any failure, so a price never blanks. |
 | **N2 legacy match** | Over-matching would swallow unrelated notes. | Prefix-anchored on `referral bonus (referrer/referee)`; the generic English fallback is separately asserted still to work. |
 
-**Verification:** full mobile Jest suite **177 suites / 4178 tests, all green**;
-backend gate units **101/101**; `npm run i18n:check` passes (EN/FR, 1438 keys
-each). The DB-backed backend suite is left to CI by standing rule.
+**Verification:** all three CI checks green on Priceback#257 — Mobile (Jest),
+Backend (node:test against Supabase dev), and Security (gitleaks + npm audit).
+Locally: 177 suites / 4211 tests, `npm run i18n:check` passing (EN/FR, 1438 keys
+each), and the per-file coverage ratchet clear with margin rather than hugging
+(`purchaseService` functions 69.38 % against a 67 floor, `subscriptionManager`
+100/94.11/100/100 against 97/89/100/97).
+
+**Two lessons from the CI round-trips, worth more than the fixes:**
+
+1. **`npm test` is `jest --ci --coverage`; a bare `npx jest` never runs the
+   ratchet.** The suite passed locally while CI failed, because the gate is the
+   per-file coverage floor, not the assertions. Run the script, not the runner.
+2. **A test name that states an ordering invariant is load-bearing.** Roughly 36
+   of the ~37 backend failures in that run *were* fixture drift — suites whose
+   mocked `verifyAuth` returns an email but no `emailVerified`, so
+   `upsertFromOAuth` grants 0 trial credits and every receipt POST 402s (they
+   model an unverified account, which no real signed-in user is). It would have
+   been easy to sweep all 37 into that bucket. One of them was a real
+   regression, and it said so in its title.
+
+   When re-sweeping for affected fixtures, match on the **route string**, not
+   the call shape: several suites reach `/api/receipts` through a local `post()`
+   helper rather than `request(app).post("/api/receipts")`.
 
 **No iOS-only UI change ships in this branch that cannot be verified without an
 iPhone.**

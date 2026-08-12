@@ -7107,3 +7107,49 @@ another user's identifier disclosed, and untranslated English in a French UI.
   user-facing copy. Never interpolate an id into one. When a renderer has a
   raw-text fallback, treat that fallback as a rendering surface — anything the
   server can put in the field, a user can read.
+
+## 185. Moving a charge before the thing it pays for
+
+**Class: reordering for atomicity strands the compensating case.** To let
+`POST /api/receipts` refuse a scan the user cannot pay for, the credit consume
+had to move **before** `receiptsRepo.create()` — checking the balance separately
+and then creating would reintroduce the read-then-write race that the guarded
+`UPDATE … WHERE scan_credits >= n` exists to prevent. Correct, and it also meant
+a `create()` that FAILS leaves the charge behind.
+
+**The rule that resolves it — classify create failures by whether the client
+retries:**
+
+- **Transient** (DB blip → 503/500): the client retries the same id, the
+  idempotent consume answers `alreadyConsumed`, and the user is charged exactly
+  once for a receipt they do get. **No compensation needed.**
+- **Terminal** (the id already belongs to another account → 409): the client
+  never retries. The credit is gone, for a row that never existed.
+
+There is exactly one terminal case, so **pre-check it** rather than compensating
+after the fact.
+
+- **A compensating refund is worse.** Reversing the charge leaves the consume's
+  ledger row in place, so the retry sees `alreadyConsumed` and creates the row
+  without charging — trading a stranded charge for a free unit of work.
+- **Prevent:** before moving a charge earlier in a handler, enumerate every way
+  the paid-for operation can fail and ask *does the client retry this one?* Only
+  the no-retry failures need a guard.
+
+**How it was caught, and the trap next to it.** An existing test named the
+invariant outright — *"POST /api/receipts maps a cross-account id collision to
+409 and charges nothing"* — over the comment *"charge follows create"*. In the
+same CI run ~36 OTHER tests failed, all genuine fixture drift: their mocked
+`verifyAuth` returned an email but no `emailVerified`, so `upsertFromOAuth`
+granted 0 trial credits and every receipt POST 402'd. It would have been easy to
+sweep all 37 into that bucket and "fix the fixtures". **A test name that states
+an ordering invariant is load-bearing — read it before assuming drift.**
+
+Two smaller notes from the same run:
+
+- **`npm test` is `jest --ci --coverage`.** A bare `npx jest` passes while CI
+  fails, because the gate is the per-file coverage ratchet, not the assertions.
+  Run the script, not the runner.
+- **Sweep for affected fixtures on the ROUTE STRING, not the call shape.**
+  Several suites reach `/api/receipts` through a local `post()` helper, so a
+  grep for `request(app).post("/api/receipts")` misses them.
