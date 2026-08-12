@@ -7440,3 +7440,87 @@ just by using the app normally.
   or "the app came back".
 - **Put the rule in a module, not inline.** A test that re-implements the gate
   keeps passing after the caller drifts — the same trap as #192, one layer down.
+
+## 195. A dedupe that collapsed requests carrying different intent
+
+**Class: a cache key that omits a load-bearing parameter.** `hydrateFromBackend`
+guarded against concurrent bootstraps with a single `_inFlight` promise and
+returned it to every caller. But its `reason` is not a label — `?reason=signin`
+is the ONLY thing that tells the backend the call follows a real sign-in, and
+therefore the only thing permitted to revive an account inside its deletion
+grace window. The dedupe ignored it, so callers with *different intent* were
+handed each other's answers.
+
+The trigger was structural, not rare. Signing in backgrounds the app (the OAuth
+sheet), so returning to the foreground fires a `reason:"foreground"` hydrate at
+exactly the moment sign-in fires its own. The sign-in call joined it, the server
+never saw `reason=signin`, answered **403 `account_deleted`**, and the 403
+handler **signed the user out — mid-signup**. Every retry from that state failed
+the same way until the foreground hydrate's five-minute throttle lapsed, which
+is why it was reported as "I couldn't re-create my account for a few minutes".
+
+- **Diagnostic tell:** a bug whose duration matches a throttle interval is a
+  race with that throttle, not a slow server. "A few minutes" was the 5-minute
+  `lastHydrate` gate in `App.js`, and it named the cause before any log did.
+- **Fix in two places, because either alone leaves a hole.** Make the dedupe
+  reason-aware (a signin hydrate queues behind a non-signin one rather than
+  joining it), AND suppress the destructive side effect while a sign-in is
+  pending. Deduping correctly still leaves a losing 403 free to sign the user
+  out first.
+- **Prevent:** if a parameter changes what the server *does*, it belongs in the
+  dedupe key. Ask of every shared in-flight promise: "would I be happy handing
+  this to a caller who passed different arguments?"
+- **A late subscriber must still be notified.** Adding an `onAccountKnown`
+  callback to a deduped function is a trap: the second caller — the one holding
+  the callback — joins after the moment has passed. Remember the answer and fire
+  immediately for late joiners, or the UI waits forever on a signal that already
+  happened.
+
+## 196. A spinner drawn in its own button's background colour
+
+**Class: two constants that must differ, with nothing saying so.** The onboarding
+CTA rendered `<ActivityIndicator color="#fff" />` inside a style whose
+`backgroundColor` is `#fff`, and rendered *only* the indicator while in flight.
+White on white: the button became a blank, dimmed box. Reported as "the text
+disappeared and the button looked disabled" — which is exactly what it looked
+like.
+
+It surfaced on the referral-code path because entering a code adds a redemption
+round-trip (and an alert) ahead of the profile sync, stretching a sub-second
+flicker into seconds. The defect was always there; the referral code only made
+it last long enough to notice.
+
+- **Fix the invariant, not the literal.** The indicator now reads its colour
+  from the button's own label style, so the two cannot drift apart again, and the
+  label stays rendered beside the spinner — a working button should never be
+  mute, for sighted users or for screen readers.
+- **Test the relationship, not the value.** Assert `spinner.color !==
+  button.backgroundColor`. A test pinned to `"#0d3d28"` passes forever after a
+  palette change that reintroduces the bug.
+- **Prevent:** grep for `ActivityIndicator color=` whenever a button's fill
+  changes. Only one of this repo's nine call sites sat on a light button, and
+  that is precisely the one that was wrong.
+
+## 197. A mirrored directory with no parity check
+
+**Class: a declared single source of truth that exists twice.** The backend
+deploys with `backend/` as its root, so its runtime `require("../shared/...")`
+resolves to `backend/shared/` — a hand-maintained byte-copy of the repo-root
+`shared/`. Nothing checked the two matched. `shared/ocrCleanup.js` had been
+refactored (a duplicated predicate extracted into `isWarehouseInfoLine`) and the
+backend copy never got it; the drift was found only when a parity test was added
+for an unrelated reason and went red on its first run.
+
+That instance was benign — behaviour was identical and nothing on the backend
+called the new export. The neighbour is not: `shared/pricing.config.js` calls
+itself "SINGLE SOURCE OF TRUTH for paywall content" and is one of the copies. A
+price fixed in one and not the other has the app and the server quoting different
+numbers, with the server's copy — the one that charges money — being the easier
+of the two to forget.
+
+- **Prevent:** `__tests__/sharedMirrorParity.test.js` asserts every file present
+  in both directories is byte-identical, with the list DERIVED from the
+  intersection plus a meta-assertion, so it cannot silently narrow to zero.
+- **General form:** any file that exists twice needs either a build step that
+  generates one from the other, or a test that fails when they differ. "We'll
+  remember to update both" is not a mechanism.

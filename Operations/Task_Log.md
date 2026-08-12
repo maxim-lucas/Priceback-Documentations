@@ -4985,3 +4985,103 @@ for pass #8, regression table, on-device items 37–42) and Bugs #192–#194.
 equivalent on iOS; P3 snapshot overlay still needs a handset; the `.p8` key and
 `SESSION_TOKEN_SECRET` remain unset — and A1 is a reason to set the latter on a
 build that already sends nonces. No migration; production still owes `0005`.
+
+---
+
+## 2026-08-12 — 2.8.5 field bugs: signup vs restore, delete-and-recreate, and an admin credit desk
+
+**Asked:** four things from an iPhone test of 2.8.5. (1) Signup showed the restore
+screen and then created a new account — a signup should only create when the
+account does not exist, and restore when it does, with two different screens and
+two different messages. (2) With a referral code entered, the create-account
+button lost its text and looked disabled. (3) After deleting an account it was
+impossible to re-create it for a few minutes (always an error), and the credit
+reset to 0 — correct in general, but a deletion undone within ~2 hours is human
+error and should give the credits back. (4) A "manage credits" screen in the
+admin panel: filter (all/active/inactive), a user list, an amount, a radio for
+the action type, and a motif list scoped to that action.
+
+**Two of the three bugs were one root cause.** `hydrateFromBackend`'s in-flight
+dedupe was reason-blind, and `reason` is load-bearing — only `?reason=signin`
+may revive a soft-deleted account. Signing in backgrounds the app, so the
+foreground hydrate (`App.js`, 5-min throttle) races the sign-in one; the sign-in
+call joined it, the server never saw the reason, answered 403 `account_deleted`,
+and `syncService` **signed the user out mid-signup**. The "few minutes" in the
+report is that throttle. → Bugs #195.
+
+The blank button was white-on-white: `ActivityIndicator color="#fff"` inside a
+`#fff` button, rendered *instead of* the label. A referral code adds a redemption
+round-trip ahead of the profile sync, which is what stretched it from a flicker
+into seconds. Eight other `color="#fff"` call sites were checked — all on dark
+buttons. → Bugs #196.
+
+**The credit restore is derived, not snapshotted** — Maxim's call, and the better
+design. `requestDeletion` stops deleting `credit_ledger` and retains it for
+`CREDIT_RESTORE_GRACE_HOURS` (new app_config, default 2); a re-signin inside the
+window sets `scan_credits = SUM(delta)` and appends a **delta-0**
+`deletion_restore` audit row. Delta-0 is not a detail: the balance is derived
+*from* the sum, so a non-zero delta would double it. `balance == SUM(delta)`
+therefore holds by construction rather than by correction, and no new column can
+disagree with the ledger. **No migration** — the only new lookup value is a seed
+row in the existing `credit_event_types`.
+
+Two consequences, both handled: `purgeExpiredRestoreLedgers` (hourly cron) still
+completes the erasure once the window lapses, and `creditReconRepo` now excludes
+`status = false` rows — without that, every account deletion would have opened a
+reconciliation case, and "Apply" on one would have handed credits back to a
+deleted account.
+
+**Admin credit desk.** `shared/adminCreditReasons.js` is one motif list, required
+by the backend for validation and imported by the app for rendering, paired with
+the action (`chargeback` is not a reason to GIVE credits). Movements go through
+the existing `admin_adjust` type with `notes: "admin:<code>"` — a stable code,
+translated client-side, never rendered raw. A redeem is clamped to the live
+balance and *says* it was clamped. Routes reuse the sibling admin gate
+(`requireAuth` + `ADMIN_USER_SUBS`).
+
+### Caught while building
+
+- **A late subscriber to a deduped callback never fires.** `onAccountKnown` is
+  held by the onboarding screen's hydrate, which dedupes onto the one
+  `finalizeGoogleSignIn` already started. Remembering the answer and firing
+  immediately for late joiners is what stops the screen waiting forever on a
+  signal that already happened.
+- **My own first cut relabelled a returning user as new.** The setup route set
+  `isNewAccount(true)` unconditionally, clobbering the server's answer, so a
+  returning account with a half-finished profile was told to "create your
+  account". Caught by the test written for the opposite case.
+- **The new `shared/` ↔ `backend/shared/` parity test went red on its first
+  run** — `ocrCleanup.js` had genuinely drifted (benign here; `pricing.config.js`
+  is the neighbour where it would not be). Synced. → Bugs #197.
+- **`t()` cannot detect a missing translation** — it falls back to the key, so
+  comparing its output to the key is a heuristic. `hasKey()` exists for exactly
+  this and is what `catalogLabels.js` uses.
+
+### Tests & regression risk
+
+Mobile: 185 suites / 4324 tests green locally. New: `syncServiceHydrateReason`,
+`onboardingSignupVsRestore`, `adminCreditsScreen.smoke`, `adminCreditReasons`,
+`sharedMirrorParity`, plus admin-motif cases in `creditLedger`. Backend: new
+`creditRestoreWindowDb` and `adminCreditsRoutesDb`; the window arithmetic is a
+pure exported predicate tested under a **TZ matrix** (a duration, not a date, but
+the matrix is what stops a future refactor reaching for a calendar date).
+
+`accountDeletionTombstoneDb`'s "never re-grants the trial credits" case was
+**deliberately inverted**: it asserted `scanCredits === 0` after delete+restore,
+which is precisely the behaviour the fix changes. The half it was really
+protecting — that the trial grant must not re-*fire* — is still asserted, and is
+a different mechanism (`trial_credits_granted_at`, `emailEverGrantedTrial`).
+
+**Stated risk:** erasure of the credit ledger now completes up to the window plus
+an hour after deletion rather than in the same transaction — the deletion copy
+and privacy policy should be re-read for any claim of instant erasure. A second
+concurrent hydrate (signin + foreground) is now possible where there was one;
+both are read-mostly and `_applyPrefs` is already last-write-wins. Older client
+builds render an unknown `admin:<code>` motif via a translated generic fallback,
+never blank.
+
+### Still owed
+
+- Production still owes migration `0005_object_retention` by hand (unchanged —
+  this work adds no migration).
+- On-device verification of all four items on a standalone `device`-profile build.
