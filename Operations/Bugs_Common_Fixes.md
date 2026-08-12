@@ -7503,10 +7503,15 @@ it last long enough to notice.
 
 ## 197. A mirrored directory with no parity check
 
-**Class: a declared single source of truth that exists twice.** The backend
+**Class: a sync mechanism narrower than the thing it syncs.** The backend
 deploys with `backend/` as its root, so its runtime `require("../shared/...")`
-resolves to `backend/shared/` — a hand-maintained byte-copy of the repo-root
-`shared/`. Nothing checked the two matched. `shared/ocrCleanup.js` had been
+resolves to `backend/shared/`, a copy of the repo-root `shared/`.
+`backend/scripts/sync-shared.js` does maintain it — on `prestart`/`pretest` — but
+two holes make that weaker than it looks: it copies a **hardcoded list**, so a new
+shared module the backend requires is never synced at all; and its own docstring
+notes that on Railway there is no root `shared/` to copy from, so **the committed
+copy is what production runs**. A file edited at the root and committed without a
+local install/test run ships stale. `shared/ocrCleanup.js` had been
 refactored (a duplicated predicate extracted into `isWarehouseInfoLine`) and the
 backend copy never got it; the drift was found only when a parity test was added
 for an unrelated reason and went red on its first run.
@@ -7519,8 +7524,78 @@ numbers, with the server's copy — the one that charges money — being the eas
 of the two to forget.
 
 - **Prevent:** `__tests__/sharedMirrorParity.test.js` asserts every file present
-  in both directories is byte-identical, with the list DERIVED from the
-  intersection plus a meta-assertion, so it cannot silently narrow to zero.
+  in both directories is byte-identical AND that `sync-shared.js`'s `FILES` list
+  covers all of them, with the list DERIVED from the intersection plus a
+  meta-assertion, so it cannot silently narrow to zero.
 - **General form:** any file that exists twice needs either a build step that
   generates one from the other, or a test that fails when they differ. "We'll
   remember to update both" is not a mechanism.
+
+## 198. A deadline and the job that enforces it, running on different clocks
+
+**Class: an interval nobody owns.** A credit-restore window of 2 hours was
+enforced by a purge job running hourly, so between the window lapsing and the
+next sweep a tombstone was *past its deadline and still holding the data*.
+Nothing was wrong with either number — the bug lived in the gap between them.
+
+Reviving an account in that stretch flipped `status` back to true, and the purge
+only targets tombstones, so the retained rows would have survived **forever**
+against a deliberately zeroed balance. Permanent drift, which the reconciliation
+sweep would then have opened a case for and offered to "fix" by handing back
+exactly the credits the lapsed window said were forfeit.
+
+- **Prevent:** whenever a deadline is enforced by a scheduled job, the code that
+  *reads* the deadline must also handle the interval before the job catches up.
+  Do not assume the sweeper got there first.
+- **Watch for state transitions that remove a row from the sweeper's scope.**
+  Here, reactivation made the row permanently invisible to the only thing that
+  would have cleaned it. Ask of any status flip: "does this take the row out of
+  a queue that still owes work on it?"
+- Found by re-reading the diff while CI was still running, not by a red run —
+  the same lesson as #191.
+
+## 199. `await` on a shared promise frees the slot for one turn
+
+**Class: a re-check that was written as an assumption.** Guarding "this caller
+must not join the in-flight request" with
+
+    if (inFlight && mustNotJoin) await inFlight;
+    if (inFlight) return inFlight;   // ← inFlight may be a NEW one by now
+
+is subtly wrong: between the `await` resolving and the next line, the slot is
+empty for one microtask turn, and anything that starts a new request in that turn
+recaptures the caller you were protecting. Use `while`, not `if` — re-check the
+condition after waiting instead of assuming it still holds.
+
+- **It cannot spin** as long as each iteration awaits a promise that must settle,
+  and the producers are throttled. A `while` here is not a busy-loop.
+- **General form:** any "wait for X, then act on X" across an `await` boundary
+  needs the condition re-read, not remembered. This is the async equivalent of a
+  TOCTOU check.
+
+## 200. `Number()` on a money route accepts "1e3"
+
+**Class: coercion that looks harmless until you price it.** An admin credit
+endpoint read its amount as `Number(req.body.amount)` and validated with
+`Number.isInteger(amount) && amount > 0 && amount <= MAX`. That validation is
+correct — and useless, because the coercion happens first:
+
+    Number("1e3")  → 1000   ✅ isInteger
+    Number(" 10 ") →   10   ✅ isInteger
+    Number(true)   →    1   ✅ isInteger
+    Number([5])    →    5   ✅ isInteger
+
+A client sending the three-character string `"1e3"` is granted a thousand
+credits. Every guard downstream passes, because by the time they run the value
+really is a positive whole number.
+
+- **Fix:** require the real type — `typeof body.amount === "number"` — and let
+  everything else be the 400 it is. A client sending a string is a client bug
+  worth surfacing, not one worth silently accommodating.
+- **Caught by a test that was stricter than the code**, listing `"10"` among the
+  values that must be refused. The route accepted it, and following that up is
+  what surfaced `"1e3"`. Write the refusal list from the *type* you intend, not
+  from the values you happened to think of.
+- **Prevent:** on any endpoint that moves money or credits, treat `Number(x)`,
+  `parseInt(x)` and `+x` on request input as a smell. Validate the type first,
+  then the value.

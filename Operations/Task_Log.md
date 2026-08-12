@@ -5085,3 +5085,55 @@ never blank.
 - Production still owes migration `0005_object_retention` by hand (unchanged —
   this work adds no migration).
 - On-device verification of all four items on a standalone `device`-profile build.
+
+**Post-commit addendum (same day), found by re-reading the diff rather than by a
+red run.** Two gaps, both in the seam between the restore window and the job that
+enforces it:
+
+- **A window measured in hours, enforced by an hourly job, has a stretch where
+  the two disagree.** A tombstone past its 2-hour window still holds its ledger
+  until the purge next runs. Reviving in that stretch flips `status` back to
+  true — and the purge only targets tombstones — so those rows would have
+  survived *forever* against a zeroed balance. Permanent drift, which the
+  reconciliation sweep would then have offered to "correct" by handing back
+  exactly the credits the lapsed window said were forfeit. `upsertFromOAuth` now
+  completes the erasure itself when it revives a tombstone outside the window.
+  **General form: when a deadline and the job that enforces it run on different
+  clocks, the code that reads the deadline must handle the interval between
+  them.**
+- **A single `await` on a shared in-flight promise leaves the slot free for one
+  microtask turn.** The sign-in hydrate's guard is now a `while`, not an `if`:
+  re-check after waiting rather than assume nothing started. It cannot spin —
+  every iteration awaits a promise that must settle, and the only non-signin
+  producers are throttled (boot once, foreground once per five minutes).
+
+**CI round-trip (first backend run, 19m28s, two failures — both informative).**
+
+- **`Number()` coercion on the admin credit route.** The refusal list in the new
+  test included the string `"10"`; the route accepted it, because
+  `Number("10")` is a positive integer by the time the guards run. Following that
+  up found the real one: `Number("1e3")` is 1000 and passes `isInteger`, so a
+  three-character string would have granted a thousand credits. Now requires
+  `typeof === "number"`. → Bugs #200.
+- **A second test asserting the erasure contract I inverted.**
+  `usersRepoDb.test.js` also required `rawLedgerCount === 0` after
+  `requestDeletion`. Updated deliberately, and extended to assert the bounded
+  half — `purgeExpiredRestoreLedgers` still takes it to zero — so the retention
+  is pinned as a *window*, not as "we stopped deleting".
+
+**Correction to the note above about `backend/shared/`.** There IS a sync
+mechanism — `backend/scripts/sync-shared.js`, on `prestart`/`pretest` — which the
+first pass missed because it builds its paths with `path.resolve` and never
+contains the string "backend/shared". It is narrower than it looks, though: it
+copies a hardcoded `FILES` list (so a new shared module is outside it entirely),
+and it no-ops on Railway, where the committed copy is what production runs. So
+the `ocrCleanup.js` drift was real for a deploy, just self-healing on any local
+test run. `adminCreditReasons.js` added to `FILES`, and the parity test now also
+asserts that list covers every mirrored file.
+
+**Also hardened before the second push, from re-reading the diff:** the admin
+redeem clamp was a read-then-write race (two concurrent redeems could each take
+the full balance). Moved into `creditsRepo.applyAdminAdjustment`, which locks the
+users row first — the same pattern `creditReconRepo.apply` already uses. → the
+general form is in Bugs #199's neighbourhood: a check and the write it guards
+must not straddle an await without re-reading.
