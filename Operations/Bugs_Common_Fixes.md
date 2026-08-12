@@ -7361,3 +7361,82 @@ suite sends a throwaway `Bearer x` for exactly this reason.
 
 **A red run hides the next bug.** When CI fails for a known reason, re-read the
 diff rather than waiting for the rerun to tell you what else is wrong.
+
+---
+
+## 192. A comment cited as evidence that a fix had shipped
+
+**Class: documentation used as a test.** Audit #4 capped the price-tag image
+presign server-side. No client ever sent the `imageBytes` field it reads, so the
+cap took its "caller declined to declare" branch every time and was never once
+enforced. Two audits later, the receipt twin was fixed — and its new comment said
+*"the price-tag path has done this since audit #4's S4"*, on the strength of the
+server-side constant existing. Nobody opened the tag client. The claim was false
+when written and stayed false for two more passes.
+
+This happened **inside** the fix for #189, whose own lesson is "hardening applied
+to one of two twin routes". The shared `imagePresignDecision` was introduced
+exactly so the twins could not drift — and they drifted anyway, on the *client*
+side, where the shared function could not reach.
+
+- **Prevent:** a claim that another call site already does X is a claim you can
+  check in one grep. Do the grep before writing the sentence.
+- **Extracting a shared helper only de-duplicates the half you extracted.** Ask
+  what the *other* end of the wire has to send for the helper to do anything, and
+  assert that too. A server-side cap that no client can trigger is dead code that
+  reads as protection.
+- **Corollary for audits:** when a pass cites a previous pass as having covered
+  something, that citation is a lead, not a result.
+
+---
+
+## 193. An empty value where a missing one was expected
+
+**Class: a degraded dependency producing "" instead of failing.** New code hashed
+a random nonce via `expo-crypto` and passed the digest to Sign in with Apple.
+Under the test environment's native mocks `digestStringAsync` resolves to an empty
+string, so the call went out as `nonce: ""`.
+
+An empty nonce is **strictly worse than no nonce**. The verifier's rollout policy
+is "no `nonce` claim → legacy, allow; claim present → must match". `""` is not
+null, so a token carrying it takes the *enforced* branch and is compared against
+`sha256(raw)` — a guaranteed mismatch. Every Apple sign-in would have 401'd, on
+the one auth path that has no fallback.
+
+The pre-existing suites caught it, which is the point worth keeping: they failed
+on an unexpected argument shape, not on the bug itself, and the temptation was to
+update the assertion and move on.
+
+- **Prevent:** validate the *shape* of anything a native/async dependency returns
+  before acting on it, not just its truthiness. `/^[0-9a-f]{64}$/` on a SHA-256 hex
+  digest costs nothing and turns a silent lockout into a clean degrade.
+- **When an old test fails because of a new argument, ask what the new argument's
+  value is** before rewriting the expectation. The assertion was right to fail.
+- **Related to #189's `Number()` note:** absence and emptiness are different
+  states, and a policy branch that keys on one must be explicit about the other.
+
+---
+
+## 194. AppState "active" is not a foregrounding on iOS
+
+**Class: a platform divergence with no `Platform.OS` to grep for.** A sweep wired
+to `AppState` `state === "active"` ran on every genuine return to the app on
+Android — which only moves active ↔ background — and on iOS *also* ran for every
+Control Centre pull, notification-shade drag, app-switcher half-swipe and **every
+system permission dialog**, because each enters `inactive` and then returns to
+`active`. On a scanning app that is twice per scan.
+
+The work behind it was not free: offline queue drains, parked purchase-confirm
+flushes, and a RevenueCat sync that posts to an endpoint rate-limited to 10/min
+per account — so a paying user could 429 their own subscription reconciliation
+just by using the app normally.
+
+- **The obvious fix is wrong.** Comparing against the *previous* state cannot
+  work: iOS reports `background → inactive → active` on a real return, so the
+  state immediately before `active` is `inactive` in both cases. Latch whether
+  `background` was ever reached instead — the gate needs memory, not a comparison.
+- **Prevent:** treat `AppState` as platform-divergent by default. Anything
+  expensive behind `"active"` needs to say whether it means "the app is on screen"
+  or "the app came back".
+- **Put the rule in a module, not inline.** A test that re-implements the gate
+  keeps passing after the caller drifts — the same trap as #192, one layer down.

@@ -4931,3 +4931,57 @@ CI: the new export suite sent no `Authorization` header, and `requireAuth` match
 that header *before* calling `verifyAuth` — so injecting `app.locals.verifyAuth`
 is not enough on its own. Recorded as Bugs #191, with the general form: **a red
 run hides the next bug; read the diff rather than waiting for the rerun.**
+
+---
+
+## 2026-08-12 — iOS audit #7 (deep security pass: auth, credits, RevenueCat, account, scans)
+
+**Asked:** a full, deep iOS audit with security first — authentication, credit
+management, RevenueCat, account management, receipt scans, price-tag scans —
+including any iOS/Android behavioural difference, everything documented if not
+fixed, and explicitly *not* re-doing the bugs the previous audits already
+documented.
+
+**Approach.** Read all six prior iOS audits first, then deliberately targeted the
+three kinds of place they had structurally not looked: claims the codebase makes
+about itself; primitives that were verified correct, for the checks they do *not*
+perform; and platform behaviour with no `Platform.OS` to grep for. Five defects,
+all fixed.
+
+- **A1 (Medium-High)** — Sign in with Apple carried **no nonce**, so the identity
+  token was replayable by anything that could observe it. On iOS that escalates:
+  the token is redeemable at `POST /api/auth/session` for a **60-day** refresh
+  token. Fixed with the standard binding (client hashes, Apple gets the digest,
+  backend gets the raw value on `x-apple-nonce`), rolled out **accept-if-present**
+  so no TestFlight build can be locked out. `/health` now reports
+  `appleAuth.nonce.{verified,legacy}` so the flip to mandatory is a data decision.
+- **A2 (Medium)** — the price-tag presign was **never capped**: audit #4 added the
+  server-side ceiling, no client ever sent `imageBytes`, and audit #6's receipt fix
+  contained a comment asserting the tag path already did. Client now declares;
+  comment corrected. → Bugs #192.
+- **A3 (Medium)** — the foreground sweep fired on **every transient iOS
+  interruption** (Control Centre, permission dialogs — twice per scan), re-running
+  both queue drains, the top-up flush and a RevenueCat sync that posts to a
+  10/min-per-account endpoint. Gate extracted to `src/utils/foregroundGate.js`.
+  → Bugs #194.
+- **A4 (Low)** — `flagged` blocked *spending* credits but not *earning* them; tag
+  settlement and referral redemption both ignored it. Now guarded, with the
+  observation still recorded (the price data is not what is under suspicion).
+  New EN/FR copy `profile.referralFlagged`.
+- **A5 (Low)** — `minimumInterval: 24h` is a floor iOS deprioritises; now
+  platform-split (2 h on iOS). Refines, does not close, the carried
+  "iOS background execution is materially weaker" item.
+
+**Caught mid-implementation and worth remembering:** the first nonce
+implementation shipped `nonce: ""` when the native digest was unavailable — which
+is *worse* than no nonce, because an empty claim is not a missing one and takes
+the enforced branch, 401-ing every Apple sign-in. The pre-existing Apple suites
+caught it. → Bugs #193.
+
+**Docs:** `Technical/iOS_Audit_2026-08-12_Pass7.md` (findings, verified-clean list
+for pass #8, regression table, on-device items 37–42) and Bugs #192–#194.
+
+**Not in scope / still open:** `checkAllPriceDrops` still has no foreground
+equivalent on iOS; P3 snapshot overlay still needs a handset; the `.p8` key and
+`SESSION_TOKEN_SECRET` remain unset — and A1 is a reason to set the latter on a
+build that already sends nonces. No migration; production still owes `0005`.
