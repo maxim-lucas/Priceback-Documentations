@@ -7599,3 +7599,103 @@ really is a positive whole number.
 - **Prevent:** on any endpoint that moves money or credits, treat `Number(x)`,
   `parseInt(x)` and `+x` on request input as a smell. Validate the type first,
   then the value.
+
+## 201. On iOS, `inactive` means *visible*, not gone
+
+**Class: one platform's extra state answering a question it was never asked.**
+Android's `AppState` only ever moves `active ↔ background`. iOS adds `inactive`,
+and enters it for a Control Centre pull, a notification-shade drag, an
+app-switcher half-swipe **and every system permission dialog** — while the app is
+still fully rendered on screen behind them.
+
+So `AppState.currentState === "active"` does not mean "the app is on screen". It
+means "the app is on screen *and* nothing is overlaying it", which is almost
+never the question being asked. Two different questions get confused with it:
+
+| Question | Right answer |
+|---|---|
+| "Did the app LEAVE and come back?" | latch on `background`, fire once on the next `active` |
+| "Can the user SEE the app right now?" | `state !== "background"` |
+
+Getting the second one wrong is the expensive direction, because the failure is
+invisible in review and iPhone-only:
+
+- a notification suppressed "while the app is open" fires **over the open app**,
+  and the likeliest moment is during a permission dialog — which is part of the
+  very flow whose completion triggers the notification;
+- a poller torn down on "the app left" restarts on the way back and re-runs its
+  immediate first tick, once per interruption.
+
+- **They are not interchangeable.** A gate is deliberately `false` during an
+  interruption — which is exactly when the app IS on screen. Reusing the gate for
+  the second question re-introduces the bug pointing the other way.
+- **Prevent:** name both predicates, put them in one module, and assert that the
+  call sites import them rather than comparing to a literal. This bug was found
+  twice: a correct fix shipped to one of three call sites and nothing pointed at
+  the other two, so they carried it for a whole audit cycle.
+- **Assert positively** ("this file routes through the predicate"), not with a
+  blanket "no file may compare to `active`" — some comparisons are legitimately
+  strict, and a guard that fires on correct code gets deleted.
+
+## 202. A shared in-flight promise turns one missing timeout into a total stall
+
+**Class: a correct de-duplication amplifying an unrelated omission.** Coalescing
+concurrent callers onto one request is the right pattern when the underlying
+operation must not be repeated — a rotating single-use refresh token is the
+canonical case, since spending it N times reads as token theft and gets the whole
+session family revoked.
+
+The catch: that shared promise is now on the critical path of everything that
+awaits it. If the request behind it has no timeout, one wedged connection does
+not stall one caller — it stalls *every* caller, indefinitely.
+
+And a caller's own `AbortController` does not help. It covers the caller's own
+request, never the token acquisition that runs *ahead* of it:
+
+    authedFetch → getAccessToken → refreshShared → fetch   ← the un-timed one
+
+- **Audit the whole path, not the leaf.** "Every network call has a timeout" was
+  true of every call the callers made and false of the three that gated them.
+- **The token/auth path deserves the timeout most,** not least — it is the one
+  every other request queues behind.
+- **Make the timeout degrade into an EXISTING branch.** Here it returns the same
+  `null` that "no session" already returned, so the fallback is a path that has
+  always been exercised rather than a new one written for the failure case.
+- **A timeout is not proof the credential died.** Keep the refresh token and
+  retry; only an explicit 401 should clear it. Clearing on a network blip signs
+  the user out of a perfectly good session.
+- **Related:** file uploads are the usual second offender, because
+  `uploadAsync`-style helpers take no signal. Use the cancellable task form
+  (`createUploadTask` + `cancelAsync`) and race it. On iOS an upload in flight
+  when the app backgrounds is **suspended, not failed** — so the stall lasts as
+  long as the user is away, and the JS timer that would have caught it is
+  suspended too.
+
+## 203. Erasing the history without erasing the balance it backed
+
+**Class: a cleanup written against an invariant that another path can break.**
+When a balance column is derived from an append-only ledger, "erase this
+account's credits" is two writes: delete the rows, and zero the column. Code that
+does only the delete is relying on the column already being 0 — which is true at
+the moment the deletion runs, and not true later.
+
+The thing that breaks it is any path that credits an account *without checking
+whether it is still alive*. There are usually several, and they are all
+reasonable in isolation:
+
+- a **deferred** reward that settles days later, keyed on a device or a
+  contribution rather than on a live session;
+- a **webhook** whose delivery is retried long after the user is gone;
+- an **admin tool** that deliberately lists deactivated accounts.
+
+- **Symmetry test:** for any pair (derived value, source of truth), ask what
+  happens if the source is deleted while the derived value is non-zero — and then
+  ask the same question with the two swapped. Both directions are drift; only one
+  is usually noticed.
+- **Drift on a deactivated row is the dangerous kind**, because reconciliation
+  sweeps normally *skip* deactivated rows. Nothing reports it until the account
+  comes back, at which point it is indistinguishable from a legitimate balance.
+- **Count what you corrected and log it.** A cleanup that had to fix something is
+  evidence a path credited a dead account; a silent `UPDATE` throws that away.
+  Add `WHERE value <> 0` so the counter stays at zero for the ordinary case and
+  the log line means something when it fires.

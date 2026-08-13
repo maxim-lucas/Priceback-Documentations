@@ -16,6 +16,49 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-08-12 — iOS audit #8: the calls that could not finish, and PR #260's un-audited credit code
+
+- **Asked (/goal):** "run a full detailed and deep audit specially for the IOS
+  system, i want a deep analyzing to detect also if there is any difference
+  between IOS and Android behavior, everything should be documented if not fixed.
+  the most important is the security to be the best as possible, authentification,
+  credit managamenet, revenueCat, account management, receipt scans, price tag
+  scans, dont try to do the documented bugs in the previous audit for now."
+- **Decision/constraints:** ONE branch/PR covering both the iOS client fixes and
+  the backend credit/account fixes (Maxim's call — backend CI is serialized
+  repo-wide, so two open PRs evict each other). P1 touches the iOS auth path;
+  Maxim chose to **fix** it rather than document-only, on the condition that every
+  new failure mode degrades into the existing "no session → provider token"
+  branch. Previously-documented items from passes #1–#7 explicitly left alone.
+- **Why a pass #8 could find anything:** (a) **PR #260 landed after pass #7** —
+  ~3,000 lines of credit/account code no audit had ever read; (b) pass #7's A3 was
+  a correct fix applied to **one of three** call sites; (c) structurally, every
+  prior pass asked whether network calls exist and are authorized, never whether
+  they can **finish**.
+- **Findings (5, all fixed):** P1 the three iOS session routes had no timeout and
+  a shared in-flight promise made one stalled refresh block every authenticated
+  request on the device; P2 both image uploads un-timed, the receipt one awaited
+  inside the sync drain (iOS *suspends* a backgrounded upload rather than failing
+  it); P3 the "`inactive` is on screen" bug at the two call sites A3 missed; P4
+  completing the erasure deleted the ledger and left the balance; P5 the two admin
+  credit-desk routes had no rate limit.
+- **Status:** Priceback#261 open. Docs: `Technical/iOS_Audit_2026-08-12_Pass8.md`,
+  Bugs #201–#203. No migration.
+- **Three things worth not re-deriving:**
+  - **The predicate is not the gate.** Reusing `createForegroundGate` for "is the
+    app on screen" is wrong — the gate is deliberately false during an
+    interruption, which is exactly when the app IS visible. Two questions, two
+    predicates, one module (`src/utils/foregroundGate.js`).
+  - **The recurrence guard asserts positively.** A blanket "no file may compare to
+    `=== "active"`" would fire on `App.js:357`, which gates the badge clear
+    strictly on purpose. A guard that fires on correct code gets deleted.
+  - **P5's audit trail was less broken than first filed.** `middleware/audit.js`
+    already stamps `req.user.sub` on every request — what it never records is the
+    body. So the actor went into `credit_ledger.ref`, NOT into `notes`: the client
+    parses everything after `admin:` as the motif code, so appending it there would
+    have downgraded every admin row in every shopper's credit history to
+    "Adjustment".
+
 ### 2026-08-11 — iOS audit #5: close the owed money batch, then sweep new ground
 
 - **Asked (/goal):** "run a full detailed and deep audit specially for the IOS
