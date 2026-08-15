@@ -7699,3 +7699,87 @@ reasonable in isolation:
   evidence a path credited a dead account; a silent `UPDATE` throws that away.
   Add `WHERE value <> 0` so the counter stays at zero for the ordinary case and
   the log line means something when it fires.
+
+## 204. R8 full mode strips a class named only in a manifest string — background fetch died silently in production
+
+**Symptom.** Nothing. That is the whole problem. The build is green, CI is green, Play
+Console is green, and the app launches and works. Only `adb logcat` on a real device shows
+it, on **every** host pause and resume:
+
+```
+E Expo    : Cannot initialize app loader.
+java.lang.ClassNotFoundException: expo.modules.adapters.react.apploader.RNHeadlessAppLoader
+    at java.lang.Class.forName(Class.java:496)
+    at oa.a.a(SourceFile:42)                      <- obfuscated AppLoaderProvider
+    at expo.modules.adapters.react.NativeModulesProxy.getConstants
+I BackgroundFetchTaskConsumer: Stopping an alarm for task 'PRICEWATCHER_BG_PRICE_CHECK'
+```
+
+The exception is **caught** by Expo and printed to `System.err`. It never reaches Sentry,
+never shows a UI error, and never crashes anything. Background price checks simply never
+run.
+
+**Cause.** Expo names that class in exactly one place — a *string* in `expo-modules-core`'s
+own `AndroidManifest.xml`:
+
+```xml
+<meta-data android:value="expo.modules.adapters.react.apploader.RNHeadlessAppLoader" />
+```
+
+R8 cannot see a manifest string. Nothing references the class statically, so full mode
+(`android.enableR8.fullMode=true`) removes it as unreachable. The class is real and present
+in expo-modules-core 55 — it is the loader that starts a **headless JS context**, which is
+what `expo-task-manager` and `expo-background-fetch` need in order to run at all.
+
+Shipped broken in **2.8.5** (the first release carrying R8) and undetected until the
+hardware pass on 2026-08-15.
+
+**Fix.**
+
+```proguard
+-keep class * implements expo.modules.apploader.HeadlessAppLoader { *; }
+```
+
+`-keep`, not `-dontwarn` — the class exists and must survive. (Contrast #130, where the
+class genuinely did not exist and `-dontwarn` was correct.) Scoped to implementors of the
+interface rather than a package wildcard, so a future Expo loader is covered without
+widening the rule.
+
+**How to find the whole family, not just the one that bit you.** Two sweeps, both cheap:
+
+```bash
+# 1. classes named only as a manifest string — R8 is blind to these
+grep -rhoE 'android:value="[a-z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+){2,}"' \
+  node_modules/*/android/src/main/AndroidManifest.xml \
+  node_modules/@*/*/android/src/main/AndroidManifest.xml | sort -u
+
+# 2. reflective lookups by string literal
+grep -rhoE 'Class\.forName\("[a-zA-Z0-9_.$]+"' node_modules/*/android/src | sort -u
+```
+
+Then confirm empirically against a device log rather than pre-emptively keeping everything:
+
+```bash
+grep -oE "ClassNotFoundException: [a-zA-Z0-9_.$]+" logcat.txt | sort -u
+grep -oE "(NoSuchMethodError|NoSuchFieldError|NoClassDefFoundError|UnsatisfiedLinkError)" logcat.txt | sort -u
+```
+
+In this occurrence sweep 1 returned exactly one class (this one) and sweep 2 returned ten
+candidates of which all but this one resolved fine at runtime — `ExpoModulesPackageList`,
+`SplashScreenManager`, ML Kit `BarcodeScanning`, gesture-handler included. Keeping all ten
+would have been cargo-culting.
+
+**Rules.**
+- **A caught reflective failure is invisible to every gate you have.** Build, CI, crash
+  reporting and store review all pass. Only a device log finds it. This is the reason the
+  R8 hardware checklist exists.
+- **`-keep` vs `-dontwarn` is decided by whether the class exists**, not by which error you
+  saw. Missing at build time → `-dontwarn`. Present but resolved by name at runtime →
+  `-keep`.
+- Manifest `<meta-data android:value="...">` and `Class.forName("literal")` are the two
+  shapes R8 structurally cannot follow. Sweep both after enabling or upgrading R8.
+- Guard every keep rule with a test asserting the rule is present. Losing one reintroduces
+  a silent, release-only failure. See `__tests__/withAndroidR8FullMode.test.js`.
+
+**Occurrence.** 2026-08-15, Pixel 10 / Android 17, preview APK 2.8.8 (build `20bb08e7`).
+Fixed in PR #266.
