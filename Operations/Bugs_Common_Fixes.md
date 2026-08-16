@@ -7866,3 +7866,51 @@ deploy by probing routes added in known PRs — `401` means the route exists,
 **Occurrence.** Production auth dead from 2026-08-12 12:16 UTC; reported
 2026-08-16 against 2.8.8 from Play, and seen earlier on 2.8.5. Health fix +
 `lib/googleAuthHealth.js` + `healthAuthAudiences.test.js`.
+
+**Addendum (same day) — the two follow-ups, and what the first one disproved.**
+
+`/health` was shipped first precisely because it is server-side: it needed no app
+release, and the moment it deployed one anonymous curl answered the question.
+What it answered was **not** the leading hypothesis:
+
+```json
+"auth": { "status": "degraded", "audiences": 2,
+          "clients": { "web": true, "android": true, "ios": false },
+          "signIn":  { "android": true, "ios": false } }
+```
+
+`GOOGLE_CLIENT_ID_IOS` is unset on the production service — **every
+Google-signed-in iPhone 401s**, a real defect and a one-variable fix. But
+`signIn.android: true`, so the Android report it was chasing has a *different*
+cause. Ruling out the rest took a schema diff of dev vs prod
+(`information_schema.columns`, identical but for `object_retention`), the EAS
+production environment (defines no `GOOGLE_CLIENT_ID*` at all, so builds fall
+through to `common.js` — no drift), and an OAuth-client existence probe against a
+bogus-client control (all three clients exist).
+
+**A correction worth keeping.** "Zero authenticated writes for four days" was
+read as four days of *failure*. With six test users and the developer heads-down
+on audit PRs, it equally supports four days of *no usage*. Frozen timestamps
+prove the absence of success, never the presence of failure — the honest claim
+was always the narrower one: *this* attempt, today, fails.
+
+**What made the next one answerable** (`auth_outcomes`, migration 0006): the
+durable record is kept SEPARATE from the in-memory 401 counter, because the two
+need opposite membership. The counter drives an alert email, so it must stay
+restricted to rejected tokens — folding in "no Authorization header at all" would
+let ordinary internet scanning cross the threshold and page on bots. The table
+wants exactly those rows, because *"the client sent no token"* and *"the client
+sent a bad token"* are different bugs that reach the user as one sentence.
+`auth_required` had been recorded nowhere at all.
+
+Verified on production immediately after deploy — two provoked refusals, two
+rows, correctly told apart:
+
+| reason | status | detail |
+|---|---|---|
+| `auth_required` | 401 | *(null)* |
+| `verify_threw` | 401 | `Wrong number of segments in token: …` |
+
+`detail` is scrubbed of JWTs and `Bearer` prefixes and truncated: it is an error
+message from code we do not control, and one echoing the Authorization header
+would persist a live credential.
