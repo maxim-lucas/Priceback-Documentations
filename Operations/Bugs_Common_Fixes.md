@@ -7957,3 +7957,72 @@ Verified live on both services immediately after deploy:
 The neighbouring one-value-two-places bug is now tested too: `app.json`'s
 `iosUrlScheme` must match the iOS client id, or Google's redirect never returns
 to the app — same root cause, different symptom.
+
+## 206. A sign-in with no token still counted as a sign-in
+
+**Class: a partial success stored as a complete one.** When an operation produces
+two artifacts and only one is required to persist, storing the optional one
+unconditionally while the essential one is guarded creates a state the rest of
+the system has no name for — and here that state was indistinguishable from
+success everywhere except the network layer.
+
+**Symptom.** Google sign-in visibly succeeds — the screen shows
+*"Signed in as name@gmail.com"* — and then the app immediately shows
+*"We're sorry — sign-in can't be completed right now / Our service is temporarily
+unavailable."* RETRY never helps. Both platforms, multiple versions. Every
+server-side probe comes back clean, because nothing ever reached the server.
+
+**Mechanism.** All three sign-in paths (`signInWithGoogle`,
+`finalizeGoogleSignIn`, `signInWithApple`) did this:
+
+```js
+if (idToken) await secureSet(SECURE_KEY_ID_TOKEN, idToken);   // conditional
+await secureSet(SECURE_KEY_USER, JSON.stringify(user));       // unconditional
+```
+
+and then bound RevenueCat, fired the hydrate and returned success regardless. A
+provider result with no token therefore left:
+
+| what the app believed | what was true |
+|---|---|
+| "Signed in as `<email>`" | no credential at all |
+| `isSignedIn() === true` | `getValidIdToken() === null` |
+| user is authenticated | `authedFetch` sends **no** Authorization header |
+
+Every authenticated request then 401s, and — the part that makes it permanent —
+**retry cannot fix it**, because the UI believes sign-in already happened, so
+nothing in the app offers the provider prompt again.
+
+**Why every backend investigation came back clean.** No token ever reached the
+server. `/health`, the accepted audiences, the schema diff against dev, the seed
+rows, the connection pool and the deployed commit were all genuinely fine. Hours
+went into confirming that, which is the real cost of a client failure that
+produces a server-shaped symptom.
+
+**Fix.** A sign-in with no token is a FAILED sign-in. Checked before ANY write,
+so a failure leaves the device untouched instead of half-signed-in. Google
+retries once first (an empty token can be a transient GMS / Credential Manager
+result), then throws; Apple throws immediately, because Apple never omits an
+identity token on success. New `signin_no_token` error category with copy in
+every language — and the copy deliberately does not claim the user is signed in.
+
+**Rules.**
+- **If an operation has one indispensable output, guard THAT and let everything
+  else follow it.** The inverted shape — optional field guarded, essential field
+  written unconditionally — reliably manufactures a half-state.
+- **A success that the next call cannot use is not a success.** Return it as an
+  error at the boundary that produced it, not three layers downstream where the
+  only available message is "something went wrong".
+- **A UI that claims a session it cannot prove has no recovery path.** Any state
+  reading "signed in" must be reachable only when a usable credential exists,
+  or the user is stuck with no button to press.
+- **A test can pin a defect as a contract.** This one had a case literally named
+  *"a token-less result still persists the user"*. When fixing behaviour, read
+  the tests that pass for what they are asserting, not just the ones that fail.
+- Watch for fixtures that omit a field the real provider always sends: two Apple
+  cases about name mapping used credentials with no `identityToken`, so they
+  silently stopped testing what they were named after once the refusal landed.
+
+**Occurrence.** Reported 2026-08-16 against 2.8.8 from Play (and earlier on
+2.8.5). Fixed in PR #271. Related: Bugs #205, whose health-check and
+`auth_outcomes` work is what narrowed this to the client.
