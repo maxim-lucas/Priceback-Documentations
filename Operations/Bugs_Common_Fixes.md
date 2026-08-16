@@ -8026,3 +8026,70 @@ every language — and the copy deliberately does not claim the user is signed i
 **Occurrence.** Reported 2026-08-16 against 2.8.8 from Play (and earlier on
 2.8.5). Fixed in PR #271. Related: Bugs #205, whose health-check and
 `auth_outcomes` work is what narrowed this to the client.
+
+## 207. `eas update` bundles with the LOCAL profile — the first prod OTA would have repointed every user at the dev backend
+
+**Class: a delivery mechanism that re-resolves configuration at publish time,
+under different conditions than the build did.** Not yet an incident — found
+while evaluating whether an OTA could ship a hotfix, and recorded because the
+first production `eas update` is now genuinely deliverable and both landmines
+fire silently.
+
+**Setup.** The 2.8.8 Android production build carries `channel=production`,
+`runtimeVersion` is `{policy:"appVersion"}` = 2.8.8, the pending fix is JS-only,
+and the OTA signing key is available. Every precondition for a hotfix-by-OTA is
+met, so the temptation to run `eas update --branch production` is real.
+
+**Landmine 1 — the profile.** `eas update` performs the export **locally**, and
+`config/profiles/index.js` picks its profile from `process.env.EAS_BUILD`, which
+the update CLI does not set. The export therefore resolves the **local** profile.
+Measured, not assumed:
+
+```
+[app.config] build profile: local (EAS_BUILD=unset, APP_ENV=unset)
+priceApiUrl = https://priceback-development.up.railway.app
+```
+
+Publishing that repoints **every production install** at the development
+backend — a total data-plane switch, delivered silently, to users who did
+nothing.
+
+**Landmine 2 — the secrets.** Forcing `EAS_BUILD=true APP_ENV=production` fixes
+the URL and is *not* sufficient:
+
+```
+priceApiUrl = https://priceback-production.up.railway.app   ✓
+revenueCat  = "YOUR_REVENUECAT_API_KEY"                     ✗
+```
+
+The RevenueCat keys live only in the EAS **environment**, which a local export
+never sees, so `resolveRevenueCatKeys` falls through to the placeholder. That
+bundle ships a paywall where nothing is purchasable — the exact failure the
+store-build preflight exists to catch on `eas build`, reintroduced through a path
+the preflight does not guard.
+
+**Why neither is visible.** `eas update` reports success either way. The bundle
+is valid, signed, and accepted by the app; it is simply configured wrong. There
+is no build log to read, no CI step, and no store review between the command and
+every installed device.
+
+**Rules.**
+- **Any command that re-runs `app.config.js` outside `eas build` resolves a
+  different profile.** Treat the resolved `extra` as an output to be inspected,
+  not an invariant. Before any `eas update` to a channel a real build listens on:
+  ```
+  EAS_BUILD=true APP_ENV=production node -e "…print extra…"
+  ```
+  and verify `priceApiUrl`, `revenueCatApiKey`, `sentryDsn`, and that
+  `googleVisionApiKey` is `undefined`.
+- A correct publish needs the profile vars **and** `--environment production`, so
+  EAS injects the secrets into the local export. That combination has never been
+  exercised here.
+- **This is why the first update to a channel must be a no-op bundle verified on
+  a device.** The rule was written as caution about an untested delivery path; it
+  is really about the configuration the path re-derives.
+- A preflight that guards one entry point (`eas build`) does not guard the other
+  (`eas update`). Enumerate every path that can reach production.
+
+**Occurrence.** Found 2026-08-16, not shipped. Recorded before any production
+`eas update` is attempted.
