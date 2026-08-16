@@ -5180,3 +5180,90 @@ the full balance). Moved into `creditsRepo.applyAdminAdjustment`, which locks th
 users row first — the same pattern `creditReconRepo.apply` already uses. → the
 general form is in Bugs #199's neighbourhood: a check and the write it guards
 must not straddle an await without re-reading.
+
+## 2026-08-16 — The sign-in outage nothing could see
+
+**Asked:** 2.8.8 from Play shows *"We're sorry — sign-in can't be completed right
+now / Our service is temporarily unavailable"* after a **successful** Google
+sign-in. Same dialog on earlier versions and on both platforms. "Analyze it
+deeply and find the ultimate solution — this is a regression."
+
+### What it actually was
+
+Not a per-account problem and not a client regression. **Production had recorded
+zero successful authenticated writes since 2026-08-12 12:16 UTC** — four days.
+`users.updated_at`, `devices.last_seen` and `consent_events.occurred_at` all
+froze within the same nine minutes. The reporting account itself was healthy
+(active, 3481 credits, no deletion pending).
+
+Traced the dialog to `OnboardingScreen.js:428-435` (`decideSignInRoute` →
+`"retry"`, service body ⇒ `reason !== "network"`), which narrows the hydrate
+result to `http_<status>` from `GET /api/me/bootstrap`. The other branches are
+excluded on evidence, not assumption: `unconfigured` by
+`config/profiles/index.js:30` (the merge skips `undefined`, so production
+resolves to the prod Railway URL), `account_deleted` by the NULL
+`deletion_requested_at`, `email_claimed`/`signed_out` by routing elsewhere.
+
+Ruled out, each with a probe rather than a guess: stale deploy (routes added in
+PR #260 answer 401, not 404, and PR #261's `purgeRestoreLedgers` cron runs green
+hourly); database (all lookup seeds bootstrap needs exist, so `lookupId` is not
+throwing; migrations applied through 0004, and the missing 0005 is not on this
+path); pool starvation (prod serves 10 concurrent DB-backed requests in 4.4 s
+without failing).
+
+### The fix shipped in this pass
+
+`/health`'s auth verdict was `GOOGLE_AUDIENCES.length ? "configured" : "missing"`
+— a **disjunction over three environment variables**, structurally unable to
+report the absence of one. Lose a single client ID and the array is still
+non-empty, so the check reads green while `requireAuth` 401s every request from
+the platform whose audience went missing. → Bugs #205.
+
+Replaced with a per-platform conjunction in `backend/lib/googleAuthHealth.js`,
+extracted as a pure function because the client IDs are read from `process.env`
+at module load — which is exactly why the old check had no test.
+
+**The cross-wiring is the load-bearing part.** The two native SDKs mint tokens
+for different audiences: Android's is addressed to the **web** client
+(`requestIdToken(webClientId)`), iOS's to the iOS client. So `GOOGLE_CLIENT_ID`
+is what Android depends on, and `GOOGLE_CLIENT_ID_ANDROID` gates nothing — no
+shipped client addresses a token to it. A check that went red on its absence
+would cry wolf; one that pattern-matches android→android reports the wrong
+platform as down.
+
+This is the **fourth** instance of the same class (the Google iOS audience, the
+session secret, the Apple `.p8`) and the first to cost an outage.
+
+### Why every monitor stayed green
+
+All of them were true and useless. `healthy` tracks the DB alone — correctly.
+Crons never call `requireAuth`, so `job_runs` was green through a 100% auth
+outage. `api_audit_log`, the table the *previous* version of this bug was
+diagnosed with, no longer exists after the schema v2 redesign.
+`recordAuthFailure`'s counters are in-memory and admin-gated, so they vanish on
+restart and are unreachable without a token you don't reach for mid-incident.
+
+### Deliberate decisions
+
+- **The breakdown is PUBLIC**, unlike `sessions`/`appleAuth`'s named blockers.
+  Booleans about which of our own OAuth clients a deployment accepts are not
+  secrets, and hiding the one fact that names the outage behind the admin token
+  is what made this take four days. Values are never echoed — a test asserts it
+  for both payloads.
+- **Reports, never enforces.** `healthy` must not move on it, or an
+  auth-configuration gap starts flapping Railway's deploy gate.
+- **One source for one dependency.** The status had three separate expressions
+  (public, admin `checks`, legacy top-level) and two disagreed; a test now
+  asserts all three agree.
+
+### Still owed
+
+Steps 2-4 of the plan: a `SIGNIN-4xx-BOOTSTRAP` reference code on the blocking
+dialog (this is the one user-facing error with no support code, which is why the
+diagnosis started from a screenshot instead of a code); a synthetic canary that
+actually authenticates; and migration 0006 persisting non-2xx auth outcomes,
+hand-applied to prod alongside the still-owed 0005.
+
+**Regression risk stated:** the public `/health` `auth` field changes shape
+(string status → object with `clients`/`signIn`); anything parsing it as a bare
+string needs checking. Report-only, so it cannot take production down.
