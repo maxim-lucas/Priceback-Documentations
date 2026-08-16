@@ -7914,3 +7914,46 @@ rows, correctly told apart:
 `detail` is scrubbed of JWTs and `Bearer` prefixes and truncated: it is an error
 message from code we do not control, and one echoing the Authorization header
 would persist a live credential.
+
+**Resolution of the iOS half (PR #270) — and the rule that generalises.**
+
+The fix was not "set the missing variable". It was to notice that the variable
+should never have been load-bearing.
+
+The three Google client IDs were declared **twice**, in two systems nothing kept
+in sync: the app choosing which client to mint a token FOR
+(`config/profiles/common.js`), and the API choosing which audiences to ACCEPT
+(`GOOGLE_CLIENT_ID*` on Railway). A token is valid only when both agree, and when
+they diverged nothing failed — not CI, not the deploy, not `/health`.
+
+`shared/googleOAuthClients.js` is now the single source, mirrored to
+`backend/shared/` by the existing sync-shared mechanism. The app builds its Expo
+`extra` from it and the backend **defaults** its audiences to it. `APPLE_BUNDLE_ID`
+already worked this way, and its comment had already written the rule down: *"it's
+public, not a secret, so it has a default and needs no env var to work in a fresh
+deployment."*
+
+**The general rule: a value that ships inside the binary is not a secret, and
+giving it a committed default is what stops "someone forgot to set it" from being
+an outage.** All three of these ids ride in the clear inside every APK and IPA,
+and the iOS one is additionally published in `app.json` as the google-signin
+plugin's `iosUrlScheme`. Putting them behind environment variables bought exactly
+zero confidentiality and cost a platform its sign-in.
+
+Defaulting is safe here for a reason the audience list had already stated —
+accepting our own clients widens nothing, because a token from any client outside
+our project fails signature and audience checks anyway. That is guarded by a test
+asserting every id carries project `695135372222`: *never add a client ID that is
+not ours.*
+
+Verified live on both services immediately after deploy:
+
+```json
+"auth": { "status": "configured", "audiences": 3,
+          "clients": { "web": true, "android": true, "ios": true },
+          "signIn":  { "android": true, "ios": true } }
+```
+
+The neighbouring one-value-two-places bug is now tested too: `app.json`'s
+`iosUrlScheme` must match the iOS client id, or Google's redirect never returns
+to the app — same root cause, different symptom.
