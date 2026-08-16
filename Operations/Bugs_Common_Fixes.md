@@ -7783,3 +7783,86 @@ would have been cargo-culting.
 
 **Occurrence.** 2026-08-15, Pixel 10 / Android 17, preview APK 2.8.8 (build `20bb08e7`).
 Fixed in PR #266.
+
+## 205. A health check that ORs three variables cannot report the absence of one
+
+**Class: the disjunction/conjunction confusion, fourth occurrence.** A dependency
+whose readiness needs *several* things reports readiness from *any* of them, so
+the check is structurally incapable of going red for the failure it exists to
+catch. Previously: the Google iOS audience, the session secret, the Apple `.p8`.
+This one cost a four-day production outage.
+
+**Symptom.** Google sign-in succeeds — the account chip reads "Signed in as
+…@gmail.com" — and then the app shows a blocking dialog: *"We're sorry — sign-in
+can't be completed right now / Our service is temporarily unavailable."* Every
+platform, every app version, RETRY never helps. Meanwhile `GET /health` returns
+`200 {"healthy":true, checks:{ db:{status:"ok"}, auth:{status:"configured"} }}`,
+every cron in `job_runs` is green, and the database is untouched and healthy.
+
+**Mechanism.** `/health` computed the verdict as
+
+```js
+const authStatus = GOOGLE_AUDIENCES.length ? "configured" : "missing";
+```
+
+`GOOGLE_AUDIENCES` is `[web, android, ios].filter(Boolean)`. Lose exactly one of
+the three and the array is still non-empty, so the check still says
+`"configured"` — while `verifyIdToken({ audience: GOOGLE_AUDIENCES })` throws for
+every token addressed to the missing client, `requireAuth` returns **401 "Token
+verification failed"**, and every authenticated route is dead for everyone on
+that platform.
+
+The cross-wiring is what makes it hard to eyeball. The two native SDKs mint
+tokens for **different** audiences:
+
+| platform | call site | `aud` | needs |
+|---|---|---|---|
+| Android | `Utils.java` `requestIdToken(webClientId)` | the **web** client | `GOOGLE_CLIENT_ID` |
+| iOS | `RNGoogleSignin.mm` `GIDConfiguration initWithClientID:` | the **iOS** client | `GOOGLE_CLIENT_ID_IOS` |
+
+So the variable Android depends on is the *web* one. A reviewer skimming
+`clients: { web, android, ios }` pattern-matches android→android and concludes
+the check is fine. `GOOGLE_CLIENT_ID_ANDROID` is accepted defensively but no
+shipped client addresses a token to it — its absence breaks nothing.
+
+**Why nothing caught it.** Every monitor that existed was true and useless:
+`healthy` tracks the DB alone (correctly); crons never call `requireAuth`, so
+they stayed green through a 100% auth outage; `api_audit_log` — the table the
+previous version of this same bug was diagnosed with — no longer exists after the
+schema v2 redesign; and `recordAuthFailure`'s counters are in-memory and
+admin-gated, so they vanish on restart and nobody sees them without a token.
+
+**Diagnosis without logs.** The decisive query is "has *anything* authenticated
+succeeded lately" — `upsertFromOAuth` stamps `users.updated_at` on every
+bootstrap:
+
+```sql
+select max(updated_at) from priceback.users;   -- frozen 4 days = total outage
+```
+
+Cross-check `devices.last_seen` and `consent_events.occurred_at`. All three
+freezing at the same minute means auth, not a per-account state. Then bracket the
+deploy by probing routes added in known PRs — `401` means the route exists,
+`404` means the deploy is stale.
+
+**Rules.**
+- **A readiness check must state whether the feature WORKS, not whether a
+  variable is set.** If readiness needs N things, the verdict is a conjunction
+  over N — and when the N map to different user populations, report it *per
+  population* (`signIn: { android, ios }`), because an aggregate cannot say who
+  is locked out.
+- **Publish the breakdown.** Booleans about which of your own OAuth clients are
+  accepted are not secrets, and putting them behind the admin token means the one
+  fact that names the outage is unreachable during the outage.
+- **One source for one dependency.** This status had three separate expressions
+  (public payload, admin `checks`, legacy top-level field) and two of them
+  disagreed. A test now asserts all three agree.
+- **Report, never enforce.** `healthy` must not move on it, or an auth-config gap
+  starts flapping Railway's deploy gate.
+- Extract the verdict as a pure function when the inputs are read from
+  `process.env` at module load — otherwise it cannot be unit-tested without a
+  fresh process, which is why the old check had no test at all.
+
+**Occurrence.** Production auth dead from 2026-08-12 12:16 UTC; reported
+2026-08-16 against 2.8.8 from Play, and seen earlier on 2.8.5. Health fix +
+`lib/googleAuthHealth.js` + `healthAuthAudiences.test.js`.
