@@ -8153,3 +8153,79 @@ task can raise a sheet).
   `isIdTokenFresh` is false for anything it cannot **parse** as a JWT — not just
   for expired tokens — so a follow-up could open a SECOND account picker over the
   first. Caught by the existing suite, not by review.
+
+## 209. Every sign-in failure reported the same support code, and two of them told the user to "try again" when retrying could never work
+
+- Date: 2026-08-17 · PR: TBD · Area: mobile
+- Symptom: Sentry showed four unresolved issues in 7 days (project
+  `priceback-canada`, releases 2.8.5→2.8.8). Three were sign-in failures and
+  **all three carried `reference: UNKNOWN` and `category: unknown`**, so the
+  shopper saw "Something went wrong. Please try again — our team has been
+  notified" every time, and a support ticket quoting the code identified nothing.
+- Root cause: `classifyError` in `src/services/errorSupport.js` had no branch for
+  any provider sign-in error shape. Walking the ladder, each message matched
+  nothing and fell through to `"unknown"`:
+  - `The authorization attempt failed for an unknown reason` — expo
+    `ERR_REQUEST_UNKNOWN` (ASAuthorizationError). Nearly always **no Apple ID
+    signed in on the device**. 12 events.
+  - `Error Domain=com.google.GIDSignIn Code=-1 "Unable to open Safari."` — the
+    browser sheet could not be presented. 11 events, and **every one shared a
+    trace ID with the Apple failure ~18 s earlier in the same session**, i.e. the
+    previous authorization presentation never tore down.
+  - `DEVELOPER_ERROR: …` — the build's signing certificate / OAuth client is not
+    registered with Google. Pure configuration.
+  Retrying is futile for the first and third; it genuinely works for the second —
+  yet all three shipped identical copy.
+- Fix: three new categories — `signin_unavailable`,
+  `signin_presentation_failed`, `signin_misconfigured` — mapped from both
+  `err.code` and the message text (the native layers surface the same failure
+  with a code on one platform and a bare message on the other), each with EN+FR
+  copy that names the actual recovery. `ERR_REQUEST_CANCELED`/`ERR_CANCELED` are
+  now mapped to `cancelled` too, so a cancel can never regress into a scary
+  alert from a second caller. The new branches sit **above** the coarse buckets,
+  with a test asserting they do not steal traffic from network/server/401 copy.
+- Also fixed here: `RemoteServiceException$CrashedByAdbException: shell-induced
+  crash` (`adb shell am crash`) arrived as a **FATAL, unhandled** native crash
+  with a real user attached, outranking genuine bugs in triage. No JS handler can
+  run and it cannot occur on a store build, so `beforeSend` now drops it.
+  Deliberately matched on the exception type, **not** on environment — one of the
+  four issues in the same batch was a genuine defect found on `preview`, and
+  filtering by environment would have hidden it.
+- Files: `src/services/errorSupport.js`, `src/services/i18n.js`,
+  `src/services/analyticsService.js`; tests `__tests__/errorSupport.test.js`,
+  `__tests__/analyticsScrubber.test.js`.
+- Detect it next time: the signal is **`reference: UNKNOWN` on a user-visible
+  failure** — it means the classifier has no branch for that shape, not that the
+  error is genuinely unknowable. Search Sentry for `reference:UNKNOWN`; any
+  recurring hit is a missing category. Ask a reporting user for the code first
+  (see the memory note `email-sync-error-references`); if they say "UNKNOWN",
+  that is itself the bug.
+
+## 210. An admin "Suspend" would have scheduled an irreversible hard delete 30 days later
+
+- Date: 2026-08-17 · PR: TBD · Area: backend
+- Symptom: none in production — caught while building the admin account desk,
+  before the route shipped. Recorded because the trap is invisible at the call
+  site and the next person adding an account-state write will meet it again.
+- Root cause: `users.status = false` is overloaded. It means *both* "soft-deleted,
+  pending erasure" (written by `requestDeletion`, which also stamps
+  `deletion_requested_at`) and, now, "suspended by an admin". The monthly sweep
+  `purgeExpiredDeletions` erases on
+  `status = false AND deletion_requested_at IS NOT NULL AND … < cutoff`.
+  The obvious implementation of Suspend — mirror `requestDeletion` — would have
+  set both columns, so an operator suspending an abusive account for a week would
+  have silently enrolled it in permanent deletion, with the data gone by the time
+  anyone noticed.
+- Fix: `usersRepo.setAccountActive` writes **`status` alone** on suspend — the
+  `deletionRequestedAt` key is absent from the update object entirely, with a
+  comment saying why, so nobody "completes" it later. Restore *does* clear the
+  stamp, because rescuing an account inside its grace window is the point of an
+  admin restore. The route also refuses self-targeted suspend/flag: both remove
+  the only surface that could undo them.
+- Files: `backend/repos/usersRepo.js`, `backend/server.js`;
+  test `backend/tests/adminAccountsRoutesDb.test.js`.
+- Detect it next time: the test does not read the column — it runs the **real
+  sweep** with `graceDays: 0` and asserts the suspended account survives. Any
+  future write that reintroduces the stamp fails there. Generally: before writing
+  `users.status = false` anywhere, ask which of the two meanings you intend, and
+  whether the purge predicate would then claim the row.

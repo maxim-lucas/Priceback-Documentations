@@ -16,6 +16,53 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-08-17 — Store pricing defect, Sentry sign-in triage, admin account desk
+
+- **Asked (/goal):** check the last 7 days of Sentry and fix the unhandled
+  errors; use Claude in Chrome (after validation) to make sure the app is **free
+  to download**, the only paid paths being the IAPs; tag + build both platforms
+  and submit. Mid-task addition: "create a new feature in the admin panel (admin
+  token only) in the app to view, manage the accounts (check the flagged
+  accounts, activate, disactivate, ...etc)".
+- **Clarification that changed the work:** "free for all countries" meant the
+  *price*, NOT the distribution list. Availability stays **Canada + Egypt** and
+  must not be widened. An earlier expansion to 172/175 countries was reverted in
+  full; Play publishing overview verified empty afterwards.
+- **The store defect (the real find):** PriceBack was a **PAID app on Google
+  Play** — USD 4.99/5.99, AUD 7.99, DZD 675 per country — so every Android user
+  was asked to pay before install. Consistent with 0 installs / $0 revenue.
+  Switched to Free, which on Play is **irreversible** (Maxim confirmed
+  explicitly, twice, after being told). iOS was already $0.
+  ⚠️ First attempt LOOKED applied but was never saved — the page stages the
+  change and a separate **Save changes** button commits it. Caught only by
+  re-verifying after a full reload. Re-done and confirmed persisted
+  ("can't be changed to paid", controls gone).
+- **Two Apple blockers found, both Maxim's to clear** (legal terms / banking —
+  not for an agent): the **Paid Apps Agreement is unsigned**, so *no iOS IAP can
+  transact at all*; and EU DSA trader status is unfiled. All 5 iOS products are
+  still "Prepare for Submission" and must ride a version submission.
+- **Sentry (4 unresolved / 7 days), one root cause:** `classifyError` returned
+  `"unknown"` for **100% of field sign-in failures** — three unrelated defects
+  sharing the support reference `UNKNOWN`, and "try again" was wrong advice for
+  two. Added `signin_unavailable` / `signin_presentation_failed` /
+  `signin_misconfigured` (+EN/FR copy), and dropped ADB `CrashedByAdbException`
+  in `beforeSend`. → Bugs #209.
+- **Admin account desk (new):** `AdminAccountsScreen` + account-gated
+  `POST /api/admin/users/:sub/status` and `.../review-flag`. Deliberately does
+  NOT use `ADMIN_TOKEN` — a shared secret in an APK is extractable and opens
+  every token-gated route; the app authenticates as the admin's own account so
+  actions stay attributable. Self-targeting is refused (suspending/flagging
+  yourself removes the only surface that could undo it).
+- **Status:** verified 190 suites / 4446 mobile tests green; the 8 new backend
+  tests pass against **dev**. CI still billing-blocked, so nothing ran there.
+- **The thing worth not re-deriving:** **a suspension must never stamp
+  `deletion_requested_at`.** `purgeExpiredDeletions` erases on
+  `status=false AND deletion_requested_at IS NOT NULL`, so a suspension that also
+  set the stamp would enroll the account in an irreversible hard delete 30 days
+  later that nobody asked for. `setAccountActive` therefore writes `status`
+  alone on suspend, and clears the stamp on restore. A test runs the real sweep
+  with `graceDays: 0` and asserts the suspended account survives.
+
 ### 2026-08-12 — iOS audit #8: the calls that could not finish, and PR #260's un-audited credit code
 
 - **Asked (/goal):** "run a full detailed and deep audit specially for the IOS
