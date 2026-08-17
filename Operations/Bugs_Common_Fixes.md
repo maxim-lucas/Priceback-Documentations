@@ -8093,3 +8093,63 @@ every installed device.
 
 **Occurrence.** Found 2026-08-16, not shipped. Recorded before any production
 `eas update` is attempted.
+
+## 208. An expired token with no way to refresh it — the fallback Google never got
+
+**Symptom.** Android showed "We're sorry — sign-in can't be completed right now /
+Our service is temporarily unavailable" after a *successful* Google sign-in, for
+four days. Every backend probe came back clean. Two successive diagnoses (#205
+wrong audience, #206 token-less sign-in) were both wrong.
+
+**What actually happened.** `priceback.auth_outcomes` settled it in one query:
+
+```
+reason  verify_threw
+detail  "Token used too late, 1786956387.995 > 1786924107"   ← expired ~9 hours
+aud     …jgr8klsosbt39o0g9vb7s33md08jql72                    ← web client, CORRECT
+```
+
+Audience correct ⇒ not #205. Token present ⇒ not #206. The token was simply
+**expired**, and the app sent it anyway.
+
+**Why it could never recover.**
+
+1. `refreshIdTokenSilently()` swallowed both failure paths in bare `catch {}`.
+   On `@react-native-google-signin` **v16, Android routes `signInSilently`
+   through Credential Manager, where "no authorized credential" is a ROUTINE
+   outcome**, not an exceptional one.
+2. **Apple got an interactive re-auth path in #253. Google never did.** So a
+   failed silent re-issue had no fallback at all: `getValidIdToken()` handed back
+   the expired token, the server 401'd, and `authedFetch`'s retry called the same
+   failing refresh a second time.
+
+**The lesson that generalises.** *A client-side failure can look exactly like a
+server outage.* Four days of backend probing found nothing because **the failure
+never left the handset** — nothing was logged, nothing reached Sentry, no
+telemetry recorded it. When every server probe is clean and the symptom persists,
+suspect the client's own error handling, and check whether the failing path is
+`catch {}`.
+
+**Second lesson: asymmetric fixes rot.** Apple and Google are two implementations
+of one concept. Apple's got the interactive fallback because Apple's tokens
+visibly expire in ten minutes; Google's was left alone because its silent path
+"always works" — until an SDK major version changed what silent means. **When you
+fix one branch of a two-provider abstraction, write down why the other did not
+need it, or it will not be true forever.**
+
+**Fixed in Priceback#274** — failures reported with their Credential-Manager
+code; `refreshGoogleIdTokenInteractive()` mirrors Apple's rails (one shared
+in-flight attempt, 60 s cooldown, `AppState` foreground gate so no background
+task can raise a sheet).
+
+**Two traps worth stealing.**
+
+- **A dismissed sheet must arm the cooldown too.** `signInWithGoogle` returns
+  `null` for `SIGN_IN_CANCELLED` rather than throwing, so a catch-only cooldown
+  misses it and the next of a hundred queued requests re-raises the picker the
+  instant the user closes it.
+- **A successful sign-in must arm it as well.** `signInWithGoogle` fires three
+  follow-ups *without awaiting them*, and each reaches `getValidIdToken()`.
+  `isIdTokenFresh` is false for anything it cannot **parse** as a JWT — not just
+  for expired tokens — so a follow-up could open a SECOND account picker over the
+  first. Caught by the existing suite, not by review.
