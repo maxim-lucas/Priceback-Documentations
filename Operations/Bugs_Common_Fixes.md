@@ -8316,3 +8316,96 @@ failure, which is why three releases of failure looked like success.
 **Occurrence.** 2026-08-18, Pixel 10 / Android 17, on Play production 2.8.8/vc28 and
 again on 2.8.10/vc30. Fixed in PR #281. **Not yet verified on hardware** — the fix is
 native, so it needs a build.
+
+---
+
+## Every purchase was filed against an id the server never queries
+
+**Symptom.** A TestFlight tester subscribed successfully. The app unlocked
+Unlimited. RevenueCat showed the entitlement. The backend had **zero**
+`subscription_events` rows — ever — and not one real credit-pack purchase had been
+credited in the history of the production database; every `topup_purchase` row was
+a simulated `dev_…` sideload. The user's report was "I subscribed and it worked,
+but I can't see my balance and the credit packs didn't arrive."
+
+**Root cause.** RevenueCat files each purchase against whatever `appUserID` the SDK
+holds when payment completes. Both server paths look a purchase up by the account's
+`sub` (`GET /v1/subscribers/<sub>`). **Nothing ever asserted the two matched.**
+`bindRevenueCatToUser` ran only in the three sign-in *finalize* paths; boot called
+`initRevenueCat()`, which is `Purchases.configure({apiKey})` and nothing else. Any
+drift — a fresh install whose session was restored rather than re-signed-in, a
+cleared RC cache, an interrupted bind, a raced `logOut` — left the SDK on an
+anonymous id **silently and permanently**.
+
+**Why it survived so long.** The device could not see it. The app reads its
+entitlement out of the *local* `customerInfo`, so it unlocked correctly and every
+indicator read "fine": RC configured ✓, entitlement active ✓, purchase succeeded ✓,
+network up ✓. Only the conjunction was false. `POST /credits/topup` answered
+`402 purchase_not_verified, retryable: true` forever, so the durable queue
+faithfully retried a call that **could not ever succeed**, and the 60-day safety
+valve was on course to delete the last local record of a real payment.
+
+**Fix (PR #282).** `ensureRevenueCatIdentity()` — at boot, on foreground, and
+immediately **before** `purchasePackage`. Ordering is the whole fix: asserting
+afterwards is too late, because the receipt already belongs to an id the server
+cannot query. Plus a durable retry for subscription sync (packs had one;
+subscriptions did not), a `resyncStore` flag on the 402 so the client realigns and
+re-files its store transactions instead of retrying blindly, and an admin Billing
+diagnostic that reports the conjunction.
+
+**Rules.**
+- **A cross-system identifier needs an invariant, not an initialisation.** Binding
+  once at sign-in is a hope. Asserting before every use is a guarantee. Ask "what
+  re-establishes this after a restart, a reinstall, or a partial failure?"
+- **A 200 is not a recording.** `syncSubscriptionToBackend()` returning
+  `{synced: true}` with a `free` tier meant RevenueCat had nothing to give the
+  server — the drift signature exactly. Clear a retry marker on the *outcome you
+  wanted*, never on "the request completed".
+- **Retryable ≠ eventually succeeds.** If a retry is keyed on a value that can
+  never match, the queue is a slow-motion data-loss machine. Give the server a way
+  to say "retrying this specific thing is pointless until you change something".
+- **When every indicator is green and the outcome is wrong, the check is on the
+  wrong subject.** Same class as [health-check-conjunction-rule] and
+  [partial-success-stored-as-complete]: report whether the FEATURE works, not
+  whether each part is configured.
+- **A client-side bug can look exactly server-shaped.** Missing rows in the
+  database were the only visible evidence, and the cause was entirely on device.
+
+**Occurrence.** 2026-08-18, iOS TestFlight 2.8.10. Fixed in PR #282. **Not yet
+verified end to end** — acceptance is `select count(*) from
+priceback.subscription_events > 0` after the next TestFlight pass.
+
+---
+
+## The paywall advertised a USD price while the store charged CAD
+
+**Symptom.** Prices on Buy Credits and Manage Subscription read `$4.99` / `$3`;
+the Apple payment sheet charged the (higher) Canadian price. The in-app label
+"took a while to load" and sometimes never corrected.
+
+**Root cause.** Three screens each ran a one-shot `getStorePriceLabels()` on mount
+with `priceFor(id, fallback)` falling back to the **catalog** label — plain
+USD-derived amounts rendered with a bare `$`, in a Canada-only app. No retry, no
+cache, no loading state: a single cold-start miss (RevenueCat not warm yet) pinned
+the wrong number for the whole session. The backend compounded it —
+`formatMoney` mapped CAD, USD and MXN all to `$`, so a Canadian catalog row of
+`4.99` rendered indistinguishably from the USD list price.
+
+**Rules.**
+- **A fallback that is indistinguishable from the real thing is not a fallback,
+  it is a silent substitution.** `$4.99` looked exactly like a price. A skeleton
+  does not. Prefer showing nothing to showing a plausible wrong thing — especially
+  for money.
+- **Delete the parameter, not just the argument.** `priceFor(id)` now takes no
+  `fallback`, so no call site can reintroduce one. Removing the *capability* is
+  what makes a fix stick; removing the *usage* invites it back.
+- **Money needs a currency, not a symbol.** `$` is ambiguous across CAD/USD/MXN.
+  Render `CA$` — it is what StoreKit itself writes on a Canadian storefront.
+- **Every price on a purchase surface must come from the store.** App Review
+  compares the paywall against App Store Connect (Guideline 2.3.1 / 3.1.2), and a
+  purchase control with no price is its own finding — disable it instead.
+- Watch for prices that never route through the price lookup at all: the annual
+  card's `monthlyEquiv` was a hardcoded USD string rendered directly beneath a CAD
+  price, and nobody noticed because it *had* a price-shaped value.
+
+**Occurrence.** 2026-08-18, iOS TestFlight 2.8.10. Fixed in PR #282.

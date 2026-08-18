@@ -5492,3 +5492,77 @@ with no data exposure and no persistence.
 
 **Device left clean:** pushed fixtures deleted, `svc power stayon` restored, one
 credit consumed by the receipt scan (131 → 130), no receipt saved.
+
+---
+
+## 2026-08-18 — iOS billing: wrong-currency labels, invisible subscriber credits, and purchases the server never saw
+
+**Trigger.** TestFlight testing of 2.8.10 on iOS. Three reports: prices shown in
+USD while the purchase sheet charged CAD; after subscribing, no credit balance and
+no credit history; credit packs "paid, credits never arrived".
+
+**Investigation.** Read the purchase/paywall path, then queried production
+(Supabase `xjfrlzwonyaorwktnkpj`) directly. The database settled the third report
+and reframed the second:
+
+| Check | Result |
+|---|---|
+| `priceback.subscription_events` | **0 rows, ever** |
+| Users with a paid `subscription_tier_id` | **0** |
+| `credit_ledger` rows of type `topup_purchase` | 4, all with `ref` `dev_…` (simulated sideload) |
+
+No real store purchase has ever been credited in production. Root cause: nothing
+asserted that RevenueCat's `appUserID` equalled the signed-in account, so purchases
+were filed against an anonymous id the backend never queries. Details and the rules
+drawn from it are in `Bugs_Common_Fixes.md`.
+
+Two supporting defects found on the way:
+- `formatMoney` rendered CAD as a bare `$` (`backend/config/configService.js`).
+- **The remote pricing catalog never reached the paywall.** `getEffectiveCatalog()`
+  was consumed only inside `pricingCatalogService`; every surface imported
+  `PACKS`/`TIERS` frozen from the bundled config at module load. The docblock's
+  promise that prices change "without an App Store release" was false.
+
+**Delivered (PR #282, branch `fix/ios-billing-currency-identity-credits`).**
+- New `src/services/storePrices.js` — the only source of a displayed price. Shared
+  snapshot, coalesced round-trips, disk cache, non-blocking retries, explicit
+  status. `priceFor(id)` has **no fallback parameter** by design.
+- Skeleton + disabled purchase CTA until a real store price exists, on all three
+  purchase surfaces plus the auto-reload pack picker and the FAQ copy.
+- `ensureRevenueCatIdentity()` at boot, on foreground, and before `purchasePackage`.
+- Durable subscription-sync retry, cleared only on a server-confirmed paid tier.
+- Backend `402` split (`resyncStore`) + owning-appUserID logging; `CA$` formatting;
+  currency on subscription price blocks.
+- Credit History shows the real balance and ledger for subscribers.
+- New admin **Billing diagnostic** screen reporting the store ↔ RevenueCat ↔ server
+  conjunction.
+- Paywall surfaces now read the effective (DB-backed) catalog and re-derive on a
+  catalog swap. Entitlement gating deliberately stays on the bundled contract.
+- Data: fixed the `aroud` typo in `credit_packs.description` on dev **and** prod.
+
+**Tests.** New `storePrices`, `revenueCatIdentity`, `purchaseCatalogWiring` suites;
+extended paywall/billing/credit-history smoke tests to assert a skeleton and a
+disabled CTA rather than a catalog price; backend coverage for CAD formatting and
+the 402 split. `npm run i18n:check` passes (en/fr in sync, 1476 keys).
+
+**BLOCKED — CI could not run.** The GitHub Actions billing block has recurred: run
+`32146532211`, all three jobs refused to start in 3s with the annotation *"recent
+account payments have failed or your spending limit needs to be increased"*. Per
+the standing rule this was **not** compensated with local runs or `gh pr merge
+--admin`. The PR is open and unverified until billing is cleared and CI re-runs.
+
+**Regression risk.**
+- The paywall becomes unbuyable if the store never answers — deliberate (the
+  purchase would fail anyway), but it changes App Review's experience on a bad
+  network. Mitigated by the disk cache, the backoff retry and an explicit retry
+  control; worth knowing before the next submission.
+- Catalog resolution changed for every `purchaseService` consumer, including
+  entitlement resolution and the auto-reload pack picker. Covered by
+  `purchaseCatalogWiring` on both the remote and bundled-fallback paths.
+- `ensureRevenueCatIdentity` adds one awaited, coalesced, no-op-when-aligned SDK
+  read before `purchasePackage`.
+- Everything else is additive; the Credit History change is two lines on one screen.
+
+**Acceptance is server-side, not visual.** After the next TestFlight pass:
+`select count(*) from priceback.subscription_events` must be **> 0**, and a
+`topup_purchase` row must carry a real store transaction id rather than `dev_…`.
