@@ -5566,3 +5566,64 @@ the standing rule this was **not** compensated with local runs or `gh pr merge
 **Acceptance is server-side, not visual.** After the next TestFlight pass:
 `select count(*) from priceback.subscription_events` must be **> 0**, and a
 `topup_purchase` row must carry a real store transaction id rather than `dev_…`.
+
+## 2026-08-18 (cont.) — Developer output hidden from shoppers, and production purged of test data
+
+- **Asked (/goal):** "cleanup the app from any non user friendly UI (example:
+  raw OCR)… just hide these functions, it should still be visible for admins,
+  cleanup all the tests data in the production DB (accounts, …etc), any
+  generated data should be cleared, keep only the production data and remove the
+  data claude generated."
+
+**Decisions taken by Maxim** (offered as options before any change):
+
+| Question | Answer |
+|---|---|
+| Which UI to gate | raw OCR card, raw cache filename, ISO date notation. **Not** the bare `#811` warehouse label — that number is printed on the real receipt |
+| 8 tester accounts | **delete all 8** (flagged: may affect Play's 12-tester count) |
+| Simulated `dev_` billing | **purge and reset to a clean grant** |
+| Purge method | **direct SQL, no backup table** |
+
+**App — PR pending, branch `chore/hide-dev-ui-and-purge-prod-test-data`,
+commit `d420816`.** Nothing removed; everything moved behind the existing
+server-authoritative `getIsAdmin()`.
+- ScanScreen's raw-OCR card, which auto-EXPANDED on a failed parse — so a
+  shopper's worst moment showed the most machine output. Admins keep it.
+- DetailScreen's raw cache filename under "Open original file" (the row, its
+  label and its tap target still render for everyone).
+- Six i18n strings across EN+FR taught the date as `YYYY-MM-DD` / `AAAA-MM-JJ`,
+  but every date field is a `DateField` — a **calendar** the user cannot type
+  into. `scan.dateMask` deleted; the field falls through to `datePicker.select`.
+- Bonus, found in the touched code: `+ Add manually` was a hardcoded English
+  literal, so a French user read English on the screen that had just failed them.
+- 11 new tests (`adminOnlyDiagnosticSurfaces`), both sides of both gates, plus a
+  static sweep for date notation. Two cases exist only to prove the harness
+  actually renders the surface under test — every `not.toContain` would
+  otherwise pass vacuously. 10 neighbouring suites green (99 tests).
+  `i18n:check` en=1464 fr=1464.
+
+**Production DB — DONE, irreversible.** Full record, evidence and re-run rules:
+`Operations/Production_Test_Data_Purge_2026-08-18.md`.
+`users` 15→7, `price_points` 505→155, `products` 3,288→114, `warehouses` 619→183,
+`topup_refs` 9→0, `credit_reconciliations` 1→0. Receipts, receipt items and tag
+reviews untouched; 0 orphaned FKs afterwards. Every post-purge count matched the
+pre-measured prediction exactly.
+
+**Two things that would have gone wrong on the obvious approach.**
+- Deleting products by their `created_at` test window would have hit live
+  receipts — real receipt items point at products created inside it. The correct
+  filter is referential, and it must also keep any product carrying a **barcode**
+  (20 of them, incl. real catalog rows) or it silently guts barcode↔SKU lookup.
+- Removing the fake `+3,400` top-ups without also removing the `−3,350`
+  `admin:chargeback` that existed to cancel them drives the balance to −3,271.
+  Both went; the owner's ledger now sums to 79 = `users.scan_credits`.
+
+**Side effect.** Production now has **zero** `topup_purchase` / `topup_refs`
+rows, which sharpens the acceptance criterion recorded for PR #282 above: the
+next such row can only come from a real store transaction.
+
+**Regression risk.** App changes are additive gates on render paths whose
+fallbacks already existed independently, covered both ways by new tests; the
+i18n changes are copy-only, edited in both languages together and enforced by
+`i18n:check`. The DB purge is irreversible and unbackuped by explicit choice —
+that is the standing risk, and this log plus the purge doc are its only record.
