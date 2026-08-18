@@ -5314,3 +5314,181 @@ hand-applied to prod alongside the still-owed 0005.
 **Regression risk stated:** the public `/health` `auth` field changes shape
 (string status → object with `clients`/`signIn`); anything parsing it as a bare
 string needs checking. Report-only, so it cannot take production down.
+
+## 2026-08-18 — R8 hardware checklist, second pass: 6 of 10 items closed on a Play production artifact
+
+**Asked:** continue the R8 full checkup on device (Pixel 10 / Android 17, adb).
+
+**Artifact under test:** `2.8.8 / versionCode 28`, **installed from Play**
+(`installerPackageName=com.android.vending`), not a sideloaded preview APK. That
+matters — the 2026-08-15 pass that found #204 ran against preview APK `20bb08e7`,
+so this run independently re-confirms the defect on the artifact real users have.
+
+R8 was verified live on this binary from its own stack traces rather than assumed:
+`T6.T.call`, `U6.i.run`, `ReactHostImpl.x1` are obfuscated, while
+`io.sentry.react.RNSentryModuleImpl.crash` and `com.facebook.jni.NativeRunnable.run`
+are fully readable — i.e. minification is on **and** the `-keep` rules are hitting
+exactly their intended packages. `SourceFile:50` line numbers survive, so
+`-keepattributes SourceFile,LineNumberTable` works.
+
+### Results
+
+| # | Item | Verdict |
+| --- | --- | --- |
+| 1 | Google Sign-In, full flow | **PASS** — signed out and back in; confirmed server-side |
+| 2 | Sign in with Apple | **N/A** — Android onboarding offers Google only |
+| 3 | RevenueCat paywall + prices | **PASS** — store prices, provably not the fallback |
+| 4 | RevenueCat restore | **PARTIAL** — button unreachable for this account; nothing restorable |
+| 5 | Camera → receipt scan end to end | **PASS** — real receipt parsed, 7 items with SKUs + TPD pairs |
+| 6 | Price-tag scanner | **PASS** — live capture by Maxim, parsed correctly |
+| 7 | Push notification | **BLOCKED** — outbound send refused by the harness |
+| 8 | Background fetch | **STILL BROKEN on 2.8.8**; fix rides in 2.8.9+, unverified on hardware |
+| 9 | expo-updates check | **PASS** — full lifecycle to `CheckCompleteUnavailable` |
+| 10 | Deliberate crash → Sentry | **BLOCKED — the trigger no longer crashes** (see below) |
+
+**Item 3 is the one worth reading twice.** "Paywall renders with prices" is a
+false-pass trap: `BuyCreditsScreen` resolves `storePrices[id] || p.priceLabel`, so
+a total offerings failure still renders a full-looking paywall. The hardcoded
+fallbacks are `"$3"`, `"$5"`, `"$10"`; the device showed `$3.00`, `$5.00`,
+`$10.00`, plus `$49.99/year` for the sub. Two-decimal formatting is Play's
+`priceString`, which the fallback cannot produce — so the RevenueCat model classes
+really did deserialize. Verify the *shape* of a value, not its presence.
+
+**Item 1 was confirmed off-device, not from the UI.** `users.updated_at` moved to
+`08:43:17Z`, 40 s before the query, and `auth_outcomes` holds **zero** rows after
+the sign-in. A screenshot of a populated Profile only proves the client rendered
+something; an authenticated write proves the token was minted, transmitted and
+verified against the Google audience.
+
+### Two new findings
+
+**1. `Sentry.nativeCrash()` no longer produces a crash — RN bridgeless swallows it.**
+`RNSentryModuleImpl.crash()` is `throw new RuntimeException("TEST - Sentry Client
+Crash (only works in release mode)")`, which relies on reaching the JVM's default
+uncaught handler. Under RN 0.83's bridgeless runtime `ReactHostImpl` catches it,
+converts it to `ReactNoCrashSoftException`, destroys the React instance and
+**leaves the process alive on a blank white screen**. No tombstone, no cached
+envelope on relaunch, so nothing for Sentry to symbolicate. The admin diagnostic
+added in PR #221 specifically to make item 10 testable therefore cannot test it
+any more, and item 10 has never actually been executed. The app did recover fully
+on next launch.
+
+**2. `NoSuchFieldException: mIsFinished` — looks like R8, is not.**
+`WorkletsMessageQueueThreadBase.quitSynchronous` does
+`getDeclaredField("mIsFinished")` on RN's `MessageQueueThreadImpl`. RN 0.83
+declares `@Volatile private var isFinished` — Kotlin, **no `m` prefix**. The name
+is stale upstream, so the lookup fails in a debug build too and **no keep rule can
+fix it**; `-keep` on `isFinished` would not help because worklets asks for a name
+that does not exist. Caught and printed to `System.err`, so it is invisible to
+Sentry. Fires only on React-instance teardown, where it leaves the worklets queue
+thread unmarked and produces a burst of "Tried to enqueue runnable on already
+finished thread". Deliberately **not** given a proguard rule — that would be the
+cargo-culting #204 warns against.
+
+### Sweep
+
+Ran #204's prescribed sweep across every log captured (cold start, receipt scan,
+document scanner, price-tag scan, paywall, sign-out/sign-in, crash, relaunch).
+Exactly two reflective failures exist in the whole corpus: `RNHeadlessAppLoader`
+(#204, fixed in 2.8.9+) and the worklets `mIsFinished` above. Zero
+`NoSuchMethodError`, zero `NoClassDefFoundError`, zero `UnsatisfiedLinkError`.
+
+### Also noticed, not R8, not fixed
+
+- **Restore is unreachable for a non-premium account.** `ManageSubscriptionScreen`
+  returns early when `!status.isPremium` (line ~336) and that branch renders no
+  Restore button; the audit-#4 R6 furniture was added only to the premium branch.
+  The user who most needs Restore — an existing subscriber whose entitlement did
+  not load, who is therefore `!isPremium` — is exactly the one who cannot see it.
+  The Paywall's Restore is gated behind a low-balance banner a 131-credit account
+  never sees.
+- **A 401 burst renders as "You're offline".** After the forced restart,
+  `/api/me/credits`, `/api/me/consents`, `/api/me/bootstrap` and `/api/me/profile`
+  took `401 verify_rejected` for ~60 s (08:34:34–08:35:31Z) while the UI said
+  *"You're offline — scans saved locally, price checks paused"*. It self-healed
+  via silent refresh. Mislabelling auth as connectivity is the same reporting
+  failure class as Bugs #205.
+
+**Status:** 6 PASS, 1 N/A, 1 PARTIAL, 2 BLOCKED. Items 7 and 10 need decisions;
+item 8 needs 2.8.9+ on hardware — production build `90b06441` (2.8.10 / vc30,
+commit `e12adc3`) already exists and is one install away.
+
+**Regression risk:** none. Read-only device exercise; no code changed, no receipt
+saved (confirm screen cancelled), pushed fixtures deleted and `svc power stayon`
+restored. One credit was consumed by the receipt scan (131 → 130), which is the
+metered path behaving correctly.
+
+## 2026-08-18 (cont.) — checklist closed out: 7 PASS, and the crash probe that could not crash
+
+Maxim installed **2.8.10/vc30 from Play** mid-session and allowed a Bash rule for the
+Expo push endpoint, which unblocked the two items the first pass could not run.
+
+**Item 8 — #204 confirmed fixed on hardware.** Across a cold start and two full
+pause/resume cycles on 2.8.10 (8,676 log lines), `ClassNotFoundException:
+…RNHeadlessAppLoader` **does not appear once**; on 2.8.8 it fired on every pause and
+resume. The `-keep` rule works.
+
+The verdict is deliberately narrower than "background fetch works", because a
+control comparison moved it: **2.8.8 also logged `TaskService: Registered task` and
+`Starting an alarm`.** Registration and alarm scheduling are in-process and were
+never broken — #204 broke the *headless JS context* Expo needs when the alarm fires
+with the app dead. So the armed alarm proves nothing either way; the **absent
+exception** is the evidence. A fetch executing has still not been observed: that
+needs the real schedule with the app killed, or a reboot — `BOOT_COMPLETED` is a
+protected broadcast `adb` cannot send, and the bare `TaskBroadcastReceiver` action
+no-ops without task extras. Two attempts, then stopped.
+
+**Item 7 — PASS, both halves.** Expo accepted both sends and the device posted them:
+`NotificationRecord … pkg=com.priceback … color=0xff10b981` with the app's own icon,
+once backgrounded and once with the app confirmed `topResumedActivity` (the first
+foreground attempt was void — the screen had slept, so it was really a second
+background test). FCM payload mapping is intact under R8.
+
+### Item 10: the trigger cannot crash, and that is a bug of its own → Bugs #211, PR #281
+
+`Sentry.nativeCrash()` is `throw new RuntimeException(...)` from a TurboModule
+method, and it works by letting that exception reach the JVM's default uncaught
+handler — where Sentry's `UncaughtExceptionHandlerIntegration` lives. RN 0.83's
+**bridgeless** `ReactHostImpl` catches everything on that path, wraps it as
+`ReactNoCrashSoftException` and destroys the React instance. Hence the observed
+**blank white screen with a live process**, no tombstone, no cached envelope on
+relaunch. The method's own comment — *"only works in release mode"* — is a fossil
+from the old bridge, where release rethrew.
+
+So the diagnostic added in PR #221 *to make item 10 possible* has meant item 10 was
+never executed on any build, 2.8.5 → 2.8.10, while reporting success.
+
+**Fixed by raising the crash from the main looper**, outside ReactHost's try/catch.
+That needs native code and `android/` is gitignored, so it ships as
+`plugins/withAndroidCrashDiagnostic.js` — one `onNewIntent` override on MainActivity,
+armed by a private deep link and refused unless `referrer` is this app (MainActivity
+is `exported="true"`; a web page must not be able to kill it). The gate fails closed
+on purpose, because the JS side now notices a surviving process and says so.
+
+**The contract is the durable half.** A crash that worked never returns, so
+`triggerNativeCrashForDiagnostics()` no longer returns a boolean — any resolved value
+means the crash did not happen and names why (`"unavailable"` / `"not_fired"`). A
+signature that cannot express failure is what made three releases of failure look
+like success.
+
+### Verification status — read before trusting the tests
+
+- Plugin executed against the **real generated** `MainActivity.kt`: idempotent
+  (byte-identical on re-run), brace balance preserved, one each of marker / override /
+  companion object / import. `npm run i18n:check` green (1465 keys, EN+FR).
+- **CI did not run.** All three jobs on PR #281 failed in 3-5 s with `steps: 0` — the
+  GitHub Actions billing block again, not a test failure. The new suites are therefore
+  **unverified by CI**, and per standing rule nothing was run locally.
+- **No build started**, at Maxim's explicit instruction. Item 10 stays open until a
+  build carries #281.
+
+**Regression risk stated.** The plugin edits MainActivity, which is on every launch
+path; the change is one `onNewIntent` override that chains to `super` and returns
+early unless both the URI and the referrer match, so ordinary launches and deep links
+are untouched. iOS is not affected — no bridgeless interception of native-module
+throws and no MainActivity to deep-link into, so it keeps `nativeCrash()`. Residual:
+another *installed* app could spoof `EXTRA_REFERRER` and crash PriceBack — a nuisance
+with no data exposure and no persistence.
+
+**Device left clean:** pushed fixtures deleted, `svc power stayon` restored, one
+credit consumed by the receipt scan (131 → 130), no receipt saved.

@@ -183,8 +183,13 @@ A second build, [`3ad0f21a`](https://expo.dev/accounts/maximlucas/projects/price
 independently confirms the R8 fix without the diagnostic row.
 
 **Read this narrowly.** It proves R8 *links* and that the mapping *uploaded*. It says
-nothing about whether minified reflection works at runtime — that is still the checklist
-below, and it is still entirely unrun.
+nothing about whether minified reflection works at runtime — that is the checklist below.
+
+> **Status as of 2026-08-18:** the checklist is no longer unrun. Two hardware passes have
+> happened; see **"Checklist run — 2026-08-18"** further down for per-item verdicts.
+> **7 PASS · 1 N/A · 1 PARTIAL · 1 BLOCKED.** The single R8 defect ever found (#204) is
+> fixed and confirmed gone on 2.8.10. The one blocked item is 10, whose trigger turned out
+> to be incapable of crashing (#211) — fix in PR #281, awaiting a build.
 
 ## Still owed — device smoke test before production
 
@@ -231,6 +236,125 @@ Item 10 is the one that is easy to half-pass. The event arriving is not the test
 stack trace being **readable** in Sentry is. The `-keepattributes SourceFile,LineNumberTable`
 + `-renamesourcefileattribute` rules and the Sentry mapping upload have to both be working,
 and only a real symbolicated trace proves it.
+
+## Checklist run — 2026-08-18, Pixel 10 / Android 17, **Play production 2.8.8 / vc28**
+
+Second hardware pass. The first (2026-08-15) used preview APK `20bb08e7` and stopped
+after finding #204. This one ran against the artifact **installed from Play**
+(`installerPackageName=com.android.vending`), so its results describe what shipped users
+actually have.
+
+**R8 was confirmed live on the binary before trusting any result.** From the app's own
+stack traces: `T6.T.call`, `U6.i.run`, `ReactHostImpl.x1` are obfuscated, while
+`io.sentry.react.RNSentryModuleImpl.crash` and `com.facebook.jni.NativeRunnable.run` are
+fully readable, and frames carry `SourceFile:50` line numbers. Minification is on, the
+`-keep` rules hit exactly their intended packages, and `-keepattributes
+SourceFile,LineNumberTable` survives. A green checklist on a binary that was never
+minified would prove nothing, so establish this first.
+
+| # | Verdict | Evidence |
+| --- | --- | --- |
+| 1 | **PASS** | Signed out → back in. `users.updated_at` moved to `08:43:17Z`; zero `auth_outcomes` rows after. No `ApiException`. |
+| 2 | **N/A** | Android onboarding offers Google only — no Apple button exists to test. |
+| 3 | **PASS** | Store prices, not fallbacks — see below. |
+| 4 | **PARTIAL** | Restore unreachable for this account, and no restorable purchase exists. Same model layer as item 3, which passed. |
+| 5 | **PASS** | Real Costco receipt → ML Kit → bridge → OCR → 7 items with SKUs and TPD discounts correctly paired. |
+| 6 | **PASS** | Live capture; parsed SKU + brand + product + price. In-app `CameraView` preview bound and streaming. |
+| 7 | **PASS** (both halves) | Expo push → FCM → notification posted with the app's own icon and `0xff10b981`, backgrounded *and* with the app `topResumedActivity`. |
+| 8 | **FIXED, verified on 2.8.10** | See below — the verdict is narrower than "background fetch works". |
+| 9 | **PASS** | `StartStartup → Check → CheckCompleteUnavailable(NoUpdatesAvailable) → EndStartup`. Manifest parsed, server answered. |
+| 10 | **BLOCKED** | The trigger cannot crash — see below. Fix in PR #281, unverified until a build carries it. |
+
+### Item 8: what was actually proven, and what was not
+
+On 2.8.10/vc30 (installed from Play), across a cold start and two full pause/resume
+cycles — 8,676 log lines — `ClassNotFoundException: …RNHeadlessAppLoader` **does not
+appear once**. On 2.8.8 it fired on every single pause and resume. The class R8 was
+stripping now survives, which is exactly what the `-keep` rule was added for. #204 is
+fixed.
+
+**Do not over-read it.** Two things sharpen the claim:
+
+- **Task registration was never the broken part.** 2.8.8 also logged
+  `TaskService: Registered task with name 'PRICEWATCHER_BG_PRICE_CHECK'` and
+  `BackgroundFetchTaskConsumer: Starting an alarm`. Registration and alarm scheduling
+  happen in-process and always worked. What #204 broke is the **headless JS context**
+  Expo must create when the alarm *fires* with the app not running. So "the alarm is
+  armed" is not evidence either way — the absent exception is.
+- **A fetch has still not been observed executing.** Forcing one needs the alarm to
+  fire on its own schedule with the app killed, or a device reboot;
+  `BOOT_COMPLETED` is a protected broadcast that `adb shell am broadcast` cannot
+  send, and the bare `TaskBroadcastReceiver` action no-ops without the task extras.
+  The honest verdict is **"the R8 defect is gone"**, not **"background price checks
+  demonstrably run"**.
+
+### Item 3 is a false-pass trap — check the *shape* of the value
+
+`BuyCreditsScreen` resolves `storePrices[productId] || pack.priceLabel`. A total offerings
+failure therefore renders a complete, correct-looking paywall from hardcoded fallbacks, and
+a screenshot cannot tell the two apart.
+
+The fallbacks in `shared/pricing.config.js` are `"$3"`, `"$5"`, `"$10"` — **no decimals**.
+The device rendered `$3.00`, `$5.00`, `$10.00`, and `$49.99/year` for the subscription.
+Two-decimal formatting is Play's `priceString` and the fallback cannot produce it, so the
+RevenueCat model classes genuinely deserialized. Whenever a screen has a fallback path,
+find a formatting or precision difference that only the real source can produce.
+
+### Item 10 cannot currently be run — RN bridgeless swallows the crash
+
+`RNSentryModuleImpl.crash()` is a bare `throw new RuntimeException("TEST - Sentry Client
+Crash (only works in release mode)")`. It depends on the exception reaching the JVM default
+uncaught handler that Sentry hooks. Under RN 0.83's **bridgeless** runtime it does not:
+`ReactHostImpl` catches it, wraps it as `ReactNoCrashSoftException`, tears down the React
+instance, and **the process survives on a blank white screen**. No tombstone is written and
+no cached envelope is sent on the next launch, so Sentry gets nothing to symbolicate.
+
+The admin "Sentry diagnostics" row exists (PR #221) precisely to make item 10 possible, so
+item 10 has **never actually been executed** on any build. Until it is, symbolication is
+evidenced only indirectly, by the readable `io.sentry.**` frames and retained line numbers
+noted above. Full write-up: `Operations/Bugs_Common_Fixes.md` #211.
+
+**Fix — PR #281, not yet on hardware.** `plugins/withAndroidCrashDiagnostic.js` gives
+MainActivity an `onNewIntent` override that posts the throw to the **main looper**, which is
+outside ReactHost's try/catch: the exception escapes `Looper.loop()`, reaches the default
+uncaught handler Sentry installs, and the process really dies. It is armed by one private
+deep link (`priceback://__diagnostics/crash`) and refuses any intent whose `referrer` is not
+this app, because MainActivity is `exported="true"` and a web page must not be able to kill
+it. iOS keeps `nativeCrash()` — it has no bridgeless interception of native-module throws.
+
+The durable half is the **contract**: a crash that worked never returns, so
+`triggerNativeCrashForDiagnostics()` now treats *any* resolved value as failure and names it
+(`"unavailable"` / `"not_fired"`), and the admin row says so out loud. The old boolean could
+not express failure, which is why three releases of it looked like success.
+
+**Re-run item 10 on the first build that carries PR #281**, and remember the pass criterion
+is the stack being *readable* in Sentry, not the event merely arriving.
+
+### A `NoSuchFieldException` that looks like R8 and is not
+
+```
+java.lang.NoSuchFieldException: No field mIsFinished in class MessageQueueThreadImpl
+    at com.swmansion.worklets.WorkletsMessageQueueThreadBase.quitSynchronous
+```
+
+`react-native-worklets` reflectively reads `mIsFinished`. RN 0.83 declares
+`@Volatile private var isFinished` — Kotlin, **no `m` prefix**. The name is stale upstream,
+so this fails in a non-minified build too, and **no keep rule fixes it**: a `-keep` on
+`isFinished` does not help when the caller asks for `mIsFinished`. Caught and printed to
+`System.err`, therefore invisible to Sentry. Fires only on React-instance teardown, leaving
+the worklets queue thread unmarked and spamming "Tried to enqueue runnable on already
+finished thread".
+
+Deliberately given **no** proguard rule. This is the discipline #204 asks for: confirm the
+class or member actually exists before keeping it, or you cargo-cult rules that hide nothing.
+
+### Sweep result
+
+#204's sweep, run across every log captured in this pass (cold start, receipt scan, document
+scanner, price-tag scan, paywall, sign-out/sign-in, forced crash, relaunch), found exactly
+two reflective failures in the entire corpus: `RNHeadlessAppLoader` (#204) and the worklets
+`mIsFinished` above. Zero `NoSuchMethodError`, zero `NoClassDefFoundError`, zero
+`UnsatisfiedLinkError`.
 
 ### If something breaks
 

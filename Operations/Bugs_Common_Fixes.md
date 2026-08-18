@@ -7782,7 +7782,17 @@ would have been cargo-culting.
   a silent, release-only failure. See `__tests__/withAndroidR8FullMode.test.js`.
 
 **Occurrence.** 2026-08-15, Pixel 10 / Android 17, preview APK 2.8.8 (build `20bb08e7`).
-Fixed in PR #266.
+
+**Where the fix actually landed.** PR #266 was **closed**, not merged — its branch was
+1777 deletions behind and would have reverted #267–#272. The keep rule reached `main` via
+**PR #267** (`7b22948`), so it is in `v2.8.9` and later. Check with
+`git log -S HeadlessAppLoader -- app.json`.
+
+**Re-confirmed 2026-08-18 on the Play production artifact** (2.8.8 / vc28, installed from
+`com.android.vending`), not just on the preview APK: `ClassNotFoundException:
+…RNHeadlessAppLoader` fires on every host pause and resume. So the defect is what shipped
+to real users, and it is still unverified-as-fixed on hardware — no 2.8.9+ build has been
+installed on a device yet.
 
 ## 205. A health check that ORs three variables cannot report the absence of one
 
@@ -8229,3 +8239,80 @@ task can raise a sheet).
   future write that reintroduces the stamp fails there. Generally: before writing
   `users.status = false` anywhere, ask which of the two meanings you intend, and
   whether the purge predicate would then claim the row.
+
+## 211. The crash-test button that could not crash — a runtime change silently retired a diagnostic
+
+**Class: the diagnostic that reports success while doing nothing.** Sibling of #204
+(a caught reflective failure no gate can see) but arrived from the opposite
+direction: nothing here is *caught by us*, and no exception is even lost. The
+platform simply stopped delivering an exception to the place the tool depended on,
+and the tool had no way to notice.
+
+**Symptom.** Profile → Admin → "Sentry diagnostics" → "Crash now". The app does not
+crash. The screen goes **blank white**, the process stays alive, and no event ever
+reaches Sentry. Reopening the app works normally, so nothing looks broken. The
+helper returned `true` for "fired" the whole time.
+
+**Mechanism.** `Sentry.nativeCrash()` bottoms out in
+
+```java
+public void crash() { throw new RuntimeException("TEST - Sentry Client Crash (only works in release mode)"); }
+```
+
+thrown from a **TurboModule method**. It works by letting that exception reach the
+JVM's default uncaught handler, which is where Sentry's
+`UncaughtExceptionHandlerIntegration` installs itself. React Native 0.83's
+**bridgeless** runtime breaks that assumption: `ReactHostImpl` catches every
+exception on the native-module call path, converts it to a
+`ReactNoCrashSoftException`, and tears down the React instance. Hence the white
+screen — the React instance is gone but the process is not.
+
+```
+W BridgelessReact: ReactHost{0}.handleHostException(message = "TEST - Sentry Client Crash …")
+E ReactHost: com.facebook.react.bridge.ReactNoCrashSoftException: raiseSoftException(…)
+E ReactHost: Caused by: java.lang.RuntimeException: TEST - Sentry Client Crash …
+E ReactHost:    at io.sentry.react.RNSentryModuleImpl.crash(SourceFile:5)
+```
+
+The method comment — *"only works in release mode"* — is a fossil from the old
+bridge, where release builds rethrew. Nobody re-read it after the New Architecture
+landed.
+
+**What it cost.** Step 10 of the R8 hardware checklist is the only step that proves
+the ProGuard mapping upload works, and it is the reason the diagnostic was added at
+all (PR #221). It has therefore **never been executed on any build** — 2.8.5 through
+2.8.10 — while the checklist recorded a trigger that existed and a helper that
+reported success.
+
+**Fix.** Raise the crash from the Android **main looper**, which is outside
+ReactHost's try/catch: the exception escapes `Looper.loop()`, reaches the default
+uncaught handler, and the process really dies. That needs native code, and
+`android/` is gitignored, so it ships as `plugins/withAndroidCrashDiagnostic.js`
+adding one `onNewIntent` override to MainActivity, armed by a private deep link and
+gated on `referrer` being this app (MainActivity is exported, so a web page must not
+be able to kill it).
+
+**The contract change is the durable half.** A crash that worked **never returns**.
+So `triggerNativeCrashForDiagnostics()` no longer returns a boolean — any resolved
+value now means the crash did *not* happen and names why (`"unavailable"` /
+`"not_fired"`), and the admin row says so. The old signature could not express
+failure, which is why three releases of failure looked like success.
+
+**Rules.**
+- **A diagnostic needs a way to report its own failure.** If the success path is
+  "this function never returns", then returning at all is the bug signal — encode
+  that, don't assume the happy path.
+- **A tool that depends on an exception escaping to a platform handler is coupled to
+  the runtime's error plumbing.** Re-test crash reporters, ANR detectors and
+  uncaught-handler hooks after any architecture change (bridge → bridgeless, a major
+  RN or SDK bump). They fail open and silently.
+- **"Only works in release mode" and similar comments are claims with an expiry
+  date.** Treat a comment describing runtime behaviour as evidence of what was true
+  when written, not of what is true now.
+- Distinguish this from #204 when triaging a silent Android failure: #204 is a class
+  R8 removed (fix with `-keep`), this is an exception the runtime re-routed (no
+  proguard rule can help).
+
+**Occurrence.** 2026-08-18, Pixel 10 / Android 17, on Play production 2.8.8/vc28 and
+again on 2.8.10/vc30. Fixed in PR #281. **Not yet verified on hardware** — the fix is
+native, so it needs a build.
