@@ -5709,3 +5709,41 @@ price points in `Production_Test_Data_Purge_2026-08-18.md` — a lead, not a cla
 
 **Verification.** Parse-checked every touched file locally; the suites run in CI
 per the standing rule (never locally).
+
+---
+
+## 2026-08-19 — Session-expired banner + 2.8.11 release (PR #286)
+
+**Ask.** Two observations from a device session: (1) Restore unreachable for a
+non-premium account, (2) a 60 s burst of `verify_rejected` 401s rendered as
+"You're offline". Check whether the code already handles them, treat what it
+does not, merge, then bump/build/submit Android.
+
+**(1) Already fixed — no change made.** `ManageSubscriptionScreen` calls
+`renderRestoreAndLegal()` from both the non-premium branch (line 419) and the
+premium one (line 622); it landed in PR #285 as audit #4 R6's correction. Left
+alone deliberately rather than "fixing" it twice.
+
+**(2) Real, and unhandled.** Fixed as described in
+`Bugs_Common_Fixes.md` → "A 60-second burst of rejected requests rendered as
+'You're offline'". New `subscribeCredentialRejected` observable in
+`authService`, latched by `authedFetch` after its retry; a third HomeScreen
+banner ranked between `isOffline` and `backendDown`.
+
+**Regression risk.** The observable is additive and starts `false`, so every
+existing path renders exactly as before until a 401 survives the retry — a state
+that previously had *no* UI at all. `authedFetch`'s request/response behaviour is
+byte-identical; the only addition is a status read after `res` is final. The
+`5xx`-leaves-it-alone branch exists specifically so a backend outage cannot
+start telling users to re-authenticate. Banner precedence was written as an
+explicit three-way ladder, and `backendDown` gained `!credentialRejected` so the
+two can never render together. 176 auth-suite tests + 18 screen-smoke tests +
+13 new ones pass locally; `i18n:check` en=1478 / fr=1478.
+
+**Not done, on purpose.** The backend's `verify_rejected` monitor still cannot
+distinguish "N users failing" from "one user asking N times" beyond the client-
+side break already in `retryPendingReceiptSyncs`; that is a server-side
+aggregation change and out of scope here.
+
+**Device follow-up owed to Maxim.** "Stay awake while charging" was left ON in
+Developer Options after the foreground push test — worth flipping back.

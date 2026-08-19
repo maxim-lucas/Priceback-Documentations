@@ -8610,3 +8610,61 @@ the wrong number for the whole session. The backend compounded it —
   `__tests__/onboardingSignupVsRestore.test.js` (the loader carries neutral copy),
   `__tests__/billingScreens.smoke.test.js` (Restore + legal on both
   ManageSubscription branches).
+
+---
+
+## A 60-second burst of rejected requests rendered as "You're offline" (2026-08-19, PR #286)
+
+- **Symptom:** on a device whose session had died, roughly a minute of
+  authenticated requests came back `401` (the backend's auth-failure monitor
+  logged the burst as `verify_rejected`). The only thing the app put on screen
+  was HomeScreen's connectivity strip: *"You're offline — scans saved locally,
+  price checks paused."* The internet was fine. The user was told to fix the one
+  thing that was not broken, and never told the one thing that would have fixed
+  it — sign in again.
+
+- **Class:** this is Bugs #205 again — **the app names the cause it guessed
+  instead of the status it received.** `authedFetch` *had* the 401 in hand and
+  threw the information away; every consumer swallows its own errors, so nothing
+  outside the call site ever learned the credential was dead. HomeScreen owned
+  the only "something is wrong" surface and it had exactly two states, neither
+  of which was "the server answered, and said no".
+
+- **Fix:**
+  1. `authService` gained a small in-memory observable —
+     `isCredentialRejected()` / `subscribeCredentialRejected(fn)`. `authedFetch`
+     latches it **after** its existing forced re-issue + retry, so only a 401
+     that survives recovery counts.
+  2. Deliberate status ladder: `401` → rejected; `<500` → cleared (the server
+     answered and our token was fine); **`5xx` → left untouched**, because a
+     server fault says nothing about the token and latching there would tell
+     every user to sign in again during an unrelated outage.
+  3. Cleared on a completed sign-in (`_hydrateAfterSignIn`) and on `signOut` —
+     a signed-out user has no session to expire.
+  4. HomeScreen renders a third, tappable banner (`home.sessionExpired`, EN+FR)
+     that routes to Profile. Precedence is `isOffline` → `credentialRejected` →
+     `backendDown`: a radio-less device still can't re-sign-in, but a server
+     that returns 401 is emphatically *not* a server that is down.
+
+- **Not persisted, on purpose.** The flag describes the credential held in
+  memory right now; a fresh launch re-derives it from the first authed call.
+  Persisting it would let a stale "sign in again" survive a fix.
+
+- **Files:** `src/services/authService.js`, `src/screens/HomeScreen.js`,
+  `src/services/i18n.js`.
+
+- **Lesson:** a fallback banner is a *claim*. If the only banner you own says
+  "offline", every failure you cannot classify becomes a lie about the network.
+  The cheapest fix for the whole reporting class is to make the status you
+  already received reachable by the surface that has to explain it.
+
+- **Prevent:** `__tests__/authCredentialRejected.test.js` (the full status
+  ladder, including the load-bearing "a 5xx must not raise it", plus sign-out
+  clearing and late-subscriber delivery) and `__tests__/screensSmoke.test.js`
+  ("HomeScreen — the session-expired banner": it renders, it never shows the
+  offline copy, and it outranks `backendDown`).
+
+- **Also checked, already fixed:** Restore being unreachable for a non-premium
+  account. `ManageSubscriptionScreen.renderRestoreAndLegal()` is called from
+  **both** exit paths as of PR #285 (lines 419 and 622) — see the audit #4 R6
+  entry above. No further change needed.
