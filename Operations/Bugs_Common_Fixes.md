@@ -8519,3 +8519,94 @@ the wrong number for the whole session. The backend compounded it —
   so a storage leak rather than a bleed. And the cross-account push-up in (3) is a
   plausible contributor to the 380 orphaned production price points recorded in
   `Production_Test_Data_Purge_2026-08-18.md`; that is a lead, not a conclusion.
+
+---
+
+## 213. The fix for "don't say the wrong thing" said nothing at all — and the router still waited on the receipt history
+
+- **Symptom (reported):** "I have a loading page for a while and then a redirect
+  on Restoring account." #212 fixed the wrong *destination*. It did not fix the
+  wait, and its own fix made the silence worse: the loader that covers the
+  existence check was left deliberately **wordless**, so the user's next report
+  was a spinner "without any output".
+
+- **Root cause 1 — a rule applied past its purpose.** The rule behind #212's
+  silent loader was *never* "be silent", it was "don't claim what you don't know
+  yet". `signin.restoringTitle` broke that rule; a neutral "Signing you in…"
+  does not. The tell that the honest wording existed all along: the screen was
+  already handing exactly that phrase to a screen reader
+  (`signin.checkingA11y`) while showing sighted users nothing.
+
+- **Root cause 2 — the blocking path included work the decision doesn't need.**
+  `_hydrate` merged the entire receipt history *before* applying preferences,
+  and `onSignInDone` could not route until the whole promise resolved. The
+  receipt step pages up to 25 times at 12 s each; the only local fields
+  `decideSignInRoute` reads are `profileComplete` and `postalCode`, which come
+  out of the *prefs* step. So the router waited on a user's purchase history to
+  decide which screen to show. #212's 45 s ceiling **bounded** that wait without
+  shortening it — a genuinely long restore spent the full 45 s on the loader and
+  then landed on the `SIGNIN-TIMEOUT` apology while the restore was working.
+
+- **Root cause 3 — one dead token, re-discovered once per queued receipt.**
+  `retryPendingReceiptSyncs` looped the whole queue on a 401. A rejected
+  credential is a property of the *session*, so every later receipt in the pass
+  got the same answer — and `authedFetch` spends a forced re-issue + retry on
+  each one, so N pending receipts cost 2N rejected requests back-to-back. That
+  is the burst of `verify_rejected` the auth monitor saw: not N users failing,
+  one user asking N times.
+
+- **Root cause 4 — the app named the cause it guessed, not the status it got.**
+  `fetchReferralStatus` returned bare `null` for signed-out, unconfigured,
+  401/403, 5xx and transport failure alike, so both callers rendered "Couldn't
+  reach the server. Try again when you're online." to a user whose session had
+  expired — advice they can never act on, since they already are online. Same
+  reporting class as #205 and #209.
+
+- **Fix:**
+  1. `CheckingStep` renders `signin.checkingTitle` ("Signing you in…" / "Connexion
+     en cours…"), true for both answers, EN+FR.
+  2. Prefs apply first; the receipt step moves off the blocking path as
+     `out.receiptsSettled`. **The paging and the merge are deferred as one
+     unit** — `unionMergeReceipts` flags every local receipt the server did not
+     return as `syncPending`, so merging page 1 early would flag a
+     >200-receipt user's whole remaining history as missing server-side and
+     re-upload it (#212(3)'s cross-account write, aimed at the user's own
+     account). `sideEffects` awaits `receiptsSettled` first, so the write-back
+     order is unchanged.
+  3. Ceiling 45 s → 20 s. It now covers one hard-bounded 12 s bootstrap GET
+     plus local writes, so the worst case a user can be made to stare at drops
+     by 25 s without any risk of cutting a working restore short.
+  4. `retryPendingReceiptSyncs` breaks on a 401 — *after* recording the outcome,
+     leaving everything else `syncPending`/`syncRetryable` for the next
+     foreground, which is where a fresh token actually comes from.
+  5. New `fetchReferralStatusResult` returns a typed reason
+     (`signed_out` / `unconfigured` / `auth_expired` / `server` / `network`);
+     `fetchReferralStatus` is kept as the null-shaped wrapper. Both referral
+     surfaces gained `profile.referralSessionExpired` (EN+FR).
+  6. `ManageSubscriptionScreen`'s Restore + Terms/Privacy furniture moved into a
+     renderer used by **both** exit paths. Audit #4 R6 had added it below the
+     `!status.isPremium` early return — showing Restore to people who are
+     already subscribed and hiding it from the one person who needs it (a user
+     whose entitlement did not carry over reads as non-premium), while the trial
+     branch rendered a plan selector with no Restore and no legal links at all.
+
+- **Files:** `src/screens/OnboardingScreen.js`, `src/services/syncService.js`,
+  `src/services/storageService.js`, `src/services/authService.js`,
+  `src/screens/InviteFriendScreen.js`, `src/screens/StoresAndProfileScreens.js`,
+  `src/screens/ManageSubscriptionScreen.js`, `src/services/i18n.js`.
+
+- **Lesson:** a fix that removes a false statement has to leave a true one
+  behind. "Say nothing" is only correct when nothing is knowable — and here the
+  accessibility label proved otherwise. And bounding a wait is not the same as
+  ending it: ask what the blocking work is actually *for*, or the ceiling just
+  becomes the new duration.
+
+- **Prevent:** `__tests__/syncServiceHydrate.test.js` (routing resolves while the
+  receipt paging is still open; `receiptsSettled` ordering ahead of the
+  write-backs), `__tests__/restoreEndToEnd.test.js` (awaits `receiptsSettled`
+  before reading counts), `__tests__/storageService.syncRetry.test.js` (the pass
+  stops on the first 401 and leaves the rest queued),
+  `__tests__/authServiceApi.test.js` (all five referral reasons),
+  `__tests__/onboardingSignupVsRestore.test.js` (the loader carries neutral copy),
+  `__tests__/billingScreens.smoke.test.js` (Restore + legal on both
+  ManageSubscription branches).
