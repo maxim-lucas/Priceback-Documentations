@@ -5627,3 +5627,85 @@ fallbacks already existed independently, covered both ways by new tests; the
 i18n changes are copy-only, edited in both languages together and enforced by
 `i18n:check`. The DB purge is irreversible and unbackuped by explicit choice —
 that is the standing risk, and this log plus the purge doc are its only record.
+
+---
+
+## 2026-08-19 — 2.8.10 sign-in: a signup was routed as a restore
+
+**Task.** Field report on 2.8.10: since the sign-in user-existence precheck
+shipped, signing in shows a loader "for a while", then **"Restoring your
+account…"**, and a new user is blocked. Find the root cause and fix it.
+
+**Root cause.** The precheck worked; its answer never reached the routing
+decision. `decideSignInRoute()` read `profileComplete && postalCode` before the
+hydrate's `accountExists`, and those prefs are not account-scoped — `signOut()`
+keeps them so the same person signing back in (offline included) does not lose
+their history. On any handset where some account had onboarded, a brand-new
+account was therefore routed `"main"`: the restore screen, then straight into the
+app, with SetupStep never running — so no postal code or province ever reached
+the server, and `serverAccountExists()` stayed false forever, repeating the same
+branch on every later sign-in.
+
+**Confirmed in production, not inferred.** Two accounts, one household, one
+device, 2026-08-17: `monicasharobim@gmail.com` finished setup at 15:45 (postal
+`J0N 1P0`, three `consent_events` incl. `marketing_push`);
+`sharobimmonica@gmail.com` was created at 15:47:43 with NULL
+postal_code/province and exactly the **two** consents the returning-user branch
+queues, 9 seconds after the row existed. Nothing else in the app sends that pair
+alone. Still in use with a NULL postal code a day later.
+
+**Two more defects on the same path.** `_hydrate()`'s tail awaited
+`syncPushTokenToBackend()` and `flushProfileSync()`, both reaching
+`syncProfileToBackend()` — the last backend call in the app with no
+`AbortController` — *after* the screen had committed to a full-screen loader that
+cannot route until the hydrate resolves. That is the "loading for a while", and
+with no bound it was unbounded. Separately, `unionMergeReceipts` flags every local
+receipt the server did not return as `syncPending`, so an account switch did not
+merely *show* account A's receipts to account B — the push pass **uploaded** them
+into B's server records.
+
+**Fix.** (1) `decideSignInRoute` returns `"setup"` on a positive
+`accountExists === false`, ahead of the prefs check — strictly `=== false`, so a
+missing field / failed hydrate / offline sign-in behave exactly as before.
+(2) New `enforceLocalAccountBoundary(sub)` keyed on `local_data_owner_sub_v1`:
+no owner → adopt and clear nothing, same owner → no-op, different owner → clear
+the account-scoped data. Called before the credential is persisted at all three
+finalize sites, because App.js's foreground hydrate is concurrent with sign-in and
+reads the keychain to decide what to do. `bootService` back-fills the marker for
+anyone already signed in, which is what closes the boundary for existing installs.
+(3) 15 s `AbortController` on `syncProfileToBackend`; the hydrate's two write-backs
+moved to a detached `out.sideEffects` (same order); and a 45 s ceiling on the
+sign-in loader that lands in the existing retry branch as `SIGNIN-TIMEOUT` —
+SplashScreen has had that failsafe from the start, this screen had none.
+
+**Scope decision.** Asked and answered: fix the cross-account receipt bleed in
+this PR rather than flag it, and stop at a merged PR without a version bump.
+
+**Tests.** New `__tests__/localAccountBoundary.test.js` (17 cases: the three
+outcomes, the CASL/Limited-Use consent crossings, device-vs-account prefs, and the
+ordering invariant asserted as *what local storage held when the hydrate read
+it*). Extended `onboardingSignInRecovery.test.js` (precedence + ceiling outcomes),
+`onboardingSignupVsRestore.test.js` (new-account-on-a-used-handset, plus the
+loader failsafe under fake timers), `syncServiceHydrate.test.js` (`sideEffects`
+does not gate the result), `authServiceSessionTimeout.test.js` (bounded profile
+PUT on both platforms), `bootService.test.js` (owner back-fill).
+
+**Regression risk.** The routing guard is additive and gated on a field only a
+successful hydrate sets, so all six pre-existing `decideSignInRoute` cases pass
+untouched and the `email_claimed`-wins-for-an-existing-user ordering is unchanged.
+The boundary is a no-op for existing installs and for same-account sign-in; it
+fires only on a genuine identity change, where today's behaviour *is* the defect.
+The abort can only turn an unbounded wait into a bounded null every caller already
+handles. Detaching the write-backs changes what `await hydrateFromBackend()`
+implies — two existing tests were updated to await `sideEffects` rather than the
+result, which is the honest contract. The 45 s ceiling can fire on a genuinely
+slow multi-page restore and show a retry dialog; it is set above any realistic
+restore for that reason.
+
+**Not fixed, on purpose.** Receipt photos under `documentDirectory/receipts/` are
+left unreferenced by a boundary wipe (storage leak, not a bleed). The
+cross-account push-up is a plausible contributor to the 380 orphaned production
+price points in `Production_Test_Data_Purge_2026-08-18.md` — a lead, not a claim.
+
+**Verification.** Parse-checked every touched file locally; the suites run in CI
+per the standing rule (never locally).

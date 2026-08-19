@@ -8409,3 +8409,113 @@ the wrong number for the whole session. The backend compounded it —
   price, and nobody noticed because it *had* a price-shaped value.
 
 **Occurrence.** 2026-08-18, iOS TestFlight 2.8.10. Fixed in PR #282.
+
+---
+
+## 212. A signup was routed as a restore — the precheck answered, and nothing read the answer
+
+- **Date:** 2026-08-19 · **PR:** _(this change)_ · **Area:** mobile
+- **Symptom:** Reported from the field on 2.8.10: *"on signin we had a prechecker
+  to check if the user exist or no; since that, i have a loading page for a while
+  and then a redirect on Restoring account, for new user is blocks."* A brand-new
+  account signs in, sits on a loader, is then shown **"Restoring your account…"**,
+  and ends up inside the app with no postal code and no province on the server.
+
+- **Root cause:** THREE defects on one path, all downstream of the same
+  assumption — that local prefs describe the account that is signing in.
+
+  1. **The routing.** `decideSignInRoute()` read `profileComplete && postalCode`
+     *before* the hydrate's `accountExists`. Those prefs are not account-scoped:
+     `signOut()` keeps them on purpose (a sign-out is not an erase, and the same
+     person signing back in — offline included — must not lose their history). So
+     on any handset where *some* account had onboarded, a new account was routed
+     `"main"`: `setSignInPhase("restoring")` → the restore screen it must never
+     see, then `navigation.replace("Main")`. SetupStep never ran, so no postal
+     code / province reached the server, the referral window was skipped, and
+     marketing consent was never asked. And because `serverAccountExists()` then
+     stays false forever, **every later sign-in repeated the same branch.**
+  2. **The unbounded loader.** `_hydrate()` emits the precheck answer and then
+     awaits two write-backs — `syncPushTokenToBackend()` and
+     `flushProfileSync()` — both of which funnel into `syncProfileToBackend()`,
+     the last backend call in the app with **no AbortController**. They run after
+     the screen has committed to a full-screen loader, and the screen cannot
+     route until the hydrate resolves. One stalled PUT held the user there for as
+     long as the socket lived. `_timedGet`'s 12 s ceiling covers only the
+     bootstrap GET and the receipt pages.
+  3. **The cross-account write.** Local receipts survive sign-out too. That is
+     not just a display bleed: `unionMergeReceipts` flags every local receipt the
+     server did not return as `syncPending`, and the push pass then **uploads
+     account A's receipt history into account B's server records** — receipt
+     rows, items, and the `price_points` derived from them.
+
+- **Production evidence:** two accounts, one household, one device, 2026-08-17.
+  `monicasharobim@gmail.com` (created 15:31:29) finished setup at 15:45:26 —
+  postal `J0N 1P0`, and **three** `consent_events` at 15:33:23
+  (`terms_of_service`, `privacy_policy`, `marketing_push`, source `signup`).
+  `sharobimmonica@gmail.com` (created 15:47:43, ~2 min later) has
+  `postal_code`/`province_id` **NULL**, 75 credits, a push token, and exactly
+  **two** `consent_events` at 15:47:52 — `terms_of_service` + `privacy_policy`,
+  9 seconds after the row was created. That pair with no postal code is
+  byte-for-byte the payload the `route === "main"` branch queues
+  (`OnboardingScreen.js`, the returning-user consent re-affirmation); nothing else
+  in the app sends it alone. `updated_at` 2026-08-18 19:08 — still in use, still
+  with a NULL postal code, so regional pricing and price-drop matching were dead
+  for that account.
+
+- **Fix:**
+  - `decideSignInRoute` now returns `"setup"` when the hydrate positively
+    answered `accountExists === false`, ahead of the local-prefs check. Strictly
+    `=== false`: a missing field, a failed hydrate or an offline sign-in take the
+    path they always did, which is what keeps offline re-sign-in working.
+  - New `enforceLocalAccountBoundary(sub)` (authService) + `getLocalDataOwner` /
+    `setLocalDataOwner` / `clearAccountScopedStorage` (storageService), keyed on
+    `local_data_owner_sub_v1`. No owner on record → adopt, clear nothing (every
+    install predating this). Same owner → no-op. Different owner → clear the
+    account-scoped data, then adopt. Called **before the credential is
+    persisted** at all three finalize sites, because App.js's foreground hydrate
+    is concurrent with the rest of sign-in and decides what to do by reading the
+    keychain. `bootService` back-fills the marker for anyone already signed in.
+  - `syncProfileToBackend` gets a 15 s `AbortController`; `_hydrate`'s two
+    write-backs move to a detached `out.sideEffects` promise so routing no longer
+    waits on them (same order preserved); and `onSignInDone` races the hydrate
+    against a 45 s ceiling that lands in the existing "retry" branch as
+    `SIGNIN-TIMEOUT`.
+
+- **Files:** `src/screens/OnboardingScreen.js` (`decideSignInRoute`,
+  `onSignInDone`, `SIGNIN_HYDRATE_CEILING_MS`), `src/services/authService.js`
+  (`enforceLocalAccountBoundary`, `syncProfileToBackend`, the three finalize
+  paths), `src/services/storageService.js` (owner marker,
+  `clearAccountScopedStorage`, `DEVICE_SCOPED_PREF_KEYS`),
+  `src/services/syncService.js` (`_hydrate` tail → `out.sideEffects`),
+  `src/services/bootService.js` (owner back-fill).
+
+- **Detect next time:** one query. A new account that never saw SetupStep has a
+  NULL postal code *and* only two consents:
+
+  ```sql
+  select u.sub, u.email, u.created_at, count(ce.id) as consents
+  from priceback.users u
+  left join priceback.consent_events ce on ce.user_sub = u.sub
+  where u.postal_code is null and u.deletion_requested_at is null
+  group by u.sub, u.email, u.created_at
+  order by u.created_at desc;
+  ```
+
+  A row with `consents = 2` is this bug. `consents = 0` is someone who abandoned
+  the form, which is normal.
+
+- **Prevent:** `__tests__/localAccountBoundary.test.js` (the three outcomes, the
+  consent-crossing cases, and the ordering invariant asserted as an observable
+  fact — *what local storage held at the moment the hydrate read it*),
+  new precedence + ceiling blocks in `__tests__/onboardingSignInRecovery.test.js`,
+  the new-account-on-a-used-handset render case and the loader-failsafe case in
+  `__tests__/onboardingSignupVsRestore.test.js`, `sideEffects` non-gating cases in
+  `__tests__/syncServiceHydrate.test.js`, the bounded profile PUT in
+  `__tests__/authServiceSessionTimeout.test.js`, and the back-fill cases in
+  `__tests__/bootService.test.js`.
+
+- **Residual, flagged not fixed:** persisted receipt photos under
+  `documentDirectory/receipts/` are left behind by a boundary wipe — unreferenced,
+  so a storage leak rather than a bleed. And the cross-account push-up in (3) is a
+  plausible contributor to the 380 orphaned production price points recorded in
+  `Production_Test_Data_Purge_2026-08-18.md`; that is a lead, not a conclusion.
