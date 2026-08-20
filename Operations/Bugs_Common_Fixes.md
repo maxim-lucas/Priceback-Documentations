@@ -8314,8 +8314,28 @@ failure, which is why three releases of failure looked like success.
   proguard rule can help).
 
 **Occurrence.** 2026-08-18, Pixel 10 / Android 17, on Play production 2.8.8/vc28 and
-again on 2.8.10/vc30. Fixed in PR #281. **Not yet verified on hardware** — the fix is
-native, so it needs a build.
+again on 2.8.10/vc30. Fixed in PR #281.
+
+**VERIFIED ON HARDWARE — 2026-08-20.** Pixel 10, Play-installed production
+2.8.11/vc31 (`installerPackageName=com.android.vending`, `isSideLoaded=false`), i.e.
+the artifact real users have. Profile → Admin → Sentry diagnostics → CRASH NOW killed
+the process for the first time ever (`pidof` empty; pid 27286 gone), and logcat shows
+the exception taking the intended route:
+
+```
+FATAL EXCEPTION: main … at com.priceback.MainActivity.o0(SourceFile:5), at R9.a.run(SourceFile:1)
+```
+
+— obfuscated frames, so R8 is live, and the throw escaped `Looper.loop()` to the
+default uncaught handler exactly as the fix intended. Sentry issue
+[7683178575](https://prosoft-inc.sentry.io/issues/7683178575/) renders it fully
+symbolicated: `com.priceback.MainActivity:84 in onNewIntent$lambda$0` plus 8 more
+frames with real names and line numbers, zero `a.b.c(Unknown Source)`. Mapping chain
+confirmed on both halves beforehand — the shipped AAB embeds
+`io.sentry.ProguardUuids=8c094795-7b67-36d7-89a7-3fe716b058d4`, and the Sentry API
+lists a matching 77.6 MB proguard-mapping uploaded 2026-08-19 19:43 UTC. That closes
+item 10 of the R8 hardware checklist, the only step that proves the mapping upload
+works; see `Technical/Android_R8_Optimization.md`.
 
 ---
 
@@ -8668,3 +8688,146 @@ the wrong number for the whole session. The backend compounded it —
   account. `ManageSubscriptionScreen.renderRestoreAndLegal()` is called from
   **both** exit paths as of PR #285 (lines 419 and 622) — see the audit #4 R6
   entry above. No further change needed.
+
+---
+
+## 214. A fault on the user's phone was reported to them — and to support — as our backend being down (2026-08-20)
+
+**Class: the classifier that answers with the bucket it fell into rather than the
+cause it observed.** Third sibling of #205 and of the "You're offline" entry above:
+in all three, the app *had* the information that named the real cause and discarded
+it in favour of a default that reads like an explanation.
+
+**Symptom.** Sentry `PRICEBACK-CANADA-F`, one event, release **2.8.11 / dist 31**
+(the current Play build), Android 11, 2026-08-19 20:34:26 UTC. Title:
+`T7.b: INTERNAL_ERROR` — `T7.b` is the minified error constructor, `INTERNAL_ERROR`
+is the entire message, and the event carries **no stack frames at all**. Extras read
+`flow: signin_google`, `category: "server"`, `reference: "SERVER"`.
+
+So the user was shown *"Our service is having a hiccup. Please try again in a few
+minutes — our team has been notified"*, and any support ticket would have carried
+`SERVER` — the same code a genuine 5xx produces.
+
+**Our service was fine.** The same session's breadcrumbs show six `200`s against
+`priceback-production.up.railway.app` (`pricing.json`, `warehouses.json`,
+`policies.json`) in the 40 seconds before the failure, plus a `200` from
+`exp.host`. Nothing was wrong with the backend, and "wait a few minutes" could
+never have helped.
+
+**Mechanism.** The failure is Google Play Services' `ApiException` **status 8,
+`INTERNAL_ERROR`** — a device-side fault. `@react-native-google-signin`'s
+`ErrorDto.kt` strips the `"<code>: "` prefix off the ApiException message and falls
+back to `GoogleSignInStatusCodes.getStatusCodeString(code)`, so what reaches JS is
+`{ code: "8", message: "INTERNAL_ERROR" }` — a bare status word, no HTTP status,
+nothing naming our servers.
+
+`classifyError` had an explicit branch for it, and it was the **last** line of the
+function:
+
+```js
+// Transient Google Play Services failure (e.g. INTERNAL_ERROR / code 8 …)
+if (/com\.google\.android\.gms|\bINTERNAL_ERROR\b|play services/i.test(msg)) return "server";
+```
+
+The comment reasoned that the `server` bucket "already says *having a hiccup, try
+again in a few minutes*". That is true of the words and false of the meaning: the
+copy names **our** service, and the support reference is shared with real outages,
+so the one code that should have said *look at the device* said *look at the API*.
+
+**The device-side timeline, from the event's own lifecycle breadcrumbs** — and the
+reason it is worth reading them:
+
+```
+20:32:30.588  SignInHubActivity created     ← tap
+20:32:43.909  SignInHubActivity destroyed   ← attempt 1 fails
+20:32:44.250  SignInHubActivity created     ← 341 ms later: OUR retry
+20:34:26.287  SignInHubActivity destroyed   ← attempt 2 fails, 102 s later
+20:34:26.365  T7.b: INTERNAL_ERROR reported
+```
+
+`signInWithGoogle` retries a transient GMS failure once after `GSI_RETRY_DELAY_MS`
+(300 ms) and throws only the **second** error. The 341 ms gap is that retry. So the
+one event Sentry received described the second attempt and said nothing whatever
+about the first — we could not tell a one-off blip, where the retry earns its keep,
+from a device where sign-in can never succeed and the retry only doubles the wait
+before the user is told so. Here it took the time-to-failure from 13 s to 1 m 56 s.
+
+**Fix (client-side only — the GMS fault itself is not ours to fix).**
+
+1. **New category `signin_provider_error`**, reference `SIGNIN-PROVIDER-ERROR`,
+   matching `INTERNAL_ERROR` / `INTERRUPTED` / `API_NOT_CONNECTED` /
+   `com.google.android.gms` / `play services`. Copy (EN+FR) names the actual
+   remedy: update Play Services, check a Google account is added on the device.
+   It explicitly says nothing is wrong with the user's PriceBack account.
+2. **The branch stays exactly where the `return "server"` stood — last.** Position
+   is load-bearing: every bucket above it is more specific (a Google auth message
+   that also says `invalid_grant` must still read as an expired grant), and the 5xx
+   ladder above must keep claiming a backend envelope, which carries the string
+   `INTERNAL_ERROR` too — `backend/lib/httpError.js` puts the upper-case code in
+   every error body. Re-categorising in place cannot move anything else.
+3. **`React Native unavailable` → `provider_unavailable`.** Same defect, found
+   while tracing: the coarse 5xx line matches a bare `/unavailable/`, so a dead RN
+   bridge was also reported as our backend (`PRICEBACK-CANADA-A` carries
+   `category: "server"` for exactly that message), as was authService's own
+   *"Google Sign-In native module unavailable"*, which sets no code to win on.
+   This branch sits **below** the status ladder so no HTTP-shaped error changes
+   meaning.
+4. **`reportHandledError` now lifts `err.code` / `err.status` into the report**
+   (`errCode`, `errStatus`). Recovering "Play Services status 8" from
+   `T7.b: INTERNAL_ERROR` meant reading a minified constructor and then the
+   library's Kotlin source; the code was on the error object the whole time and
+   simply never left the device. Codes and statuses only — never a message, which
+   is where user data would be, and both are length-capped.
+5. **The swallowed retry is now visible.** `signInWithGoogle` records the first
+   attempt's code on whatever error surfaces (`priorCode`), which
+   `reportHandledError` forwards. Absence is the signal: no `priorCode` means the
+   failure happened first try. The value is a bounded vocabulary — the GMS code, or
+   the status word — never raw provider prose.
+6. **Two copy strings that were wrong outside the flow they were written for.**
+   `err.playServicesBody` said *"before PriceBack can reach **Gmail**"* but also
+   fires during sign-in, where Gmail is not involved; `err.providerUnavailableBody`
+   said *"**Mailbox scanning** isn't available"* and now also covers a dead bridge.
+   Both are flow-neutral and accurate for every caller.
+
+**Files:** `src/services/errorSupport.js`, `src/services/authService.js`,
+`src/services/i18n.js` (EN+FR, `err.signInProviderErrorBody`).
+
+**Lessons.**
+- **A coarse bucket's copy is a claim about the world.** `server` does not mean
+  "5xx-ish"; it means *"our service is unwell"*, and it is wrong to say that about a
+  fault on the user's phone. When a branch routes to a bucket, read the sentence the
+  user will see, not the name of the constant.
+- **`/unavailable/` in a 5xx pattern is a magnet.** Any message containing the word
+  — a missing native module, a dead bridge, a Play Services hiccup — gets blamed on
+  the backend. Device-side failures must be claimed *before* a coarse text bucket
+  gets a chance at them.
+- **A silent retry must leave a trace.** If it swallows the first failure, telemetry
+  can never tell you whether the retry helps; it only shows you the attempt that
+  failed anyway.
+- **Put the provider's own code in the event.** Sentry titles a JS error by its
+  minified constructor, so the failure code is exactly the field that survives
+  minification and exactly the field we were not sending.
+
+**Prevent.** `__tests__/errorSupport.test.js` → *"PRICEBACK-CANADA-F — a Play
+Services fault told the user our backend was down"* (the three GMS codes, the
+verbatim production message with no code attached, distinct-reference-from-a-real-
+outage, the copy key, the backend-500-stays-server guard, and a
+does-not-steal-its-neighbours case covering `signin_misconfigured`,
+`play_services`, `cancelled`, `timeout` and ordinary 5xx prose); *"a dead native
+side is the app's fault, not the backend's"* including the status-ladder placement
+guard; and *"reportHandledError carries the provider's own failure code"* (lifting,
+capping, omission when absent, caller-context precedence).
+`__tests__/authServiceSignIn.test.js` → *"the silently-retried first attempt leaves
+a trace"* (code and status-word forms, the token-less retry, absence on a first-try
+failure, and that annotating a frozen or primitive rejection can never replace the
+real failure with a `TypeError`).
+
+**Verification note.** GitHub Actions is billing-blocked again (all three jobs
+`conclusion: failure`, `steps: 0`, ~5 s), so CI could not run this. Verified instead
+by loading the **real** `errorSupport.js` into a harness and asserting 34 cases, and
+by a differential sweep of the previous classifier against the new one over 15 794
+distinct string literals from 299 source and test files: the only changes are
+`server → signin_provider_error` (GMS/Play Services strings),
+`unknown → signin_provider_error` (`INTERRUPTED`, `API_NOT_CONNECTED` — previously
+falling through) and `server → provider_unavailable` (the native-module strings).
+Nothing else moved. `npm run i18n:check` passes at en=1479 / fr=1479.

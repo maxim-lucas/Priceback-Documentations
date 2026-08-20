@@ -5747,3 +5747,87 @@ aggregation change and out of scope here.
 
 **Device follow-up owed to Maxim.** "Stay awake while charging" was left ON in
 Developer Options after the foreground push test — worth flipping back.
+
+---
+
+## 2026-08-20 — R8 checklist item 10 closed, and the Sentry error it turned up
+
+**Ask.** Two halves. First, finish the item-10 record-keeping from the device run.
+Second — "fix the error on Sentry and make all the required analysis and fixes" —
+chase the incidental finding that run surfaced.
+
+**(1) Item 10 — PASS, no code change.** Recorded in
+`Technical/Android_R8_Optimization.md` → *"Checklist run — 2026-08-20"*, and the
+hardware verification added to `Operations/Bugs_Common_Fixes.md` #211. Play
+production 2.8.11/vc31 on a Pixel 10; the process really died, and Sentry issue
+7683178575 renders `com.priceback.MainActivity:84 in onNewIntent$lambda$0` plus 8
+more named frames with zero `a.b.c(Unknown Source)`. Mapping chain confirmed on both
+halves first (embedded ProGuard UUID `8c094795…`, matching 77.6 MB mapping uploaded
+2026-08-19 19:43 UTC). Checklist now **8 PASS · 1 N/A · 1 PARTIAL · 0 BLOCKED**.
+
+**(2) The Sentry error — real, on the current shipping build.** Full write-up as
+`Bugs_Common_Fixes.md` #214. `PRICEBACK-CANADA-F`, `T7.b: INTERNAL_ERROR`, 2.8.11/31,
+Android 11, 2026-08-19 20:34 UTC. The previous session's read — "a **server-side**
+Google sign-in failure" — was taken from the event's own `category: server` tag, and
+that tag is our own classification, not an observation: the failure is Google Play
+Services `ApiException` **status 8**, entirely device-side. The same session made six
+`200`s against the backend it was blaming, in the 40 seconds before it fired.
+
+Root cause is one line, and it was the last line of `classifyError`:
+`if (/com\.google\.android\.gms|\bINTERNAL_ERROR\b|play services/i.test(msg)) return "server";`
+The comment argued the `server` bucket "already says try again in a few minutes" —
+true of the words, false of the meaning, because that copy names **our** service and
+its support reference is shared with genuine 5xx outages.
+
+Fixed with a new `signin_provider_error` category (reference `SIGNIN-PROVIDER-ERROR`,
+EN+FR copy naming Play Services and a Google account as the remedy), left **in the
+same position** so re-categorising cannot move anything else; `React Native
+unavailable` routed to `provider_unavailable` (same defect — the coarse 5xx line
+matches a bare `/unavailable/`); `err.code`/`err.status`/`priorCode` lifted into the
+Sentry report; and the silently-retried first sign-in attempt made observable.
+
+**Triage of the other seven unresolved issues — one line each, so this is not
+re-derived next time.** Only F needed code:
+
+| Issue | Verdict |
+| --- | --- |
+| **F** `T7.b: INTERNAL_ERROR` | The only live defect on 2.8.11. **Fixed here.** |
+| C `authorization attempt failed` (23 ev) | Still on **2.8.8/28**, extras say `reference: UNKNOWN` — the *pre*-fix behaviour. Already fixed by the 2026-08-17 triage; an un-updated iOS build is still reporting. No change. |
+| B `Unable to open Safari` (20 ev) | Same: 2.8.8/28, `reference: UNKNOWN`. Already fixed. No change. |
+| D `DEVELOPER_ERROR` | Same: 2.8.8/28, `reference: UNKNOWN`. Already fixed. No change. |
+| A `React Native unavailable` (2 ev) | 2.8.1/21, 2026-08-09, `category: "server"` — the misclassification was still live in today's code and **is fixed here**. The underlying dead bridge is stale dev-build shape. |
+| 9 `NativeEventEmitter requires a non-null argument` | 2.8.1/21, same session as A — the classic "JS bundle without its matching native build". Stale; monitor. |
+| E `CrashedByAdbException: shell-induced crash` | Self-inflicted `adb shell` during the 2026-08-14 test pass. Not a defect. |
+| G `R8 symbolication probe` | Deliberate output of run (1). Not a defect. |
+
+**Regression risk — stated, not assumed.** The classifier is the app's single funnel
+for every caught error, so "one more regex" is exactly the change that silently
+re-routes unrelated traffic. Both new branches were therefore placed to make that
+impossible rather than unlikely: `signin_provider_error` sits **exactly where the
+`return "server"` stood** (last, so every more-specific bucket above still wins first
+and a backend envelope — which also carries the string `INTERNAL_ERROR` — still hits
+the 5xx ladder), and `provider_unavailable` sits **below the status ladder** so no
+HTTP-shaped error changes meaning. Proven, not argued: a differential sweep of the
+old classifier against the new over **15 794 distinct string literals from 299 source
+and test files** moves exactly three groups — `server → signin_provider_error` (GMS /
+Play Services), `unknown → signin_provider_error` (`INTERRUPTED`,
+`API_NOT_CONNECTED`, previously falling through) and `server → provider_unavailable`
+(native-module strings). Nothing else. The `authService` change is additive: it writes
+one property onto an error that is already being thrown, inside a `try`, only when a
+retry actually happened, so a frozen or primitive rejection cannot become a
+`TypeError`. The three copy edits keep their keys.
+
+**Verification.** GitHub Actions is **billing-blocked again** — all three jobs
+`conclusion: failure`, `steps: 0`, ~5 s, on every run since 2026-08-19. Per the
+standing rule I did not compensate with local suite runs. Instead: the real
+`errorSupport.js` was loaded into a harness and asserted over 34 cases (including
+every neighbouring bucket that must not move); the differential sweep above;
+`npm run i18n:check` green at **en=1479 / fr=1479**; and all five touched files
+parse-checked. The jest suites ship in the same commit and need CI to run.
+
+**Owed to Maxim.**
+- Clear the Actions billing block — nothing in this repo can be CI-verified until then.
+- `PRICEBACK-CANADA-F` and `-G` were left **unresolved** in Sentry, deliberately; F
+  should be archived only once a 2.8.12 build carries #214, since resolving it now
+  would re-open on the next 2.8.11 occurrence and lose the link to the fix.
+- B/C/D will keep reporting `UNKNOWN` until that iOS device leaves 2.8.8.

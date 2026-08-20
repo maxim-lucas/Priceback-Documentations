@@ -300,7 +300,12 @@ Two-decimal formatting is Play's `priceString` and the fallback cannot produce i
 RevenueCat model classes genuinely deserialized. Whenever a screen has a fallback path,
 find a formatting or precision difference that only the real source can produce.
 
-### Item 10 cannot currently be run — RN bridgeless swallows the crash
+### Item 10 could not be run at the time — RN bridgeless swallowed the crash
+
+> **Superseded 2026-08-20 — item 10 now PASSES.** Everything below describes why it was
+> unrunnable through 2.8.10; the fix landed in PR #281 and was executed on hardware against
+> Play production 2.8.11 / vc31. See *"Checklist run — 2026-08-20"* at the end of this file.
+
 
 `RNSentryModuleImpl.crash()` is a bare `throw new RuntimeException("TEST - Sentry Client
 Crash (only works in release mode)")`. It depends on the exception reaching the JVM default
@@ -328,7 +333,8 @@ The durable half is the **contract**: a crash that worked never returns, so
 not express failure, which is why three releases of it looked like success.
 
 **Re-run item 10 on the first build that carries PR #281**, and remember the pass criterion
-is the stack being *readable* in Sentry, not the event merely arriving.
+is the stack being *readable* in Sentry, not the event merely arriving. → **Done, 2026-08-20;
+see the run below.**
 
 ### A `NoSuchFieldException` that looks like R8 and is not
 
@@ -375,3 +381,59 @@ Play's recommendation cannot be followed independently. AGP is pinned by React N
 at `agp = "8.12.0"` in `node_modules/react-native/gradle/libs.versions.toml`; the
 Gradle wrapper is 9.0.0. Moving to AGP 9 requires an upstream RN/Expo release that
 supports it. Revisit at the next Expo SDK bump.
+
+## Checklist run — 2026-08-20, item 10, **Play production 2.8.11 / vc31** — **PASS**
+
+Third hardware pass, scoped to the one item the previous two could not execute. Pixel 10,
+Play-installed build (`installerPackageName=com.android.vending`, `isSideLoaded=false`), so
+this describes the artifact shipped users actually have.
+
+**The chain was verified before the device was touched** — item 10 tests two things at once
+(R8 keeps line numbers *and* the mapping reaches Sentry), so a failure with the chain
+unverified would have been ambiguous:
+
+- PR #281 (`2ade330`) is contained in tag `v2.8.11`; EAS build `3a24db6b` built from `2ac1496`.
+- The probe is genuinely in the binary: `dex/classes2.dex` of the shipped AAB contains
+  `priceback://__diagnostics/crash` and the probe message.
+- `assets/sentry-debug-meta.properties` embeds
+  `io.sentry.ProguardUuids=8c094795-7b67-36d7-89a7-3fe716b058d4`, and the Sentry API lists a
+  matching **77.6 MB** proguard-mapping uploaded 2026-08-19 19:43 UTC. Both halves present.
+
+**The run.** Profile → Admin → Sentry diagnostics → CRASH NOW.
+
+- The process **died** — `pidof` empty, pid 27286 gone. First time this trigger has ever
+  worked; the bridgeless white-screen no-op is fixed.
+- Logcat:
+  `FATAL EXCEPTION: main … at com.priceback.MainActivity.o0(SourceFile:5), at R9.a.run(SourceFile:1)`
+  — obfuscated frames confirm R8 is live, and the throw escaped `Looper.loop()` to the
+  default uncaught handler exactly as #281 intended.
+
+**Pass criterion — the Sentry stack is readable.** Issue
+[7683178575](https://prosoft-inc.sentry.io/issues/7683178575/):
+
+```
+com.priceback.MainActivity:84 in onNewIntent$lambda$0   [In App]
+android.os.Handler:1095 in handleCallback
+… 8 more frames, all real names + line numbers
+```
+
+The device reported `o0(SourceFile:5)`; Sentry renders `onNewIntent$lambda$0` at line 84.
+**Zero `a.b.c(Unknown Source)`.** Tagged release 2.8.11, dist 31, level fatal, mechanism
+`UncaughtExceptionHandler`, handled no.
+
+**Checklist status after this run: 8 PASS · 1 N/A (Apple sign-in, iOS-only) · 1 PARTIAL
+(RevenueCat restore) · 0 BLOCKED.** The mapping-upload half of R8 is now evidenced directly
+rather than inferred, which was the whole reason item 10 existed.
+
+**Side effects.** One deliberate app crash; the app relaunched clean (pid 7347). No source,
+config or dependency was touched. The run leaves a new unresolved Sentry issue
+(`PRICEBACK-CANADA-G`) which is expected output, not a defect.
+
+### Incidental finding — not R8, and not item 10
+
+The same triage pass turned up `PRICEBACK-CANADA-F` on 2.8.11/vc31: a Google Play Services
+sign-in failure (`ApiException` status 8, `INTERNAL_ERROR`) that the app classified as a
+**backend** fault and reported to the user as *"our service is having a hiccup"*.
+`event.origin: javascript`, so the minified `T7.b` in its title is JS minification, not a
+missing ProGuard mapping — nothing here reflects on R8. Fixed separately; see
+`Operations/Bugs_Common_Fixes.md` #214.
