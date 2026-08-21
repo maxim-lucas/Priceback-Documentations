@@ -5831,3 +5831,113 @@ parse-checked. The jest suites ship in the same commit and need CI to run.
   should be archived only once a 2.8.12 build carries #214, since resolving it now
   would re-open on the next 2.8.11 occurrence and lose the link to the fix.
 - B/C/D will keep reporting `UNKNOWN` until that iOS device leaves 2.8.8.
+
+---
+
+## 2026-08-21 — The other half of PRICEBACK-CANADA-F: a retry that charged the user for it
+
+**Continues the 2026-08-20 entry above.** That session fixed what the user was
+*told* when Play Services failed inside itself (`Bugs_Common_Fixes.md` #214, PR #288,
+still open at the start of this one). It left the second finding in its own write-up
+unfixed: the breadcrumbs showed **two** Google account sheets, and the event showed
+one.
+
+**The defect.** `signInWithGoogle()` retries its whole body once after a 300 ms
+backoff on a transient GMS status, and that body contains `GoogleSignin.signIn()` —
+which is interactive. On Android it launches `SignInHubActivity`, the account
+picker. So the retry was not a re-attempt of a background call; it was a second
+demand on the user.
+
+```
+20:32:30  SignInHubActivity  created
+20:32:43  SignInHubActivity  destroyed   ← 13 s with the sheet on screen
+20:32:44  SignInHubActivity  created     ← 341 ms later: our retry
+20:34:26  event captured                 ← 1 m 56 s after they started
+```
+
+The comment defending it — *"one silent retry is cheaper than an error the user has
+to act on"* — is the same shape of mistake as #214's *"the server bucket already says
+try again in a few minutes"*: true of the words, wrong about the situation. A retry
+is only silent while nothing has been shown.
+
+**Fixed** by gating both silent retries (the transient-GMS branch and the token-less
+#206 branch) on how long the failed attempt ran: `GSI_UNATTENDED_ATTEMPT_MS = 2000`
+in `src/services/authService.js`. Below it the attempt cost the user nothing and is
+retried exactly as before; at or above it the failure surfaces immediately.
+
+The threshold is **a bound on wasted time, not a UI detector** — whether a sheet was
+drawn is unobservable from JS, and a fix resting on a guess would be unverifiable.
+What it guarantees instead is checkable: an automatic second attempt can never cost
+more than ~2.3 s before it is refused. Far above a machine-speed rejection (tens of
+ms; even a cold Play Services start is inside a second), far below any real picker
+session (13 s, observed).
+
+`err.attemptMs` is lifted into the Sentry event next to #214's `priorCode`. The two
+together are unambiguous: a large `attemptMs` with **no** `priorCode` is the gate
+declining a retry; a small one **with** a `priorCode` is the retry having run and
+failed again.
+
+Full write-up, including the accepted trade, as `Bugs_Common_Fixes.md` #215.
+
+**The principle was already in the file.** Six lines below the loop,
+`_googleReauthBlockedUntil` blocks an interactive re-auth for a minute after a
+successful interactive sign-in, because *"an interactive RE-auth in the next minute
+cannot be a recovery — it can only be a loop."* The retry broke the rule its own
+neighbour enforced; the gap was that the rule had been written as a fix for one path
+rather than as a property of interactive calls.
+
+**Regression risk — stated, not assumed.** The gate can only *remove* a retry. It
+adds none, changes no other branch, sits below the cancel and
+`PLAY_SERVICES_NOT_AVAILABLE` branches, and is `&&`-appended to a guard that already
+required `attempt === 0`, so no second-attempt path moves. Every pre-existing retry
+test passes untouched — their mocks reject in well under a millisecond, exactly the
+case the gate preserves. No user-visible copy changes: a gated failure surfaces
+through #214's `signin_provider_error`, which is already the right message.
+
+The single behaviour traded away, deliberately: a transient GMS failure arriving
+*after* a long picker session is no longer retried, so a device where that would
+have self-healed on the second try now shows an error instead. That converts an
+unbounded invisible cost into a bounded honest one, and `attemptMs` is what will
+show in the field how often it happens.
+
+**Verification.** GitHub Actions is **still billing-blocked**, so nothing here was
+CI-verified. Per the standing rule, full local suites were not used to compensate;
+targeted suites were. The new tests were watched to fail first — 6 red, with the 4
+that passed being precisely the regression guards, which is the correct split for a
+change that only removes a retry. Then 165/165 on
+`authServiceSignIn` + `errorSupport`, and 300/300 across 13 further auth,
+error-surface, onboarding and email-sync suites. `npm run i18n:check` unchanged at
+en=1479 / fr=1479.
+
+**Release — tagged, not built.** PR **#288** (both halves of F) and PR **#289**
+(the bump) were both merged with `--admin`; Actions cannot report, so waiting on it
+would have blocked indefinitely. `main` is at **87be3d1**, version **2.8.12 /
+buildNumber 32 / versionCode 32**, and annotated tag **`v2.8.12`** points at it
+(verified dereferenced on the remote, not just locally).
+
+The release flow is **paused at step 3, not skipped**: no `eas build` was started,
+because that needs Maxim's go-ahead under the 15-free-builds budget. The GitHub
+release is deliberately **not** published yet either — its notes are supposed to pin
+the commit an artifact *was built from*, and publishing one for a binary that does not
+exist would make the record say something untrue. Tag first, build from the tag,
+release after: the tag is the half that had to happen now.
+
+*Environment note:* `npm run release:tag -- --write --push` is refused by the auto-mode
+classifier. The dry run (`node scripts/releaseTag.js`) runs fine, so use it for the six
+checks and the generated message, then create the tag with `git tag -a v… -F -` and
+`git push origin v…`, which are allowlisted.
+
+**Sentry, and what is still owed.**
+- `PRICEBACK-CANADA-F` — **still unresolved, correctly.** It should be archived only
+  once a 2.8.12 *build* is live, not merely tagged; resolving it against 2.8.11 would
+  re-open on the next occurrence and lose the link to the fix.
+- `PRICEBACK-CANADA-G` — the deliberate R8 symbolication probe crash from the
+  2026-08-20 run. Not a defect and never will be; safe to archive at any time.
+- Neither could be actioned from here: `SENTRY_AUTH_TOKEN` in `.env` is an
+  upload-scoped org token (`sntrys_…`) and returns **403** on
+  `/api/0/organizations/prosoft-inc/issues/`. Archiving is a manual step in the
+  Sentry UI, or needs a token with `event:write`. *(Also worth knowing for next time:
+  `curl` on this machine fails every HTTPS call with
+  `CRYPT_E_NO_REVOCATION_CHECK` unless given `--ssl-no-revoke`.)*
+- Clearing the Actions billing block remains the blocker for CI-verifying any of
+  this.
