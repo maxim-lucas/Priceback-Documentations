@@ -8831,3 +8831,134 @@ distinct string literals from 299 source and test files: the only changes are
 `unknown → signin_provider_error` (`INTERRUPTED`, `API_NOT_CONNECTED` — previously
 falling through) and `server → provider_unavailable` (the native-module strings).
 Nothing else moved. `npm run i18n:check` passes at en=1479 / fr=1479.
+
+---
+
+## 215. A retry that re-opened the account picker, priced as if it were free (2026-08-21)
+
+**Class: an interactive step repeated automatically.** The second half of #214 — the
+same Sentry event, a different defect. #214 fixed what the user was *told*; this is
+what the app made them *do* before telling them it.
+
+**Symptom.** Nothing in the Sentry event at all, which is the point.
+`PRICEBACK-CANADA-F` reported a single `INTERNAL_ERROR`. Only the device's own
+Android lifecycle breadcrumbs showed there had been two attempts:
+
+```
+20:32:30  SignInHubActivity  created
+20:32:43  SignInHubActivity  destroyed   ← 13 s with the Google account sheet on screen
+20:32:44  SignInHubActivity  created     ← 341 ms later: our own retry
+20:34:26  event captured                 ← the error the user was finally shown
+```
+
+A 13-second failure became a **1 minute 56 second** one, and the user picked a
+Google account twice to reach it. The error they eventually got was #214's wrong
+one, so the extra 1 m 43 s bought nothing.
+
+**Mechanism.** `signInWithGoogle()` wraps its whole body in a two-iteration loop and
+retries after a 300 ms backoff when the first attempt fails with a transient GMS
+status (`INTERNAL_ERROR` 8, `INTERRUPTED` 14, `TIMEOUT` 15), or resolves with no ID
+token (#206). The retry re-runs `GoogleSignin.signIn()`.
+
+`GoogleSignin.signIn()` is **interactive**. On Android it launches
+`SignInHubActivity` — the account picker. So the loop's second iteration is not a
+re-attempt of a background call; it is a second demand on the user's attention.
+
+The comment defending it said:
+
+> one silent retry is cheaper than an error the user has to act on
+
+That is true, and it is the same shape of error as #214's comment: true of the
+words, wrong about the situation. It is only *silent* while nothing has been shown.
+Once the first call has put a sheet on screen and the user has worked through it,
+the retry is not silent, not free, and not cheaper than an honest error — it costs
+another full trip through the picker before the user learns anything.
+
+Both halves of #214 come from the same habit: reasoning about a mechanism by the
+name it was given (`server`, `retry`) instead of what it does to the person in front
+of it.
+
+**Fix.** The retry is now gated on how long the failed attempt ran
+(`GSI_UNATTENDED_ATTEMPT_MS = 2000`, `src/services/authService.js`). Below the
+threshold the attempt cost the user nothing and is retried exactly as before; at or
+above it the failure is surfaced immediately instead.
+
+The threshold is deliberately **a bound on wasted time, not a UI detector**. We
+cannot observe from JS whether a sheet was drawn, and a fix that depended on
+guessing would be unverifiable. What the number guarantees is checkable and
+sufficient: an automatic second attempt can never cost the user more than ~2.3 s
+(threshold + backoff) before it is refused. It sits far above a machine-speed
+rejection — those return in tens of milliseconds, and even a cold Play Services
+start is well inside a second — and far below any real trip through a picker, the
+observed one being 13 s.
+
+Applied to **both** silent retries, since both re-run the same interactive call: the
+transient-GMS branch and the token-less (#206) branch.
+
+The same reasoning already existed in this file, six lines below the loop:
+`_googleReauthBlockedUntil` blocks an interactive re-auth for a minute after a
+successful interactive sign-in, because *"an interactive RE-auth in the next minute
+cannot be a recovery — it can only be a loop."* The retry violated the principle its
+own neighbour enforced.
+
+**Telemetry.** `err.attemptMs` now records how long the attempt that produced the
+surfaced error ran, lifted into the Sentry event by `reportHandledError` alongside
+#214's `priorCode`. Read together they are unambiguous:
+
+| `attemptMs` | `priorCode` | What happened |
+| --- | --- | --- |
+| ≥ 2000 | absent | The gate fired — a retry was declined rather than charged to the user |
+| < 2000 | present | The retry ran and the second attempt failed too |
+| < 2000 | absent | A single fast failure, nothing swallowed |
+
+Clamped at zero, because `Date.now()` is wall-clock and an NTP correction mid-attempt
+must not report a negative duration.
+
+**Regression risk — stated, not assumed.** The gate can only ever *remove* a retry;
+it adds none and changes no other branch. It sits below the cancel and
+`PLAY_SERVICES_NOT_AVAILABLE` branches, so backing out of a long sheet is still a
+cancel, and it is `&&`-appended to a guard that already required `attempt === 0`, so
+no second-attempt path moves. Every existing retry test still passes untouched:
+their mocks reject in well under a millisecond, which is precisely the case the gate
+preserves. The user-facing copy does not change — a gated failure surfaces through
+#214's `signin_provider_error`, which is the correct message either way.
+
+The one behaviour genuinely traded away: a transient GMS failure that arrives
+*after* a long picker session is no longer retried, so a device where that
+combination would have self-healed on the second try now shows an error. That is the
+intended exchange — it converts an unbounded, invisible cost into a bounded, honest
+one — and `attemptMs` is what will show in the field how often it happens.
+
+**Lessons.**
+- **"Retry" is a claim about cost.** Before repeating a call automatically, ask what
+  it does besides return a value. A call that draws UI is never free to repeat, and
+  the loop that repeats it cannot tell.
+- **Read the principle you already wrote down.** `_googleReauthBlockedUntil` had the
+  right rule, in the same function, before this bug shipped. The gap was that it was
+  written as a fix for one path rather than as a property of interactive calls.
+- **A silent retry hides its own cost, not just its error.** #214 added `priorCode`
+  so a swallowed failure leaves a trace; that showed the retry existed but not what
+  it charged. Duration was the missing half.
+- **Prefer a bound you can verify to a signal you can only infer.** "Was a sheet
+  shown?" is unanswerable from JS. "Can this cost the user more than N seconds?" is
+  answerable, testable, and enough.
+
+**Prevent.** `__tests__/authServiceSignIn.test.js` → *"a retry that would re-open the
+account sheet is refused"*: the 13 s transient failure surfaces after one call; a
+120 ms one is still retried (both branches, GMS and token-less); the threshold
+itself does not retry, pinning `<` over `<=` and pinning the constant; `attemptMs`
+is recorded and is the attempt's own duration rather than the pair's; a backwards
+clock step cannot report a negative duration; a cancel after a long sheet is still a
+cancel; and a long `DEVELOPER_ERROR` — a branch that never retried — is unchanged.
+`__tests__/errorSupport.test.js` → *"reports how long the failed attempt held the
+user"* and *"keeps a zero-length attempt"*, the latter pinning the null check rather
+than a truthiness one, since `0` is a real and different signal.
+
+**Verification note.** GitHub Actions is still billing-blocked, so CI could not run
+this. Verified locally on targeted suites only, per the standing rule against full
+local runs: the new tests were watched to fail first (6 red, and the 4 that passed
+were the regression guards — the correct split), then 165/165 across
+`authServiceSignIn` + `errorSupport`, then 300/300 across 13 further auth,
+error-surface, onboarding and email-sync suites. `npm run i18n:check` passes
+unchanged at en=1479 / fr=1479 — the fix adds no user-visible copy because #214's
+already says the right thing.
