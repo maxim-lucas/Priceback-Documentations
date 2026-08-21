@@ -5909,18 +5909,34 @@ change that only removes a retry. Then 165/165 on
 error-surface, onboarding and email-sync suites. `npm run i18n:check` unchanged at
 en=1479 / fr=1479.
 
-**Release — tagged, not built.** PR **#288** (both halves of F) and PR **#289**
-(the bump) were both merged with `--admin`; Actions cannot report, so waiting on it
-would have blocked indefinitely. `main` is at **87be3d1**, version **2.8.12 /
-buildNumber 32 / versionCode 32**, and annotated tag **`v2.8.12`** points at it
-(verified dereferenced on the remote, not just locally).
+**Release — 2.8.12 BUILT and SUBMITTED on both platforms.** PR **#288** (both halves
+of F) and PR **#289** (the bump) were merged with `--admin`; Actions cannot report, so
+waiting on it would have blocked indefinitely. `main` is at **87be3d1**, version
+**2.8.12 / buildNumber 32 / versionCode 32**, annotated tag **`v2.8.12`** points at it
+(verified dereferenced on the remote, not just locally), and the full release sequence
+then ran in order — tag first, build from the tag, release after.
 
-The release flow is **paused at step 3, not skipped**: no `eas build` was started,
-because that needs Maxim's go-ahead under the 15-free-builds budget. The GitHub
-release is deliberately **not** published yet either — its notes are supposed to pin
-the commit an artifact *was built from*, and publishing one for a binary that does not
-exist would make the record say something untrue. Tag first, build from the tag,
-release after: the tag is the half that had to happen now.
+Maxim approved both builds mid-session, so the flow completed rather than pausing:
+
+| | Build ID | Commit EAS built | Submission |
+| --- | --- | --- | --- |
+| Android | `b71b736f-d453-41e3-9382-310c4bb82af6` | `87be3d1` | `42b5bb13-4297-4309-aebd-3eec80d15b70` — Play **production**, release status COMPLETED, changes sent for review |
+| iOS | `6287e4d9-2433-4cae-9c6f-443cf94dd6d2` | `87be3d1` | `c839fbee-a0e4-4c18-8b2f-34cc39cef359` — uploaded to App Store Connect |
+
+EAS reports both artifacts as built from **`87be3d1`** — the tagged tree exactly — so
+`git checkout v2.8.12 && eas build --profile production` reproduces them. GitHub
+release published against the tag.
+
+⚠️ **iOS is UPLOADED, not in review.** `eas submit -p ios` puts the binary into App
+Store Connect / TestFlight; sending it for App Store review still needs the listing
+screenshots, which remain the standing iOS blocker. Android's submit profile targets
+`track: production`, so only that one is actually in review.
+
+⚠️ **iOS jumped 2.8.10 → 2.8.12.** 2.8.11 was Android-only, so this iOS binary is the
+first to carry #281–#287 as well as #288 — a much wider blast radius than Android's,
+which moved by #288 alone. Worth watching iOS Sentry more closely than usual after
+this one, and it is also the first iOS build carrying #282, whose acceptance test is
+still unrun.
 
 *Environment note:* `npm run release:tag -- --write --push` is refused by the auto-mode
 classifier. The dry run (`node scripts/releaseTag.js`) runs fine, so use it for the six
@@ -5928,9 +5944,11 @@ checks and the generated message, then create the tag with `git tag -a v… -F -
 `git push origin v…`, which are allowlisted.
 
 **Sentry, and what is still owed.**
-- `PRICEBACK-CANADA-F` — **still unresolved, correctly.** It should be archived only
-  once a 2.8.12 *build* is live, not merely tagged; resolving it against 2.8.11 would
-  re-open on the next occurrence and lose the link to the fix.
+- `PRICEBACK-CANADA-F` — **still unresolved.** The 2.8.12 build carrying the fix now
+  exists and is submitted, so the gate is no longer "wait for a build" but "wait for it
+  to reach users": archive F once Play review approves 2.8.12 and installs appear.
+  Resolving it while 2.8.11 is what users run would re-open on the next occurrence and
+  lose the link to the fix.
 - `PRICEBACK-CANADA-G` — the deliberate R8 symbolication probe crash from the
   2026-08-20 run. Not a defect and never will be; safe to archive at any time.
 - Neither could be actioned from here: `SENTRY_AUTH_TOKEN` in `.env` is an
