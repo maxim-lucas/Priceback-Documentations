@@ -16,6 +16,66 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-08-23 — AdMob banner ads for non-subscribers (ships dark)
+
+- **Asked (/goal):** add ads to increase income on both platforms, only on
+  pages with blank space (home under tracked products, scan / price-tag /
+  barcode under the upload section), ask before adding more; enabled for
+  unsubscribed (credit-only) users, disabled and hidden for subscribers;
+  analyze + propose first, implement after approval; create the ad-account
+  configuration or document the manual steps.
+- **Decisions (confirmed):** Google AdMob, **anchored adaptive banners only**
+  (no interstitial, no rewarded); **personalized** ads with the full compliance
+  setup (iOS ATT, Android `AD_ID` restored, privacy manifest flipped);
+  two extra slots approved beyond the four named — Receipts list footers and
+  the barcode "not found" empty state; **ship dark** with a remote kill switch.
+- **Done:** branch `feat/admob-banner-ads`, commit `51178d3`.
+  - `src/services/adsService.js` — the gate. Fails **closed**: build switch AND
+    server switch AND a *resolved* `premium.active === false` AND a unit id.
+    This app has no subscription context (every screen re-reads entitlement
+    async on focus), so "unknown" had to mean hidden or subscribers get flashed
+    an ad on every cold start.
+  - `src/components/AdBanner.js` — returns `null`, not a spacer, when hidden;
+    collapses on no-fill; carries the store-required "Advertisement" label.
+  - 6 slots / 4 edits. The three scan screens went through `ScanIntro`'s
+    **already-existing, unused `footer` prop**, so no shared component changed
+    shape. The Receipts 40px tail spacer was **kept above** the banner, not
+    replaced — swapping it would have cost subscribers their bottom padding.
+  - Kill switch: `ADS_ENABLED` in `backend/config/defaults.js` (default
+    **false**) → `/api/me` → `reconcileWithServer`, riding the exact path
+    `isAdmin` already uses. Flip it and every banner appears or vanishes in
+    minutes, no release, no store review.
+  - Compliance: `withAndroidPermissionCleanup` no longer strips `AD_ID` (its
+    rationale block rewritten, not just deleted, + **two positive-lock tests**
+    so nobody re-strips it — that failure is silent and halves revenue);
+    `NSPrivacyTracking` → true with 4 data types marked tracking;
+    `NSUserTrackingUsageDescription` in `ios.infoPlist` (which is what
+    suppresses expo-tracking-transparency's generic autolinked default) + EN/FR
+    locale files; ATT requested on first ad-eligible render, **never** at cold
+    start and **never** for a subscriber, and settled *before* `initialize()`.
+  - Invalid-traffic guard: real unit ids live only in EAS **production**;
+    `assertAdsConfigIsShippable()` makes a real unit in any other profile a
+    **fatal build error with no override**, because AdMob's penalty for
+    impressions from a test build is account termination, not a warning.
+- **Verification.** Actions still billing-blocked, so nothing was CI-verified;
+  targeted suites only, per the standing rule. **491 tests / 28 suites** pass
+  across every area touched (screens, purchases, plugins, config, i18n), plus
+  36 new mobile + 3 new backend tests, `npm run typecheck` clean and
+  `i18n:check` 1485/1485. Both new `src/` files carry their own coverage floors,
+  which keeps them **out** of the global pool — the global floors still measure
+  the Phase-28 file set and were not silently re-based.
+- **NOT verified / still owed:** that GMA 16.5.0 builds under Expo 55 prebuild
+  (gate with a `preview` EAS build before production — no build was started,
+  per the EAS budget rule). No AdMob account exists yet, so both app ids are
+  placeholders and ads **cannot** be enabled. `NSPrivacyTrackingDomains` and
+  `skAdNetworkItems` hold documented placeholder lists to be refreshed from the
+  SDK's own manifest and Google's page. Privacy policy on priceback.ca (separate
+  repo) must disclose advertising **before** the store declarations are filed.
+- **Docs:** `Publishing-Compliance/AdMob_Setup_And_Store_Declarations.md` (the
+  manual runbook — account, tax forms, ad units, app-ads.txt, Data Safety, App
+  Privacy, and the **EEA guardrail**: no UMP is wired, which is safe only while
+  availability stays Canada + Egypt) and `legal/pia/advertising.md` in the app repo.
+
 ### 2026-08-17 — Store pricing defect, Sentry sign-in triage, admin account desk
 
 - **Asked (/goal):** check the last 7 days of Sentry and fix the unhandled
