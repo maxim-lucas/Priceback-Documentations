@@ -9313,20 +9313,34 @@ before touching any pricing code.** It carries the evidence, the per-build table
 and the console steps. This entry records the *process* failure, which is the
 part that generalises.
 
-**Root cause of the report.** The iOS offering has never resolved. A Sentry
-breadcrumb from 2.8.14 in production carries RevenueCat's own verdict:
+**Root cause of the report.** The prices displayed are the STORE's own, and the
+store is quoting the wrong ones. iOS shows **$1.99 / $3.99 / $6.99** for the
+three packs. The bundled catalog says `$3 / $5 / $10`; the live remote catalog
+(`GET /api/v1/pricing.json`, checked 2026-08-25) says `CA$3 / CA$5 / CA$10`.
+**1.99 exists in neither.** A fallback can only render a value it has, so the
+number came from StoreKit via RevenueCat's `priceString` — which means the
+offering resolves fine on a real device and the client is doing exactly its job.
+**The prices configured in App Store Connect are not the intended ones.** That
+is console work, and it is why three rounds of client fixes changed nothing.
+
+A SEPARATE condition, easily confused with it: on Apple's own review devices
+(geo Cupertino, RC user `$RCAnonymousID:…`, nobody signed in) the offering does
+not resolve at all —
 
 > `🍎‼️ Error fetching offerings … None of the products registered in the
 > RevenueCat dashboard could be fetched from App Store Connect`
 
-The products are not served by App Store Connect, so there has never been an iOS
-price to show. **No change in this repo can fix that** — it is console work.
-Builds ≤ 2.8.10 filled the silence with the bundled catalog's USD labels
-(`priceFor(id, p.priceLabel)` → `"$3"`, `"$4.99"`); 2.8.11 removed the fallback;
-2.8.13 added storefront validation. All three were correct changes and none of
-them could produce a price.
+— which is the expected shape for a device with no App Store account, and means
+**App Review sees no prices at all**. It is not evidence the products are
+unservable in general; the paragraph above proves they are served.
 
-**The one real client defect it did surface.** `storePrices.js` applies a cached
+⚠️ **The first version of this entry led with the review-device error as THE
+cause.** That was an over-generalisation from one breadcrumb, corrected the same
+day when the actual figures came back as 1.99/3.99/6.99. Same mistake as the one
+this entry is about, one level up: a single piece of evidence was read as the
+whole picture instead of as one device's situation.
+
+**The one real client defect it did surface — which is NOT the reported symptom.** `storePrices.js` applies a cached
 price *provisionally* when `getStorefront()` cannot name a country — right, since
 "we don't know" must not read as "it changed". But when the retry budget ran out:
 

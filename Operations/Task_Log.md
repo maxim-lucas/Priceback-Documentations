@@ -54,14 +54,19 @@ stores it in the keychain, **and then never sends it anywhere**; `PUT
 account, permanently. (`picture` is genuinely unobtainable from Apple — that half
 is not a bug; the UI should render initials.)
 
-**The USD prices — and why three rounds could not fix them.** The iOS offering
-has **never** resolved. RevenueCat's own verdict, from a 2.8.14 production
-breadcrumb: *"None of the products registered in the RevenueCat dashboard could
-be fetched from App Store Connect."* Builds ≤ 2.8.10 filled that silence with the
-bundled catalog's USD labels; 2.8.11 removed the fallback; 2.8.13 added storefront
-validation. All three were right and none could produce a price, because the
-defect is in App Store Connect, not in this repo. **Full write-up:
-`Technical/iOS_Store_Pricing_Diagnosis.md` — read it before touching pricing.**
+**The USD prices — and why three rounds could not fix them.** Maxim supplied the
+figures mid-session and they settled it: iOS shows **$1.99 / $3.99 / $6.99**. The
+bundled catalog says `$3 / $5 / $10`, the live remote catalog says
+`CA$3 / CA$5 / CA$10` — **1.99 is in neither**, so it can only have come from
+StoreKit. The offering resolves fine on a real device; the client is displaying
+exactly what the store says; **the prices in App Store Connect are wrong.**
+Console work, not code — which is why three rounds of rendering fixes changed
+nothing.
+
+A *separate* condition, initially mistaken for the cause: on Apple's review
+devices (no store account) the offering does not resolve at all, so App Review
+sees no prices. Both are written up in
+`Technical/iOS_Store_Pricing_Diagnosis.md` — **read it before touching pricing.**
 
 **Done (branch `fix/ios-store-price-confidence`).** The one genuine client defect
 the investigation surfaced: `storePrices.js` promoted a *provisional* cache (one

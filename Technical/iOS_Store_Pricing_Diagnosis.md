@@ -2,131 +2,151 @@
 
 > **Read this before touching anything about how a price is displayed.**
 >
-> **The root cause is that the iOS in-app-purchase products cannot be fetched
-> from App Store Connect. No change in the app repo can fix that.** Three
-> separate rounds of client-side "fixes" have been spent on this and the report
-> came back identical every time, because the rendering was never where the
-> problem was.
+> **The app is showing the store's own numbers. The numbers in App Store Connect
+> are wrong.** No change in the app repo can fix that. Three separate rounds were
+> spent on the rendering and the report came back identical every time, because
+> the rendering was never where the problem was.
 
 Last updated: 2026-08-25.
 
 ---
 
-## 1. The evidence (do not re-derive this)
+## 1. The arithmetic that ends the argument
 
-From a Sentry breadcrumb on **2.8.14 (build 34)**, iPhone 16 Pro, iOS 26.6.1,
-`environment: production`, 2026-08-25 05:34:44 UTC — 1.1 seconds after
-RevenueCat was configured:
+Reported on **2.8.14 (build 34)**: the credit packs show **$1.99 / $3.99 / $6.99**.
+
+Those numbers exist in **no catalog we ship or serve**:
+
+| Source | Starter | Pro | Max |
+| --- | --- | --- | --- |
+| Bundled `shared/pricing.config.js` | `$3` | `$5` | `$10` |
+| Remote `GET /api/v1/pricing.json` (live, checked 2026-08-25) | `CA$3` | `CA$5` | `CA$10` |
+| **What iOS displays** | **$1.99** | **$3.99** | **$6.99** |
+
+A fallback can only ever render a value it has. Since 1.99 appears nowhere in
+either catalog, **the number came from StoreKit**, through RevenueCat's
+`priceString`, which is the only other source `storePrices.js` has. So:
+
+- **RevenueCat offerings DO resolve on a real device with a store account.**
+- **The client is behaving exactly as designed** — it is displaying what the
+  store says it will charge.
+- **The prices configured in App Store Connect are not the intended ones.** The
+  intent is CA$3 / CA$5 / CA$10; the store is quoting 1.99 / 3.99 / 6.99.
+
+That is a console data problem, not a code problem, and it is why three rounds of
+client fixes changed nothing.
+
+> **Still open, and only a device can answer it:** whether those figures are USD
+> on a US storefront or CAD that merely renders with a bare `$`. §3 takes that
+> reading in one tap. Either way the amounts are wrong against intent, so the App
+> Store Connect prices need setting regardless of the answer.
+
+## 2. A SECOND, separate condition — Apple's review devices
+
+Do not confuse this with §1. On Apple's own review hardware the offering does not
+resolve at all. From a Sentry breadcrumb on 2.8.14, `environment: production`,
+2026-08-25 05:34:44 UTC, geo Cupertino:
 
 ```
 [RevenueCat] 🍎‼️ Error fetching offerings - The operation couldn't be completed.
 (RevenueCat.OfferingsManager.Error error 1.)
 There's a problem with your configuration. None of the products registered in the
-RevenueCat dashboard could be fetched from App Store Connect (or the StoreKit
-Configuration file if one is being used).
-More information: https://rev.cat/why-are-offerings-empty
+RevenueCat dashboard could be fetched from App Store Connect …
 ```
 
-In the same session the app had already reached
-`GET /v1/subscribers/$RCAnonymousID:…/offerings` successfully (HTTP 200) — so
-**RevenueCat itself is reachable and correctly keyed.** What fails is the step
-after: StoreKit asking App Store Connect for the five products, and getting none.
+In that same session RevenueCat's own API answered 200 and the RC user was
+`$RCAnonymousID:…` — nobody was signed in. **A device with no App Store account
+cannot resolve products**, so this is the expected shape for a review device, and
+it is a different situation from §1. Its consequence is that **App Review sees no
+prices at all** (skeletons), which is its own review risk — see
+`Publishing-Compliance/`.
 
-That is not a transient condition and not a client bug. It is what an IAP product
-that App Store Connect will not serve looks like from inside the app.
+It is *not* evidence that the products are unservable in general: §1 proves they
+are served, with the wrong amounts, to a device that has a store account.
 
-## 2. Why three rounds of code changes did not help
-
-The offering has **never** resolved on iOS. So `storePrices.priceFor()` has never
-had a real iOS price to return. What each build did with that absence is the only
-thing that changed:
-
-| Build | What Buy Credits / Subscribe rendered on iOS | Why |
-| --- | --- | --- |
-| ≤ 2.8.10 | **`$3` / `$5` / `$10` / `$4.99` / `$49.99`** | `priceFor(id, p.priceLabel)` fell back to the bundled catalog labels in `shared/pricing.config.js`. These are plain USD-derived amounts, so the screen read as USD while the payment sheet charged CAD. |
-| 2.8.11 (#282) | Skeleton bar, disabled CTA | `src/services/storePrices.js` introduced. The fallback parameter was **removed from the API**, so a caller has nowhere to put a hardcoded price. |
-| 2.8.13 (#291) | Same, plus storefront validation | The disk cache gained a storefront-country stamp, so a cache from another region is discarded instead of rendered. |
-| 2.8.15 (this) | Same, plus honest confidence | A cache that was applied provisionally is no longer promoted to `ready` when the live read never lands. See §4. |
-
-Each of those was a real improvement and none of them could produce a price,
-because there was never a price to produce.
-
-**Corollary:** recreating the Apple account, changing its country, or reinstalling
-does not help either. There is no storefront that can quote a price for a product
-the store will not serve.
-
-## 3. How to tell which situation you are actually in — in one tap
+## 3. How to tell which situation you are in — in one tap
 
 **Admin → Billing diagnostic → "Store pricing"** (added 2026-08-25). It reports
-what the store answered, not what a screen drew. Read three fields:
+what the store answered, not what a screen drew.
 
 | `Where these prices came from` | `Currency…` | What it means | Where the fix lives |
 | --- | --- | --- | --- |
-| Read live from the store | `CAD · storefront CA` | **The app is correct.** The number just renders with a bare `$` because StoreKit formats for the device locale. | Cosmetic only, if anything. |
-| Read live from the store | `USD · storefront US` | The store account really is on the **US** storefront — for a TestFlight build that is the **Sandbox Apple Account** (Settings → Developer → Sandbox Apple Account), *not* the main Apple ID. | The device's store account. **Not code.** |
-| Remembered… NOT yet re-checked | anything | A stale snapshot was standing in for a live price. | Fixed in 2.8.15 — see §4. |
-| Nothing loaded | The store has not said | The offering is not resolving. **This is the state described in §1.** | App Store Connect. **Not code.** |
+| Read live from the store | `CAD · storefront CA` | These ARE Canadian prices; a bare `$` is just how StoreKit formats for the device locale. If the amounts are still wrong, they are wrong **in App Store Connect**. | App Store Connect. **Not code.** |
+| Read live from the store | `USD · storefront US` | The store account is on the **US** storefront — for a TestFlight build that is the **Sandbox Apple Account** (Settings → Developer → Sandbox Apple Account), *not* the main Apple ID. | The device's store account, and/or ASC. **Not code.** |
+| Remembered… NOT yet re-checked | anything | A stale snapshot was standing in for a live price. | Fixed in 2.8.15 — see §5. |
+| Nothing loaded | The store has not said | The offering is not resolving — §2's condition. | The device has no store account, or ASC. **Not code.** |
 
 The row underneath (`Last answer from the store`) prints RevenueCat's own reason
-verbatim, including `The store returned no purchasable products`.
+verbatim, and each resolved product is listed with the id it answered to, so a
+product-id mismatch between the catalog and App Store Connect is visible rather
+than inferred.
 
 > **Always take this reading before changing any pricing code.** It is the step
 > that was skipped three times.
 
-## 4. The one genuine client defect this investigation did find
+## 4. What each build rendered, and why it is not the cause
 
-`src/services/storePrices.js` applies a disk-cached price *provisionally*
-(`status: "loading"`) when `getStorefront()` cannot name a country — correct,
-because "we don't know" must never read as "it changed". But when the retry
-budget ran out, the status was set with:
+| Build | On iOS | Why |
+| --- | --- | --- |
+| ≤ 2.8.10 | The store price when resolved, else **`$3` / `$5` / `$10`** | `priceFor(id, p.priceLabel)` fell back to the bundled catalog. |
+| 2.8.11 (#282) | The store price, else a skeleton | The fallback **parameter was removed from the API**, so a caller has nowhere to put a hardcoded price. |
+| 2.8.13 (#291) | Same, plus storefront validation | The disk cache gained a storefront-country stamp; a cache from another region is discarded. |
+| 2.8.15 (#297) | Same, plus honest confidence | A provisional cache is no longer promoted to `ready`. See §5. |
+
+From 2.8.11 onward **there is no code path that can render a catalog price** on
+Buy Credits, Subscribe or the Paywall. Every price is `priceString` verbatim.
+
+## 5. The one genuine client defect the investigation did find
+
+Real, fixed in #297 — **but not the cause of the reported symptom.** Recorded so
+the two are not conflated.
+
+`storePrices.js` applies a disk-cached price *provisionally* (`status: "loading"`)
+when `getStorefront()` cannot name a country — correct, since "we don't know" must
+never read as "it changed". But when the retry budget ran out:
 
 ```js
 _status = Object.keys(_prices).length ? "ready" : "unavailable";
 ```
 
-— any non-empty price map became the final answer, including the provisional one.
-On iOS the live read fails **every** time, so an unverified cache was promoted to
-`ready` and stood for its full 30-day life. Deleting the app account and
-re-creating it in another country does not clear AsyncStorage, so the one remedy
-a user would think to try never touched it.
-
-Fixed in 2.8.15: prices are publishable only if they came off the store this
-session, or came from a cache the live storefront agreed with. Anything else is
-dropped when the budget is spent, and the surface falls back to its skeleton —
-which is what the module's own header already said it preferred. Pinned by
+Any non-empty price map became the final answer, **including the provisional one**.
+Where the live read keeps failing, an unverified cache could stand for its full
+30-day life, and deleting the app account and re-creating it elsewhere does not
+clear AsyncStorage. Now a price is publishable only if it came off the store this
+session, or came from a cache the live storefront agreed with. Pinned by
 `__tests__/storePrices.test.js` → `describe("price confidence")`.
 
-## 5. What actually has to happen
+## 6. What actually has to happen
 
 **Owner: Maxim. Console work, not code.**
 
-1. In **App Store Connect**, attach the five in-app purchases to an app version
-   and get them to **Ready to Submit** (an IAP that has never been submitted with
-   a version is not served to StoreKit). See
-   [`Publishing-Compliance/PUBLISH_CHECKLIST.md`](../Publishing-Compliance/PUBLISH_CHECKLIST.md).
-2. Confirm the **product IDs in the RevenueCat dashboard match App Store Connect
-   exactly** — `priceback_pack_starter`, `priceback_pack_pro`,
-   `priceback_pack_max`, `priceback_unlimited_monthly`,
-   `priceback_unlimited_annual`.
-3. Confirm those products are attached to the **`current` offering** in
-   RevenueCat. `offerings.current` being empty produces the same silence as
-   having no products at all.
-4. Re-open **Admin → Billing diagnostic** on the device and confirm
-   "Read live from the store just now".
+1. **Set the in-app purchase prices in App Store Connect to match intent** —
+   CA$3 / CA$5 / CA$10 for the packs, CA$4.99 / CA$49.99 for Unlimited (or
+   whatever the current intent is; the source of truth is the `catalog` served at
+   `GET /api/v1/pricing.json`). They are currently quoting 1.99 / 3.99 / 6.99.
+2. Take the **Billing diagnostic** reading first (§3) and record the
+   `currencyCode`. If it says `USD`, the storefront is also wrong and the device's
+   store/sandbox account needs to be Canadian before any price reading is
+   meaningful.
+3. Confirm the **product IDs match** App Store Connect exactly —
+   `priceback_pack_starter`, `priceback_pack_pro`, `priceback_pack_max`,
+   `priceback_unlimited_monthly`, `priceback_unlimited_annual` — and that all five
+   are attached to the **`current` offering** in RevenueCat.
+4. Re-open the diagnostic and confirm the listed prices match the table in §1.
 
-Related, already settled and recorded elsewhere: the Paid Apps Agreement is
-active and bank/tax details are complete — those are **not** the blocker.
-
-## 6. Things that are NOT the cause
+## 7. Things that are NOT the cause
 
 Recorded so they are not investigated again:
 
 - ~~The rendering code on Buy Credits / Subscribe / Paywall.~~ From 2.8.11 there
-  is no code path that can render a catalog price on those screens; every price
-  is `priceString` straight from RevenueCat.
+  is no code path that can render a catalog price there.
+- ~~A stale price cache.~~ Possible in principle (§5) and now fixed, but it cannot
+  produce 1.99 either — no cache can hold a number the store never sent.
+- ~~The bundled or remote catalog.~~ Neither contains 1.99 / 3.99 / 6.99. Verified
+  against the live endpoint on 2026-08-25.
 - ~~The RevenueCat SDK key.~~ `config/profiles/revenuecat.js` routes a per-store
-  key and `app.config.js` fails the build outright if a production store build
-  has no usable key for that store. The 200 from `/offerings` proves it is valid.
-- ~~The user's Apple ID country.~~ Changing it cannot make an unserved product
-  purchasable. (It *can* change the currency once products ARE served — see §3.)
+  key and `app.config.js` fails the build outright if a production store build has
+  no usable key. RevenueCat answering 200 proves it is valid.
 - ~~The Paid Apps Agreement / bank details.~~ Active since 2026-08-17.
+- ~~Deleting and re-creating the Apple account.~~ Already tried. It cannot change
+  what price App Store Connect has recorded for a product.
