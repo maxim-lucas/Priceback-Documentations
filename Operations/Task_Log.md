@@ -6265,3 +6265,73 @@ versionCode 35 and a `v2.8.15` tag, since `v2.8.14` predates the pin.
 
 Nothing Android loses by waiting: the server half of #216 is already live for it,
 and the client half is iOS-only by construction.
+
+
+---
+
+## 2026-08-25 — A parser per store, a Best Buy parser, and a lane production never takes
+
+**Ask.** Start a Best Buy receipt parser alongside Costco's, with a pre-parser
+that reads the store name and picks the parser. Best Buy's paper is often nearly
+transparent, so the parser has to cope. And keep all of it — Best Buy, ads, PR
+#290 — off the standard production path so it can be tested separately.
+
+**What the dispatch was.** A ternary in `receiptParser.js:57`:
+`storeId === "costco" ? parseCostcoReceipt : parseGenericReceipt`. Now a registry
+(`src/services/receiptParsers/`) behind the existing `detectStore` pre-parser,
+which already recognised Best Buy by name pattern and by the 1-866-237-8289
+phone number. `extractWarehouseId` already read `S-0937` and `detectPurchaseType`
+already split Best Buy in-store from online — roughly half the pre-parser work
+was already in the tree.
+
+**The isolation ask was bigger than it looked.** `adsEnabled: false` only stops
+the banner rendering; the AdMob native SDK compiles into every production binary
+regardless. That is why #290 broke production builds twice (#293, #295) in a
+dependency the app never calls. A runtime flag cannot protect a build phase. So
+`labEnabled` removes the ads config plugin **and** nulls its autolinking. Those
+two must move together — stripping the plugin alone leaves the manifest without
+`com.google.android.gms.ads.APPLICATION_ID` and the Android manifest merger
+hard-fails — so `adsAutolinking.test.js` asserts they agree on every lane.
+Production now compiles no ads code at all.
+
+**Two bugs the tests caught, both worth recording.**
+
+1. `2210 BANK ST` parsed as an item named "BANK ST" costing $22.10. The
+   faint-print repair was restoring "dropped" decimal points, and a receipt is
+   full of 3-7 digit numbers that are not money. A decimal separator with two
+   places after it is now mandatory; the dropped-point case is deliberately not
+   repaired, because nothing local distinguishes it from a street number.
+
+2. The Tier-2 glyph search adopted any candidate that got *closer* to the printed
+   total. If an item is MISSING rather than misread, some edit to a
+   correctly-read price will always shrink the gap — so "closer" corrupts a good
+   price to chase a gap it can never close. Adoption now requires the repaired
+   parse to LAND on the printed total, which makes the repair self-proving.
+
+**Also found.** `easBuildProfiles.test.js` did not save/restore the new
+`LAB_ENABLED`, so the `lab` profile leaked it into the production case, which
+then threw on the lane guard. The guard working, the harness not — both env-key
+lists now isolate it.
+
+**Notes for next time.**
+
+- Bash heredocs mangled a JS file with dense regex escaping again (the RECAP note
+  is accurate). The Write tool + a small Python patch is the reliable path.
+- Round-tripping JS regex literals through Python string replacement silently
+  broke a character class (`\]` inside `"..."` is just `]`, which terminates the
+  class early) and turned `\$?` into an optional end-anchor. Write regex
+  literals with the Write/Edit tools, not through a Python replace.
+- `describe.each([])` throws outright — a fixture-driven suite that has to be
+  committable before its fixtures exist needs a plain `for` loop.
+- `parse:receipts` now takes an optional store filter:
+  `npm run parse:receipts -- bestbuy`.
+
+**Verification.** 1070 tests across 15 suites, `typecheck`, `i18n:check`, and the
+production/lab config read on both platforms. CI is still billing-blocked, so
+these were targeted local runs of pure-JS suites only — no backend/DB suites,
+which are the pooler-contention concern.
+
+**Open.** The Best Buy corpus is empty: one paper photo and one online export are
+owed, and until they land the parser is structurally correct and empirically
+unverified. And production no longer compiles the ads SDK, which wants one real
+production build before the next store release.
