@@ -8962,3 +8962,178 @@ were the regression guards — the correct split), then 165/165 across
 error-surface, onboarding and email-sync suites. `npm run i18n:check` passes
 unchanged at en=1479 / fr=1479 — the fix adds no user-visible copy because #214's
 already says the right thing.
+
+---
+
+## 216. A dropped response read as theft — the four-second retry that signed an iPhone out for the evening (2026-08-24)
+
+**Class: a protocol that assumes the client learns the outcome of every request.**
+Four symptoms were reported as four bugs. They are one, and production recorded it
+minute by minute.
+
+**Symptoms, as reported.**
+
+- Every screen 401-ing on a phone that had been signed in for six days.
+- *"Sign-in failed — Apple couldn't complete the sign-in. Check that you're signed
+  in to iCloud on this device."* on every attempt to sign back in.
+- Google sign-in on the same iPhone failing immediately afterwards.
+- Account deletion failing, so the user could not even start over.
+- A support alert reading *"This usually means mobile clients are sending expired or
+  invalid Google ID tokens."* — which was false, and cost most of a day.
+
+**What actually happened.** `priceback.user_sessions`, family `fb12OXsb`:
+
+```
+20:07:01.796  session 4 revoked `rotated`           <- the app presented its refresh token
+20:07:03.943  successor 7 created                   <- the reply still had to reach the phone
+20:07:07.994  successor 7 revoked `reuse_detected`  <- the app presented the SAME token again
+20:07:10 ->   20 x verify_rejected across /api/me/bootstrap, /api/me, /profile,
+              /credits, /credits/topup, /consents, /subscription/sync
+```
+
+Nobody stole anything. `_refreshFirstPartySession` aborts at 8 s and — correctly —
+**keeps** its refresh token, because a timeout says nothing about whether the session
+died. There is even a test asserting that. But the *server* may already have spent
+it, and four seconds later the retry presented a revoked row. `rotate()` read an
+honest retry as theft and burned the whole family.
+
+`pg_advisory_xact_lock` was already there, with a comment claiming it prevented
+exactly this. It does not and cannot: it **serialises** the duplicate, it does not
+change the second caller's answer. The second transaction still lands on
+`row.revokedAt` and still burns. A lock is not an idempotency mechanism.
+
+**Why one burn cost an evening.** Once the family died the phone fell back to the
+Apple identity token, which lives ~10 minutes and was six days old. Every request
+401'd; every 401 called `refreshAppleIdTokenInteractive()`; every one of those raised
+an Apple sheet. And `openFirstPartySession()` was reachable **only from the three
+sign-in finalizers** — never on boot, never after a session died — so the device
+could not climb back out. It was pinned to a ten-minute credential until the user
+signed in by hand.
+
+The sheets are what produced the other two symptoms. iOS lets one authorization
+stand at a time; four places in `authService` raise one and nothing coordinated
+them. On OnboardingScreen the stale stored user fires `onContinue()` -> hydrate ->
+401 -> a **background** Apple sheet, at the same moment the user taps Continue with
+Apple. Two stacked `ASAuthorizationController`s both fail — Apple as
+`ERR_REQUEST_UNKNOWN`, which we map to `signin_unavailable` ("check that you're
+signed in to iCloud"), and the next Google attempt cannot get a presentation anchor
+at all. `errorSupport.js` had recorded the pairing a month earlier without knowing
+the cause: *"Observed 11x in one week, every time in the SAME session as a failed
+Apple sign-in moments earlier."* Deletion failed for the same reason —
+`deleteMyAccount` raises a sheet and then calls `authedFetch` with a dead session
+and a dead provider token.
+
+Every one of those four guards was **individually correct**. That is what made the
+collision invisible.
+
+**Fix — server (`backend/repos/sessionsRepo.js`).** `rotate()` serves a bounded
+replay instead of burning, and only when all of:
+
+- the row was retired by *us* (`rotated` / `superseded_by_replay`), never by a
+  sign-out, an account deletion, the session cap or a previous burn;
+- **no descendant has ever been presented.** `last_used_at` is stamped only when a
+  token's holder actually showed it to us, so if the newest genuinely-used row in
+  the family is younger than the one in hand, the successor reached somebody — and
+  an ancestor turning up afterwards is the theft the mechanism exists to catch. This
+  condition does not depend on the clock at all;
+- the last genuine use is within `SESSION_REPLAY_GRACE_MS` (30 s, tunable). The
+  window is anchored *there*, not on this row's own revocation — which is what stops
+  two parties ping-ponging replays and rolling it forward forever, since a replay
+  never stamps `last_used_at`;
+- the family holds exactly one live heir, younger than the row in hand, unexpired.
+
+The heir is **rotated, not re-issued**: only its hash is stored, so the plaintext in
+the response that never arrived is unrecoverable. It is retired with `last_used_at`
+still null, because nobody ever received it. No migration. Both rotation paths now
+take a family-scoped advisory lock as well as the token one, in a fixed order, since
+an ordinary refresh and a replay can target the same heir row.
+
+**Fix — client (`src/services/authService.js`).**
+
+- **One authorization presenter**, taken at the *native call* rather than around the
+  exported functions — `refreshGoogleIdTokenInteractive` calls `signInWithGoogle`, so
+  a lock one layer up would wait on itself. User taps queue; the two background
+  refreshers give up instead, because queueing would put a second sheet in front of
+  the user the instant they finished the first.
+- **The rotated pair is indispensable.** `_storeSession` reports whether the refresh
+  token landed, and both callers drop the session rather than carry on with a
+  15-minute access token and a spent refresh token behind it. The same
+  partial-success-stored-as-complete shape as #206.
+- **Re-open on recovery.** `authedFetch` mints a session at the only moment it can be
+  done with no UI and no guessing — a provider token the backend has *just* accepted.
+
+**Fix — the alert (`backend/server.js`).** The body hardcoded the Google sentence.
+All 20 rejections were `verify_rejected` (an Apple or session token refused);
+expired Google tokens arrive as `verify_threw` with *"Token used too late"*. The
+email named the one class that had **not** fired and pointed at `api_audit_log`,
+which no longer exists. It now reports the measured tally by reason and by route,
+picks its guidance from the **dominant** reason rather than the latest one, and names
+`priceback.auth_outcomes`. Third instance of this class after #205 and #214.
+
+**Durable lessons.**
+
+1. **At-least-once delivery + rotate-on-use + burn-on-reuse = a guaranteed lockout on
+   any dropped response.** If a credential is spent on presentation, the protocol
+   needs an idempotent replay of the *same* exchange. This is not a nicety; without
+   it, every network blip is a sign-out.
+2. **A lock serialises; it does not make an operation idempotent.** The comment
+   claiming otherwise sat directly above the code that disproved it for six days.
+3. **Guards that are individually correct can still collide.** Four in-flight guards,
+   four correct, one shared resource nobody owned. When a resource is global
+   (the screen, the presenter, a rotating token), the guard has to be global too.
+4. **A capability reachable only from the happy path is not a recovery.**
+   `openFirstPartySession` existed, worked, and could never run when it was needed.
+
+**Verification note.** GitHub Actions is still billing-blocked, so CI could not run
+this. Verified locally on targeted suites. Backend: 12 new cases in
+`sessionReplayGraceDb.test.js`, watched to fail with `SESSION_REPLAY_GRACE_MS=0` —
+which restores the exact pre-fix behaviour and is itself one of the tests — then
+57/57 across the four existing session suites, 8/8 on `authFailureMonitor` (4 new),
+19/19 on `healthSessions` (2 new). Client: 14 new cases in
+`authServiceSessionRecovery.test.js`, 7 of which fail when the three fixes are
+disabled in place; 8 new storefront cases in `storePrices.test.js`; 224/224 across
+ten auth suites, 226/226 across twelve session/onboarding/audit suites, 65/65 across
+the price-facing screens. `npm run i18n:check` unchanged at en=1485 / fr=1485 — the
+fix adds no user-visible copy.
+
+**Two existing tests changed on purpose.** `sessionRoutesDb`'s *"re-presenting a
+ROTATED token revokes the entire family"* and `sessionHardeningDb`'s pruning case
+both re-presented a token immediately, which is now the *replay* case. They reach the
+burn path explicitly — the first by having the honest client use its successor, the
+second by presenting past the window — rather than by accident.
+
+---
+
+## The paywall showed a currency the store had stopped charging in (2026-08-24)
+
+Filed with #216 because it was reported in the same breath, but it is an independent
+defect with an independent cause.
+
+**Symptom.** In-app product prices shown in the wrong currency on a device whose App
+Store region had been changed (France -> Canada).
+
+**Mechanism.** `storePrices.js` opens with the claim that its cache
+
+> is stamped with the storefront currency and ages out, so a stale entry can neither
+> outlive a storefront change nor be trusted indefinitely.
+
+Half of that was implemented. `_writeCache` stamped a `currencyCode`;
+`primeStorePricesFromCache` **never read it back**. So the old region's prices were
+applied as `status: "ready"`, and if the live read then kept failing — an offering
+that will not resolve, which is exactly what an unattached iOS IAP product looks
+like — nothing ever corrected them for the full 30-day cache life.
+
+**Fix.** The cache is stamped with the storefront **country**
+(`subscriptionManager.getStorefront()`, RevenueCat's `Storefront.countryCode`) and
+refused when it disagrees. `null` means *"we don't know"* and must never read as
+*"it changed"*: an unknown storefront applies the cache **provisionally**
+(`status` stays `loading`) so the warm-device benefit survives while the live read
+confirms it. The check runs off `initRevenueCat`, **before** the offerings lookup, so
+it fires even when that lookup cannot answer — which is the state that made this last
+thirty days instead of one second. Cache key bumped to `v2`; a `v1` entry recorded no
+region and cannot be validated, so it is deleted rather than trusted.
+
+**Durable lesson.** A docblock that states an invariant is a claim, not a mechanism.
+This one was written when the field was *added* to the write path, and nothing ever
+read it. If an invariant is worth writing down, it is worth a test — the test is what
+makes the sentence true.

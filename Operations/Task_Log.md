@@ -6019,3 +6019,82 @@ checks and the generated message, then create the tag with `git tag -a v… -F -
   `CRYPT_E_NO_REVOCATION_CHECK` unless given `--ssl-no-revoke`.)*
 - Clearing the Actions billing block remains the blocker for CI-verifying any of
   this.
+
+---
+
+## 2026-08-24 — The iOS sign-in collapse: one root cause behind four symptoms
+
+**Reported.** Every screen 401-ing on the iPhone; *"Apple couldn't complete the
+sign-in — check that you're signed in to iCloud"* on every retry; Google sign-in on
+iOS failing straight after; account deletion failing; and a support alert blaming
+*"expired or invalid Google ID tokens"*. Separately, in-app product prices showing in
+the wrong currency.
+
+**Found.** Not four bugs. `priceback.user_sessions` had the whole thing timestamped:
+session 4 rotated at 20:07:01.796, successor 7 created at 20:07:03.943, successor 7
+revoked `reuse_detected` at 20:07:07.994 — the app re-presented a refresh token whose
+rotation it had never received (its own 8 s abort), and the server read the honest
+retry as theft and burned the family. The 20 × `verify_rejected` that raised the
+alert start three seconds later. Everything else is downstream: a burned family drops
+the phone onto a ten-minute Apple token it cannot silently refresh, every 401 asks
+for an Apple sheet, and nothing could ever re-open a session because
+`openFirstPartySession()` was reachable only from the three sign-in finalizers.
+Stacked sheets are what made both providers fail and deletion impossible.
+
+Prod `/health` ruled out configuration up front — `sessions: configured`,
+`auth: configured` (3 audiences, iOS client present). **Correction to a standing
+note: `SESSION_TOKEN_SECRET` IS set on prod and first-party sessions are live.**
+The recap said otherwise.
+
+**Shipped** (PR: `fix/ios-session-replay-and-sheet-mutex`):
+
+1. **Server — idempotent rotation.** `rotate()` serves a bounded replay instead of
+   burning, gated on four conditions, the security one being *no descendant has ever
+   been presented* (`last_used_at`, which a replay deliberately does not stamp). The
+   window is anchored on the last genuine use, not on the row's own revocation, so a
+   replay chain cannot roll it forward. No migration — the heir is rotated rather
+   than re-issued, because only its hash is stored.
+2. **Client — one authorization presenter**, taken at the native call (a lock around
+   the exported functions would deadlock, since `refreshGoogleIdTokenInteractive`
+   calls `signInWithGoogle`). User taps queue; background refreshers give up.
+3. **Client — the rotated pair is indispensable.** `_storeSession` reports whether
+   the refresh token landed; a lost write drops the session instead of half-keeping
+   it.
+4. **Client — re-open on recovery.** `authedFetch` mints a session off a provider
+   token the backend has just accepted: no UI, no guessing.
+5. **The alert reports what it measured** — tally by reason and route, guidance from
+   the dominant reason, and it names `priceback.auth_outcomes` instead of the
+   long-gone `api_audit_log`. Third instance of this class after #205 and #214.
+6. **Storefront-aware price cache.** `storePrices.js` stamped a currency on write and
+   never read it back, so a device whose App Store region changed rendered the old
+   region's prices as `ready` for up to 30 days. Now validated against
+   `subscriptionManager.getStorefront()`; unknown ≠ changed.
+
+**Sequencing that matters.** The server fix repairs **every already-installed
+build the moment Railway redeploys** — no App Store review in the path. The client
+fixes harden it and need 2.8.13.
+
+**Verified without CI** (Actions still billing-blocked; confirmed again — all recent
+runs `conclusion: failure`). Backend: 12 new cases in `sessionReplayGraceDb.test.js`,
+watched to fail under `SESSION_REPLAY_GRACE_MS=0` (which restores the exact pre-fix
+behaviour and is itself one of the tests), then 57/57 across the four existing
+session suites, 8/8 `authFailureMonitor`, 19/19 `healthSessions`. Client: 14 new
+cases in `authServiceSessionRecovery.test.js` — 7 fail with the fixes disabled in
+place — plus 8 new storefront cases; 224/224 across ten auth suites, 226/226 across
+twelve session/onboarding/audit suites, 65/65 on the price-facing screens.
+`i18n:check` unchanged at en=1485 / fr=1485.
+
+**Two existing tests deliberately changed** to reach the burn path explicitly rather
+than by accident — see Bugs #216.
+
+**Notes for next time.**
+
+- `curl` still needs `--ssl-no-revoke` on this machine; `/health` on prod is public
+  and was the fastest way to rule out a config cause.
+- Backend DB suites run as
+  `node --env-file=.env --env-file=test.env --test --test-concurrency=1 tests/<file>`
+  from `backend/`. One suite at a time — concurrent runs exhaust the Supabase pooler.
+- A bash heredoc still mangles quoting for JS/Markdown; the Write tool plus a small
+  Python append is the reliable path.
+- `babel-plugin-jest-hoist` only lets a `jest.mock` factory reach out-of-scope names
+  prefixed with `mock` — `new Set()` at module scope is rejected outright.
