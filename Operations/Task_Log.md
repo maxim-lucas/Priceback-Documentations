@@ -16,6 +16,68 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-08-25 — Sentry triage, Apple display names, and the USD price loop
+
+- **Asked (/goal):** check and fix the new Sentry errors; find out why every
+  account created through Sign in with Apple has a NULL `name` and `picture` in
+  `users`; and work out why iOS still shows USD prices in Buy Credits and
+  Subscribe after three rounds, when Android is fine — the Apple account was
+  even deleted and re-created in Canada with no change.
+- **Decisions (confirmed with Maxim):** reviewer **access code** for App Review
+  (not a full email/OTP provider); **no change** to the skeleton/no-price UI;
+  and the pricing finding must be **written down** so it is never re-derived —
+  "you consumed over a week worth of tokens on this alone".
+
+**What the Sentry data actually said.** 70 of ~76 recent events are one failure
+mode: **on Apple's own devices nobody can sign in.** Sign in with Apple returns
+`ERR_REQUEST_UNKNOWN` (ASAuthorizationError 1000) in under 100 ms with no sheet
+shown; Google in the same session returns `"Unable to open Safari."`. It happens
+on **every build submitted since 2026-08-10 — 2.8.5, 2.8.8, 2.8.10, 2.8.12,
+2.8.14** (latest 08-25 05:36 UTC, 20 min after 2.8.14's first-ever launch). 37 of
+41 geolocate to **Cupertino / Apple's network**; 4 are a real user in **Giza, EG**
+on 2.8.12 who got in with neither provider. **Zero from Canada.** Our
+`REVIEWER_NOTES.md` tells Apple *"no demo account needed — use Sign in with
+Apple"*: we point the reviewer at the one path that fails on their hardware, with
+a fallback that also fails.
+
+**Housekeeping, no code owed:** `-5` (Outlook `$orderBy`+`$search`) is **already
+fixed** at `emailSyncService.js:930`, last event 08-04 → resolve in Sentry.
+`-G`/`-E` are deliberate probes → resolve. `-F`/`-7` (GMS `INTERNAL_ERROR`) is a
+device fault and already classified correctly. `-8` (Gmail API disabled on GCP)
+has no code fix. `-A`/`-9` are iOS **2.8.1**, obsolete.
+
+**Apple names.** `backend/server.js` hardcodes `name: null, picture: null` on the
+Apple token path — correctly, since Apple's identity token never carries them.
+The client *does* capture `credential.fullName` on the first authorization and
+stores it in the keychain, **and then never sends it anywhere**; `PUT
+/api/me/profile` does not accept a name. So `users.name` is NULL for every Apple
+account, permanently. (`picture` is genuinely unobtainable from Apple — that half
+is not a bug; the UI should render initials.)
+
+**The USD prices — and why three rounds could not fix them.** The iOS offering
+has **never** resolved. RevenueCat's own verdict, from a 2.8.14 production
+breadcrumb: *"None of the products registered in the RevenueCat dashboard could
+be fetched from App Store Connect."* Builds ≤ 2.8.10 filled that silence with the
+bundled catalog's USD labels; 2.8.11 removed the fallback; 2.8.13 added storefront
+validation. All three were right and none could produce a price, because the
+defect is in App Store Connect, not in this repo. **Full write-up:
+`Technical/iOS_Store_Pricing_Diagnosis.md` — read it before touching pricing.**
+
+**Done (branch `fix/ios-store-price-confidence`).** The one genuine client defect
+the investigation surfaced: `storePrices.js` promoted a *provisional* cache (one
+applied while `getStorefront()` said "don't know") to `ready` whenever the retry
+budget ran out — `_status = Object.keys(_prices).length ? "ready" : "unavailable"`.
+On iOS the live read fails every time, so an unverified price stood for its full
+30-day life, and deleting/re-creating the account never touched AsyncStorage.
+Added `_confirmed`; unconfirmed prices are dropped rather than published. Plus a
+**Store pricing** group in Admin → Billing diagnostic reporting `source` /
+`country` / `currencyCode` / resolved `priceString` / the store's own error — the
+reading that was never taken in three rounds. Bugs #218.
+
+**Owed, and Maxim's not code:** attach the five IAPs to an App Store version and
+get them to Ready to Submit; confirm the RevenueCat product IDs and `current`
+offering match.
+
 ### 2026-08-23 — AdMob banner ads for non-subscribers (ships dark)
 
 - **Asked (/goal):** add ads to increase income on both platforms, only on

@@ -9299,3 +9299,84 @@ Connect from the unmodified tree before this landed.
    package.json, so the only levers are the npm version or a Gradle
    `resolutionStrategy`. Check which levers exist *before* planning a fix around
    one that does not.
+
+---
+
+## 218. Three rounds spent fixing a display that was already right — nobody ever asked the store what it said (2026-08-25)
+
+- Date: 2026-08-25 · PR: TBD · Area: mobile
+- Symptom: "the prices still show in USD on iOS." Reported three separate times
+  across three fixes. Android correct throughout.
+
+**Read [`Technical/iOS_Store_Pricing_Diagnosis.md`](../Technical/iOS_Store_Pricing_Diagnosis.md)
+before touching any pricing code.** It carries the evidence, the per-build table
+and the console steps. This entry records the *process* failure, which is the
+part that generalises.
+
+**Root cause of the report.** The iOS offering has never resolved. A Sentry
+breadcrumb from 2.8.14 in production carries RevenueCat's own verdict:
+
+> `🍎‼️ Error fetching offerings … None of the products registered in the
+> RevenueCat dashboard could be fetched from App Store Connect`
+
+The products are not served by App Store Connect, so there has never been an iOS
+price to show. **No change in this repo can fix that** — it is console work.
+Builds ≤ 2.8.10 filled the silence with the bundled catalog's USD labels
+(`priceFor(id, p.priceLabel)` → `"$3"`, `"$4.99"`); 2.8.11 removed the fallback;
+2.8.13 added storefront validation. All three were correct changes and none of
+them could produce a price.
+
+**The one real client defect it did surface.** `storePrices.js` applies a cached
+price *provisionally* when `getStorefront()` cannot name a country — right, since
+"we don't know" must not read as "it changed". But when the retry budget ran out:
+
+```js
+_status = Object.keys(_prices).length ? "ready" : "unavailable";
+```
+
+Any non-empty map became the final answer, **including the provisional one**. On
+iOS the live read fails every time, so the unverified cache was promoted to
+`ready` and stood for its full 30-day life. Deleting the account and re-creating
+it in another country does not clear AsyncStorage — so the one remedy a user
+would try never touched it. That is why "the account has been dropped and
+recreated on canada and still the same issue".
+
+**Fix.** A `_confirmed` flag: a price is publishable only if it came off the store
+this session, or came from a cache the live storefront agreed with. Anything else
+is dropped when the budget is spent and the surface falls back to its skeleton —
+what the module header already said it preferred. Plus a **Store pricing** group
+in Admin → Billing diagnostic reporting `source` / `country` / `currencyCode` /
+resolved `priceString` / the store's own error, in plain sentences.
+
+- Files: `src/services/storePrices.js` (`_confirmed`, `_lastError`, the
+  budget-spent branch in `_attemptOnce`), `src/screens/AdminBillingDiagnosticScreen.js`.
+- Detect next time: **Admin → Billing diagnostic → Store pricing.** "Read live
+  from the store just now" vs "Remembered from a previous launch, and NOT yet
+  re-checked" vs "Nothing loaded" separates the three situations that are
+  indistinguishable from a screenshot of a paywall.
+- Prevent: `__tests__/storePrices.test.js` → `describe("price confidence")` pins
+  that an unconfirmed cache is dropped rather than published, and that a
+  confirmed one survives a failing live read.
+  `__tests__/adminBillingDiagnosticStorePricing.test.js` pins that each of the
+  three situations reads back as a different plain-English sentence.
+
+**Durable lessons.**
+
+1. **A bug report names a symptom, not a layer.** "Shows USD" was read as "the
+   display is wrong" three times running. The display had been right since
+   2.8.11. Before fixing a rendering, read back what the thing being rendered
+   actually contained.
+2. **If the app cannot report what an external service answered, every diagnosis
+   is a guess.** The whole loop was possible because no surface anywhere showed
+   `currencyCode`, `source` or the offerings error — all three were already in
+   memory, none were reachable. The diagnostic cost less than any one of the
+   three fix rounds. Same family as
+   [`health-check-conjunction-rule`](#): report what you measured.
+3. **"Provisional" is not a state a system can be left in.** Something must
+   eventually settle it, and if the settling code does not know the difference
+   between *verified* and *merely present*, it will settle on the wrong one. The
+   `?:` that promoted any non-empty map is that mistake in one line.
+4. **A remedy that does not clear local storage has not reset anything.**
+   Deleting and re-creating an account is the user's idea of a factory reset; it
+   does not touch AsyncStorage. Any cache with a multi-week life needs an
+   invalidation path that does not depend on the user guessing right.
