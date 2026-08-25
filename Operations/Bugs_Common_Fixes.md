@@ -9231,3 +9231,71 @@ no artifact exists for it. One version number, spent.
 4. **"Unknown error" from EAS means read the log file, not the summary.** The
    phase name in the summary ("Read app config") is the only clue the API gives;
    the actual message is in `logFiles[0]`, gzip-encoded.
+
+### 217b — and behind it, a second one: the ads SDK the toolchain cannot read
+
+Removing the flag got the build past "Read app config". It then died in Gradle:
+
+```
+e: …/play-services-ads-25.4.0-api.jar!/META-INF/…kotlin_module
+   Module was compiled with an incompatible version of Kotlin. The binary
+   version of its metadata is 2.3.0, expected version is 2.1.0.      (× 19)
+> Task :react-native-google-mobile-ads:compileReleaseKotlin FAILED
+```
+
+`react-native-google-mobile-ads@16.5.0` hardcodes `play-services-ads:25.4.0` in
+its **own** `package.json` (`sdkVersions.android.googleMobileAds`) and reads it
+from there in its `build.gradle` — there is no Gradle property to override it.
+Google built that artifact with a Kotlin 2.3 compiler; Expo 55 pins Kotlin
+2.1.20; Kotlin metadata is **forward-incompatible** (a 2.3 compiler reads 2.1
+fine, never the reverse).
+
+The ads memory had already carried this as an open risk — *"Unverified: that
+`react-native-google-mobile-ads@16.5.0` builds under Expo 55 prebuild"* — with a
+fallback ladder of 16.4.0 → 16.3.4. **The ladder would not have worked**, and
+that is worth knowing before the next time someone reaches for it.
+
+**How the version was actually chosen.** Not by trying builds. The Kotlin
+metadata version sits in the first four big-endian int32s of any
+`META-INF/*.kotlin_module` inside the AAR's `classes.jar` — `[count, major,
+minor, patch]`. Downloading four AARs from `dl.google.com/dl/android/maven2` and
+reading that header answered it in two minutes and zero build minutes:
+
+| `play-services-ads` | Kotlin metadata | |
+| --- | --- | --- |
+| 25.4.0 | 2.3.0 | what 16.5.0 wants — too new |
+| 25.0.0 | **2.2.0** | still too new — so 16.3.4 (which pins 25.0.0) would have failed identically |
+| 24.6.0 | 2.1.0 | ← pinned; also exactly what the library shipped with at 16.0.0 |
+| 24.5.0 | 2.1.0 | |
+
+**Fix.** `plugins/withAdsSdkKotlinPin.js` — a `resolutionStrategy.force` on
+`com.google.android.gms:play-services-ads:24.6.0`, applied to
+`android/build.gradle`.
+
+Pinned rather than raising `kotlinVersion` through `expo-build-properties`
+(which does support it): that recompiles **every** Expo and React Native module
+under a compiler two minors ahead of the one Expo 55 ships and tests against — a
+large blast radius to accept for a dependency this app never calls. Ads are
+dark, and `AdBanner` returns `null`.
+
+`user-messaging-platform` is deliberately untouched: 4.0.0 carries no Kotlin
+metadata at all (pure Java) and compiled cleanly in the failing build. Pinning
+it too would be change without cause.
+
+**iOS was never affected** — no Kotlin — and 2.8.14 (34) reached App Store
+Connect from the unmodified tree before this landed.
+
+**Durable lessons.**
+
+5. **"Unverified" in a note is a liability with a due date.** The ads memory said
+   in plain words that this library had never been built under Expo 55. It was
+   merged anyway, and the bill arrived at the worst moment — mid-release, on a
+   critical auth fix.
+6. **You can read a dependency's compatibility without building it.** Four
+   `curl`s and a 16-byte header beat four EAS builds, and the answer is exact
+   rather than inferred from a pass/fail.
+7. **A library that hardcodes its own transitive versions has no override.**
+   `react-native-google-mobile-ads` reads the SDK version from its own
+   package.json, so the only levers are the npm version or a Gradle
+   `resolutionStrategy`. Check which levers exist *before* planning a fix around
+   one that does not.

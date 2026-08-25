@@ -6145,3 +6145,17 @@ before prod, via `sessionsRepo` + real HTTP.
   `EAS_BUILD_PLATFORM=<ios|android>` — the ads assertion returns early without
   the platform, so a local check without it passes on config that cannot build.
 - `eas build:view` has no `--non-interactive` flag; `--json` alone is enough.
+
+**Release outcome.** **iOS 2.8.14 (34) built and uploaded to App Store Connect**
+(build `6a5f1a93-…`, submission `91af8192-…`) — that is the platform every
+symptom in #216 was on. **Android is still blocked**: past the config phase now,
+but `:react-native-google-mobile-ads:compileReleaseKotlin` fails because
+`play-services-ads:25.4.0` carries Kotlin metadata 2.3.0 and Expo 55 pins Kotlin
+2.1.20. Pin merged (#295, `plugins/withAdsSdkKotlinPin.js` → force 24.6.0,
+metadata 2.1.0, verified by reading the AAR headers rather than by building).
+**Not yet built** — two Android builds have already failed, so per the
+goal-retry-limit the third is Maxim's call. It needs a bump to 2.8.15 /
+versionCode 35 and a `v2.8.15` tag, since `v2.8.14` predates the pin.
+
+Nothing Android loses by waiting: the server half of #216 is already live for it,
+and the client half is iOS-only by construction.
