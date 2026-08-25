@@ -79,9 +79,48 @@ Added `_confirmed`; unconfirmed prices are dropped rather than published. Plus a
 `country` / `currencyCode` / resolved `priceString` / the store's own error — the
 reading that was never taken in three rounds. Bugs #218.
 
+**Done — Apple display names (branch `fix/apple-display-name`, PR #298).**
+`backend/lib/displayName.js` + `displayName` on `PUT /api/me/profile` +
+`profileSyncQueue` carries it + `backfillAppleDisplayName()` on boot recovers
+the accounts that predate it from the keychain (the only surviving copy, and it
+dies with the next reinstall). No clear path, deliberately: an empty value is
+what an ordinary Apple sign-in sends. `picture` stays null and that is correct —
+Apple provides none and nothing renders an avatar, which is why the app looked
+right while the column was empty.
+
+**Done — reviewer access code (branch `feat/reviewer-access-code`, PR #299).**
+`POST /api/auth/reviewer` mints a session from `REVIEWER_ACCESS_CODE` through
+the SAME sessionsRepo + sessionTokens path as `/api/auth/session`, so refresh /
+revoke / reuse-detection / the session ceiling all keep working without knowing
+it exists. Fails closed and indistinguishably when the env var is unset.
+Throttled 10/15 min per IP. Opens one synthetic account (`reviewer:appstore`) —
+an ORDINARY user, explicitly not admin, pinned by a test. iOS only, because
+`authedFetch` consults the first-party session on iOS only; on Android the
+reviewer would be "signed in" to an app that 401s on everything.
+`/health` reports `checks.reviewerAccess` as a CONJUNCTION (code AND sessions
+AND db), never the code. `REVIEWER_NOTES.md` rewritten — it used to point Apple
+at Sign in with Apple, the one path that provably fails on their hardware.
+
+**Verified locally** (CI is billing-blocked, `steps: 0`): 11/11 reviewer route
+cases against the **dev** Supabase project, plus 5/5 unconfigured-gate cases,
+8/8 displayName unit, and 453 client tests green across auth / onboarding /
+boot / sync / profile / errorSupport.
+
+**Regression caught and fixed while wiring B:** a dynamic `import()` in
+`authService` needed an OUTER try/catch. This project builds `import()` down to
+a synchronous `require` (`babel-plugin-import-to-require`), so a module whose
+BODY throws — `profileSyncQueue` imports AsyncStorage at the top level — throws
+at the call site rather than rejecting, and `.catch` never sees it. Without the
+guard a cosmetic name push could abort the sign-in that triggered it. It broke
+3 existing tests, which is how it was found.
+
 **Owed, and Maxim's not code:** attach the five IAPs to an App Store version and
 get them to Ready to Submit; confirm the RevenueCat product IDs and `current`
 offering match.
+
+**Also owed (Maxim):** set `REVIEWER_ACCESS_CODE` on both Railway services and
+paste the code into App Review Information. Confirm via
+`/health` → `checks.reviewerAccess.status === "available"` before submitting.
 
 ### 2026-08-23 — AdMob banner ads for non-subscribers (ships dark)
 

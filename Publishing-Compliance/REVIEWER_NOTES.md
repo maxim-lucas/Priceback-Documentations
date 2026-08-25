@@ -11,20 +11,51 @@ Play's is shorter. The "Short version" at the bottom of this file fits both.
 
 ## Sign-in — how the reviewer gets in
 
-### iOS: no demo account needed — use Sign in with Apple
+### iOS: use the access code in App Review Information
 
-**Tap "Continue with Apple" on the sign-in screen.** It is the first button on
-iOS. The reviewer's own Apple ID creates a normal account, Hide My Email is
-fully supported, and the 75 free credits land immediately — the entire app is
-reviewable with no credentials from us.
+**On the sign-in screen, tap "Have an access code?" (the small underlined link
+below the sign-in buttons), enter the code from the App Review Information
+field above, and tap Sign in.** That opens a normal, fully-featured account with
+credits already on it. No Apple ID, no Google account, no browser, no email.
 
-This is deliberately the instruction we give Apple rather than a shared Google
-account, because a Google demo account is a trap on a review device: signing
-into an unfamiliar device routinely triggers Google's own verification
-challenge (a code sent to the account owner's phone), which the reviewer cannot
-clear. That failure looks like a broken sign-in and gets rejected under
-Guideline 2.1. Sign in with Apple has no such interstitial.
+This is now the FIRST instruction rather than a fallback, because of what our
+crash reporting shows about review devices. On every build submitted since
+2026-08-10, sign-in attempts from Apple's network have failed 100% of the time:
 
+- **Sign in with Apple** returns `ASAuthorizationError 1000` in under 100 ms with
+  no sheet ever shown — the signature of a device with no Apple ID signed into
+  iCloud.
+- **Google Sign-In**, attempted seconds later in the same session, returns
+  `"Unable to open Safari."`
+
+Both providers need something a review device does not have. The previous
+version of this document told the reviewer to use Sign in with Apple and offered
+Google as the fallback — i.e. it pointed at the one path that provably fails,
+with a backup that fails too. The access code needs neither.
+
+Sign in with Apple and Google both still work normally and remain on the screen
+for real users; they are simply not the instruction we give a reviewer.
+
+#### Operator setup (not part of the review)
+
+The code is the `REVIEWER_ACCESS_CODE` environment variable on **both** Railway
+services (production and development). Until it is set the route fails closed —
+it answers the same 401 as a wrong code, deliberately, so an unset variable
+cannot be probed for.
+
+Confirm it landed before submitting: `GET /health` reports
+`checks.reviewerAccess.status`, which is `"available"` only when the code AND
+first-party sessions AND the database are all present. It never publishes the
+code itself.
+
+Rotating the variable revokes the code immediately and completely. It reaches
+exactly one synthetic account (`reviewer:appstore`) that holds no real user data
+and has no admin access, so the worst case if the code leaks is that a stranger
+looks at a demo account.
+
+**iOS only.** `authedFetch` consults the first-party session on iOS only, so on
+Android the code is not offered and the link is not rendered — see the Play
+section below.
 ### Onboarding after sign-in asks for a region — use these values
 
 The app serves Canadian retailer price-adjustment policies only, so the setup
@@ -299,11 +330,13 @@ We respond within 1 business day to reviewer questions.
 > policies. Scan a receipt, we track current prices, alert you when an
 > item drops, hand you a one-tap claim flow.
 >
-> **No demo account needed.** On iOS, tap **"Continue with Apple"** (first
-> button on the sign-in screen) and use your own Apple ID — Hide My Email is
-> supported and the 75 free credits are granted immediately. We recommend this
-> over a shared Google account because Google's own device-verification
-> challenge can block sign-in on an unfamiliar review device.
+> **Signing in (iOS):** on the sign-in screen tap **"Have an access code?"**
+> (small underlined link below the buttons), enter the code from the App Review
+> Information field above, and tap Sign in. That opens a normal account with
+> credits already on it — no Apple ID, no Google account, no browser needed.
+> Sign in with Apple and Google also work and are there for real users, but
+> both need something a review device typically lacks (an Apple ID signed into
+> iCloud; permission to open Safari), so the code is the reliable route.
 >
 > Setup asks for a Canadian region (the app covers Canadian retailer policies
 > only): postal code **M5V 3L9**, province **Ontario**. Accept the two
