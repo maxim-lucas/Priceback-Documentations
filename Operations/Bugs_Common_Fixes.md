@@ -9137,3 +9137,97 @@ region and cannot be validated, so it is deleted rather than trusted.
 This one was written when the field was *added* to the write path, and nothing ever
 read it. If an invariant is worth writing down, it is worth a test — the test is what
 makes the sentence true.
+
+---
+
+## 217. A guardrail doing its job, on config that could never have passed it — four days of impossible production builds (2026-08-25)
+
+**Class: a test that pins a value instead of the property the value is for.**
+
+**Symptom.** `eas build --platform all --profile production` from `v2.8.13`.
+Both platforms ERRORED after 30 seconds with:
+
+> Unknown error. See logs of the Read app config build phase for more information.
+
+That message names no cause. The build log did:
+
+```
+[app.config] production android has ads enabled but is still on Google's test
+ad unit "ca-app-pub-3940256099942544/9214589741" — it would serve "Test Ad"
+creatives to real users and earn nothing. Set ADMOB_BANNER_UNIT_ANDROID in the
+EAS production environment, or ALLOW_TEST_ADS_IN_PRODUCTION=1 to ship it that
+way on purpose.
+  at assertAdsConfigIsShippable (app.config.js:219:13)
+```
+
+**Mechanism.** #290 committed two things that cannot coexist:
+
+- `eas.json` → `build.production.env.ADS_ENABLED = "true"`, and
+- `app.config.js` → `assertAdsConfigIsShippable()`, which throws when a
+  production build has ads enabled while still on Google's demo publisher.
+
+The real ad unit ids that would satisfy it live in exactly one place — the EAS
+*production* environment — and were never set. `eas env:list --environment
+production` shows seven variables; no `ADMOB_*` among them. Nor could they be:
+app.json still carries `ca-app-pub-0000000000000000~0000000000` as the AdMob app
+id on both platforms, so **no real ad could serve under any flag**. The flag was
+pure cost.
+
+The guard is correct and stays. Serving test creatives to real users earns
+nothing and looks broken; the assertion is the only thing standing between that
+and a store release.
+
+**Why four days.** #290 merged *after* 2.8.12 was built. No store build was
+attempted between that merge and this one, so the first build to touch the new
+config was the one that failed. Nothing else exercises "Read app config" — not
+`npm test`, not the local `expo start` path, and CI is billing-blocked anyway.
+
+**Why the tests were green the whole time.** `adsConfig.test.js` had this:
+
+```js
+if (name === "production") expect(v).toBe("true");
+```
+
+It pinned the FLAG. It said nothing about whether a build carrying that flag
+could start. Both statements sound like "ads are configured for production";
+only one of them is about anything a user or a build ever encounters.
+
+**Fix.**
+
+- `ADS_ENABLED` removed from the production profile. **Not** worked around:
+  `ALLOW_TEST_ADS_IN_PRODUCTION=1` exists and would have made the build pass,
+  by shipping test creatives to real users. Shipping dark is what #290's own
+  title says it intended.
+- The flag assertion is replaced with the invariant that actually holds — ads
+  are enabled on production **only once there is a real AdMob app id** — so the
+  day a real account is wired, the test flips on its own and starts *requiring*
+  the flag again. A test that must be remembered is a test that will not be.
+- `easBuildProfiles.test.js` now asks the question nothing was asking: *given
+  exactly what this repo commits, does "Read app config" succeed?* Every
+  committed profile is read on both platforms through the real `app.config.js`,
+  with EAS-environment values supplied as shape-correct stand-ins so the scope
+  is what the REPO commits (an operator's missing secret is a different problem
+  with its own assertions). Watched to fail: restoring the flag reddens 4 of 61.
+
+**Cost.** `v2.8.13` was tagged and its GitHub release published before the build
+was attempted, so the tag now points at a tree that can never produce an
+artifact. Tags are never moved, so it was rolled forward to **2.8.14 /
+buildNumber 34**, and the 2.8.13 release notes were edited to say plainly that
+no artifact exists for it. One version number, spent.
+
+**Durable lessons.**
+
+1. **Assert the property, not the value.** `expect(flag).toBe("true")` cannot
+   fail when the flag is wrong for the situation — it can only fail when
+   somebody changes it. The invariant here was never "the flag is true"; it was
+   "ads are on only when they can serve".
+2. **A build guard is not a test.** `assertAdsConfigIsShippable` was written,
+   correct, and unreachable from the suite. A guard that only fires in a build
+   container fires for the first time at the worst possible moment.
+3. **Config merged is not config exercised.** Between a merge and the next store
+   build there can be days in which committed configuration is unbuildable and
+   completely silent. If a file is only read by a build, something in CI has to
+   read it too.
+4. **"Unknown error" from EAS means read the log file, not the summary.** The
+   phase name in the summary ("Read app config") is the only clue the API gives;
+   the actual message is in `logFiles[0]`, gzip-encoded.

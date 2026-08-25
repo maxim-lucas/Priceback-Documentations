@@ -6098,3 +6098,50 @@ than by accident — see Bugs #216.
   Python append is the reliable path.
 - `babel-plugin-jest-hoist` only lets a `jest.mock` factory reach out-of-scope names
   prefixed with `mock` — `new Set()` at module scope is rejected outright.
+
+### Addendum — the release could not be built (same session)
+
+`eas build --platform all --profile production` from `v2.8.13` ERRORED on both
+platforms in 30 seconds, at "Read app config". Cause was **not** in this
+session's work: #290 committed `ADS_ENABLED: "true"` on the production EAS
+profile while no real AdMob unit ids exist and app.json still carries the
+all-zero placeholder app id, so `assertAdsConfigIsShippable` refused. **Every
+production build had been impossible since #290 merged** — 2.8.12 was built
+before it, and nothing between then and now attempted one.
+
+Fixed in **#293** (flag removed, not worked around), rolled forward to
+**2.8.14 / buildNumber 34** in #294 because a tag is never moved. The `v2.8.13`
+release notes were edited to state plainly that no artifact exists for it.
+Full write-up: Bugs #217.
+
+**Production verification of #216 — done, and clean.** The 2026-08-24 sequence
+was replayed against the live production backend with a throwaway sub
+(`verify-216-probe`, seeded and removed via SQL):
+
+```
+1st refresh  → 200          (rotation)
+2nd refresh, same token → 200   (was: 401 + reuse_detected + family burned)
+user_sessions: id 9 `rotated` presented=true
+               id 10 `superseded_by_replay` presented=FALSE
+               id 11 live
+```
+
+`superseded_by_replay` with `last_used_at` NULL is the whole design in one row:
+the heir nobody received is retired without being credited as delivered. Cleanup
+verified by query — 0 users, 0 sessions, 0 ledger rows remaining. The same
+sequence was also run end-to-end against the *development* Railway deployment
+before prod, via `sessionsRepo` + real HTTP.
+
+**Notes for next time.**
+
+- Prod `/health` deliberately collapses `checks.sessions` to `{status}` for
+  anonymous callers — a new diagnostic field will NEVER appear without the admin
+  token. Polling for one anonymously proves nothing; use `uptimeMs` to confirm a
+  redeploy instead, or `?token=$FLYER_ADMIN_TOKEN`.
+- EAS build failures report only the phase name. The real message is in
+  `eas build:view <id> --json` → `logFiles[0]`, which is **gzip**, so
+  `zlib.gunzipSync` it before grepping.
+- Reproducing `app.config.js` locally needs `EAS_BUILD=true` **and**
+  `EAS_BUILD_PLATFORM=<ios|android>` — the ads assertion returns early without
+  the platform, so a local check without it passes on config that cannot build.
+- `eas build:view` has no `--non-interactive` flag; `--json` alone is enough.
