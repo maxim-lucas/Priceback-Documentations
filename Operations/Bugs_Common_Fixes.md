@@ -9394,3 +9394,229 @@ resolved `priceString` / the store's own error, in plain sentences.
    Deleting and re-creating an account is the user's idea of a factory reset; it
    does not touch AsyncStorage. Any cache with a multi-week life needs an
    invalidation path that does not depend on the user guessing right.
+
+---
+
+## 219. A store parser that passed every test and got all nine real receipts wrong (2026-08-25)
+
+- **Date:** 2026-08-25 · **PR:** _(this change)_ · **Area:** mobile
+- **Symptom:** Scanning any bestbuy.ca order receipt produced **a receipt with
+  zero items** — the scan succeeds, a credit is spent, the user is shown an
+  empty basket and nothing can ever be price-watched. A photographed in-store
+  slip produced **one item called "Item #169"** holding a $3,699.99 television's
+  price, dated **a week after the purchase**, and never reconciled.
+
+  The parser's own unit suite was green throughout: 1,070 tests across the
+  synthetic layouts, all passing, on a parser that could not read a single real
+  receipt.
+
+**Root cause — four independent faults, one shared origin.**
+
+The parser was built against *layouts written from a real receipt*, which are
+what a receipt **looks like**, not what **Vision returns for a photograph of
+one**. Every fault below is a place where those two differ:
+
+1. **The online item table does not exist in the flat OCR.** Vision streams a
+   two-column invoice in a reading order belonging to neither column — `Qty.` /
+   `1` / `SKU` / `Product Description` / `10158121` / the product name, with the
+   price column forty lines further down under its own `Total` header. No line
+   carries a name AND a price, so the line-based engine extracted nothing. The
+   word geometry rebuilds the row perfectly; the online path was the one path
+   that never received the annotation, on the reasoning that an order summary is
+   "generated text, not a photograph of fading paper". True of the PDF, not of
+   the OCR of it.
+2. **`Product Total` read as the grand total.** Best Buy prints the merchandise
+   sum at the TOP of an order receipt, so it is the first `total` the scan meets;
+   `Order Total` is eight rows below it. `printedTotal` — the anchor every
+   validation is checked against — came back as the pre-tax subtotal, failing a
+   correct parse. In the flat OCR it is worse: the item table's `Total` COLUMN
+   HEADER sits immediately above the first item price, so the receipt's stated
+   value of the purchase was **one product's price**.
+3. **`29-Dec-2023` matched no date pattern**, and the whole-text scan takes the
+   first date it finds anywhere. On the in-store slip that is `Delivery Date:
+   2025-12-05`, not `BUS DATE-11/28/2025` — a purchase dated **a week late**,
+   silently shortening the 30-day price-adjustment window the user scanned the
+   receipt to protect.
+4. **The Best Buy store-number pattern matched the "s" ending any word.** The
+   word reliably preceding a number on an order receipt is the customer's
+   surname above their shipping address: `Maxim Lucas / 401 9E Av` reported
+   **store 401**. Every online receipt was attributed to a Best Buy location
+   whose number is the house number it shipped to.
+
+**Plus the paper itself.** Best Buy's thermal stock is thin enough that Vision
+transcribes the returns policy printed on the BACK, interleaved with the front at
+the same y:
+
+```
+169 ) sparis.nu uo quater nu é asldizzimbs      <- the reverse of the slip
+Samsung 85LS03FW PRO stall 6 ( e $3,699.99 lamexe
+19204882upitilog to innoo alistab Hel auoj te   <- SKU fused to a mirror word
+```
+
+The price is no longer last on its line, so no item pattern matches it; the SKU
+is fused to a word, so `extractSku` cannot see it. What the parser took instead
+was the bleed line above, whose leading `169` passed as a SKU and whose garbage
+name became `Item #169`. `isBestBuySku` — the 7-8 digit width check written
+specifically to prevent this — **existed, was exported, was unit-tested, and was
+never called by anything**.
+
+**And a confidently-wrong glyph.** The tax line reads `TAX HST 13.00% of
+$3,699.99  $461.00`. 13% of 3,699.99 is **481.00**, and 3,699.99 + 481.00 is
+4,180.99 — the TOTAL printed on the next line. Vision reported **0.986
+confidence** on `461.00`, so the faint-print signal cannot see it: this is the
+confident-misread case, and only the receipt's own arithmetic exposes it.
+
+**Fix.**
+
+- The online path takes the annotation and rebuilds the item table from
+  geometry (`extractBestBuyOnlineItemRows`), re-emitting each row SKU-first,
+  folding wrapped descriptions into the item they belong to, and stopping at the
+  end of the first table so the **Gift Receipt page — which reprints every item
+  WITHOUT prices** — can never duplicate the basket. Only the item rows are
+  replaced; totals, tax and date still come from `rawText`, where they already
+  read correctly.
+- `trimBleedThrough` cuts each item row at its last printed amount (nothing
+  prints right of the price column but a tax flag); `attachTrailingSkuRows`
+  attaches a 7-8 digit SKU printed on its own row under the item, which is what
+  finally wires `isBestBuySku` into the parse.
+- `repairTaxFromPrintedRate` recomputes the tax from the rate and base the
+  receipt printed, adopting it **only when the stated base is the basket we
+  parsed AND the result lands on the printed total** — the same "LAND, never
+  merely closer" bar `faintPrintRepair`'s Tier 2 holds itself to.
+- Shared: an explicit purchase-date label (`BUS DATE`, `Order Date`, ...) now
+  outranks any other date on the page; `D-Mon-YYYY` is parsed; `Product Total`
+  joins `merchandise` as a subtotal alias; the bare `number` reject was narrowed
+  to `total number|count` so a row carrying an invoice number in its other column
+  is not discarded; the store-number pattern is anchored to a word boundary.
+
+- **Files:** `src/services/bestBuyReceiptParser.js`
+  (`parseBestBuyOnlineReceipt`, `extractBestBuyOnlineItemRows`,
+  `joinCurrencySpacing`, `trimBleedThrough`, `attachTrailingSkuRows`,
+  `repairTaxFromPrintedRate`), `src/services/receiptParsingShared.js`
+  (`extractDate`, `extractPrintedTotal`, `extractWarehouseId`).
+- **Detect next time:** `npm run parse:receipts -- bestbuy` prints one table per
+  captured receipt — items, SKUs, `items/tax/total/printed`, `reconciled`, date,
+  store, order number. Every line of it is comparable against the paper in
+  seconds. `computeParseConfidence` reporting anything below 1.0 is the same
+  signal from inside the app.
+- **Prevent:** `__tests__/bestBuyReceiptParser.realocr.test.js` pins all nine
+  captures field by field — including `storeNumber: null` and `orderNumber:
+  null` where the receipt genuinely has none — and fails outright if a fixture
+  is added without its ground truth. Coverage floors for
+  `bestBuyReceiptParser.js` and `faintPrintRepair.js` added to `jest.config.js`;
+  the pipeline's per-file guarantee had a hole in exactly its newest code.
+
+**Durable lessons.**
+
+1. **A layout written from a receipt is not the receipt.** Every synthetic case
+   in this parser's suite is a faithful transcription of what a Best Buy slip
+   says, and all of them were green while the parser could not read one real
+   capture. The transcription silently supplies what OCR destroys: reading
+   order, column association, and the absence of the other side of the paper.
+   Synthetic layouts pin RULES; only captures show whether the rules apply.
+2. **An exported, tested guard that nothing calls is not a guard.** `isBestBuySku`
+   had a docstring naming the exact bug it prevents, a unit test proving it
+   returns false for a 3-digit fragment, and no call site. The phantom row it
+   describes was in the first photograph put through the parser. Grep for the
+   call, not the definition.
+3. **A wrong anchor is worse than no anchor.** `printedTotal` is what every
+   downstream check measures the parse against. Reading a subtotal into it fails
+   correct parses and would pass a basket that stopped after the first item —
+   the exact failure it exists to catch.
+4. **Confidence is a signal, not a verdict.** `461.00` came back at 0.986. The
+   receipt's own arithmetic said otherwise. When a document states a
+   self-check — a rate, a base, a subtotal — that check outranks the OCR's
+   opinion of its own reading, and it is the only thing that catches a confident
+   misread.
+5. **A field that is null on purpose has to be pinned as null.** Nothing failed
+   when `warehouseId` was a shipping address's street number, because no test
+   asserted what it should be when there is no store. Pin the absences.
+
+## 220. A binary that promised tracking it could not do — App Store Connect refused to open the review (2026-08-26)
+
+- **Date:** 2026-08-26 · **PR:** _(this change)_ · **Area:** mobile (iOS build config)
+- **Symptom:** Replacing the 2.8.8 submission with the newer build in App Store
+  Connect, "Add for Review" refuses to start:
+
+  > **Unable to Add for Review** — Your app contains
+  > `NSUserTrackingUsageDescription`, indicating that it may request permission
+  > to track users. To submit for review, update your App Privacy response to
+  > indicate that data collected from this app will be used for tracking
+  > purposes, or update your app binary and upload a new build.
+
+  Nothing in the app had changed in that area; the block is a property of every
+  binary built since the AdMob work landed.
+
+- **Root cause:** the lab lane (PR #293/#295, `labEnabled`) keeps the **AdMob
+  SDK** out of production binaries — `app.config.js` strips `ADS_ONLY_PLUGINS`
+  and `react-native.config.js` nulls autolinking. But the *tracking
+  declarations* were never put on that lane. They were static `app.json`
+  config, so they shipped on **every** lane:
+
+  - `ios.infoPlist.NSUserTrackingUsageDescription` — the ATT purpose string.
+  - `ios.privacyManifests` — `NSPrivacyTracking: true`, five tracking domains,
+    and four collected data types marked `…Tracking: true` with a
+    `ThirdPartyAdvertising` purpose.
+
+  So the shipped binary declared "I may track you" while containing nothing that
+  could: no ads SDK, no IDFA read, no reachable ATT prompt (`adsService.
+  ensureReady()` is only called from a banner mount, and `isAdsBuildEnabled()`
+  requires `adsEnabled && labEnabled`). Apple's automated check reads the
+  Info.plist key, sees the App Privacy answers say "no tracking", and stops the
+  submission on the contradiction.
+
+- **The fix that would have been wrong:** answering App Store Connect instead —
+  ticking "used for tracking purposes" in App Privacy. That is a *false
+  statement about the binary*: it promises a reviewer an ATT prompt and an ad
+  experience that do not exist in the build, which is a Guideline 5.1.1 / 5.1.2
+  rejection one cycle later, after another 10-day queue wait. **When the store
+  and the binary disagree, fix whichever one is lying.** Here it was the binary.
+
+- **Fix:** `plugins/withIosAdsPrivacyLane.js` — a config plugin that puts the
+  declarations on the same lane as the SDK.
+  - Lane ON (`eas build --profile lab`): complete no-op. Every declaration
+    survives, because an ads build legally *must* carry the ATT prompt.
+  - Lane OFF (every production build): deletes the ATT purpose string from
+    `Info.plist` **and** from the generated localized `InfoPlist.strings`, and
+    rewrites the privacy manifest — `NSPrivacyTracking: false`, empty
+    `NSPrivacyTrackingDomains`, no type left with `Tracking: true` or a
+    ThirdPartyAdvertising purpose, and the ad-only `AdvertisingData` type
+    removed entirely rather than downgraded (keeping it with `Tracking: false`
+    would declare a collection that never happens — the same false statement
+    pointed the other way). `DeviceID`, `CoarseLocation` and
+    `ProductInteraction` stay, un-tracked: crash reports, the nearest-warehouse
+    picker and Sentry analytics still collect them.
+
+- **Two mechanics worth keeping:**
+  1. The privacy manifest is mutated **in place**.
+     `IOSConfig.PrivacyInfo.withPrivacyInfo` captures
+     `config.ios.privacyManifests` by reference and reads it later, when its mod
+     runs. Replacing the object would leave the generator writing the old,
+     tracking-claiming one — and the binary would still be rejected with the
+     unit tests still green.
+  2. The ATT string is removed **both** from `config.ios.infoPlist` (so the base
+     mod never merges it) **and** in a `withInfoPlist` mod (because a config
+     delete cannot undo a key another plugin adds).
+
+- **Files:** `plugins/withIosAdsPrivacyLane.js` (new), `app.json` (plugin
+  registration), `__tests__/withIosAdsPrivacyLane.test.js` (new).
+
+- **Detect next time:** `npx expo config --type introspect | grep -iE
+  "NSUserTracking|NSPrivacyTracking|ThirdPartyAdvertising"`. On a production
+  lane that must print `NSPrivacyTracking: false`, `NSPrivacyTrackingDomains:
+  []` and nothing else. With `LAB_ENABLED=true APP_ENV=preview` it must print
+  the opposite. (iOS `expo prebuild` cannot run on Windows; introspection can,
+  and it resolves the real plugin pipeline.)
+
+- **Prevent:** `__tests__/withIosAdsPrivacyLane.test.js` asserts both ends of
+  the lane against the real `app.json` manifest, and that the plugin is **not**
+  in `ADS_ONLY_PLUGINS` — adding it there would strip it from exactly the builds
+  it exists to clean, and the rejection would return silently.
+
+- **Still open (Android twin, not fixed here):**
+  `com.google.android.gms.permission.AD_ID` is declared unconditionally in
+  `app.json`, and `plugins/withAndroidPermissionCleanup.js` deliberately stopped
+  removing it when ads landed. On the production lane the ads SDK is not linked,
+  so that permission has no user — the same drift, on Play's data-safety form
+  instead of Apple's. It is not blocking anything today; put it on the lane the
+  next time the Android manifest is touched.

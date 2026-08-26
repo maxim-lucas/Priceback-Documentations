@@ -6523,3 +6523,61 @@ rule. `npm run scrub:receipts` lists them on every run. The in-store photo's
 bleed-through residue in the product name is unchanged from the previous entry
 and still needs a per-word confidence filter inside shared geometry
 reconstruction — which now explicitly requires confirmation before it is touched.
+
+## 2026-08-26 — App Store Connect refused the review: the binary declared tracking it cannot do
+
+**Ask.** "I replaced 2.8.8 with the new 2.8.14 and App Store Connect says
+*Unable to Add for Review — your app contains NSUserTrackingUsageDescription…*
+Should we fix the version or fix App Store Connect?"
+
+**Answer: neither the version nor App Store Connect — the binary.** Every build
+since the AdMob work carries the ATT purpose string and a privacy manifest
+declaring `NSPrivacyTracking: true` with five tracking domains, while the lab
+lane keeps the AdMob SDK *out* of production binaries entirely. The build
+promises tracking it has no code to perform. Answering Apple by ticking
+"used for tracking purposes" in App Privacy would be a false statement about the
+binary and buys a Guideline 5.1.1 / 5.1.2 rejection a full review cycle later.
+
+**Change.** `plugins/withIosAdsPrivacyLane.js` puts the declarations on the same
+lane as the SDK: no-op when `labEnabled === true`; on every production build it
+deletes the ATT string from `Info.plist` and the generated localized
+`InfoPlist.strings`, sets `NSPrivacyTracking: false` with an empty domain list,
+clears every `…Tracking: true` flag and ThirdPartyAdvertising purpose, and drops
+the ad-only `AdvertisingData` type. `DeviceID` / `CoarseLocation` /
+`ProductInteraction` stay, un-tracked — crash reports, the warehouse picker and
+Sentry analytics still collect them.
+
+**Verification.** `npx jest __tests__/withIosAdsPrivacyLane.test.js
+__tests__/adsConfig.test.js __tests__/adsAutolinking.test.js
+__tests__/iosParityConfig.test.js` → **61 passed, 0 failed**. Plus the real
+pipeline, both ends, via `npx expo config --type introspect` (iOS `prebuild`
+cannot run on Windows; introspection resolves the same plugin chain):
+
+- production lane → no `NSUserTrackingUsageDescription` anywhere,
+  `NSPrivacyTracking: false`, `NSPrivacyTrackingDomains: []`, no
+  `AdvertisingData`, no `ThirdPartyAdvertising`.
+- `LAB_ENABLED=true APP_ENV=preview` → ATT string present (×2),
+  `NSPrivacyTracking: true`, domains non-empty.
+
+CI is still billing-blocked, so these were targeted local runs of pure-JS config
+suites — no backend/DB suites.
+
+**Regression risk, stated.** Android: **none** — the plugin only registers iOS
+mods and touches nothing else. Lab lane: **none by construction** — the plugin
+returns the config unchanged before registering a single mod, asserted by a test
+that the returned object is identity-equal to the input. Production iOS: the
+binary loses one Info.plist key and gains a truthful privacy manifest; no JS,
+no native module and no entitlement changes. The one behaviour change worth
+naming: a production build can no longer present the ATT prompt — which is
+correct, because it has no ads SDK to justify one, and `isAdsBuildEnabled()`
+already made that code path unreachable.
+
+**Open.** (1) A new build is required — this is a binary-level fix and the
+uploaded 2.8.14/2.8.15 artifacts still carry the declaration. Sequence per
+`CLAUDE.md`: merge this, bump to 2.8.16 / buildNumber 36 in its own PR, tag,
+build from the tag. That build should also be the one that finally carries the
+App Review sign-in fix (#299), which 2.8.14 predates. **No `eas build` started —
+awaiting Maxim's go-ahead (15 free builds/platform).** (2) The Android twin:
+`com.google.android.gms.permission.AD_ID` is still declared unconditionally
+while the ads SDK is unlinked on the production lane. Reported, not changed —
+it blocks nothing today and would need its own Play release.
