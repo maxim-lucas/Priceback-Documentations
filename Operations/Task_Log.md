@@ -6335,3 +6335,191 @@ which are the pooler-contention concern.
 owed, and until they land the parser is structurally correct and empirically
 unverified. And production no longer compiles the ads SDK, which wants one real
 production build before the next store release.
+
+---
+
+## 2026-08-25 (cont.) — The Best Buy corpus: nine real captures, and what they said about the parser
+
+- **Asked (/goal):** "i added the fixtures for best buy, one image and few pdf
+  receipts, run the tests for all of them using the new parser and make sure the
+  results are 100% accurate."
+- **Delivered:** all 9 captured, all 9 pinned to ground truth, all 9 parsing
+  exactly. Best Buy suite 26 failures → 0 (91 → 109 tests). Full mobile suite
+  5,074 passed. Details in `Bugs_Common_Fixes.md` **#219**.
+
+**Getting the captures.** `GOOGLE_VISION_API_KEY` is EMPTY in the repo's `.env`
+(secrets live in EAS/Railway, not on disk). Maxim's instruction: take it from
+**Railway variables** — `railway variables --json`, filtered to the one key,
+written to the session scratchpad, never printed and never committed. Then
+`npm run capture:receipts` produced 9 `<name>.vision.json` fixtures. **The raw
+receipts stay gitignored; only the captured OCR is committed** — the existing
+rule, unchanged.
+
+**Reading the ground truth without guessing.** `pdftotext -layout` (already on
+PATH via mingw64) prints the PDFs' text layer, so every total, tax, date, SKU
+and price was read off the source document *before* looking at what the parser
+produced — then each was checked against the receipt's own arithmetic
+(items + tax = total) before being written into EXPECTATIONS. A guessed
+expectation makes a wrong parse look verified.
+
+**What the corpus said.** The parser was 1,070 green tests over synthetic
+layouts and got **every one of the nine wrong**: all 8 order receipts extracted
+**zero items**; the photographed slip invented `Item #169` holding a $3,699.99
+TV's price, dated a week late. Four independent faults plus bleed-through from
+the reverse of the thermal paper — full mechanism in #219. The one worth
+repeating here: **`isBestBuySku` existed, was exported, was unit-tested, and
+nothing called it.** Its docstring named the exact bug the first real photo hit.
+
+**Two decisions worth not re-litigating.**
+
+- **Only the ITEM ROWS come from geometry on the online path.** Totals, tax,
+  date and order number already read correctly from the flat OCR and were left
+  alone. The geometry is used where the flat text has no answer and nowhere
+  else, which is why Costco's 42-fixture parity suite never moved.
+- **The tax repair must LAND, not merely get closer.** `461.00` vs the printed
+  `481.00` is fixed from the rate and base the receipt itself prints, and only
+  when the stated base equals the basket we parsed AND the result hits the
+  printed total exactly. Same bar `faintPrintRepair` Tier 2 already sets, and
+  for the same reason: "closer" corrupts a good number to chase a gap a missing
+  item opened.
+
+**Also found, deliberately NOT fixed (out of scope, pre-existing on `main`).**
+`__tests__/adminBillingDiagnosticStorePricing.test.js` fails to load —
+`AsyncStorage is null` via `AdminBillingDiagnosticScreen` → `ProfileKit` →
+`i18n`, which the suite never mocks. Adding the mock (as its sibling admin
+suites do) makes it load and then **6 assertions fail with empty rendered text**:
+the screen now renders through ProfileKit components, so the suite's
+`findAllByType(Text)` finds no raw React Native `Text` nodes. That is the #297
+screen redesign outrunning its test, not a receipt-parsing problem. It also
+drags `subscriptionManager` and `authService` under their coverage floors. Left
+exactly as found; the baseline run proving it pre-exists is in the PR body.
+
+**Notes for next time.**
+
+- Bash heredocs mangled a markdown file this session too, not just JS — and a
+  Python string-replace silently no-op'd on a JS regex again (the task log said
+  so last session; it is still true). Write tool, every time.
+- The shell's working directory **persists between Bash calls**. A `cd` into a
+  fixtures folder made `src/services/...` "not found" three calls later and read
+  as a missing file.
+- `npm run parse:receipts -- bestbuy` now prints a real per-receipt table
+  (RECEIPT_REPORT was only wired into the Costco suite). It is the fastest way
+  to compare a parse against the paper.
+
+**Verification.** Full `npm test`: **5,074 passed, 0 failed**, 209/210 suites
+(the one failure is the pre-existing admin suite above). `typecheck` clean;
+`i18n:check` passed (2 languages, 1,493 keys each — no user-visible strings
+changed). Baseline before the change, same command: 26 failed, 2 failed suites.
+CI remains billing-blocked, so these were targeted local runs of pure-JS suites
+plus one full run — no backend/DB suites.
+
+**Regression risk, stated.** Three shared-engine changes (`extractDate`,
+`extractPrintedTotal`, `extractWarehouseId`) are the only code any other store
+touches. All three are additive or narrowing: the date change only fills a date
+the existing patterns failed to find, or prefers an explicitly-labeled purchase
+date — **no Costco fixture carries any such label**, checked; `Product Total`
+joins an existing subtotal-alias list; the `\bS` anchor and the `total number`
+narrowing both make previously-too-wide matches stricter. Costco's 42-capture
+realocr suite and the registry parity suite are unchanged and green.
+
+**Open.** The in-store photo's product name still carries bleed-through residue
+("Samsung 85LS03FW PRO stall 6 ( e") — the mirror text is spatially interleaved,
+not trailing, so trimming it needs a per-word confidence filter inside geometry
+reconstruction, which is shared with Costco. Everything that drives price
+tracking on that receipt — SKU, price, date, total — is exact. One corpus, one
+store: a third store will want its own captures before its parser is believed.
+
+
+## 2026-08-26 — The Best Buy fixtures reach the repo, and the shared engine gets its Costco-only guarantee back
+
+**Why nothing showed up on GitHub.** The nine Best Buy captures were never
+missing and never ignored — they were simply never `git add`ed. `.gitignore`
+already carried the right rules for `receipts-bestbuy/**` (sources out,
+`*.vision.json` in), so `git status` collapsed the whole directory to one
+untracked line and it read as "excluded". Confirmed per-file: 9 sources ignored,
+9 captures addable.
+
+**What actually blocked the commit.** The captures carried a real person's data.
+Eight of nine held a shipping address — name, street, city, postal code, phone —
+and one of them belongs to a **third party**, not the repo owner. The capture
+script's PII scrub was written for Costco thermal paper, which never prints a
+shipping address, so none of it was caught.
+
+**The scrub.** One implementation in `scripts/lib/receiptPiiScrub.js`, shared by
+`capture:receipts` and a new `scrub:receipts` re-scrub pass, because a scrub that
+only runs at capture time protects a fixture against the rules that existed the
+day it was captured and nothing else. Two rule kinds: labelled-value rules
+(Costco heritage — member #, card mask, reference, barcode) and a **block** rule
+that masks the shipping-address region by position. Position, not pattern: one
+fixture's postal code OCR'd as `JON 1PO`, which no postal regex matches, and
+there is no pattern that reliably finds a person's name.
+
+Masked shape-for-shape rather than deleted — `Michael Gad` → `Xxxxxxx Xxx`,
+`17116 Rue Emile-Nelligan` → `99999 Xxx Xxxxx-Xxxxxxxx`. The realocr suite pins
+`storeNumber: null` on every online order precisely so the parser can never mint
+a store number out of a shipping address; deleting the block would delete the
+hazard and leave the assertion passing against nothing. Word geometry is never
+touched — only `text` changes, so a geometry-driven parse reads the same layout.
+
+**A corruption the dry run caught before it shipped.** The first phone rule
+matched a Costco refund's `15:24 1362 124 135633` — warehouse, register,
+transaction — as the phone number `1362 124 1356`, and on one fixture shifted a
+printed time from `18:01` to `18:09`. Three committed Costco fixtures would have
+been silently rewritten. Fixed with digit boundaries on both ends and pinned by
+two tests. **The dry run is the reason this was caught**: default is report-only,
+and it exits non-zero when it finds PII so it works as a gate.
+
+**Store postal codes are business information and are left alone.** 54 of the 55
+Costco fixtures carry a warehouse postal code and the parser identifies
+warehouses by their printed address, so the postal rule fires only inside an
+address block or on an explicit delivery line.
+
+**The shared engine reverted — new standing rule.** Maxim's instruction this
+session: *never modify the Costco parser without confirmation; all Best Buy
+edits belong in the Best Buy parser only.* The previous entry's four
+`receiptParsingShared.js` changes were exactly that — Costco's live code path
+edited to make a lab-lane store parse. `receiptParsingShared.js` and its test
+file are now **byte-identical to HEAD**, and all four behaviours live in
+`bestBuyReceiptParser.js`:
+
+- `extractBestBuyPurchaseDate` — a labelled purchase date outranks the document
+  scan, plus `D-Mon-YYYY`. Fixes `BUS DATE-11/28/2025` losing to
+  `Delivery Date: 2025-12-05`, which dated a purchase a week late and shortened
+  the 30-day adjustment window.
+- `extractBestBuyStoreNumber` — the `\bS` anchor. Without it the `s` ending any
+  word satisfied the S-prefix, and the word above a shipping address is the
+  customer's surname: `Maxim Lucas / 401 9E Av` reported store 401. Callers now
+  assign it **unconditionally**, because the shared engine stamps a warehouseId
+  first and a fill-only assignment could never clear a wrong one.
+- `bestBuyTotalsText` — normalizes Best Buy's own text before the shared totals
+  extractor sees it, instead of teaching that extractor a second store's
+  vocabulary. Handles `Product Total` (the merchandise sum, printed at the top)
+  and the geometry-welded `Star Invoice Number : … Order Total : …` row.
+
+The duplication is deliberate and cheaper than shared-code risk to the earning
+store.
+
+**Verification.** All 10 parsing suites: **1,118 passed, 0 failed** — Best Buy
+(194), the scrub (26), Costco realocr, shared, registry, geometry, validator.
+Best Buy parser coverage **92.37/85.19/97.22/95.45**, above its 90/82/95/94
+floors. Baseline captured *before* the fixtures were rewritten (109/109) and
+re-run after: identical, which is what proves the scrub is parse-neutral. CI is
+still billing-blocked, so these were targeted local runs of pure-JS suites — no
+backend/DB suites.
+
+**Regression risk, stated.** For Costco: **none by construction** —
+`receiptParsingShared.js` is byte-identical to HEAD (`git diff` empty), so no
+Costco code path changed. Every Best Buy change is inside
+`bestBuyReceiptParser.js`, which nothing but the Best Buy lane calls, and that
+lane is `labEnabled`-gated and not in production. The fixture rewrite is proven
+parse-neutral against pinned ground truth. One behaviour change worth naming:
+`warehouseId` is now assigned unconditionally on both Best Buy paths, so a Best
+Buy receipt that previously reported a (wrong) store number now reports null.
+
+**Open.** Three Costco same-day screenshots print `Delivering to K1J 1A5` — a
+customer postal code the new delivery rule would mask. **Reported, not written**:
+rewriting committed Costco fixtures needs Maxim's confirmation under the new
+rule. `npm run scrub:receipts` lists them on every run. The in-store photo's
+bleed-through residue in the product name is unchanged from the previous entry
+and still needs a per-word confidence filter inside shared geometry
+reconstruction — which now explicitly requires confirmation before it is touched.
