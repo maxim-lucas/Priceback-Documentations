@@ -9707,3 +9707,58 @@ confident-misread case, and only the receipt's own arithmetic exposes it.
 - **Prevent:** `adsAutolinking.test.js` already pins that the plugin filter and
   the autolinking exclusion agree on every lane. What no test can cover is
   whether the SDK *compiles* when the lane is on; that needs a real `lab` build.
+
+## 223. The purpose-string cleanup plugin has never actually removed anything (2026-08-26)
+
+- **Date:** 2026-08-26 · **PR:** _(reported, not fixed — needs its own version)_ · **Area:** mobile (iOS build config)
+- **Symptom:** none visible. `plugins/withIosPrivacyStringCleanup.js` exists to
+  strip four iOS purpose strings PriceBack does not use, and its header even
+  documents a PlistBuddy check that "prints no output". **It does not work.**
+  Unpacking the shipped `.ipa` shows all four keys present:
+
+  ```
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Allow PriceBack to access your microphone</string>
+  <key>NSFaceIDUsageDescription</key>
+  <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+  <key>NSLocationAlwaysUsageDescription</key>
+  ```
+
+- **Confirmed pre-existing, not a regression:** the 2.8.14 artifact
+  (`6a5f1a93`, the build already in App Store Connect) and the 2.8.16 artifact
+  (`53b1304a`) carry the identical four keys. #301 changed neither.
+- **Root cause (mechanism):** those keys are injected by *other* Expo plugins —
+  `expo-camera` (microphone), `expo-secure-store` (FaceID), `expo-location`
+  (always-location) — through `IOSConfig.Permissions.createPermissionsPlugin`.
+  Expo evaluates the user's `plugins` array during `getConfig()`, **before**
+  `withLegacyExpoPlugins` applies those module plugins, so the cleanup's
+  `withInfoPlist` delete cannot outrank an injection that happens after it. A
+  `withInfoPlist` mod that only *deletes* is not, by itself, authoritative.
+- **Why the ATT strip in #301 DID work on the same mechanism:**
+  `withIosAdsPrivacyLane` deletes the key from **`config.ios.infoPlist`** as
+  well as in a mod, and nothing re-adds it once the ads plugin is stripped from
+  the lane. Verified in the artifact: absent from `Info.plist` and from both
+  `.lproj/InfoPlist.strings`, with `NSPrivacyTracking` `<false/>`.
+- **The fix (when it is taken):** stop the injection instead of deleting after
+  it. Expo's plugins accept an explicit opt-out:
+  `["expo-camera", { microphonePermission: false }]`,
+  `["expo-secure-store", { faceIDPermission: false }]`,
+  `["expo-location", { locationAlwaysAndWhenInUsePermission: false,
+  locationAlwaysPermission: false }]`. Then keep the cleanup plugin as a
+  backstop, and assert the built plist, not the config.
+- **Risk while unfixed:** a Guideline 5.1.1 question — "we could not find the
+  feature that uses the microphone". It has survived two submissions to Apple's
+  automated checks already, so it is a reviewer risk, not a submission blocker.
+- **Detect next time — the only check that counts.** Config introspection
+  (`npx expo config --type introspect`) reads the *inputs*; it said the cleanup
+  was fine. Read the **artifact**:
+
+  ```
+  curl -sL -o app.ipa "<applicationArchiveUrl from the build's artifacts>"
+  unzip -qo app.ipa -d ipa
+  grep -o "<key>NS[A-Za-z]*UsageDescription</key>" ipa/Payload/*.app/Info.plist | sort -u
+  grep -A1 "NSPrivacyTracking</key>" ipa/Payload/*.app/PrivacyInfo.xcprivacy
+  ```
+
+  The `.ipa` is a plain zip and `Info.plist` inside it is XML on EAS builds, so
+  no macOS tooling is needed — this runs on Windows.
