@@ -6683,3 +6683,47 @@ Guideline 5.1.1(v) gap closed on production.
 only set on production. Not required for App Store compliance (reviewers only
 hit production), but worth setting there too before it's needed for testing.
 Details: `Operations/Apple_SignIn_Revocation_Key_Setup.md`.
+
+### 2026-08-26 — outcomes
+
+**Both platforms shipped.**
+
+| | |
+| --- | --- |
+| iOS **2.8.16 (36)** | build `53b1304a` FINISHED · **uploaded to App Store Connect** (submission `19498dcb`) |
+| Android **2.8.17 (37)** | build `a41d720e` FINISHED · `.aab` — **first Android artifact since 2.8.12** |
+| Releases | `v2.8.16` and `v2.8.17` published, each pinning its commit |
+
+**A correction to the entry above.** It predicted `v2.8.16` would be the first
+working Android build because it contains #300. It was not — it failed
+identically to 2.8.13/14/15. The lane's exclusion lived in
+`react-native.config.js`, and `platforms: { android: null }` is the **Community
+CLI's** mechanism; Expo 55 does not use the Community CLI. One local command
+settled what four builds could not:
+
+```
+npx expo-modules-autolinking react-native-config --platform android --json
+→ 15 modules, react-native-google-mobile-ads AMONG THEM
+```
+
+Moving the exclusion to `expo.autolinking.exclude` in `package.json` → 14
+modules on both platforms. #304, Bugs #224. `adsAutolinking.test.js` had been
+green through all four failures because it asserted a file the build never
+consults — Bugs #221's lesson one layer down.
+
+**The first `eas submit` ERRORED** with no error body, no log files and
+`canRetry: true` — only "Something went wrong". The identical retry succeeded.
+Treat a bare submission failure as transient and retry once before digging.
+
+**Artifact-level verification, both platforms.** The `.aab` was unpacked:
+**zero `io/invertase/googlemobileads` references across all four dex files**,
+and the build log shows 1,353 Gradle tasks with **zero** ads tasks (the previous
+four builds died around task ~680 on exactly that module). `RECORD_AUDIO` is
+correctly stripped. ⚠️ `com.google.android.gms.permission.AD_ID` **is** still in
+the shipped manifest with no SDK behind it — the Android twin, still open.
+
+**Three findings in one day where the artifact disagreed with the config that
+claimed to shape it** — Bugs #221 (a test asserting a screen it never rendered),
+#223 (a plugin removing nothing), #224 (an exclusion the build never read). The
+common fix is the same: **run the resolver, unpack the artifact; a config file
+is an input, never the answer.**
