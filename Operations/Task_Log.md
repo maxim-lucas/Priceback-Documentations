@@ -6667,3 +6667,19 @@ and the Android `AD_ID` twin both need their own version + build.
 product behaviour. #301's effect on the binary is verified above: one key
 removed, one manifest made truthful, every other purpose string byte-identical
 to the build already in App Store Connect.
+
+---
+
+**2026-08-26 — Apple Sign-In revocation key, closed on production.** Maxim
+created a new "Sign in with Apple" key in the Apple Developer portal (distinct
+from the existing APNs push key and ASC API key already in EAS — neither of
+those is usable for this) and set `APPLE_SIGNIN_KEY_ID`, `APPLE_TEAM_ID`,
+`APPLE_SIGNIN_PRIVATE_KEY` on Railway. `GET /health` on
+`priceback-production` confirms `checks.appleAuth.status: "configured"`
+(was `"degraded"`). Account deletion can now revoke the Apple credential —
+Guideline 5.1.1(v) gap closed on production.
+
+`priceback-development` still reads `"degraded"` — the same three vars were
+only set on production. Not required for App Store compliance (reviewers only
+hit production), but worth setting there too before it's needed for testing.
+Details: `Operations/Apple_SignIn_Revocation_Key_Setup.md`.

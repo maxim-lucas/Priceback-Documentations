@@ -9762,3 +9762,55 @@ confident-misread case, and only the receipt's own arithmetic exposes it.
 
   The `.ipa` is a plain zip and `Info.plist` inside it is XML on EAS builds, so
   no macOS tooling is needed — this runs on Windows.
+
+## 224. The autolinking exclusion the build never read — four Android releases lost to it (2026-08-26)
+
+- **Date:** 2026-08-26 · **PR:** #304 · **Area:** mobile (Android build)
+- **Symptom:** the same failure as Bugs #222, one layer deeper. After #300 added
+  the lane's autolinking half, 2.8.16 was expected to be the first Android build
+  to succeed since 2.8.12. **It failed identically**, on
+  `:react-native-google-mobile-ads:compileReleaseKotlin`. Four consecutive
+  versions — 2.8.13, 2.8.14, 2.8.15, 2.8.16 — and **no Android artifact for any
+  of them**.
+- **Root cause:** `react-native.config.js` declares
+  `dependencies["react-native-google-mobile-ads"] = { platforms: { android: null,
+  ios: null } }`. That is the **Community CLI's** exclusion mechanism, and
+  **Expo 55 does not use the Community CLI**. `expo-modules-autolinking` loads
+  the file, but the override does not survive `resolveReactNativeModule()`.
+  Measured in one command, locally, in seconds:
+
+  ```
+  npx expo-modules-autolinking react-native-config --platform android --json
+  → 15 modules, react-native-google-mobile-ads AMONG THEM
+  ```
+
+- **Fix:** `expo.autolinking.exclude` in **package.json**.
+  `resolveReactNativeModule()` checks that set FIRST
+  (`if (excludeNames.has(resolution.name)) return null;`) — unconditional, before
+  any config merging. Same command afterwards: **14 modules, ads gone**, on both
+  platforms.
+- **Why nobody caught it:** `adsAutolinking.test.js` was green through all four
+  failures, because it asserted the *contents of a file the build never
+  consults*. Its own header called the last assertion "load-bearing". It wasn't
+  bearing anything. **This is Bugs #221's lesson one layer down: a test can be
+  green, thorough, well-commented and still wired to nothing.** The test now
+  asserts the package.json exclusion, that both files name the same set, and
+  that the package remains a *dependency* (excluded from LINKING, not removed —
+  the JS half is a guarded dynamic import and jest maps it to a stub).
+- **Known consequence:** package.json cannot be lane-conditional, so the SDK is
+  excluded on the **lab lane** too. That costs nothing today — a lab Android
+  build cannot compile it either (Bugs #222: the library calls
+  `AgeRestrictedTreatment`, a play-services-ads 25.x API the 24.6.0 pin lacks).
+  Restoring lab ads means resolving that version conflict and removing the
+  package.json entry in the same change.
+- **Detect next time — run the resolver, don't read the config:**
+
+  ```
+  npx expo-modules-autolinking react-native-config --platform android --json
+  ```
+
+  It takes seconds locally and answers exactly what the Gradle settings plugin
+  will see. **A config file is an input; only the resolver's output is the
+  answer.** Same family as Bugs #223 (`withIosPrivacyStringCleanup` removing
+  nothing) and #221 — three findings in one day where the artifact disagreed
+  with the configuration that claimed to shape it.

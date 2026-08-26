@@ -1,12 +1,15 @@
 # Provisioning the Sign in with Apple revocation key
 
-**Status as of 2026-08-13:** not configured. Production `/health` reports
-`"appleAuth":"degraded"`. The v2.8.7 iOS build was submitted to App Store
-review with this gap still open — see the "Known defects" section of the
-v2.8.7 GitHub release. This is a **Guideline 5.1.1(v)** risk: Apple requires
-that account deletion revoke the Sign in with Apple credential, not just
-delete our own rows. Do this before review picks up the build, or as soon as
-possible if it already has.
+**Status as of 2026-08-26: configured on production.** A new Sign in with
+Apple key was created in the Apple Developer portal and the three env vars
+below were set on the `priceback-production` Railway service.
+`GET /health` on production confirms `checks.appleAuth.status: "configured"`.
+
+**`priceback-development` still reads `"degraded"`** — the same three vars
+have not been set on that service. Set them there too if the dev backend
+needs to exercise account-deletion revocation (e.g. for testing before a
+release); it's not required for App Store compliance, since only the
+production backend is what a reviewer's build talks to.
 
 Do not confuse this with the APNs Push Key ("PushKey.p8" in EAS credentials)
 — that one is for push notifications and is already configured. This is a
