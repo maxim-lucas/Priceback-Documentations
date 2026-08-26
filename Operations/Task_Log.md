@@ -6581,3 +6581,89 @@ awaiting Maxim's go-ahead (15 free builds/platform).** (2) The Android twin:
 `com.google.android.gms.permission.AD_ID` is still declared unconditionally
 while the ads SDK is unlinked on the production lane. Reported, not changed —
 it blocks nothing today and would need its own Play release.
+
+## 2026-08-26 (cont.) — the full local suite before the build, and what it turned up
+
+**Ask.** "Run all tests locally before creating a new build, and create the new
+version for both platforms."
+
+**The mobile suite was not green on a clean `main`**, and none of it came from
+#301. Three findings, all invisible while GitHub Actions is billing-blocked —
+every PR merged during the block (#297–#302) is unverified by definition.
+
+1. `adminBillingDiagnosticStorePricing.test.js` (#297) **could not load**:
+   ProfileKit → i18n.js imports AsyncStorage at module scope.
+2. Once it loaded, **6 of its 7 tests failed — it had never run anywhere**. Its
+   helper read `.children` off `findAllByType(Text)`, but Text is a COMPOSITE
+   component, so that is the host node, never the string; every assertion
+   compared against `""`. The 7th passed only because it asserts an ABSENCE,
+   which an empty render satisfies for free. The screen was correct all along.
+3. Two per-file coverage floors had fallen through the ratchet:
+   `subscriptionManager.js` (89.74/80.95/94.11/89.06 vs 97/89/100/97 — the
+   untested `getStorefront()` from #282) and `authService.js` functions
+   (87.61 vs 88). Restored by ADDING tests, never by lowering a floor: now
+   100/97.61/100/100 and 89.38. Bugs #221. PR #303.
+
+**Result: 212 suites, 5146 tests, 0 failures, every floor met.**
+
+**Backend suite.** 144 files, ~1,388 tests, `--test-concurrency=1` against the
+remote Supabase pooler. The first run completed 132 of 144 files in 23 minutes
+and then **hung on one file for 50 minutes** with no output (it was piped
+through `tail`, which buffers — do not do that again). Re-run with live output;
+217 tests passed, 0 failed at the time of writing, still going.
+
+**Builds — both platforms, from the tag.** `git checkout v2.8.16`, then
+`eas build --platform all --profile production`. The first attempt died on an
+ECONNRESET mid-upload **before a build was created**, so nothing was charged
+against the 15-build budget; the retry uploaded cleanly.
+
+- **iOS `53b1304a` — FINISHED** in 7 minutes, from `d10f82b`.
+- **Android `603de30a`** — queued.
+
+**Why Android matters here.** `eas build:list` shows every Android production
+build since 2.8.13 **ERRORED**, which nothing in the repo reveals. The log says
+`:react-native-google-mobile-ads:compileReleaseKotlin FAILED` —
+`Unresolved reference 'AgeRestrictedTreatment'`, a 25.x API the library calls
+but the pinned `play-services-ads:24.6.0` (#295) does not have. **The pin never
+fixed Android; it traded a metadata error for an API error.** What fixes it is
+the lab lane (#300), by not compiling the SDK at all — and `v2.8.16` is the
+first tag containing it. Bugs #222.
+
+**Verification that actually settles it: the artifact, not the config.**
+Downloaded and unpacked both `.ipa`s:
+
+| key in `Info.plist` | 2.8.14 (ASC rejected) | 2.8.16 |
+| --- | --- | --- |
+| `NSUserTrackingUsageDescription` | present | **absent** |
+| `NSPrivacyTracking` | `true` | **`false`** |
+| tracking domains / `AdvertisingData` | present | **absent** |
+| camera / photos / when-in-use location | present | present |
+| microphone, FaceID, always-location ×2 | present | **present** |
+
+The last row is Bugs #223: `withIosPrivacyStringCleanup` has **never removed
+anything**. Identical in both binaries, so pre-existing and untouched by #301.
+Expo evaluates the user `plugins` array during `getConfig()`, before it applies
+expo-camera / expo-secure-store / expo-location, so a `withInfoPlist` mod that
+only deletes cannot outrank an injection that lands afterwards. The ATT strip
+stuck because it also deletes from `config.ios.infoPlist`. Fix, when taken:
+pass `microphonePermission: false` / `faceIDPermission: false` /
+`locationAlways*Permission: false` to the injecting plugins.
+
+**Submission.** `REVIEWER_ACCESS_CODE` was confirmed missing on Railway
+production (`/health` → `reviewerAccess: "unavailable"`), which would have
+locked App Review out even with 2.8.16 installed — the server answers a missing
+code and a wrong code identically. Maxim set it; re-read confirms
+`reviewerAccess: "available"`. iOS 2.8.16 submitted to App Store Connect on his
+instruction.
+
+**Still open.** (1) `appleAuth` still reads `degraded` — that check requires
+`APPLE_SIGNIN_KEY_ID` **and** `APPLE_TEAM_ID` **and**
+`APPLE_SIGNIN_PRIVATE_KEY` together; the `.p8` alone does not flip it. Account
+deletion cannot revoke the Apple credential until it does — Guideline 5.1.1(v).
+(2) The five IAP products are still not attached to the version. (3) Bugs #223
+and the Android `AD_ID` twin both need their own version + build.
+
+**Regression risk, stated.** #303 touches test files only — no `src/` file, no
+product behaviour. #301's effect on the binary is verified above: one key
+removed, one manifest made truthful, every other purpose string byte-identical
+to the build already in App Store Connect.
