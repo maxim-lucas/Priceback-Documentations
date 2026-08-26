@@ -9620,3 +9620,90 @@ confident-misread case, and only the receipt's own arithmetic exposes it.
   so that permission has no user — the same drift, on Play's data-safety form
   instead of Apple's. It is not blocking anything today; put it on the lane the
   next time the Android manifest is touched.
+
+## 221. A test suite that had never run once, and the assertion shape that hid it (2026-08-26)
+
+- **Date:** 2026-08-26 · **PR:** #303 · **Area:** mobile (tests)
+- **Symptom:** `npm test` on a clean `main` reported `Test Suites: 1 failed`
+  with `[@RNC/AsyncStorage]: NativeModule: AsyncStorage is null` — a suite that
+  had been merged eight days earlier and looked healthy in review.
+- **Root cause, in two layers:**
+  1. `adminBillingDiagnosticStorePricing.test.js` imports
+     `AdminBillingDiagnosticScreen` → `ProfileKit` → `i18n.js`, and `i18n.js`
+     imports AsyncStorage at **module scope**. Under jest-expo that native
+     module is null, so the suite died at import. Every other screen suite
+     mocks it; this one never did.
+  2. With the import fixed, **6 of its 7 tests failed** — it had never passed
+     anywhere. Its helper collected rendered strings with
+     `tree.root.findAllByType(Text)` and then read `node.children`. But
+     react-native's `Text` is a **composite** component: `findAllByType`
+     returns the wrapper instance, whose only child is the *host* node — never
+     the string. Every assertion was comparing against `""`.
+- **What hid it:** the 7th test — the only one that passed — asserts an
+  **absence** (`expect(lines).not.toContain(code)`). An empty render satisfies
+  that trivially. **A test that only asserts what must NOT be there passes
+  hardest when nothing is there at all.** Pair every `not.toContain` with a
+  positive assertion in the same test, or it is a green light wired to nothing.
+- **Fix:** mock AsyncStorage the way the other screen suites do, and walk
+  `tree.toJSON()` instead — the JSON tree has no composite/host distinction, so
+  it cannot be read wrong the same way. The screen itself was correct all along;
+  no product code changed.
+- **Verified NOT systemic:** ten other suites use `findAllByType(Text)`, and all
+  ten read `n.props.children` — which *is* the string on a composite instance.
+  Only this file read `.children`. Grep for `findAllByType(Text)` followed by
+  `.children` (not `.props.children`) if it recurs.
+- **Detect next time:** `npm test` locally when CI cannot run. GitHub Actions
+  has been billing-blocked (jobs die in 3 s with zero steps), so **every PR
+  merged during the block is unverified by definition** — #297 through #302
+  went in that way.
+- **Prevent:** the suite now passes 7/7 and is part of the 212-suite run.
+
+## 222. Three Android production builds failed on an SDK the app does not use — and the pin meant to fix it made it worse (2026-08-26)
+
+- **Date:** 2026-08-26 · **PR:** _(diagnosis only — the fix was already on `main`)_ · **Area:** mobile (Android build)
+- **Symptom:** every Android production build since 2.8.13 **errored**:
+  `EAS_BUILD_UNKNOWN_GRADLE_ERROR`, ~3–4 minutes in. 2.8.13 (vc 33), 2.8.14
+  (vc 34) and 2.8.15 (vc 35) all failed; no Android artifact has been produced
+  since 2.8.12. This was invisible from the repo — only `eas build:list` shows
+  it.
+- **Root cause:** `> Task :react-native-google-mobile-ads:compileReleaseKotlin
+  FAILED`
+
+  ```
+  e: ReactNativeGoogleMobileAdsModule.kt:28:35 Unresolved reference 'AgeRestrictedTreatment'.
+  e: ReactNativeGoogleMobileAdsModule.kt:70:28 Unresolved reference 'setAgeRestrictedTreatment'.
+  ```
+
+  `plugins/withAdsSdkKotlinPin.js` (#295) forces `play-services-ads:24.6.0`
+  because 25.4.0 carries Kotlin metadata 2.3.0 that Expo 55's Kotlin 2.1.20
+  cannot read. But `AgeRestrictedTreatment` is a **25.x API** the library's own
+  Kotlin source calls. So the pin swapped a metadata error for an API error:
+  **the build still fails, one layer further in.** The pin was merged and tagged
+  without a build ever confirming it — the memory note claiming #295 fixed
+  Android is wrong, and has been corrected.
+- **What actually fixes it:** the lab lane, which landed later in **#300** —
+  `react-native.config.js` nulls the SDK's autolinking and `app.config.js`
+  strips its config plugin, so a production build never compiles it at all and
+  the failing Gradle task does not exist. `v2.8.15` predates #300; **`v2.8.16`
+  is the first tag that contains it**, and therefore the first Android
+  production build expected to succeed since 2.8.12.
+- **Still broken, knowingly:** `eas build --profile lab -p android` will hit
+  this exact error, because the lab lane keeps both the pinned 24.6.0 *and* the
+  library source that needs 25.x. Working on ads on Android means resolving that
+  first — either a library version whose source matches 24.6.0, or an Expo/
+  Kotlin combination that can read metadata 2.3.0. iOS is unaffected (no Kotlin).
+- **Detect next time:** `eas build:list --json` before assuming a version
+  shipped — a tag and a GitHub release prove a commit was *cut*, never that a
+  binary was *produced*. Build logs are downloadable without the web UI:
+
+  ```
+  curl -s -X POST https://api.expo.dev/graphql -H "Authorization: Bearer $EXPO_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"query":"query($id:ID!){builds{byId(buildId:$id){logFiles}}}","variables":{"id":"<build-id>"}}'
+  ```
+
+  The returned file is **brotli**-compressed NDJSON — `zlib.brotliDecompressSync`,
+  then parse each line and read `.msg`.
+- **Prevent:** `adsAutolinking.test.js` already pins that the plugin filter and
+  the autolinking exclusion agree on every lane. What no test can cover is
+  whether the SDK *compiles* when the lane is on; that needs a real `lab` build.
