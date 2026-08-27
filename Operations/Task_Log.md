@@ -6727,3 +6727,61 @@ claimed to shape it** — Bugs #221 (a test asserting a screen it never rendered
 #223 (a plugin removing nothing), #224 (an exclusion the build never read). The
 common fix is the same: **run the resolver, unpack the artifact; a config file
 is an input, never the answer.**
+
+
+## 2026-08-27 — Play refused the 2.8.17 upload: the Android twin of the tracking-declaration drift
+
+`eas submit -p android` uploaded the `.aab` and then failed five identical
+retries at "Updating track 'production'":
+
+```
+This release includes the com.google.android.gms.permission.AD_ID permission but
+your declaration on Play Console says your app doesn't use advertising ID.
+```
+
+**This was a known open item, not a surprise.** The 2026-08-26 entry above ends
+with it verbatim: "⚠️ `com.google.android.gms.permission.AD_ID` **is** still in
+the shipped manifest with no SDK behind it — the Android twin, still open." It
+was recorded and then left, and it cost the release it was recorded during.
+
+**Root cause.** Two unconditional declarations: `app.json` →
+`android.permissions`, and `expo-tracking-transparency`'s autolinked plugin,
+which calls `withPermissions(['…AD_ID'])` on every build and is evaluated
+*after* the `plugins` array — so a config-level delete alone cannot survive it.
+
+**Fix — `plugins/withAndroidAdsPrivacyLane.js` (#306).** The Android mirror of
+`withIosAdsPrivacyLane`: no-op on the lab lane, and on every production build it
+removes AD_ID from `config.android.permissions` (belt) *and* marks it
+`tools:node="remove"` in the manifest (braces). The braces half is load-bearing
+twice over — Expo's `isPermissionAlreadyRequested` matches on `android:name`
+alone, so the stub makes the tracking-transparency mod a no-op whichever order
+they run in; and it is the only half that can neutralise the AD_ID that Google
+Play Services AARs declare in their own manifests.
+
+Deliberately NOT added to `withAndroidPermissionCleanup`'s
+PERMISSIONS_TO_REMOVE: that list is lane-blind, and stripping AD_ID on the lab
+lane zeroes the advertising ID on API 33+ and silently halves ad revenue.
+
+**The wrong fix was one click away.** Ticking "uses advertising ID" in Play
+Console clears the upload immediately and makes a false declaration, dragging
+the Data Safety form with it. Same reasoning as the iOS ATT decision on
+2026-08-26: when the store and the binary disagree, ask which one is lying.
+
+**Evidence trap worth remembering.** `npx expo config --type introspect` showed
+AD_ID already marked for removal on *both* lanes — which looks like the new
+plugin working, and isn't. Introspect takes the on-disk
+`android/app/src/main/AndroidManifest.xml` as its base, and this machine still
+carries a pre-ads prebuild where the cleanup plugin stripped AD_ID. The
+uncontaminated readings were: Expo's real `setAndroidPermissions` run against
+the stub (no-op, confirmed), and `android.permissions` in the introspected
+config (AD_ID absent on production, present on lab).
+
+Tests: `__tests__/withAndroidAdsPrivacyLane.test.js` — both lane ends, the
+plain-entry flip, the unresolved-lane default, the tracking-transparency
+interaction against Expo's real implementation, and that the plugin is not in
+`ADS_ONLY_PLUGINS` (being stripped exactly when it has work to do would restore
+the rejection silently).
+
+Ships as 2.8.18 / versionCode 38. **Not yet verified on an artifact** — the
+`.aab` must be unpacked after the next Android build:
+`unzip -p app.aab base/manifest/AndroidManifest.xml | strings | grep AD_ID`.

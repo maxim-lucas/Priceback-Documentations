@@ -9814,3 +9814,77 @@ confident-misread case, and only the receipt's own arithmetic exposes it.
   answer.** Same family as Bugs #223 (`withIosPrivacyStringCleanup` removing
   nothing) and #221 — three findings in one day where the artifact disagreed
   with the configuration that claimed to shape it.
+
+
+## 225. The Play upload refused: an advertising-ID permission with no advertising SDK behind it (2026-08-27)
+
+**Symptom.** `eas submit -p android` uploaded the 2.8.17 `.aab`, then failed five
+identical retries at the track-update step:
+
+```
+Google Api Error: Invalid request - This release includes the
+com.google.android.gms.permission.AD_ID permission but your declaration on Play
+Console says your app doesn't use advertising ID. You must update your
+advertising ID declaration.
+```
+
+**Root cause.** Exactly the Android twin of #220, and it was written down as an
+open item at the end of #224 rather than fixed. The lab lane keeps the AdMob SDK
+out of every production binary (#300, #304), but the permission that SDK
+justifies was declared unconditionally, from two directions at once:
+
+- `app.json` → `android.permissions` lists it statically, on every lane.
+- `expo-tracking-transparency`'s autolinked plugin calls
+  `AndroidConfig.Permissions.withPermissions(['…AD_ID'])` on every build, and it
+  is evaluated AFTER the `plugins` array — so deleting our own declaration
+  cannot survive it.
+
+The shipped app has no ads SDK, never reads the advertising ID, and the Play
+Console declaration saying so is **correct**. The binary was the thing lying.
+
+**The tempting fix is the wrong side.** Ticking "uses advertising ID" in Play
+Console clears the upload in one click and makes a false declaration — and drags
+the Data Safety form ("Device or other IDs", collected AND shared for
+Advertising) along with it. Same call as #220 made on iOS: when the store and the
+binary disagree, ask which one is lying, then fix that one.
+
+**Fix.** `plugins/withAndroidAdsPrivacyLane.js` — the Android mirror of
+`withIosAdsPrivacyLane`. Lane ON (`labEnabled === true`): no-op. Lane OFF (every
+production build): removes AD_ID from `config.android.permissions` (belt) and
+marks it `tools:node="remove"` in the manifest (braces).
+
+The braces half is the one that holds, for two reasons:
+
+- Expo's `isPermissionAlreadyRequested` matches on `android:name` alone, so a
+  stub already carrying `tools:node="remove"` counts as present and
+  expo-tracking-transparency's later mod becomes a no-op. In the opposite mod
+  order the stub simply flips the plain entry it finds. Either ordering ends with
+  one entry, marked for removal.
+- It also covers the origin the belt can never reach: Google Play Services AARs
+  declare AD_ID in their own manifests.
+
+**AD_ID must NOT go into `withAndroidPermissionCleanup`'s PERMISSIONS_TO_REMOVE.**
+That list is lane-blind, and stripping the permission on the LAB lane is a silent
+revenue bug — on API 33+ Play Services returns a zeroed advertising ID when it is
+absent, every request degrades to non-personalized, and nothing crashes or fails
+to build.
+
+**Detect next time — and the trap that nearly hid it.**
+`npx expo config --type introspect` is not evidence here on two counts: it reads
+inputs rather than merged output, and it takes a pre-existing
+`android/app/src/main/AndroidManifest.xml` as its base. A stale prebuild from the
+pre-ads era (when the cleanup plugin still stripped AD_ID) showed the permission
+already removed on **both** lanes — which reads as the new plugin working when it
+is only an old file on disk. Read the artifact:
+
+```
+unzip -p app.aab base/manifest/AndroidManifest.xml | strings | grep AD_ID
+→ production: (no output)
+→ lab:        com.google.android.gms.permission.AD_ID
+```
+
+**Fourth finding in the same family in two days** (#221, #223, #224, and now this
+one): a configuration file is an input; only the resolver output or the unpacked
+artifact is the answer. And the generalisable half: **a lane that strips a
+capability must strip every declaration that capability justified** — iOS lost
+its ATT string and privacy manifest in #220, Android its permission here.
