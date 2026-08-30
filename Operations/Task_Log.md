@@ -6820,3 +6820,77 @@ Ships as 2.8.18 / versionCode 38. **Not yet verified on an artifact** — the
   billing-blocked again (all jobs fail in ~3s, `steps: 0`), so CI cannot run it.
   Follow-up: migrate the ~60 DB test files onto the `qa-` helpers, shrinking
   `LEGACY_SUB_PREFIXES`.
+
+## 2026-08-30 (cont.) — Test email domain settled on `@priceback.test.ca`, legacy domains migrated
+
+- **Asked (/goal):** every test-created `users.email` must always use the
+  `@priceback.test.ca` domain; local test runs are authorised until CI unblocks
+  on 2026-09-01.
+- **What changed:**
+  - `backend/tests/helpers/uniq.js` — `QA_EMAIL_DOMAIN` moved from
+    `qa.priceback.test` to `priceback.test.ca` (a dedicated throwaway namespace;
+    no PriceBack mail is sent there, and it cannot substring-collide with the
+    real company domain `priceback.ca` — `foo@priceback.ca` does not end with
+    `@priceback.test.ca`). Doc comments updated.
+  - `backend/tests/helpers/purgeTestData.js` — comments updated; the matcher
+    already reads `QA_EMAIL_DOMAIN`, so the sweep follows automatically.
+  - **55 backend files migrated** off the transitional `@example.com` /
+    `@test.local` / `@qa.priceback.test` literals onto `@priceback.test.ca`
+    (per-file whole-word replace, asserts and fixtures kept consistent):
+    `backend/scripts/seed-test-data.js` + 54 `backend/tests/*.test.js`.
+    `LEGACY_EMAIL_DOMAINS` (`example.com`, `test.local`) is kept in the purge
+    sweep as a backstop for pre-existing debris.
+  - **Left as-is on purpose:** `backend/tests/accountIdentityUnit.test.js`
+    (`@example.com` is deliberate input to the `normalizeEmail` / `claimsEmail`
+    unit tests, never a DB row) and the frontend `__tests__/*` (client-side
+    mocks / analytics-scrubber inputs — never touch `users.email`).
+  - `backend/tests/purgeTestData.test.js` — new guard: asserts
+    `QA_EMAIL_DOMAIN === "priceback.test.ca"` and that a user at the real
+    `@priceback.ca` domain survives the purge (locks in that the matcher is
+    `%@priceback.test.ca`, not `%@priceback%`).
+- **Status:** targeted run green locally against the dev DB —
+  `purgeTestData` (6/6) + `dbRoutes` + `creditReconDb` + `missingRoutes` +
+  `duplicateAccountGuardDb` = 38/38. Full `npm test` (wrapper + c8) running
+  locally to verify run-suite.js end-to-end and the coverage number.
+- **Regression risk:** low. Change is test-only (no `src/`, no `backend/` runtime
+  code, no schema). Risk surface = a test that hard-codes an expected email
+  literal with a different spelling than its source — mitigated by per-file
+  consistent replace and the targeted run; the full suite run is the final check.
+
+## 2026-08-30 (cont.) — Purge abandoned smoke-test signups from prod + a recurrence guard
+
+- **Asked:** "I can find some test users … `WHERE postal_code IS NULL`" — then,
+  after cross-checking creation dates against release-tag times, "purge everything
+  and add a job to purge this type of data systematically after the same type of
+  actions."
+- **What they are:** 7 `users` rows on prod created by smoke-testing release
+  builds with throwaway Google accounts (real `sub`, real gmail, no test marker,
+  so `purge-test-data.js` can't see them). Every burst landed 1–2 h after a tag
+  (v2.8.9 / v2.8.11 / v2.8.12). All 7: 0 devices / sessions / receipts /
+  subscription events / topups; only the 75-credit trial grant.
+- **Decisions (confirmed with Maxim):** (1) purge all 7 now; (2) **guarded script
+  + runbook step, NOT a cron** — an autonomous heuristic delete on `users` is too
+  dangerous; (3) `sharobimmonica@gmail.com` — which the 2026-08-18 purge had
+  deliberately KEPT — stays deleted (it's a second, inert account for a person
+  whose real account `monicasharobim@` is untouched). I surfaced that conflict
+  only after the DELETE; snapshot exists, restore was offered and declined.
+- **Done — prod:** `DELETE FROM priceback.users` for the 7 subs in one guarded
+  transaction (count-must-equal-7 assertion). 15→8 users, 7 `credit_ledger` + 2
+  `consent_events` cascaded, 0 orphans. Full pre-delete snapshot saved.
+  `Operations/Production_Test_Data_Purge_2026-08-30.md`.
+- **Done — code (`chore/purge-stale-abandoned-signups`, PR pending):**
+  `backend/lib/staleSignups.js` (fingerprint predicate + `findStaleSignups` /
+  `purgeStaleSignups`, maxDelete=50 refusal, DELETE re-applies the full
+  predicate), `backend/scripts/purge-stale-signups.js` (CLI, **dry-run by
+  default**, `--write` / `--min-age-hours` / `--max`), `backend/package.json`
+  (`db:purge-stale-signups`), `backend/tests/purgeStaleSignups.test.js` (no-DB
+  guard rails always run; DB half: 1 match + 5 one-clause-broken controls),
+  runbook §4b in `Release_Tagging_And_Repo_Management.md`.
+- **Regression risk:** low. New lib + script + test only — no runtime path, no
+  `src/`, no schema, `db:purge-*` scripts are operator-run. The one live-data
+  action (the prod DELETE) is done and verified. Residual: the fingerprint could
+  in principle match a real user who signed up, never opened the app, and left no
+  province/postal for >24 h — mitigated by the six additional NOT-EXISTS clauses,
+  the maxDelete refusal, dry-run-by-default, and it being operator-run not cron.
+- **Not verified:** DB half of the new test — GitHub Actions still billing-blocked
+  (jobs die in ~3 s). No-DB guard tests pass by construction.

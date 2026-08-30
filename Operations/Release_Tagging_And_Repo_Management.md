@@ -87,11 +87,39 @@ eas build --platform ios --profile production
 
 # 5. Publish the GitHub release.
 gh release create v2.8.4 --title "v2.8.4 — versionCode 24" --notes-file notes.md --latest
+
+# 6. After smoke-testing the build on a device (see §4b), clear the throwaway
+#    signups it created from production. Point DATABASE_URL at the prod project
+#    (session pooler, 5432) — it is not on disk by default.
+cd backend
+DATABASE_URL="$PROD_DATABASE_URL" node scripts/purge-stale-signups.js          # list
+DATABASE_URL="$PROD_DATABASE_URL" node scripts/purge-stale-signups.js --write  # delete
 ```
 
 **Tag before you build, not after.** Tagging after upload means reconstructing
 which commit EAS actually saw, which is the exact problem the tag exists to
 prevent.
+
+### 4b. Purge the smoke-test signups
+
+Smoke-testing a release build means signing into the real app with throwaway
+Google accounts. Each one writes a `priceback.users` row on **production** with a
+real OAuth `sub` and a real gmail address — no test marker — that
+`scripts/purge-test-data.js` cannot see. Left alone they accumulate (7 of them by
+2026-08-30; see `Production_Test_Data_Purge_2026-08-30.md`).
+
+`scripts/purge-stale-signups.js` removes them by behavioural fingerprint — no
+postal code, no province, no device, no session, no receipt, no subscription, no
+spent credit, older than 24 h, not flagged, not already in the deletion flow
+(the precise predicate is `backend/lib/staleSignups.js`). It is **dry-run by
+default**: run it once to see the list, then `--write`. It refuses outright if it
+matches more than 50 rows — that means the fingerprint is wrong, not that there
+are 50 testers to delete.
+
+Run it as the last step of every release, against production, once the build has
+been installed and exercised. It is deliberately **not** a cron job: an
+autonomous process that hard-deletes from the `users` table on a heuristic is the
+kind of thing that removed a real account once already.
 
 Release notes should state, in this order: the version triad and commit; changes
 since the previous tag; **known defects shipping in this build**; anything on
