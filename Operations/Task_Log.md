@@ -6811,5 +6811,12 @@ Ships as 2.8.18 / versionCode 38. **Not yet verified on an artifact** — the
   backend parity assertions — params move into `run-suite.js`, not removed),
   `backend/tests/purgeTestData.test.js` (new — purge + real-data-safety guard).
   The prod guard in `backend/db/client.js` is unchanged.
-- **Status:** in progress — plan
-  `~/.claude/plans/wobbly-drifting-parasol.md`.
+- **Status:** **PR #307** open, pushed. `tests/purgeTestData.test.js` (4/4)
+  verified against the dev DB — the sweep clears every table and leaves
+  real-shaped rows (unprefixed sub, real email, barcoded band-SKU product,
+  non-`9xxx` warehouse) untouched. `__tests__/ciParity.test.js` green locally.
+  **Not yet verified:** the `run-suite.js` wrapper end-to-end (pre/post purge +
+  c8 coverage aggregation over the full suite) — GitHub Actions is
+  billing-blocked again (all jobs fail in ~3s, `steps: 0`), so CI cannot run it.
+  Follow-up: migrate the ~60 DB test files onto the `qa-` helpers, shrinking
+  `LEGACY_SUB_PREFIXES`.
