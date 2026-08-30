@@ -6785,3 +6785,31 @@ the rejection silently).
 Ships as 2.8.18 / versionCode 38. **Not yet verified on an artifact** — the
 `.aab` must be unpacked after the next Android build:
 `unzip -p app.aab base/manifest/AndroidManifest.xml | strings | grep AD_ID`.
+
+## 2026-08-30 — Test runs tag their rows and always purge them
+
+- **Asked (/goal):** the backend suite writes real rows into the shared dev DB;
+  the only way to find leftover test users is `WHERE postal_code IS NULL`. Make
+  every test-created row self-identifying and **always** purged at the end of
+  the run (a mandatory cleanup step), across every table — "I don't want
+  generated data from tests on a live database."
+- **Decisions (confirmed with Maxim):** (1) reserved identifiers, **no schema
+  change** — a `qa-` prefix on every text id + `@qa.priceback.test` email
+  domain, plus the existing reserved SKU (`5xxxxxxx`) / warehouse (`9000–9999`)
+  bands; (2) a **wrapper around `npm test`** that purges clean-slate before and
+  unconditionally after (pass / fail / crash), plus a standalone
+  `scripts/purge-test-data.js` CLI that can be pointed at any DB incl. prod
+  (replacing the ad-hoc `postal_code IS NULL` query); (3) land helpers + purge +
+  CLI now, **migrate the ~60 DB test files incrementally** — the purge net also
+  sweeps the current `test-` / `seed-` / `pdwin-` prefixes and the
+  `@example.com` / `@test.local` domains as a transition.
+- **Files/areas:** `backend/tests/helpers/uniq.js` (+`qa-` helpers, exported
+  matcher lists), `backend/tests/helpers/purgeTestData.js` (new, FK-safe ordered
+  purge), `backend/scripts/purge-test-data.js` (new CLI),
+  `backend/scripts/run-suite.js` (new wrapper), `backend/package.json`
+  (`test` / `test:fast` → wrapper), `__tests__/ciParity.test.js` (re-point the
+  backend parity assertions — params move into `run-suite.js`, not removed),
+  `backend/tests/purgeTestData.test.js` (new — purge + real-data-safety guard).
+  The prod guard in `backend/db/client.js` is unchanged.
+- **Status:** in progress — plan
+  `~/.claude/plans/wobbly-drifting-parasol.md`.

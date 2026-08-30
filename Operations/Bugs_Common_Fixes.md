@@ -9888,3 +9888,54 @@ one): a configuration file is an input; only the resolver output or the unpacked
 artifact is the answer. And the generalisable half: **a lane that strips a
 capability must strip every declaration that capability justified** — iOS lost
 its ATT string and privacy manifest in #220, Android its permission here.
+
+## 226. Test runs left rows on a live database, findable only by a heuristic (2026-08-30)
+
+**Symptom.** The only way to find leftover test users on the shared Supabase dev
+project was `SELECT * FROM priceback.users WHERE postal_code IS NULL`. Cleanup
+was ~60 per-file `after()` hooks, each `.catch(() => {})`-swallowing its own
+deletes; a crashed test, a new table, or a missing hook left residue with
+nothing that reliably identified it as test data. This is the same class of
+problem as the 2026-06 incident where the suite ran against **production**
+(purged 2026-08-18, `Operations/Production_Test_Data_Purge_2026-08-18.md`) — the
+prod path is now hard-guarded (`db/client.js assertNotProductionUnderTest`), but
+the dev DB had no equivalent hygiene and manual verification scripts still touch
+prod.
+
+**Root cause.** No enforced convention for tagging test data. Identifiers were
+ad-hoc (`test-`, `seed-`, `google-sub-…`, `admincr-`, raw names), and rows in
+`products` / `price_points` / `warehouses` / `devices` / `topup_refs` /
+`tag_scan_reviews` / `auth_outcomes` carry no user FK, so the `deleteAccount`
+cascade never reached them.
+
+**Fix.**
+- **One reserved marker per identifier**, in `tests/helpers/uniq.js`: text ids
+  start `qa-` (`testSub`/`testDeviceId`/`testReceiptId`/`testSourceRef`/
+  `testTopupRef`), user emails use `@qa.priceback.test`, and the pre-existing
+  reserved SKU (`^[5-9]\d{7}$`) and warehouse (`^9\d{3}$`) bands are folded into
+  the same contract. `uniq.js` is the single source of the matcher constants.
+- **`tests/helpers/purgeTestData.js`** — one FK-safe ordered sweep of every
+  marked row. `products` is only deleted when `barcode IS NULL` (the
+  load-bearing guard from the 2026-08-18 purge — an unqualified band delete
+  takes real catalog rows).
+- **`scripts/run-suite.js`** — `npm test` / `test:fast` now wrap `node:test` and
+  run the purge clean-slate before and unconditionally after every run (pass,
+  fail, or crash). `node:test` has no global teardown and CI must run bare
+  `npm test`, so the wrapper is the only place this can live.
+- **`scripts/purge-test-data.js`** — standalone CLI (`--dry-run` supported), no
+  prod guard by design: the deliberate tool for cleaning any DB, replacing the
+  `postal_code IS NULL` query.
+- Transitional: the sweep also matches the current `test-` / `seed-` / `pdwin-`
+  prefixes and the `@example.com` / `@test.local` domains, so it is effective
+  before the ~60 files are migrated onto the `qa-` helpers (incremental).
+
+**Guard.** `tests/purgeTestData.test.js` — one half proves every table is swept,
+the other seeds a real-shaped row of each kind (unprefixed sub, real email
+domain, barcoded product in the SKU band, non-`9xxx` warehouse) and proves the
+sweep leaves them untouched. `__tests__/ciParity.test.js` updated: the runner
+params (`--env-file` order, `--test-concurrency`) moved into `run-suite.js`, not
+removed — the "no workflow-side params" invariant is unchanged.
+
+**Detect next time.** After a CI backend-db run:
+`SELECT count(*) FROM priceback.users WHERE sub LIKE 'qa-%' OR sub LIKE 'test-%'`
+→ expect `0`. Same for the band SKUs / `9xxx` warehouses / `qa-` devices.
