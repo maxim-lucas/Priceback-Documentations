@@ -143,6 +143,49 @@ you un-ship a binary.
 
 ## 6. Branch & PR conventions in force
 
+### 6a. The two long-lived branches
+
+Added 2026-08-30. Before this, every branch targeted `main`, which made
+"is this merged?" and "is this shippable?" the same question — so anything real
+but not store-ready had to be kept out of production by the **lab lane**
+instead, a build-time switch that strips the code from the binary. The lane
+still exists and still earns its keep, but it is no longer the only place to
+put unfinished work.
+
+| branch | cut from | merges into | built with | tagged |
+| --- | --- | --- | --- | --- |
+| `feat/…` `fix/…` `chore/…` | `development` (or `main` for a hotfix) | `development` | — | no |
+| **`development`** | `main` | `main`, when stable | `eas build --profile lab` | **no** |
+| **`main`** | — | — | `eas build --profile production` | **yes** — annotated `vX.Y.Z` + GitHub release |
+
+- **`development` is the integration branch.** Feature branches cut from it and
+  merge back into it. It is promoted to `main` in one PR once the work on it is
+  stable, and that PR is what §4's release sequence then acts on.
+- **`development` is never tagged and never built for a store.** Tags exist to
+  pin the commit a store artifact was built from (§1); a branch no store binary
+  comes from has nothing to pin. Every store release still cuts from `main`.
+- **`development` is never force-pushed and never reset.** It is shared, and a
+  rewritten history there silently detaches every feature branch cut from it.
+  Superseded work is reverted forward, exactly as tags are (§5).
+- **Hotfixes may branch from `main` directly** when production is broken and
+  `development` carries work that is not ready to ride along. Merge the hotfix
+  to `main`, then merge `main` back down into `development` in the same sitting
+  — a hotfix that lives only on `main` is a regression waiting for the next
+  promotion to undo it.
+- **Development builds use the `lab` EAS profile**, not the profile named
+  `development` in `eas.json`. That one is a dev-client build, and dev-client
+  builds are not used for device testing here (they need Metro and do not
+  exercise the release configuration where R8 stripping shows up). `lab` is
+  standalone, points at the development Railway backend, and sets
+  `LAB_ENABLED=true` so lane-gated work is actually present in the binary.
+- **CI runs on both branches.** `.github/workflows/test.yml` triggers on `push`
+  and `pull_request` for `main` *and* `development`, so a feature is tested on
+  its PR and `development` is tested again after the merge. This roughly doubles
+  the Actions minutes a change consumes — keep `[skip ci]` on version bumps and
+  config-only commits.
+
+### 6b. Conventions
+
 - **Never push to `main`**, even when it is the checked-out branch. Work goes on
   a `feat/…`, `fix/…`, `chore/…` or `polish/…` branch and lands through a PR.
 - **Carry every PR to merge**, then delete the merged local and remote branch.
