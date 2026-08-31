@@ -283,13 +283,37 @@ into "no price".
    cannot. Every retailer has one and it is never optional.
 6. Add the store to `hasDbPriceFeed` **only** once it actually has a feed.
 
-### Abercrombie, spot-checked
+### Abercrombie, triaged 2026-08-31
 
-Same shape as Best Buy: product pages not disallowed, a published sitemap
-(`Allow: /api/ecomm/util/sitemap/*`), and an `/api/ecomm/` JSON namespace.
-`abercrombie.ca` redirects to `abercrombie.com/shop/ca/`, so a Canadian
-storefront exists. It is a viable next adapter — but nothing has been captured
-or verified beyond `robots.txt`, and step 4 above applies in full.
+Step 1 comes out **green**, which is the useful part — but be precise about what
+that does and does not mean.
+
+**Verified:**
+
+- `robots.txt` disallows only checkout, account and `/shop/*/search` paths.
+  **Product pages are not disallowed.**
+- A real sitemap index is served at
+  `https://www.abercrombie.com/api/ecomm/util/sitemap/index/anf` (and explicitly
+  `Allow`ed), listing **product** and **category** sitemaps per store id
+  (`targetStoreId=10051`).
+- `abercrombie.ca` redirects to `abercrombie.com/shop/ca/`, so a Canadian
+  storefront exists.
+- Responses are slow enough to time out at 25s on a first hit — an adapter needs
+  a generous timeout and retry tolerance, unlike Best Buy's sub-second replies.
+
+**NOT yet verified — do not assume any of it:**
+
+- Whether a per-product JSON price endpoint exists. The sitemap living under
+  `/api/ecomm/` implies a JSON namespace; it does not prove a price route.
+- Whether prices are embedded in the product HTML (no `application/ld+json` was
+  found on `/shop/ca`, but that is a shell page, not a product page).
+- **What Abercrombie's equivalent of the marketplace gate is.** Apparel brings
+  its own version — final-sale and clearance items are typically excluded from
+  price adjustment, and sizes/colours are separate variants with separate
+  prices, which the SKU model here has never had to represent.
+
+So the next step is a capture session against real product pages, not a design.
+Steps 4 and 5 above apply in full.
 
 ---
 
