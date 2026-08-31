@@ -7044,3 +7044,134 @@ which is the cheap side of the module's own stated asymmetry.
   change is a banner that stops appearing.
 - **Still owed when the AdMob account unblocks:** real unit ids in the EAS
   production environment, `app-ads.txt` on the website repo, and the lane flip.
+
+## 2026-08-31 (cont.) — A price feed for store #2, and a province that means "everywhere"
+
+**Ask (/goal).** Start or continue the Best Buy full scan process; find a way to
+scan the new prices, ideally a daily cron against the Best Buy website (Canada
+only for now); and look for ideas that would feed the app new prices from other
+future stores like Abercrombie. Standing constraint restated: every store gets
+its own parser, and no live parser may be edited — Costco's is very sensitive.
+
+**The finding the whole design rests on.** Costco is Akamai-walled, which is why
+its flyer needs a real browser and a human. **Best Buy Canada is not walled at
+all.** `robots.txt` explicitly *Allows* `/en-ca/product/` and `/en-ca/category/`
+(and *Disallows* `/en-ca/search`, so search is not crawled), a sitemap is
+published, and `/api/offers/v1/products/<sku>/offers` answers an unauthenticated
+GET with `regularPrice`, `salePrice`, `saleStartDate`, `saleEndDate`,
+`isMarketplace`, `isWinner`, `isOnClearance`. No OCR, no browser, no LLM — this
+feed is a plain `fetch` and a normalizer. There is nothing here to defeat, which
+is exactly why it may be automated when Costco's may not.
+
+**Why it is a watchlist refresh and not a "full scan".** The literal reading of
+the ask does not survive contact with the site. The sitemap enumerates ~400k
+unique SKUs (38 gzipped sitemaps; `fr-ca` mirrors `en-ca` 1:1), and the search
+API **hard-caps between page 20 and 25** — about 2,000 results — no matter what
+`total` claims, so the catalogue cannot be enumerated through search at all. A
+sitemap-driven mirror would be ~57k requests/day, overwhelmingly on third-party
+accessories nobody bought. A price only matters to PriceBack when a shopper
+could still claim the difference, so the target set is exactly that: SKUs on a
+live watched receipt line still inside the store's adjustment window. Bounded at
+a few hundred requests today, capped by config, growing only with real users.
+Maxim chose this scope over a broader discovery lane; the deals-feed lane is
+deferred because no screen exists to render it.
+
+**🔴 The marketplace gate is the load-bearing rule.** Best Buy does not
+price-adjust items sold by third-party marketplace sellers, so quoting one sends
+a shopper to a claim that gets refused. Same failure class as `2210 BANK ST`
+parsed as an item costing $22.10 — *a plausible wrong number is worse than a
+visible gap, because the user acts on it.* Sitemap 1 is dominated by marketplace
+phone cases, so this is the common case. `isMarketplace === false` is required
+**and** `sellerId === "bbyca"` must agree; a disagreement is refused under its
+own reason (`seller_mismatch`) rather than resolved, so an upstream shape change
+lands in the run summary instead of hiding.
+
+**A province that means "everywhere" (Maxim's idea, and better than either
+option offered).** `price_points.province_id` is NOT NULL and every read is
+province-scoped — right for Costco, wrong for every retailer that publishes one
+national price. Offered a 13-province fan-out or a demand-driven subset; Maxim
+proposed a reserved province instead ("only costco use provinces"). Taken, with
+one refinement: reserved by **code** (`"NATIONAL"`), not a hardcoded `id = 0`,
+because `provinces.id` is a serial and the FK needs a real row anyway — reserving
+the code means the write path needs *no special case at all*. Migration 0007, no
+schema change.
+
+The honest cost: four province-scoped reads had to learn it, and **one of them
+is `findNotifiable`, the query that charges the commission** — it joins a price
+row's province to the *buyer's* province, so a national row matched nobody until
+it changed. Made safe two ways: the sentinel resolves to `-1` when 0007 has not
+been applied (so an un-migrated DB is byte-identical to before), and every
+predicate only *widens* (`= x` → `IN (x, national)`) while no Costco row is ever
+national. Also reordered the `provinces` join below `users` so a national row
+reports the buyer's real province — otherwise a shopper would have been shown
+"NATIONAL" as if it were a place.
+
+**Two guards that could not have fired.** (a) `scrape` has existed in
+`price_source_types` since the v2 schema with **no writer**, and in neither
+source list and neither rank CASE — a scraped row would have been written and
+then never served, never swept, never notified. (b) `recordPricePoint` neither
+accepted nor set `verified`, so passing the flag was **silently ignored**: the
+feed would have looked verified in the code and not been in the database. Added
+as an additive param defaulting to false. Same shape as "an exported, tested
+guard that nothing calls is not a guard" (#219).
+
+`scrape` ranks **below** flyer deliberately — a flyer price was checked by a
+human against the printed page; a scrape reads an API whose shape can change
+without notice. A test pins that the dearer flyer price beats a cheaper scrape.
+
+**Write-on-change is correctness, not thrift.** `observed_at` is what the
+appeared-after-purchase rule (#64) reads. One row per actual change makes it
+mean "the day this price started", so a price that dropped *before* the purchase
+stays ineligible and one that drops *after* becomes claimable. Re-stamping an
+unchanged price nightly would make every old price look like it appeared today —
+telling every shopper who paid the going rate that it just dropped, and charging
+each of them commission.
+
+**Files.** New: `backend/lib/bestBuyCatalog.js` (the only file that knows Best
+Buy's JSON), `backend/services/storePriceAdapters.js` (the registry, mirroring
+the receipt-parser registry), `backend/jobs/bestBuyPriceRefresh.js`,
+`db/migrations/0007_national_province.sql`, four captured API fixtures, four test
+suites. Modified: `priceDropRepo.js`, `pricesRepo.js`, `server.js` (a sweep leg +
+the check-price gate), `config/defaults.js`, `db/seed.js`.
+
+**Untouched, by construction:** no receipt parser, no `receiptParsingShared.js`,
+nothing under `src/`. This is backend price ingestion and never goes near receipt
+parsing. Best Buy's price logic lives in its own adapter file, per the
+one-parser-per-store rule.
+
+**Scheduling reuses what exists** — a leg of `_runPriceSweep`, inheriting the
+tunable cadence, overlap guard, boot catch-up (#114) and `job_runs` history. Its
+own `BESTBUY_SCAN_*` config pair so it pauses independently of the legacy scrape
+leg. **Ships OFF** (`BESTBUY_SCAN_ENABLED=false`), the `ADS_ENABLED` shape.
+
+**Verification.** Captured the 60-test money-query baseline *before* touching
+anything (7 suites); after the change, **60/60 unchanged**, including "a price in
+another province is not returned". Plus 24 adapter tests (against four real
+captures, including a genuine discounted marketplace offer and the empty-bodied
+404 that would make `res.json()` throw), 9 registry, 8 national-province, 10 job.
+CI still billing-blocked, so local runs against the **dev** Supabase project —
+ref checked against the prod ref before every run.
+
+**Regression risk, stated.** Costco price path: the intended risk, and the
+parity baseline is the evidence — predicates only widen and no Costco row is
+ever national. Commission charging: `findNotifiable`'s logic is unchanged, only
+which rows are visible. Other scrape-path stores: protected by making
+`hasDbPriceFeed` an explicit allow-list rather than "any store", since that
+branch returns null instead of falling through to a live scrape. Mobile app:
+zero changes, no new user-visible strings, so no i18n surface.
+
+**Owed before `BESTBUY_SCAN_ENABLED` is turned on** (none owed yet — it ships
+inert): a second row in `REVIEWER_NOTES.md`, which declares exactly one scraping
+source today, plus a re-render of `PriceBack_App_Review_Guide.pdf` (nothing syncs
+the PDF to its source); a PIA for a third ingestion pipeline, short because it
+reads catalogue data with no personal information; confirmation that Railway
+egress reaches bestbuy.ca (the existing `SCRAPERS.bestbuy` is good evidence, but
+Costco proves egress can be blocked where a laptop is not); and migration 0007
+applied by hand on prod, whose drizzle ledger is hand-maintained.
+
+**Abercrombie, spot-checked.** Same shape as Best Buy — product pages not
+disallowed, a published sitemap, an `/api/ecomm/` JSON namespace, and
+`abercrombie.ca` redirecting to a real Canadian storefront. A viable next
+adapter, but nothing beyond `robots.txt` has been verified, and the "capture real
+responses before believing it" rule applies in full. Full detail:
+`Technical/Store_Price_Adapters_And_The_BestBuy_Feed.md`.
