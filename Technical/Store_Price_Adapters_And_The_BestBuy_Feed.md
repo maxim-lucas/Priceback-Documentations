@@ -41,6 +41,35 @@ session and a human.
 | `GET /ecomm-api/availability/products?skus=a\|b` | Accepts pipe-separated SKUs — but carries **no price**. There is no batch price endpoint. |
 | `sitemap_index.xml` | 38 gzipped sitemaps × ≤50k URLs. `en-ca` and `fr-ca` mirror 1:1 → **~400k unique SKUs**. |
 
+### 🔴 Best Buy's API is SLOW — ~9-10s to first byte
+
+Measured 2026-08-31, repeatedly, across all three endpoints:
+
+```
+dns=0.03s  connect=0.08s  tls=0.17s  ttfb=8.5-10.7s
+```
+
+DNS, TCP and TLS are all fast, so this is **the far end**, not our network and
+not the endpoint choice — offers (442-764 B), product (5-7 KB) and search
+(17 KB) all land in the same 8.5-10.7s band. Payload size is irrelevant.
+
+Two consequences, both of which bit during development:
+
+1. **The timeout cannot be the usual 10s.** `SCRAPE_TIMEOUT_MS` is 10_000, and
+   an adapter that inherited it failed live SKUs *intermittently* — right on the
+   boundary, so it looked like flakiness rather than a misconfiguration, and the
+   failures arrive as counted `network_error` rejections (silent data loss)
+   rather than as an error anyone sees. The adapter uses **30s**, tunable via
+   `BESTBUY_SCAN_TIMEOUT_MS`.
+2. **Throughput is latency-bound, not pacing-bound.** At ~10s per request,
+   serial, `BESTBUY_SCAN_MAX_SKUS = 500` is roughly **85 minutes** of wall clock.
+   That is fine for a nightly job with an overlap guard and no deadline, but it
+   is the number to reason about before raising the cap. The 1s politeness pace
+   is noise next to the 10s wait.
+
+Worth re-measuring from Railway: this was measured from a laptop, and the same
+band may not hold from a datacenter.
+
 ### Three consequences
 
 1. **No OCR, no browser, no LLM.** The retailer publishes clean structured JSON.
