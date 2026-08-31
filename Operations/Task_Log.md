@@ -6980,3 +6980,67 @@ lane-ready with Google's test units, leave production ad-free.
 - **Regression risk:** production binaries unchanged by construction — lane off,
   exclusion committed, `adsEnabled` false, production profile untouched,
   `assertLabIsOffInProduction` still without an override. Backend untouched.
+
+### Part 3 — ads finished on `development` (branch `feat/ads-att-priming-and-remove-ads`)
+
+- **Asked (/goal):** "i want the ads to be fully integrated in the developpement
+  branch, everything. the AdMob account is still blocked, we will have another
+  pass to fully integrate it when its done. how many ad banner is integrated ?
+  the subscribed users shouldnt have to see any ads in the app, when a user
+  subscribe all ads should be hidden"
+- **Decisions (confirmed with Maxim):** stay **lab-lane only**; **banners only**
+  (no interstitial/rewarded/native); **no new placements**; **no UMP/CMP**.
+
+**The count, since it was asked.** 7 `<AdBanner>` render sites across 5 screens
+and 4 slot names — Home `home`; Scan / PriceTagScan / BarcodeScan intro footers
+`scan`; BarcodeScan not-found `barcodeEmpty`; Receipts' two list footers
+`receipts`. The two Receipts sites and the two BarcodeScan sites are mutually
+exclusive branches, so **a user can only ever see one banner at a time.**
+
+**Subscriber suppression was already correct — except on the second focus.**
+`shouldShowAds()` requires a proven `premium.active === false` and fails closed,
+and `useAdsVisible()` starts false. But `useFocusEffect`'s cleanup only cleared
+its `alive` flag, and React Navigation keeps blurred screens mounted — so
+`visible` survived the blur and the banner rendered on the very frame the screen
+regained focus, before the async re-check could hide it. That is exactly the
+path a user walks to subscribe (Home → paywall → back to Home, now paying).
+Fixed by clearing on blur; costs free users a brief empty slot on tab switch,
+which is the cheap side of the module's own stated asymmetry.
+
+**Five i18n keys had been dead since PR #290** — `ads.removeAds` and the four
+`ads.att*` — copy for two surfaces that were never built. Both built now:
+- **ATT soft-ask** (`src/components/AdsAttPrimer.js`). iOS grants one system
+  prompt per install and a denial is only reversible in Settings, so it was
+  being spent cold. "Allow relevant ads" spends it; **"Not now" does not call
+  `requestTrackingPermissionsAsync` at all**, so the question stays open, and
+  backs off 30 days (`ads_att_deferred_at_v1`). Ads still serve either way,
+  non-personalized — the non-punitive commitment in the PIA §3.
+- **"Remove ads" link** in the banner's label strip → the paywall via the one
+  sanctioned route, `navigate("Scan", { showPaywall: true, paywallOnly: true })`.
+
+**Three things that had to be got right, and why:**
+1. The primer is mounted **once at the app root**, not inside `AdBanner`. Blurred
+   tabs stay mounted, so Home and Receipts can each hold a banner that resolved
+   visible and would each race to open a modal.
+2. `ensureReady()` is **memoized**, so an unanswered soft-ask would wedge every
+   banner in the app for the session. It times out at 10 s and resolves as
+   "Not now".
+3. The link sits **above** the creative, in the label strip. AdMob treats an
+   interactive element against the banner as an accidental-click surface and the
+   enforcement is account-level. Pinned by a test asserting render order.
+
+- **Verified:** `i18n:check` green — 1493 keys, en+fr in sync, all five formerly
+  dead keys now reachable; `typecheck` clean; the build lane is untouched by
+  inspection (`git diff development --` over `app.config.js`,
+  `react-native.config.js`, `eas.json`, `app.json`, `config/`, `scripts/`,
+  `plugins/`, `package.json` is empty).
+- **NOT verified:** the test suite. Standing rule is no local runs — pushed for
+  CI to answer. GitHub Actions billing has been blocking jobs, so if they die in
+  ~3 s that is the cause, not the change.
+- **Regression risk:** production binaries unchanged **by construction** — no
+  lane, profile, plugin, autolinking or `app.json` edit; `adsEnabled` and
+  `labEnabled` still false, the SDK still unlinked, `assertLabIsOffInProduction`
+  still without an override. Backend untouched. The one paying-user-visible
+  change is a banner that stops appearing.
+- **Still owed when the AdMob account unblocks:** real unit ids in the EAS
+  production environment, `app-ads.txt` on the website repo, and the lane flip.
