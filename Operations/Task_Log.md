@@ -7175,3 +7175,40 @@ disallowed, a published sitemap, an `/api/ecomm/` JSON namespace, and
 adapter, but nothing beyond `robots.txt` has been verified, and the "capture real
 responses before believing it" rule applies in full. Full detail:
 `Technical/Store_Price_Adapters_And_The_BestBuy_Feed.md`.
+
+## 2026-08-31 (cont. 2) — iOS 2.8.16 crashes at every launch; hotfix 2.8.18 from `main`
+
+**Report.** iOS 2.8.16 (36), the latest iOS build, crashes at every launch on
+device. Nothing in Sentry. Last stable iOS is 2.8.14 (34). Asked for: root
+cause, backend traces checked, and a stable build for a new App Store Connect
+submission — as a hotfix off `main`, merged back to `main`.
+
+**Root cause (the iOS face of Bugs #224).** #300 strips the
+`react-native-google-mobile-ads` config plugin from every lane-off build — the
+plugin that writes `GADApplicationIdentifier` into Info.plist — trusting
+`react-native.config.js` to unlink the SDK in the same breath. #304 proved that
+half was never read by Expo 55. So iOS 2.8.16 shipped the GMA pod **linked**
+with **no app ID**, and the SDK aborts in `didFinishLaunching`
+(`GADInvalidInitializationException`) before RN, JS, or Sentry exist. Hence a
+crash on every launch and an empty Sentry. 2.8.14 predates the filter (plugin
+ran, placeholder ID present — dark but alive). Android never shipped the same
+crash only because its face of the divergence fails the *build* — the four
+ERRORED Android releases were this same bug.
+
+**Backend traces (asked for, checked).** Prod `consent_events`' newest iOS UA
+is `PriceBack/34` (Aug 25); `PriceBack/36` appears nowhere; `auth_outcomes` has
+zero rows after Aug 25 16:07 while 2.8.16 was built Aug 26. Build 36 died
+before its first network call — the absence is the trace.
+
+**Fix.** `main` already carries #304's real exclusion (Android 2.8.17 built
+from it), so iOS 2.8.16's crash is fixed by building iOS from `main` at all —
+plus one guard so this never ships silently again: branch
+`hotfix/ios-2.8.18-launch-crash`, `scripts/assertAdsUnlinked.js` runs the real
+`expo-modules-autolinking` resolver for both platforms as
+`eas-build-post-install` and **fails the build** if the ads SDK resolves while
+the lane is off (the iOS equivalent of Android's manifest-merger hard-fail,
+run in the environment that ships). Then bump 2.8.18 / 38 / 38, tag `v2.8.18`,
+one iOS production build from the tag (Maxim's approval first — EAS budget),
+TestFlight checklist (launch ×3, both sign-ins, background/return, receipt
+scan, paywall — this binary field-debuts #297–#301's JS), GitHub release,
+back-merge `main` → `development`. Bugs entry: #228.

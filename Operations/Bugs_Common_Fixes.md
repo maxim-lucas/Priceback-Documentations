@@ -10020,3 +10020,63 @@ EAS_BUILD=true EAS_BUILD_PLATFORM=android APP_ENV=production ADS_ENABLED=true \
 
 Expect a refusal naming `app.json` and `androidAppId/iosAppId`. A guard that
 prints nothing is not passing — it is absent.
+
+## 228. iOS 2.8.16 crashed at every launch — the iOS face of #224 (2026-08-31)
+
+**Symptom.** iOS 2.8.16 (36), built 2026-08-26 from `d10f82b`, crashes at
+**every launch** on device. **Sentry shows nothing.** The backend shows
+nothing either — and the nothing is the trace: prod `consent_events`' newest
+iOS user-agent is `PriceBack/34` (2.8.14), `PriceBack/36` appears nowhere, and
+`auth_outcomes` has zero rows after Aug 25 16:07. Build 36 never survived long
+enough to make one network call.
+
+**Root cause.** The same divergence #224 documents, on the platform where it
+does not fail the build. At `v2.8.16`: app.config.js (lane off) strips the
+`react-native-google-mobile-ads` config plugin — the writer of
+`GADApplicationIdentifier` into Info.plist — while the SDK stayed **linked**,
+because the exclusion lived only in `react-native.config.js`, which Expo 55
+never reads (#224). The two platforms then part ways:
+
+- **Android:** linked SDK + missing `APPLICATION_ID` ⇒ the manifest merger /
+  `compileReleaseKotlin` kills the **build**. Four releases ERRORED; no user
+  ever ran one. Loud.
+- **iOS:** there is no merger. The build **succeeds**, and the Google Mobile
+  Ads SDK validates `GADApplicationIdentifier` in `didFinishLaunching` and
+  **aborts** (`GADInvalidInitializationException`) — before React Native, the
+  JS bundle, or Sentry's JS init exist. Every launch. Silent everywhere we
+  look, because everywhere we look is downstream of the abort.
+
+Why 2.8.14 was stable with the SDK equally linked: it predates #300's plugin
+filter, so the GMA plugin ran on every lane and wrote a well-formed
+(placeholder) app ID. Pod + ID = dark but alive. 2.8.16 = pod − ID = dead on
+arrival. iOS 2.8.16 was the **only** artifact of the #224 era that reached a
+human, so the bug's runtime face was discovered five days after its build-time
+face was fixed.
+
+**Fix.** Nothing new to fix in the exclusion — `main` already carries #304's
+`expo.autolinking.exclude` (Android 2.8.17 built from it; the resolver probe on
+the `v2.8.18` tree reads 14 modules, ads absent, both platforms). iOS simply
+never had a build after the fix. Hotfix `hotfix/ios-2.8.18-launch-crash` adds
+the missing **enforcement**: `scripts/assertAdsUnlinked.js` runs the real
+`expo-modules-autolinking` resolver for both platforms as
+`eas-build-post-install` and **fails any build** where the lane is off but the
+ads SDK still resolves — the manifest-merger hard-fail Android gets for free,
+manufactured for iOS, in the environment that ships. No override, by design
+(#293's lesson). `__tests__/assertAdsUnlinked.test.js` pins the decision
+branches, the wiring, and runs the script against the tree.
+
+**Durable lesson.** A single misconfiguration wears a different failure per
+platform: the platform that fails the *build* protects its users by accident;
+the platform that builds "successfully" ships the crash. So a guard that
+exists to keep something out of a binary must run **where the binary is made**
+— and "Sentry is empty" is not "no crash"; a launch-time native abort precedes
+every telemetry hook the app has. When Sentry and the backend are both silent
+about a build users can't open, the silence dates the death to before first
+paint: go read the native launch path, not the JS.
+
+**Detect next time.** The crashing device names the exception in seconds:
+Settings → Privacy & Security → Analytics & Improvements → Analytics Data →
+`PriceBack-*.ips` — expect `GADInvalidInitializationException` ("The Google
+Mobile Ads SDK was initialized without a valid Application ID"). And before
+any iOS submission, the resolver probe from #224 with `--platform ios` answers
+what the Podfile will see.
