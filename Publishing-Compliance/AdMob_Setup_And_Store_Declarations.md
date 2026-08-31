@@ -1,7 +1,10 @@
 # AdMob Setup and Store Declarations
 
-**Status:** code merged and shipping **dark** (ads render nothing until enabled).
-**Owner:** Maxim Lucas · **Date:** 2026-08-23 · **App version:** targeting 2.9.0
+**Status:** code merged and **ABSENT from production builds** (not merely inert —
+the lab lane keeps the SDK out of the binary entirely). Buildable and testable
+on `eas build --profile lab` as of 2026-08-31.
+**Owner:** Maxim Lucas · **Date:** 2026-08-23, last revised 2026-08-31
+**App version:** targeting 2.9.0
 
 This is the runbook for the parts of the ads rollout that **cannot be done from
 the repo**: creating the AdMob account, registering the apps, minting the ad
@@ -160,11 +163,46 @@ These are **mandatory** and Play will block the release without D2/D3.
 
 ## Phase E — Ship dark, then light
 
-19. **Release with ads off.** The build-time switch is `true` on the production
-    EAS profile, but the **backend `ADS_ENABLED` row defaults to `false`**, so
-    no banner renders. Ship and let it reach users first.
-20. **Verify on real hardware** from a `device`-profile **release** build (never
-    a dev-client build):
+> ⚠️ **Rewritten 2026-08-31.** Step 19 used to read *"the build-time switch is
+> `true` on the production EAS profile"*. That was true when this runbook was
+> written and became actively dangerous: a committed `ADS_ENABLED: "true"` on
+> the production profile is **Bugs #217**, which made every production build
+> impossible for two days (`assertAdsConfigIsShippable` refused at EAS's "Read
+> app config" phase, both platforms, 30 s in, reported only as "Unknown
+> error"). It was removed in PR #293. **Do not put it back** until a real AdMob
+> app id is in `app.json`; `adsConfig.test.js` flips on its own the moment one
+> is, and starts requiring the flag instead.
+
+### Where the switches actually live now
+
+Ads are gated in **four** places, and all four must be true before a banner
+mounts. Phase E is about the last two.
+
+| gate | where | today |
+| --- | --- | --- |
+| the lab lane — is the SDK in the binary at all? | `config/profiles/common.js` → `labEnabled`, plus `expo.autolinking.exclude` in `package.json` | **off** in production; on for `eas build --profile lab` |
+| build-time ads switch | `config/profiles/common.js` → `adsEnabled` | **false**; set to `"true"` only on the `lab` EAS profile |
+| remote kill switch | backend `app_config` → `ADS_ENABLED`, read via `/api/me` | **false** on both environments |
+| subscriber check | `src/services/adsService.js` | fails closed — "unknown" means hidden |
+
+A production build today compiles **no ads code at all**, so "ship dark" is no
+longer the accurate description of it: the code is *absent*, not inert. That
+distinction cost four Android builds (Bugs #222/#224) and is the reason the lane
+exists.
+
+19. **Release with ads off.** Nothing to do: `adsEnabled` is `false` in the
+    committed defaults and the production profile sets no `ADS_ENABLED`. Ship
+    and let the release reach users first.
+
+    Moving ads OFF the lab lane — so the SDK ships in production binaries — is a
+    separate, deliberate change: delete the `expo.autolinking.exclude` entry and
+    `ADS_ONLY_PLUGINS` in `app.config.js` together, in one PR, and only once
+    step 8's real app ids are in place. Splitting those two is what hard-fails
+    the Android manifest merger.
+
+20. **Verify on real hardware** from a **`lab`-profile** release build — that is
+    the only profile that links the SDK, so it is the only build ads can be
+    tested on. Never a dev-client build:
     - free user + flag on → banner in all six slots, showing a **Test Ad**;
     - subscriber → **no banner and no gap**;
     - ATT prompt appears once, at the right moment, free users only;
@@ -174,8 +212,49 @@ These are **mandatory** and Play will block the release without D2/D3.
     `app_config` table. Clients pick it up on their next `/api/me` reconcile —
     minutes, no release. **This is also the kill switch**; setting it back to
     `false` removes every banner just as fast.
+
+    To test a `lab` build before any of that, flip the row on the
+    **development** project (`gnedluuylimjwdmtvswl`) only — that is the backend
+    the `lab` profile points at. Prod's row stays `false`.
 22. Watch AdMob fill rate and Sentry for a few days. Only then set the real unit
     ids (step 9) and cut the release that carries them.
+
+---
+
+## Where the repo stands (2026-08-31)
+
+Everything that can be done without an AdMob account is done, on the
+`development` branch (`feat/ads-buildable-on-lab-lane`). Phases A–D are yours.
+
+**Done:**
+
+- The Android build deadlock is broken. `react-native-google-mobile-ads` is
+  pinned to **16.0.0**, the last release shipping play-services-ads 24.6.0
+  natively — Kotlin metadata 2.1.0, which is what React Native 0.83.6's pinned
+  Kotlin 2.1.20 can read. `plugins/withAdsSdkKotlinPin.js` is deleted: it forced
+  24.6.0 under 16.5.0, whose own Kotlin calls `AgeRestrictedTreatment`, a 25.x
+  API — trading a metadata error for an unresolved-reference one (Bugs #222).
+- `scripts/laneAutolinking.js` makes `expo.autolinking.exclude` lane-aware. It
+  only ever relaxes, and only on the lane, so a missed run costs a developer a
+  banner and can never leak the SDK into production. Measured both ways:
+  lane off → 14 modules, ads absent; lane on → 15, ads present.
+- `app.json` carries Google's **sample app ids** rather than the all-zero
+  placeholders, so the publisher-agreement check passes on the lab lane and the
+  SDK will initialize. A new guard makes an ads-enabled *production* build
+  carrying a sample app id fatal — the sample ids are valid, so the crash that
+  used to backstop this is gone.
+- `ADS_ENABLED: "true"` on the **`lab` profile only**.
+
+**Not verified — no EAS build has been run.** Whether the SDK compiles on
+Android under 16.0.0 is exactly what `eas build --profile lab -p android`
+answers, and nothing short of it does. A tag and a green test run prove a commit
+was cut, never that a binary was produced.
+
+**Still blocked on you:** Phases A–C (account, tax forms, app ids, unit ids,
+`app-ads.txt`) and Phase D (the two stores' declarations). Do **not** flip
+Play's Advertising ID declaration or Data Safety, or ASC's App Privacy, until
+ads actually ship to production — a declaration ahead of the binary is the same
+class of mistake as #301, pointing the other way.
 
 ---
 

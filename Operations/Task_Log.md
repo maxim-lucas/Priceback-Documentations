@@ -6894,3 +6894,89 @@ Ships as 2.8.18 / versionCode 38. **Not yet verified on an artifact** — the
   the maxDelete refusal, dry-run-by-default, and it being operator-run not cron.
 - **Not verified:** DB half of the new test — GitHub Actions still billing-blocked
   (jobs die in ~3 s). No-DB guard tests pass by construction.
+
+## 2026-08-31 — A `development` branch, and ads that can finally be built
+
+- **Asked (/goal):** "i need a parallel branch for developments … features
+  branches based on main or development branch. development branch will be used
+  for coding and testing new features, once it stable it will be merged to main.
+  all production builds are based on main, all development builds are based on
+  development branch. use the new development branch to start coding the
+  implementation of the AD_ID and ads for the new version of the app."
+
+### Part 1 — the branch model (done, pushed)
+
+- **`development` created from `origin/main`** (`0ca5332`) and pushed. Features
+  cut from and merge into it; it is promoted to `main` in one PR when stable.
+  `main` stays the only branch a store artifact is built from, and the only one
+  tagged.
+- **CI extended to `development`** (`.github/workflows/test.yml`, both `push` and
+  `pull_request`). Load-bearing, not cosmetic: without it the suite would first
+  see a feature *after* it merged — and running the backend suite locally is a
+  standing NO, so CI is the only signal there is. `ciParity.test.js` is
+  unaffected (it forbids test *parameters*, strips comments, asserts nothing
+  about triggers). Cost: roughly double the Actions minutes per change.
+- **Build profiles:** development builds use the **`lab`** profile, not the
+  dev-client profile confusingly named `development`. `lab` is standalone,
+  points at the development Railway backend, and sets `LAB_ENABLED=true`.
+- **Documented** in `Release_Tagging_And_Repo_Management.md` §6a, including four
+  things easy to get wrong later: `development` is never tagged, never
+  force-pushed, a `main` hotfix must be merged back down the same day, and dev
+  builds are `lab` not `development`.
+- **Preserved first:** ~64 modified files were sitting in the working tree on no
+  branch (the `@qa.priceback.test` → `@priceback.test.ca` fixture-domain change,
+  post-#308). Committed to `chore/test-email-domain` and pushed, no PR opened.
+  ⚠️ **Flagged, not fixed:** the old domain used the RFC-2606 reserved `.test`
+  TLD, which can never be registered. `priceback.test.ca` is a subdomain of the
+  registrable `test.ca`, so `uniq.js`'s "no real account can ever collide" claim
+  is weaker than the one it replaced. Maxim's call.
+
+### Part 2 — ads (branch `feat/ads-buildable-on-lab-lane`, pushed)
+
+Scope was set by Maxim's answer that **no AdMob account exists yet**: build it
+lane-ready with Google's test units, leave production ad-free.
+
+- **The deadlock, broken.** Ads could not be built on Android on *any* lane.
+  16.5.0 hardcodes play-services-ads 25.4.0 (Kotlin metadata 2.3.0); RN 0.83.6
+  pins Kotlin 2.1.20; metadata is forward-incompatible. `withAdsSdkKotlinPin`
+  forced 24.6.0 — and 16.5.0's Kotlin imports `AgeRestrictedTreatment`, a 25.x
+  API, so the pin traded a metadata error for an unresolved reference. Fixed by
+  pinning the **library** to **16.0.0**, the last release shipping 24.6.0
+  natively; the pin plugin is deleted, not adjusted. (npm: 16.1.0–16.3.4 → 25.0.0
+  / metadata 2.2.0, still too new; 16.4.0+ → 25.4.0.)
+- **`scripts/laneAutolinking.js`** makes `expo.autolinking.exclude` lane-aware.
+  That list is the only exclusion Expo 55 honours and it is static JSON, so the
+  exclusion protecting production also blocked the lab lane. No config answer
+  exists — `parsePackageJsonOptions()` reads it from package.json and nowhere
+  else, and `--exclude` only ADDS. The script only ever *relaxes*, and only on
+  the lane, so a missed run costs a banner and can never leak the SDK into
+  production. Measured: lane off → 14 modules, ads absent; lane on → 15, present.
+- **Google's sample app ids** replace the all-zero placeholders in `app.json`
+  (sourced from Google's quick-start docs). Required: the placeholders fail the
+  publisher-agreement check against the test units, so every lab build would have
+  died at config resolution, and the Android SDK aborts on an unregistered id.
+- **Two silent-failure bugs found while doing it:**
+  1. 16.0.0 has no `LARGE_ANCHORED_ADAPTIVE_BANNER`. The old string fallback
+     would have handed native an unknown size — no ad requested, no
+     `onAdFailedToLoad`, blank banner forever, release builds only, nothing in
+     any log. `resolveBannerSize()` fixes it; the jest mock no longer exports an
+     enum value the real SDK lacks.
+  2. `publisherOf(x) === TEST_PUBLISHER` is **always false** (bare digits vs the
+     prefixed constant). I wrote it as the new production guard and it was dead
+     code until a test caught it. Replaced with `isTestPublisher()`.
+- **`ADS_ENABLED: "true"` on the `lab` profile only.** Never production — that
+  is Bugs #217. Also corrected `adsConfig.test.js`, which gated production's flag
+  on the all-zero regex; left alone it would have inverted into "production MUST
+  set ADS_ENABLED=true", reinstating #217 through the test written to prevent it.
+
+- **Verified:** mobile suite 213 suites / 5183 tests green; coverage
+  81.12/72.97/70.27/83.71 against floors 68/55/59/70; i18n 1493 keys in sync
+  (en+fr); typecheck clean. Config resolved for real on both platforms — lab
+  links the plugin with ads on and test units, production strips it. The new
+  guard was fired by hand.
+- **NOT verified:** no EAS build run. Whether the SDK *compiles* under 16.0.0 is
+  exactly what `eas build --profile lab -p android` answers and nothing else
+  does. Maxim's call to spend ([[eas-build-budget]]).
+- **Regression risk:** production binaries unchanged by construction — lane off,
+  exclusion committed, `adsEnabled` false, production profile untouched,
+  `assertLabIsOffInProduction` still without an override. Backend untouched.

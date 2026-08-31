@@ -9939,3 +9939,84 @@ removed — the "no workflow-side params" invariant is unchanged.
 **Detect next time.** After a CI backend-db run:
 `SELECT count(*) FROM priceback.users WHERE sub LIKE 'qa-%' OR sub LIKE 'test-%'`
 → expect `0`. Same for the band SKUs / `9xxx` warehouses / `qa-` devices.
+
+## 227. Two guards that could not fire, found by turning ads on for the first time (2026-08-31)
+
+- **Date:** 2026-08-31 · **Branch:** `feat/ads-buildable-on-lab-lane` · **Area:**
+  mobile (ads config + banner rendering)
+- **Context:** closing #224's open item — the SDK was excluded from the lab lane
+  as well as production, so ads could not be built or tested anywhere. Fixing
+  that meant enabling ads for the first time, and two things that had never been
+  exercised turned out not to work.
+
+### (a) A banner size the SDK does not define
+
+- **Symptom (would have been):** a permanently blank ad slot. No crash, no
+  warning, no `onAdFailedToLoad`, nothing in Sentry, nothing in a build log —
+  and release-only, because nothing renders a real ad view in debug or in jest.
+- **Root cause:** `AdBanner.js` asked for
+  `BannerAdSize.LARGE_ANCHORED_ADAPTIVE_BANNER`, falling back to the **literal
+  string** `"LARGE_ANCHORED_ADAPTIVE_BANNER"`. Breaking the Kotlin deadlock
+  meant pinning the library back to **16.0.0**, and 16.0.0 does not export that
+  name — it arrives later, as the replacement for the now-`@deprecated`
+  `ANCHORED_ADAPTIVE_BANNER`. So the fallback fired and handed the native side a
+  size string it does not recognise. `BannerAd` requests nothing for an unknown
+  size; it does not error.
+- **Why the test suite was no help:** `__mocks__/react-native-google-mobile-ads.js`
+  exported `LARGE_ANCHORED_ADAPTIVE_BANNER`. The mock was **richer than the real
+  module**, so the component picked the modern name under jest and the deprecated
+  path was never taken. The assertion `expect(props.size).toBe(
+  "LARGE_ANCHORED_ADAPTIVE_BANNER")` passed while describing a device behaviour
+  that could not happen.
+- **Fix:** `resolveBannerSize()` — an exported, directly-tested chain (modern →
+  deprecated → a string that is still a real enum member). The mock now mirrors
+  the pinned SDK's enum exactly, with a comment saying to re-read
+  `lib/module/BannerAdSize.js` on any upgrade. The clinching assertion is
+  `expect(Object.values(gma.BannerAdSize)).toContain(resolveBannerSize(...))` —
+  whatever is chosen must **exist**, which no amount of pinning one name does.
+- **Durable lesson:** **a mock that exports more than the real module is a false
+  pass, not a convenience.** #224 was a test asserting a file the build never
+  reads; this is a test asserting an API the SDK does not have. Same family.
+
+### (b) A comparison that is always false
+
+- **Symptom (would have been):** a production build shipping Google's *sample*
+  AdMob app id with ads enabled — initializing cleanly, filling 100%, and
+  crediting every impression to Google's demo account instead of ours. The guard
+  written to refuse exactly that would have permitted it.
+- **Root cause:** `publisherOf(appId) === TEST_PUBLISHER`. `publisherOf()`
+  returns the **bare digits** (`3940256099942544`); `TEST_PUBLISHER` is the
+  **prefixed** string (`ca-app-pub-3940256099942544`). The expression compiles,
+  type-checks, reads correctly to a reviewer, and can never be true. `isTestUnit`
+  next door avoids this only by string-prefix matching, and it hardcodes the `/`
+  separator, so it cannot answer for an **app** id (`~`) at all.
+- **How it surfaced:** not by review. The new assertion
+  `expect(isTestPublisher(androidAppId)).toBe(true)` failed with
+  `Expected: "ca-app-pub-3940256099942544" / Received: "3940256099942544"` — and
+  the *second* failure in the same run was the giveaway: a test asserting
+  production must NOT set `ADS_ENABLED` flipped to demanding it, because its
+  `notOurs` condition used the same broken comparison. That is **Bugs #217
+  reinstated through the test written to prevent it.**
+- **Fix:** `isTestPublisher(id)` in `config/profiles/admob.js`, handling app ids
+  and unit ids alike, with its own tests — including that it agrees with
+  `isTestUnit` where both apply and covers the `~` case `isTestUnit`
+  structurally cannot.
+- **Durable lesson:** when two values are *supposed* to be the same thing in
+  different shapes (prefixed vs bare, id vs slug), **an `===` between them is a
+  bug waiting for a test**. Give the comparison a named function and test the
+  function, or the check silently never fires. A guard that cannot fail is
+  indistinguishable from a guard that passes.
+
+### Detect next time
+
+A guard added but never exercised is the common thread. Before trusting a new
+build-time assertion, **fire it by hand** and read the message:
+
+```
+EAS_BUILD=true EAS_BUILD_PLATFORM=android APP_ENV=production ADS_ENABLED=true \
+  ADMOB_BANNER_UNIT_ANDROID=ca-app-pub-1234567890123456/2222222222 \
+  node -e "try{require('./app.config.js')({config:{extra:{},plugins:require('./app.json').expo.plugins}})}catch(e){console.error(e.message)}"
+```
+
+Expect a refusal naming `app.json` and `androidAppId/iosAppId`. A guard that
+prints nothing is not passing — it is absent.
