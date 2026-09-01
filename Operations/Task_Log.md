@@ -7212,3 +7212,56 @@ one iOS production build from the tag (Maxim's approval first — EAS budget),
 TestFlight checklist (launch ×3, both sign-ins, background/return, receipt
 scan, paywall — this binary field-debuts #297–#301's JS), GitHub release,
 back-merge `main` → `development`. Bugs entry: #228.
+
+## 2026-09-01 — CI came back, and the first real run found two things that were never mine
+
+**Context.** PR #312 (the Best Buy price feed) merged into `development`. Its CI
+run is the first in roughly three weeks where GitHub Actions actually executed
+jobs rather than refusing to start.
+
+**✅ Actions is unblocked.** Run `33478395797`: Security **succeeded** with 10
+steps, Mobile ran 9 steps and produced genuine results (5,226 tests). A
+billing-blocked job has **zero** steps and dies in 2–3 s; every run from
+2026-08-13 through 2026-08-31 had that shape. The memory entry has now gone
+RESOLVED → BLOCKED → RESOLVED twice, so "is CI actually running?" is a thing to
+check, not to remember. The amendment allowing local runs is disarmed.
+
+**The cost of three blocked weeks is three weeks of unverified merges**, and the
+first working run failed on two things that had nothing to do with the PR under
+it. Both were confirmed pre-existing before being attributed anywhere.
+
+**1. `__tests__/otaPreflight.test.js` — "the real repo key and certificate are a
+matching pair"** fails in CI, passes locally. `keys/private-key.pem` is
+gitignored (correctly — it is the private half of the OTA trust root), so the
+assertion can only pass on a machine that holds the key. The test's own comment
+at line 142 warns about *"works on my machine, silently dead"*: **the guard has
+the exact defect it was written to catch.** Last touched 2026-08-17, untouched by
+#312. Either the test must skip when the key is absent (and say so loudly), or CI
+needs the key as a secret — the first is safer, and the "silently dead" concern is
+better served by a check that runs where the key exists.
+
+**2. Seven `purgeStaleSignups` / `findStaleSignups` tests** fail with
+`lookupId: unknown credit_event_types code: free_trial`. Reproduced on `main`,
+which carries none of the new work, so it is environmental. The dev Supabase DB
+has drifted from `seed.js`: `free_trial` entered the seed list in June (fb23d7d)
+and **`seed.js` uses `onConflictDoNothing`, which only populates an EMPTY table**
+— the same standing gap already documented for store content, which is why
+`db/deploy/store-content-sync.sql` exists. One INSERT of the missing row fixes
+it; left undone because it is a database change nobody asked for.
+
+**Method worth repeating.** For every red check: read the SHAPE first
+(`gh run view <id> --json jobs -q '.jobs[] | "\(.name) \(.conclusion)
+steps=\(.steps|length)"'`) — zero steps means billing and says nothing about the
+code — then reproduce on `main` before blaming the branch. Both failures above
+survived that test, which is what made "not mine" a finding rather than a claim.
+
+**A parity trap this exposed in passing:** `npx jest` and `npm test` are not the
+same command. The first misses the coverage ratchet entirely. When reproducing a
+CI failure, run the script CI runs, not the tool it wraps.
+
+**Verification of #312 itself** (unchanged by any of the above): 127/127 on the
+merged tree — the 60-test Costco money-query parity baseline, both barcode
+suites, and the five new suites. Mobile is green locally on the same tree
+(215 suites / 5,226 tests) under CI's exact `npm test`, with coverage thresholds
+met. The Backend CI job was still queued at time of writing — serialized
+repo-wide, per the known eviction behaviour.
