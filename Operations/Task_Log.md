@@ -7394,3 +7394,82 @@ state, per the reasoning above.
 **Standing consequence to remember:** `main` is now red on two pre-existing
 issues. Until both are closed, "CI is red" carries no information, which is the
 condition this work was supposed to end. Closing them is the next job.
+
+## 2026-09-01 (cont. 2) — `development` was deleted by a promotion nobody asked for; restoring it
+
+**Asked for:** restore the `development` branch with the Best Buy parser and ads
+work on it, and put `main` back at the `v2.8.18` tag. The session before this one
+had been asked only to *rebase `development` on `main`*, because Maxim had made
+fixes there.
+
+### What had actually happened
+
+That session did the rebase-equivalent (`cf42b49`, `main` merged into
+`development`) — and then kept going: it opened and merged **PR #314 "Promote
+`development` to `main`"** at 16:04 UTC and let the head branch be deleted. Two
+consequences, neither requested:
+
+- **`main` stopped matching its own tag.** `main` moved to the merge `b0759aa`,
+  whose tree carries the unreleased ads (#309/#310) and Best Buy price-feed
+  (#312) work — while `app.json` there still reads `2.8.18` / build 38. The
+  branch claimed to be the shipped build and no longer was, which is exactly the
+  drift `Release_Tagging_And_Repo_Management.md` exists to prevent.
+- **The only remote ref for weeks of unshipped work was gone.** `origin/development`
+  no longer existed; `git status` read `origin/development [gone]`.
+
+### Why nothing was lost
+
+Established before touching anything, in this order:
+
+1. `git rev-parse b0759aa^2` = `9415e02` — a merge commit names its parents, so
+   the deleted branch tip was still recorded *by the merge that deleted it*, and
+   it equalled the local `development` exactly.
+2. `tree(b0759aa)` == `tree(9415e02)` == `18509efb…` — **the promotion merge
+   carried zero unique content.** Everything on it existed at `9415e02`.
+3. `git tag --contains b0759aa` was **empty** — no release was ever built or
+   tagged from the promotion, so rolling `main` back could not orphan a shipped
+   binary.
+4. Each of the six commits `main` would shed was confirmed reachable from the
+   restored `development`.
+
+Only after all four did anything get pushed. Point 2 is the one that made the
+rollback a formality rather than a judgement call.
+
+### What was done
+
+- **`origin/development` restored** at `9415e02` — a plain create, no history
+  touched. All 14 files added by #309/#310/#312/#313 verified present:
+  `backend/services/storePriceAdapters.js`, `backend/lib/bestBuyCatalog.js`,
+  `backend/jobs/bestBuyPriceRefresh.js`, `src/components/AdsAttPrimer.js`,
+  `scripts/laneAutolinking.js`, `backend/db/migrations/0007_national_province.sql`
+  and their tests.
+- **`b0759aa` preserved as `backup/main-pr314-promotion`** *before* `main` moved,
+  so the next step was reversible rather than merely reversible-in-principle.
+- **`main` force-pushed back to `53742ce`** with
+  `--force-with-lease=main:b0759aa…`, so it would abort rather than race.
+  `origin/main` and `v2.8.18` are now the same commit and the same tree
+  (`c92da8d…`): `git checkout main` reproduces the shipped 2.8.18 binary again.
+
+A **revert of the merge was considered and rejected.** It would have left
+`main`'s HEAD off the tag, and — the deciding reason — `git` would then treat
+#309/#310/#312/#313 as already merged, so the *next* promotion would silently
+bring in none of them. A rollback that plants a regression in the following
+release is not a rollback.
+
+### Consequences to remember
+
+- `plugins/withAdsSdkKotlinPin.js` is **back on `main`**, because 2.8.18 shipped
+  with it. Its removal is correct and still lives on `development`; it rides the
+  next *intentional* promotion. The previous entry's "correct end state" claim
+  was about the end state of a release, not of today's `main`.
+- The force-push fires one CI run on `main` for an already-tested commit. `main`
+  remains red on the two pre-existing issues from the entry above; that is
+  unchanged by this work and still the next job.
+- **Root cause was a standing note, not a slip.** The `pr-merge-and-branch-cleanup`
+  rule ("carry every PR to merge, then delete the branch") was written when every
+  branch targeted `main` and never excluded the long-lived branches. It has been
+  rewritten to apply to feature branches only, and a hard rule added: *"rebase
+  `development` on `main`" is not a request to promote it; `development` is never
+  merged up or deleted without an explicit ask.* Maxim has also turned
+  **auto-delete-head-branch off** on the repo, so a merge no longer removes a
+  head branch on its own.
