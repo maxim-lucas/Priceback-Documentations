@@ -7265,3 +7265,132 @@ suites, and the five new suites. Mobile is green locally on the same tree
 (215 suites / 5,226 tests) under CI's exact `npm test`, with coverage thresholds
 met. The Backend CI job was still queued at time of writing — serialized
 repo-wide, per the known eviction behaviour.
+
+
+## 2026-09-01 (cont.) — CI now bills `main` only; and the "missing files" were deliberately removed
+
+**Asked for:** rebase `development` on `main`; restore files the latest `main`
+commit deleted that were blocking the iOS build; PR and merge; and stop the
+workflows running on every PR and every merge, so the month's Actions minutes
+last the whole month instead of running out around the halfway mark.
+
+**Two of the three premises did not hold, and saying so was the work.**
+
+**1. There was nothing to rebase.** `main`'s tip `53742ce` (#311) is already an
+ancestor of `development`, merged at `cf42b49`. `development` is `main` + #309 +
+#310 (the ads lane) + #312 (the Best Buy feed). A rebase would have rewritten
+history to no effect.
+
+**2. #311 deleted nothing.** It is `+282 / -0` — three files, all additions:
+`scripts/assertAdsUnlinked.js`, its test, and one `package.json` line wiring it
+as `eas-build-post-install`. All three are already on `development`. The iOS
+crash was fixed by *adding* a build-time guard, not by removing a file, so there
+was nothing to restore.
+
+**What the diff actually shows** is the opposite direction: exactly two files
+exist on `main` and not on `development` — `plugins/withAdsSdkKotlinPin.js` and
+`__tests__/adsSdkKotlinPin.test.js`. **Restoring them would have been a
+regression, not a fix.** #309 removed them on purpose: the plugin forced
+`play-services-ads` down to `24.6.0` so Expo 55's Kotlin 2.1 could read its
+metadata, and `react-native-google-mobile-ads@16.5.0`'s own Kotlin then calls
+`AgeRestrictedTreatment`, a 25.x API the forced 24.6.0 does not have — a
+deadlock. The lane pins the npm package to **16.0.0** instead, which ships
+24.6.0 natively: one consistent pair, no forcing. The reasoning is written into
+`app.config.js`, `react-native.config.js`, `adsAutolinking.test.js` and
+`easBuildProfiles.test.js`, all of which name the deleted plugin and say why it
+is gone. Left out, deliberately.
+
+**Also verified rather than assumed**, since the ads lane is where iOS 2.8.16
+died: `development` carries `assertAdsUnlinked.js` *and* the lane's
+`scripts/laneAutolinking.js`, and the two agree. The guard's `verdict()` returns
+`ok` when `labEnabled === true`, which is exactly the state `laneAutolinking.js`
+creates when it strips the exclusion from `package.json` for a lab build — so
+the lane can still build ads, and a production build that resolves the SDK still
+fails. Both halves resolve the lane through the same `config/dotenv` →
+`config/profiles` path, which is the thing that keeps them from diverging.
+
+**3. The workflow change, which was the real work.** PR #313.
+
+`.github/workflows/test.yml` triggered on `push: [main, development]` +
+`pull_request: [main, development]`. **That bills one feature four times** — the
+`feature -> development` PR, the push that merge produces, the
+`development -> main` PR, and the push that merge produces. Hence the halfway
+mark, every month. Now: `push: [main]` + `workflow_dispatch`, nothing else.
+
+**The cost, stated rather than hidden:** `development` and every feature branch
+are unverified by CI. That is worse here than in most repos — running the
+backend suite locally is a standing NO, so for the backend CI is the only
+trustworthy signal there is — so a red run on `main` is a post-merge discovery,
+and the fix stays roll-FORWARD, never a moved tag.
+
+**The replacement habit, and it is proven rather than described:** before
+promoting `development -> main`, dispatch `Tests` against `development` from the
+Actions tab and read it green. One deliberate run instead of four automatic
+ones. This PR's own verification was exactly that — a `workflow_dispatch` run
+against the feature branch — which also confirms the valve works on a
+non-default ref, the thing that would have made the whole scheme unworkable if
+it did not.
+
+**Pinned by `__tests__/ciTriggerPolicy.test.js`.** Widening the list back is a
+two-character edit that quadruples the bill and **fails silently**: nothing goes
+red on the PR that widens it, the repo simply stops having CI three weeks later,
+a month of commits away from the cause. The same test holds every *other*
+workflow to on-demand-only, so a new file cannot quietly reintroduce the cost.
+
+**Regression risk: none to the app.** No runtime code, config plugin, native
+config or dependency was touched. The only behavioural change is when the suite
+runs, not what it asserts.
+
+**Two checks had to be fixed first, both of the same species: a check that was
+not checking.** The narrowed trigger is what made them matter — when `main` is
+the only place CI runs, a job that is always red is read as noise, and the day
+it goes red for a real reason nobody looks.
+
+1. **`ciTriggerPolicy.test.js`, the new guard itself.** `triggerBlock` sliced at
+   `/^on:/m` and searched the REMAINDER for the next top-level key with
+   `/^[a-z_]+:/m`. In multiline mode `^` also matches the start of the STRING,
+   so the remainder — beginning mid-line at `"n:
+"` — matched at offset 0 and
+   the block collapsed to the single character `"o"`. The positive assertions
+   failed loudly, which is how CI surfaced it. **The dangerous half is that
+   `expect(on).not.toMatch(/pull_request/)` passes against `"o"`.** One regex
+   landing a key later and the file would have been green while asserting
+   nothing. Now walked line-wise, plus a guard on the guard: a block that
+   captured only its own header fails rather than letting the negatives go quiet.
+
+2. **`otaPreflight.test.js` — "the real repo key and certificate are a matching
+   pair"**, red in CI since it was written, because `keys/private-key.pem` is
+   gitignored. It now skips where the key cannot exist and says so at full
+   volume; it still runs, and still fails, on every machine that can actually
+   publish. The three REJECT-path tests below it inject their own `fs`, so those
+   stay covered everywhere. This is the item flagged in the entry above; the
+   "skip loudly" option was the one taken.
+
+**Two failures were NOT fixed, and both were reported rather than papered over.**
+
+- **Backend, 7 tests: `lookupId: unknown credit_event_types code: free_trial`.**
+  Still the missing dev-Supabase reference row from the entry above. The fix is a
+  database write, not a code change, so it stayed out of a CI-configuration PR.
+- **Mobile: an open handle, not a test.** On the pre-promotion run all 216 suites
+  passed (5232 passed / 1 skipped, coverage 81.2 / 73.02 / 70.49 / 83.79 over
+  floors 68 / 55 / 59 / 70) and the step STILL exited 1, on *"Jest did not exit
+  one second after the test run has completed"*. **New information, not a new
+  bug:** that message is already present in the `development` push run of
+  06:37 the same morning, which carries none of this work. It was invisible until
+  now because a genuinely failing test was already making the job red — the first
+  all-green run is what exposed it.
+
+  **No `--forceExit` was added.** It would turn the job green by hiding whatever
+  async work is still running: the same "green light wired to nothing" shape as
+  the two guards fixed above, adopted deliberately. The leak wants finding, in
+  its own change, with `--detectOpenHandles`.
+
+**Merged:** PR #313 -> `development`, PR #314 (`development` -> `main`). The
+`main` push fired a run and the `development` push did not, which is the whole
+change, observed rather than assumed. #314 also removes
+`plugins/withAdsSdkKotlinPin.js` and its test from `main` — the correct end
+state, per the reasoning above.
+
+**Standing consequence to remember:** `main` is now red on two pre-existing
+issues. Until both are closed, "CI is red" carries no information, which is the
+condition this work was supposed to end. Closing them is the next job.
