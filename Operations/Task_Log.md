@@ -7473,3 +7473,61 @@ release is not a rollback.
   merged up or deleted without an explicit ask.* Maxim has also turned
   **auto-delete-head-branch off** on the repo, so a merge no longer removes a
   head branch on its own.
+
+## 2026-09-01 (cont.) — `chore/test-email-domain` landed on `development` and deleted (PR #315)
+
+- **Asked (/goal):** "I asked you to clean the old branches that have been
+  merged, but I still can see `chore/test-email-domain`." Then, on the finding
+  below: *open a PR and land it to `development`, not `main`; merge it and delete
+  the stale branch.*
+- **Finding — the cleanup was not incomplete.** Zero merged branches remained.
+  `chore/test-email-domain` survived because it was **never merged and never had
+  a PR** (`gh pr list --head` → `[]`); the 2026-08-30 entry above had parked it
+  as "Maxim's call". Its three lower commits *were* already in `development` via
+  squash-merged #307/#308, which is why `git branch --merged` could not see them
+  — a squash merge leaves no ancestry. Only the tip `7b4ee79` held unique work.
+- **New standing rule from Maxim:** everything lands on `development` first;
+  **no direct merge to `main` until explicitly asked**, hotfixes excepted (those
+  still go straight to `main`). Recorded in memory alongside the branch model.
+- **What changed (PR #315, squash `954e6dc`, base `development`):**
+  - Cherry-picked `7b4ee79` onto current `development` rather than rebasing the
+    branch — replaying all four commits would have conflicted against the
+    already-squashed #307/#308. Applied clean, 58 files, zero conflicts.
+  - Test emails consolidated onto one domain: `@example.com` 45 files → 2 (both
+    URLs, not addresses), `@test.local` 15 → 0, `@qa.priceback.test` 2 → 0,
+    `@priceback.test.ca` 1 → 59.
+  - Deliberately not migrated: `accountIdentityUnit.test.js` (`@example.com` is
+    `normalizeEmail` input, never a DB row), `costcoSameday.test.js` /
+    `storageAdapters.test.js` (URLs), frontend `__tests__/*`.
+  - **Second commit — the flagged claim, corrected rather than carried.** The
+    migration had brought along two comments in `uniq.js` asserting no real
+    account "can ever collide" with the domain. True of `qa.priceback.test`
+    (RFC-2606 `.test`, never delegable); **false as written** of
+    `priceback.test.ca`, since `test.ca` is an ordinary registrable `.ca` domain.
+    Reworded to say what actually holds: the reservation is **operational**
+    (PriceBack issues no account there, sends no mail there), not registry-
+    enforced. Comment-only, no behaviour change. Landing the decision without
+    shipping a comment that overstates it.
+  - Side effect: `backend/lib/staleSignups.js:6` already documented the marker as
+    `@priceback.test.ca` while the code used `qa.priceback.test`. Now correct.
+- **Tests:** the guard shipped with the original work —
+  `QA_EMAIL_DOMAIN === "priceback.test.ca"`, `"foo@priceback.ca"` does **not**
+  end in `@priceback.test.ca`, and a live user at the real `@priceback.ca` domain
+  **survives** the purge (locks the matcher to `%@priceback.test.ca`, never
+  `%@priceback%`).
+- **Branches:** `chore/test-email-domain` deleted local + origin, after verifying
+  the only thing it still carried over `development` was the two overstated
+  comments deliberately replaced. `chore/consolidate-test-email-domain` deleted
+  on merge (auto-delete is off repo-wide, so `--delete-branch` was passed
+  explicitly). **`backup/main-pr314-promotion` kept** — `origin/main` is at
+  `53742ce` (#311) and the #314 promotion merge `b0759aa` is *not* an ancestor of
+  it, so that branch is the only surviving copy of the rolled-back state.
+- **CI:** triggers are `main`-push-only since 2026-09-01, so PR #315 showed no
+  checks by design; `Tests` dispatched by hand on `development`
+  (run `33572465632`). The two preceding `development` runs were already failing
+  on the known pre-existing pair (dev-DB `free_trial` row, Jest open handle).
+- **Regression risk:** low. Test-only — no `src/`, no `backend/` runtime code, no
+  schema, no migration. The one non-test file touched is a comment. Risk surface
+  is a test hardcoding an email literal spelled differently from its source;
+  mitigated by per-file whole-word replacement and a zero-conflict cherry-pick
+  across all 58 files.
