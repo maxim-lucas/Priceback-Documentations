@@ -10326,3 +10326,209 @@ blurred which change bought the green. Worth its own investigation when Actions
 minutes matter; the probe technique in this entry (`globalTeardown` +
 `process._getActiveHandles()`, unref'd) is the tool for it, and it already
 narrowed the field to stdout/stderr with zero active requests.
+
+## 233. A comma read as a period divided a television's price by a thousand (2026-09-02)
+
+- Date: 2026-09-02 · PR: #317 · Area: mobile (Best Buy parser, lab lane)
+
+**Symptom.** None yet — and that is the entry. The defect is sitting in the
+repo's own committed real-OCR corpus, on a line the parser happens not to read.
+
+`__tests__/fixtures/receipts-bestbuy/PXL_20260415_185052976.MP.vision.json`, the
+one photographed in-store slip, contains:
+
+```
+SUBTOTAL        $3.699.99          <- that is $3,699.99
+```
+
+Thermal print puts the comma and the period one dot apart and Vision picked the
+wrong one.
+
+**Root cause.** Every money pattern in the pipeline is
+`\d{1,5}(?:,\d{3})*\.\d{2}`. Run it over `$3.699.99` and it does **not fail**:
+
+```
+\d{1,5}       matches "3"        (one digit — the next char is a period)
+(?:,\d{3})*   matches nothing
+\.\d{2}       matches ".69"
+              -> "$3.69"
+```
+
+It matches a **prefix** and stops. The amount is not mangled, not rejected, not
+flagged — it is silently divided by a thousand and the result is a perfectly
+well-formed price. Nothing downstream can tell.
+
+**Why it has not bitten.** Pure luck of position. On this capture the dotted
+token is on `SUBTOTAL`, which the Best Buy parser never reads (it anchors on the
+printed grand total instead), and the item row's own amount happened to OCR with
+a correct comma. The same glyph confusion one row higher logs the user's
+$3,699.99 television at **$3.69** — and the 30-day price-adjustment claim that
+receipt was scanned for is then filed on $3.69, a number no store will ever
+match, against a real purchase.
+
+**Fix.** `repairThousandsSeparator` in `bestBuyReceiptParser.js`, first in the
+`reshapeBestBuyLines` chain and also applied inside `bestBuyTotalsText` so the
+printed-total anchor gets it too:
+
+```
+(?<!\d)(\d{1,3})\.(\d{3})\.(\d{2})(?!\d)   ->   $1,$2.$3
+```
+
+It fires only on the unambiguous shape — 1-3 digits, a period, **exactly** three
+digits, a period, exactly two digits, no digit either side. `3.699`, `12.34`,
+`$3,699.99` and `6.5 po` are all left untouched, asserted as such.
+
+Kept in the **Best Buy** parser, not the shared engine: `receiptParsingShared.js`
+is Costco's live code path with a ~55-fixture corpus and a per-file floor pinned
+to its current behaviour, and a Best Buy repair applied there is a Costco change
+wearing a Best Buy label.
+
+**Prevent.** A corpus-wide invariant in the real-OCR suite: for every dotted
+token on any fixture, the **truncated** reading must appear nowhere in the parse
+(no item price, no total, no printed total). It is the assertion that would have
+caught this had the token landed one row higher, and it now runs against all
+nine captures on every commit.
+
+**Durable lesson.** **A regex that matches a PREFIX does not fail on bad input —
+it succeeds on the wrong input.** Anchoring is not a style preference: an
+unanchored money pattern turns a corrupted amount into a plausible one, which is
+strictly worse than rejecting it, because a rejected number gets a second pass
+and a plausible one gets acted on. And: a defect can already be present in a
+committed fixture and still be invisible, because a corpus only tests the lines
+the parser reads.
+
+## 234. Two ways the Best Buy parser lost data in silence (2026-09-02)
+
+- Date: 2026-09-02 · PR: #317 · Area: mobile (Best Buy parser, lab lane)
+
+Both found by reading the parser against its own real captures rather than by a
+failure. Both are silent by construction, which is what makes them one entry:
+neither throws, neither logs, and neither shows up as anything but a receipt
+that is quietly a bit wrong.
+
+### (a) An item row that lost its dollar sign fell off the end of a loop
+
+`extractBestBuyOnlineItemRows` required a literal `$` on a priced row. Trace
+`1 12917124 Oreillette Bluetooth 49.99` through the loop:
+
+- `ONLINE_ROW_PRICED_RE` — no match, no `$`.
+- `ONLINE_ROW_UNPRICED_RE` — right shape, but its `!/\d\.\d{2}/` guard rejects a
+  row that carries an amount.
+- the bare-price branch — not a bare price, it has a name on it.
+- the name-continuation branch — same `\d\.\d{2}` guard rejects it.
+
+Four branches, none taken, `continue`. **The product simply vanished.** The
+receipt scans, a credit is spent, and the user is shown a basket with an item
+missing — with nothing logged, because dropping off the end of a loop is not an
+error condition.
+
+**Fix.** `ONLINE_ROW_PRICED_NO_SYMBOL_RE`, tried only **after** the `$` form so
+every receipt that prints the symbol takes exactly the path it took before. Then
+the hole itself was closed: any in-table row that matches no rule and carries a
+money token is now attached to the item in progress rather than discarded. A row
+attached to the wrong item is visible on screen and correctable; a dropped one
+is invisible forever.
+
+### (b) An internal counter was promoted to a product SKU
+
+`attachTrailingSkuRows` reads the row **under** an item and promotes a 7-8 digit
+run to that item's SKU — the layout a big-ticket in-store line uses. The real
+capture prints, in exactly that position:
+
+```
+TV Delivery et traveling $0.00
+00003501                          <- an internal counter, 8 digits
+```
+
+`isBestBuySku("00003501")` was `true`: the rule was width only. It survives today
+only because the $0.00 line above it is dropped for unrelated reasons. Under a
+row that *does* survive, the item is watched under a SKU no product has — and
+that failure is invisible until a price drops and the alert never fires.
+
+**Fix.** Two guards, at different levels on purpose:
+- `isBestBuySku` now requires a non-zero first digit. Verified against all eleven
+  SKUs in the pinned corpus — none is zero-padded, and Best Buy catalogue numbers
+  are not.
+- a compact-`YYYYMMDD` check, applied **only** where a trailing row is being
+  promoted. `20251128` is eight digits and starts with a 2, so the leading-zero
+  rule does not cover it. Scoped to the attach site so a real SKU that happens to
+  look like a date still parses normally when printed on its own row.
+
+**Durable lesson.** **Ask what happens to input that matches NO branch.** Both
+of these are the same shape: a chain of `if`s, each individually correct, with an
+implicit final `else` that throws the data away. A loop whose last statement is
+an unconditional `continue` has a silent drop in it; the fix is not another
+branch but an explicit account of the leftovers. Corollary for width checks: a
+receipt prints many numbers, and "is it the right number of digits" is a weak
+identity test — anchor on something the impostors cannot satisfy.
+
+## 235. A cleared config field would have erased every deleted account's credit ledger (2026-09-02)
+
+- Date: 2026-09-02 · PR: #317 · Area: backend (money, irreversible)
+
+**Symptom.** None observed — found by writing the first test this job ever had.
+`backend/jobs/purgeRestoreLedgers.js` was at **0% coverage**.
+
+**What the job does.** Account deletion no longer erases a user's
+`credit_ledger` rows: a re-signin inside `CREDIT_RESTORE_GRACE_HOURS` gets the
+balance back, and that balance is recomputed by **replaying those very rows**,
+never read from a snapshot. This hourly job is the only thing that makes the
+retention a *window* rather than a change of policy. Its DELETE is irreversible.
+
+**Root cause.** One coercion:
+
+```js
+const graceHours = Number(getOpsConfig("CREDIT_RESTORE_GRACE_HOURS"));
+purgeExpiredRestoreLedgers({
+  graceHours: Number.isFinite(graceHours) ? graceHours : undefined,
+  now,
+});
+```
+
+`0` is a **real, documented setting** — OPS_DEFAULTS says *"Set to 0 to restore
+nothing and wipe the ledger on the next sweep."* It is also what `Number()`
+returns for `""`, `null`, `false` and `[]`. So the coercion cannot distinguish
+an operator's deliberate *wipe now* from an absent value.
+
+And the absent value is reachable. `getOpsConfig` returns the `app_config` row
+whenever it is neither `undefined` nor `null`:
+
+```js
+if (_ops && _ops[key] !== undefined && _ops[key] !== null) return _ops[key];
+```
+
+`_ops` is `appConfigRepo.getAllMap()` — `out[r.key] = r.value`, passed through
+untouched. So an operator who **clears the field** (the natural way to fall back
+to the default) writes `""`, which becomes `0`, which means *destroy every
+soft-deleted account's ledger on the next hourly run* — hours or days before the
+window each of those users was owed, with no way back.
+
+**Fix.** A value is usable only if it is a number, or a string with something in
+it; anything else is "not configured" and passes `undefined` so the repo applies
+its own default. An explicit `0` still passes through untouched:
+
+```js
+const configured = getOpsConfig("CREDIT_RESTORE_GRACE_HOURS");
+const usable = typeof configured === "number"
+  || (typeof configured === "string" && configured.trim() !== "");
+const graceHours = usable ? Number(configured) : NaN;
+```
+
+**Prevent.** `backend/tests/purgeRestoreLedgersJob.test.js`, **DB-free** — both
+dependencies injected through `require.cache`. That is not only speed: Bugs #231
+was a dead DELETE hidden for weeks because the only suite covering it died in a
+`before` hook, so seven tests were reported as failures without their bodies ever
+running. A test with no hook to fail cannot be masked that way. It pins both
+directions explicitly — `0` is honoured and never replaced; `""`, `null`,
+`undefined`, `NaN`, `{}`, `[]` and `"abc"` all become `undefined` and **never
+`0`** — plus the read-per-run contract, the threaded clock, and the `zeroed`
+warn (audit #8, P4).
+
+**Durable lesson.** **When a sentinel value is also a valid setting, coercion
+cannot be the parser.** `Number()` maps at least five distinct "no value" inputs
+onto `0`, and `0` here means *delete everything now* — so the coercion silently
+promoted "unset" to the most destructive instruction the knob can express. Check
+the SHAPE of the value before converting it, and make "absent" a state of its
+own rather than a number. Detect next time: any `Number(config)` where `0` is
+meaningful, and any `if (Number.isFinite(x))` guard downstream of one — the
+guard reads like it is catching this, and it is not.

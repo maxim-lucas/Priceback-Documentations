@@ -7656,3 +7656,130 @@ resolved. No schema, no migration, no change to attempt counts, backoff, termina
 handling, or any price value; the retry timer's `unref()` is untouched. The
 DELETE targets the same rows with the same parameter values — it can simply now
 be issued at all.
+
+## 2026-09-02 (cont.) — Hardening the Best Buy parser before real receipts, and four sensitive areas covered deeply (PR #317)
+
+- **Asked (/goal):** "add more tests to the test suite to cover most recent bugs
+  or sensitive areas, sensitive areas should be covered deeply to avoid any
+  problem, add these to development for now only. cover also the best buy new
+  parser and harden the logic of this parser so it be more intelligent and be put
+  for real receipts tests soon".
+- **Branch** `test/bestbuy-hardening-and-sensitive-coverage` -> **`development`**.
+  `main` deliberately untouched, per the ask.
+- **Two clarifications taken up front.** (1) Best Buy store numbers: Maxim —
+  *"for a store like best buy that have the same prices for all stores across
+  canada, i dont need to store the real store id if its complicated strip it, if
+  you can normalize it do it"*, so leading zeros are now stripped. (2) No new
+  receipt captures available yet, so the hardening is driven by the EXISTING
+  corpus and by structural reading, not by invented layouts.
+
+### The corpus's blind spot, stated plainly
+
+Nine real Best Buy captures are pinned — but **eight are bestbuy.ca order PDFs
+and one is a photographed in-store slip with a single item on it.** The in-store
+path (thermal paper, bleed-through, faint glyphs, discount sub-rows, service
+lines) is the path a real shopper uses, and it was validated by one receipt.
+Bugs #219 already recorded this exact shape once: *"a store parser that passed
+every test and got all nine real receipts wrong."*
+
+### Four latent defects, found by reading the parser against its own captures
+
+| | Defect | Bugs |
+|---|---|---|
+| H1 | `$3.699.99` — a comma OCR'd as a period. The money regex matches the PREFIX `$3.69` and stops, so a $3,699.99 TV logs at **$3.69**. **Already in the committed corpus**, on a line the parser happens not to read. | #233 |
+| H2 | An online item row without a `$` matched four branches, none of them, and fell off the end of the loop. The product **vanished**; the credit was still spent. | #234a |
+| H3 | An 8-digit internal counter (`00003501`, printed under an item on the real slip) was accepted as a SKU. Width was the only rule. | #234b |
+| H4 | `SAVINGS_RE` had `you saved` but not `You Save` — present tense — so a discount row became a **product named "You Save" costing $10.00**, inflating the basket and failing the receipt's own reconciliation. | — |
+
+Plus three smaller hardening items: **H5** store number normalized (`S-0937` ->
+`937`) and now preferring the `S-n R-n` register pair, with the online path
+refusing the bare form outright (a hyphenated unit in a shipping address could
+still satisfy it); **H6** memberships/labour added to the service list, with
+eco-fees **explicitly excluded** — `Ecofrais` is a real charged line pinned by
+two fixtures (`49.99 + 0.25 = 50.24`); **H7** an online return is now routed
+through the online parser instead of the thermal-paper reshape chain.
+
+**All seven live in `bestBuyReceiptParser.js` only.** `receiptParsingShared.js`
+is Costco's live code path with its own ~55-fixture corpus and per-file floor;
+a Best Buy repair applied there is a Costco change wearing a Best Buy label.
+
+### Tests
+
+| File | Before | After |
+|---|---|---|
+| `bestBuyReceiptParser.test.js` | 85 tests | **121** |
+| `bestBuyReceiptParser.realocr.test.js` | 117 | **127** (2 new corpus-wide invariants) |
+| `bestBuyLaneEndToEnd.test.js` | — | **7, new** |
+| `featureLanes.test.js` | — | **9, new** |
+| `permissionAlerts.test.js` | — | **10, new** |
+| `storePricesHook.test.js` | — | **14, new** |
+| `purgeRestoreLedgersJob.test.js` (backend) | — | **15, new** |
+
+The new Best Buy block includes the thing the corpus lacks: a **multi-item
+in-store slip** — four items, a Geek Squad plan, a markdown with its sub-rows, a
+SKU printed on its own row — asserted again with bleed-through interleaved and
+required to parse identically.
+
+Two corpus-wide invariants were added to the real-OCR suite, each the assertion
+that would have caught a defect above had it landed one row over: no item price
+equals the *truncated* reading of a dotted-thousands token anywhere on the
+receipt, and no SKU is zero-padded or a `YYYYMMDD` stamp.
+
+### Sensitive areas — the coverage, and what it found
+
+| File | Before | After |
+|---|---|---|
+| `src/services/featureLanes.js` | 66.7 / 66.7 / 66.7 / 66.7 | **100 / 100 / 100 / 100** |
+| `src/services/permissionAlerts.js` | 20.0 / 0 / 50 / 20.0 | **100 / 100 / 100 / 100** |
+| `src/services/storePrices.js` | 88.2 / 83.7 / **60** / 91.0 | **97.3 / 87.8 / 82.9 / 98.9** |
+| `src/services/bestBuyReceiptParser.js` | 91.3 / 83.8 / 96.9 / 95.0 | **93.1 / 86.4 / 97.4 / 95.6** |
+| `backend/jobs/purgeRestoreLedgers.js` | **0 / 0 / 0 / 0** | covered |
+
+- **featureLanes** is four lines and decides whether unfinished work runs in
+  front of a real user. It was covered only *incidentally*, through the parser
+  registry, and `laneLabel` not at all. Now: every near-miss value fails closed,
+  and mutating the same `extra` object between calls is seen (proving nothing is
+  memoized, which is stronger than swapping the object).
+- **storePrices**: the real gap was `useStorePrices` at **0%** — the hook every
+  purchase surface reads from — plus three swallowed catches. The listener
+  bookkeeping is the Bugs #232 family: deferred work outliving its owner.
+- **`purgeRestoreLedgers` — the first test it ever had found a live defect.**
+  `Number(getOpsConfig(...))` maps `""`, `null`, `false` and `[]` all onto `0`,
+  and `0` is the documented setting for *"wipe the ledger on the next sweep"*.
+  An operator **clearing** the `app_config` field — the natural way to restore
+  the default — would have erased every soft-deleted account's `credit_ledger`
+  rows on the next hourly run, hours or days early, irreversibly. Fixed by
+  checking the value's shape before converting it. **Bugs #235.**
+
+### Coverage floors
+
+`bestBuyReceiptParser` raised 90/82/95/94 -> **92/85/96/95**; new per-file floors
+for `featureLanes` and `permissionAlerts` at 100. **Global floors deliberately
+unchanged** — pinning a file *subtracts* it from the `global` pool, so the post-
+change global figure is not comparable to the pre-change one, and raising against
+the old number would pin a figure that was never measured. `storePrices` is
+deliberately left IN the pool, where its gain lifts the global instead of being
+carved out of it.
+
+### Regression risk
+
+**One intentional behaviour change**, called out rather than buried:
+`extractBestBuyStoreNumber("S-0937 R-004")` returns `"937"`, not `"0937"`. Lab
+lane only, no stored user data keyed off it, one pinned test updated. Everything
+else is additive or strictly narrowing, and each guard is contained:
+
+- H1 fires only on a shape no correctly-printed Canadian amount can have;
+- H2's no-symbol pattern is tried only *after* the `$` form fails;
+- H3 was verified against all 11 corpus SKUs before landing;
+- H4 stays anchored `^...$` around a printed amount, and deliberately does **not**
+  match `discount` or a `total ...` prefix — both name basket-level rows, and this
+  handler applies to `items[items.length - 1]`;
+- H6 excludes eco-fees, asserted by name.
+
+**Not touched:** `receiptParsingShared.js`, `costcoReceiptParser.js`,
+`receiptGeometry.js`, `faintPrintRepair.js`, every Costco fixture. The Costco
+parity block replays the whole Costco corpus through the dispatcher and was green
+throughout.
+
+The backend change is a narrowing: fewer inputs now reach the DELETE's
+`graceHours` as a number, and the one value that mattered (`0`) is unchanged.
