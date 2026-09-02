@@ -7626,8 +7626,18 @@ for that file.
 
 ### Branches / CI
 
-- PR **#316** `hotfix/ci-green-main` -> `main`. Backend and Security verified
-  **green**; the mobile fix went in after that run and is being verified.
+- PR **#316** `hotfix/ci-green-main` -> `main`, squash `8eb8d84`, branch deleted.
+  **BOTH BRANCHES GREEN** — `main` run `33611902465` (Mobile 7m24s · Backend
+  12m52s · Security 18s) and `development` run `33613162266` (Mobile 7m3s ·
+  Backend 21m56s · Security 20s), the latter dispatched by hand as
+  `main`-push-only triggers require. First green `main` since 2026-08-12.
+- **The mobile fix took two attempts, and the first one is instructive.**
+  Memoizing the import removed one symptom and the job stayed red; only the
+  second symptom (the catch's `console.warn`) revealed that the *retry outliving
+  the test* was the cause of both. Also confirmed on the green runs: *"Jest did
+  not exit one second after…"* **still prints** and the ~4m25s wait **is still
+  there** — so neither was ever the failure. That leaves a standing non-failing
+  cost of ~4.5 min per mobile run, deliberately not bundled into this fix.
 - Two throwaway diagnostic branches (`diag/jest-open-handles`,
   `diag/jest-hang-probe`) created, used, and **deleted** — the `--detectOpenHandles`
   flag and the handle probe were deliberately kept off the PR branch.
