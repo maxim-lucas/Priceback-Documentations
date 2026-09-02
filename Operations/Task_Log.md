@@ -7531,3 +7531,118 @@ release is not a rollback.
   is a test hardcoding an email literal spelled differently from its source;
   mitigated by per-file whole-word replacement and a zero-conflict cherry-pick
   across all 58 files.
+
+## 2026-09-02 — `main` was red on THREE permanent failures, and one was a dead production tool (PR #316)
+
+- **Asked (/goal, scheduled +4h21m):** "check the CI workflows and if it still
+  fails, fix the main in priority so the tests pass (green) then start to debug
+  the dev branch also or rebase dev on main once main is green (target is both
+  green on Github Action)". Scheduled start honoured: armed a one-shot cron plus
+  a fallback timer, and every wake-up was clock-checked before starting — three
+  premature wakes (two killed timers, one stale task from the previous session)
+  were correctly refused.
+- **Context that explains all of it.** Last green run was **2026-08-12**
+  (`31643153294`). The ~3-week Actions billing block meant every merge after that
+  landed unverified, so defects accumulated behind a CI that could not report
+  them. All three below fail *by construction* on every run — none flaky, none
+  would ever have cleared on a retry.
+
+### 1 — The "missing DB row" that was a code bug (Bugs #229)
+
+`lookupId: unknown credit_event_types code: free_trial`, 7 tests. This log and
+memory both recorded it as **"the dev Supabase DB is missing that row"**, with
+the fix noted as *"a one-row DB write, not a code change"*. **That was wrong, and
+acting on it would have written bad data.**
+
+`free_trial` is a SUBSCRIPTION event type and has never been in
+`CREDIT_EVENT_TYPES`. `lookupId()` calls `ensureSeeded()` *before* it reads — so
+seeding ran and still could not produce the row. Verified against dev
+(`gnedluuylimjwdmtvswl`): 14 codes, `free_trial` rightly absent. The fixture now
+names the two codes that actually describe its movements (`signup_grant` +75,
+`scan_consume` -5). Guarded by `backend/tests/lookupCodeNamespaces.test.js`,
+which scans every literal `lookupId(schema.X, "code")` against that table's seed
+list — the class, not the instance. These namespaces overlap (`price_tag_scan` is
+BOTH a credit event type and a price source type), which is why the wrong pairing
+looked plausible.
+
+### 2 — The dead production tool it was hiding (Bugs #231)
+
+Fixing #1 let the DELETE path run **for the first time**, and it threw at once:
+`op ANY/ALL (array) requires array on right side` (42809). Drizzle expands an
+embedded JS array into a parenthesised PARAMETER LIST, so `ANY(${subs})` renders
+`ANY(($1, $2, $3))` — a **row constructor**, which ANY cannot take. Proven by
+rendering both forms through `PgDialect`.
+
+**So `scripts/purge-stale-signups.js --write` — the runbook tool for clearing
+abandoned smoke-test accounts off production — could never delete anything.**
+Dry-run is the default, so the broken path was never exercised. This was the only
+`ANY(` in the backend; every other membership check already used the expanded
+`IN` form. Fixed to match, keeping the `u` alias and the shared `fingerprint()`
+so SELECT and DELETE still cannot drift. New regression test needs **no DB**, so
+a `before` hook can never mask it again.
+
+> **The insight worth keeping: a masked test is not a passing test, and a failure
+> count does not distinguish them.** The `before` hook died on #1, so both tests
+> covering `--write` were reported failed for weeks *without their bodies ever
+> executing*. Seven red tests looked like one problem; they were two, and the
+> second was the serious one.
+
+### 3 — 214 suites passed and the job still went red (Bugs #232)
+
+Root cause: a FAILED store lookup arms an auto-retry (1.2s, 3.5s) that nothing
+awaits. Every test finishes sooner, so the timer fires into a torn-down Jest
+environment, and Jest turns whatever it touches there into a RUN-level error on a
+green summary. **Two symptoms, either of which alone exits 1:** the dynamic
+`import("./purchaseService")`, and the catch's `console.warn`.
+
+The visible message — *"Jest did not exit one second after…"* — named the wrong
+cause and had been believed for weeks. It is a symptom: under
+`--detectOpenHandles` Jest reports **no handles**, the message disappears, and it
+still exits 1. A `globalTeardown` probe found exactly two live handles for the
+whole wait (stdout, stderr) and zero requests, and the wait is a **fixed ~4m25s**
+across three runs — a timeout, not a leak. `--forceExit` would have hidden the
+real error.
+
+Fixed in both halves: memoize the dynamic import (source), and `afterEach`
+cleanup calling `__resetStorePricesForTests()` in the two suites that reach
+storePrices indirectly (tests) — the cleanup `storePrices.test.js` already does
+for the module it owns.
+
+- **A wrong turn, recorded rather than hidden.** I first rejected the test-side
+  cleanup as *unreachable*, reasoning that the global `beforeEach` calls
+  `jest.resetModules()` and orphans each instance. Wrong about ordering:
+  **`afterEach` runs BEFORE the next `beforeEach`**, so the require resolves in
+  the registry the test just used. That mistake put the first fix in production
+  source and cost a full CI run to disprove.
+
+### 4 — Also ported: the OTA key-pair check (Bugs #230)
+
+`otaPreflight.test.js` asserted `keys/private-key.pem` matches
+`certs/certificate.pem`. `keys/` is gitignored, so the private half cannot exist
+on a runner — red by construction on every CI run and every fresh clone. Ported
+verbatim from `9415e02` (#313), which fixed it on `development` only and left
+`main` red. Both sides are now byte-identical, so the eventual merge is a no-op
+for that file.
+
+### Branches / CI
+
+- PR **#316** `hotfix/ci-green-main` -> `main`. Backend and Security verified
+  **green**; the mobile fix went in after that run and is being verified.
+- Two throwaway diagnostic branches (`diag/jest-open-handles`,
+  `diag/jest-hang-probe`) created, used, and **deleted** — the `--detectOpenHandles`
+  flag and the handle probe were deliberately kept off the PR branch.
+- `main` is an **ancestor of `development`** (`origin/development..origin/main`
+  is empty), so "rebase dev on main" is a no-op: after #316 merges, a plain merge
+  of `main` into `development` carries the fixes over. Pre-checked for conflicts —
+  `otaPreflight.test.js` identical on both sides, and the one dev-only `seed.js`
+  edit (`NATIONAL` province, #312) is ~585 lines from mine. The new guard test
+  was also checked against `development`'s lookup literals: it passes there.
+
+### Regression risk
+
+Low. Test-only except two source changes: one additive export (`_LOOKUP_CODES`)
+and one memoized dynamic import on a path whose module is by definition already
+resolved. No schema, no migration, no change to attempt counts, backoff, terminal
+handling, or any price value; the retry timer's `unref()` is untouched. The
+DELETE targets the same rows with the same parameter values — it can simply now
+be issued at all.

@@ -10080,3 +10080,249 @@ Settings → Privacy & Security → Analytics & Improvements → Analytics Data 
 Mobile Ads SDK was initialized without a valid Application ID"). And before
 any iOS submission, the resolver probe from #224 with `--platform ios` answers
 what the Podfile will see.
+
+## 229. "The dev DB is missing a row" — when no row was missing, or could be (2026-09-02)
+
+**Symptom.** Seven backend tests fail on **every** run, on **both** branches,
+with an error that reads like an environment problem:
+`Error: lookupId: unknown credit_event_types code: free_trial`. All seven are in
+`purgeStaleSignups.test.js`; the rest of the backend suite is green. Recorded in
+the task log and in session memory as "a missing dev-DB `free_trial` row" —
+i.e. as something a re-seed would repair.
+
+**Root cause.** Nothing was missing. `free_trial` lives in
+`SUBSCRIPTION_EVENT_TYPES` — it describes a RevenueCat trial purchase — and has
+**never** been in `CREDIT_EVENT_TYPES`. The fixture asked `credit_event_types`
+for it anyway, to fill `credit_ledger.type_id`.
+
+The error message is what made it read as an environment gap: `lookupId` says
+"unknown <table> code: <code>", which sounds like a row that ought to be there
+and is not. But `lookupId()` calls `ensureSeeded()` **before** it reads, and the
+seed is the only writer of that table. So the sequence was: seed the table
+fully, then ask it for a code the seed does not contain, then report the absence.
+Re-seeding would have changed nothing; the dev database was correct the whole
+time (14 codes, verified directly — `free_trial` not among them, and it should
+not be).
+
+Why it was easy to mis-file: these code namespaces genuinely **overlap**.
+`price_tag_scan` is BOTH a `credit_event_types` code and a `price_source_types`
+code. So recognising a code as real is not the same as knowing which table owns
+it, and a wrong pairing looks completely plausible on the page.
+
+**Fix.** The fixture makes two *different* ledger movements, so it now names the
+two codes that actually describe them: `signup_grant` for the +75 grant,
+`scan_consume` for the -5 spend — instead of one misnamed `trialTypeId` for both.
+
+**Prevent.** `backend/tests/lookupCodeNamespaces.test.js` scans the backend tree
+for every literal `lookupId(schema.X, "code")` and fails when the code is absent
+from that table's seed list — the class, not the instance. It pins `free_trial`
+in both directions (is a subscription event type, is **not** a credit one),
+asserts the overlap that makes the confusion possible, and asserts the scan
+matched something, so a regex that silently covers nothing fails instead of
+passing green. Requires `_LOOKUP_CODES` exported from `backend/db/seed.js`.
+
+**Durable lesson.** An error naming a *table* and a *row* invites an
+infrastructure diagnosis, and infrastructure diagnoses are expensive: you go
+looking at the database. Before touching one, check whether the value could ever
+have been there — read the seed, which is the authority. A lookup that seeds
+before it reads cannot be failing because the seed did not run. Here the fastest
+possible check (grep the code in `seed.js`, see which array it sits in) was
+never done, and the wrong conclusion was then written into the task log and
+memory, where it kept the real cause hidden for weeks.
+
+**Detect next time.** `grep -n '"<code>"' backend/db/seed.js` and read which
+`const` array encloses the hit. If it is not the array matching the table named
+in the error, it is this bug and no database work is warranted.
+
+## 230. The OTA key-pair check that was red on every CI run, and so said nothing (2026-09-02)
+
+**Symptom.** `__tests__/otaPreflight.test.js` fails on `main` on every run:
+"the real repo key and certificate are a matching pair" — `Expected: true,
+Received: false`. One failed suite out of 214; 5172 other tests pass.
+
+**Root cause.** The test asserts that `keys/private-key.pem` and
+`certs/certificate.pem` are a matching RSA pair. `keys/` is gitignored — which is
+correct, it is the private half of the OTA trust root — so the private half
+cannot exist on a CI runner or in a fresh clone. The assertion could therefore
+only ever pass on a machine that already holds the key, and failed **by
+construction** everywhere else. The file's own comment warned about "works on my
+machine, silently dead from CI or a fresh clone"; it had acquired the exact
+defect it was written to catch.
+
+**Fix.** Ported from `9415e02` (#313), which fixed it on `development` only and
+left `main` red. The assertion now skips where the key cannot exist —
+`(hasPrivateKey ? test : test.skip)` — and prints a loud warning naming the
+absent path and what is consequently unverified. The three REJECT-path tests
+below it inject their own `fs`, so they still run everywhere and keep the
+"missing/mismatched key is rejected" behaviour covered on every machine.
+
+**Durable lesson.** A check that always fails is worse than no check: it is read
+as background noise, and on the day it goes red for a real reason — a rotation
+that replaced one half of the pair — nobody looks. When an assertion depends on
+a secret that CI deliberately cannot hold, the honest form is to **skip and say
+so at volume**, not to assert and stay red. Note the asymmetry that keeps the
+coverage honest: only the assertion needing the real private key skips; every
+path that can be exercised with an injected `fs` still runs everywhere.
+
+**Detect next time.** A suite that is red on CI and green locally, on a test
+whose subject is a credential or a gitignored artefact, is this shape. Also: a
+fix that lands on `development` for a defect that also exists on `main` leaves
+`main` red until it is ported — check both branches when the defect predates the
+branch point.
+
+## 231. The production purge tool whose DELETE could never run (2026-09-02)
+
+- Date: 2026-09-02 · PR: #316 · Area: backend
+
+**Symptom.** After fixing #229, two of the seven `purgeStaleSignups` failures
+remained — but with a completely different error:
+`op ANY/ALL (array) requires array on right side`, SQLSTATE **42809**, thrown
+from `backend/lib/staleSignups.js` on the DELETE.
+
+**Root cause.** Drizzle expands an embedded JS array into a parenthesised
+PARAMETER LIST, not an array literal. Rendered through `PgDialect`:
+
+```
+ANY(${subs})  ->  "u.sub = ANY(($1, $2, $3))"    <- row constructor
+IN  (…)       ->  "u.sub IN ($1, $2, $3)"        <- correct
+```
+
+`($1, $2, $3)` is a **row constructor**, and `ANY` requires an array — hence
+42809. This was the only `ANY(` in the entire backend; every other membership
+check already used the expanded `IN` form (`usersRepo.js`,
+`u.push_token IN (...)`). A lone deviation from a pattern that works.
+
+**This was not a test bug.** `scripts/purge-stale-signups.js --write` is the
+operator tool in the release runbook for clearing abandoned smoke-test signups
+off **production**. Its delete path was dead. Dry-run (the default) worked, which
+is why nobody noticed: the tool appeared to function right up to the point where
+it would have done the one thing it exists to do.
+
+**Why it hid for weeks.** The `before` hook of the only suite covering `--write`
+died on #229's unrelated lookup error, so both tests were REPORTED AS FAILURES
+WITHOUT THEIR BODIES EVER RUNNING. Seven red tests looked like one problem. They
+were two, and the second was the serious one.
+
+**Fix.** `sql.join(subs.map((s) => sql`${s}`), sql`, `)` inside `IN (...)`,
+matching the rest of the backend. The `u` alias and the shared `fingerprint()`
+fragment are untouched, so the SELECT and the DELETE still cannot drift.
+
+**Prevent.** The new regression test needs **no database**: it captures the
+DELETE, renders it through `PgDialect`, and asserts an expanded `IN ($1, $2)`
+with one bound parameter per sub, no `ANY(`, and that the full fingerprint is
+still re-applied. Being DB-free, a `before` hook can never mask it again.
+
+**Durable lesson.** **A masked test is not a passing test, and a failure count
+does not distinguish them.** When a `before`/`beforeAll` hook throws, every test
+under it is reported failed without executing — so a single environment-shaped
+error can hide an arbitrary number of real defects behind it. After fixing any
+hook-level failure, re-read the run: the tests that "were already failing" have
+only just started running for the first time. Corollary: a tool whose safe mode
+(dry-run) is the default gets exercised constantly while its dangerous path
+rots untested.
+
+## 232. 214 suites passed and the job still went red (2026-09-02)
+
+- Date: 2026-09-02 · PR: #316 · Area: mobile
+
+**Symptom.** `Test Suites: 214 passed, 214 total` · `5172 passed` · every
+coverage floor clear — and `Process completed with exit code 1`. On both
+branches, every run, since 2026-08-12.
+
+**Root cause.** `storePrices._fetchFromStore()` re-ran
+`await import("./purchaseService")` on **every** attempt, including the attempts
+the auto-retry fires from a `setTimeout` (`AUTO_RETRY_DELAYS_MS = [1200, 3500]`).
+A test that triggered a refresh and finished in under 1.2s left that timer armed;
+when it landed, the Jest environment for that file was gone:
+
+```
+ReferenceError: You are trying to `import` a file after the Jest
+environment has been torn down.
+  From __tests__/purchaseService.test.js
+  From __tests__/auditMoneyBatch.test.js
+```
+
+Jest reports that as a **bare error, not a test failure** — it fails the RUN
+while the summary still reads all-green.
+
+**The obvious reading was wrong, twice.** The visible message was *"Jest did not
+exit one second after the test run has completed"*, which reads as a leaked
+handle, and that is how it was recorded in memory. It is not:
+
+- under `--detectOpenHandles`, Jest reports **no open handles at all**, the
+  "did not exit" line disappears, and the run **still exits 1**;
+- a `globalTeardown` probe (unref'd, so it cannot hold the loop itself) found
+  exactly **two** live handles for the entire wait — stdout and stderr — with
+  **zero** active requests;
+- the wait is a **fixed ~4m25s** (4m25.6s / 4m26.0s / 4m23.9s across three
+  runs), which is a timeout, not a leak.
+
+So the "open handle" was a *symptom of the same deferred work*, and
+`--forceExit` would have hidden the real error rather than fixing anything.
+
+**The cause was one thing; it had TWO symptoms, and fixing the first did not
+make the job green.** A failed lookup ARMS AN AUTO-RETRY (1.2s, then 3.5s) that
+nothing awaits — `refreshStorePrices()` resolves after one attempt by design and
+the retry lands later, on a timer. Every test finishes sooner, so the timer fires
+into a torn-down environment, and Jest turns whatever it touches there into a
+run-level error. What it touches:
+
+1. the dynamic `import("./purchaseService")` -> the ReferenceError above;
+2. the catch's `console.warn` at `storePrices.js:467` ->
+   `Cannot log after tests are done. Attempted to log "[storePrices] lookup
+   failed: offline"`.
+
+`"offline"` is `purchaseService.test.js`'s own fixture
+(`getOfferings.mockRejectedValue(new Error("offline"))`), which is what finally
+identified the owner. **Either symptom alone exits 1.** Memoizing the import
+removed (1) and the job stayed red — a full CI run spent proving the first fix
+was only half.
+
+**Fix.** Both halves:
+
+- **Source** — memoize the dynamic import. It exists to break a module cycle at
+  module-EVALUATION time, which the first call settles permanently; re-asking on
+  later attempts bought nothing and cost this. Only the MODULE is cached, never
+  `initRevenueCat()`'s answer — a cold-start miss followed by a configured retry
+  is the entire reason the retry budget exists. Both halves pinned by tests.
+- **Tests** — `afterEach` in the two suites that reach storePrices indirectly,
+  calling `__resetStorePricesForTests()` to drop the armed timer. This is the
+  cleanup `storePrices.test.js` already does for the module it owns.
+
+**A wrong turn worth recording.** The test-side cleanup was first rejected as
+*unreachable*, reasoning that the global `beforeEach` calls `jest.resetModules()`
+and so orphans each instance beyond any hook's reach. That was wrong about
+ordering: **`afterEach` runs BEFORE the next `beforeEach`**, so the require
+resolves in the registry the test just used — exactly the instance holding the
+timer. The mistaken ordering model sent the fix into production source when a
+four-line test hook was the right answer.
+
+**Durable lesson.** When a runner exits non-zero with every test green, the
+failure is **outside** the test results — look for bare errors in the log, not
+for a failing assertion. And deferred work is owned by whoever armed it: a
+`setTimeout` that re-enters the module system will eventually land in a world
+where that module system no longer exists. Memoize what you resolved once;
+schedule nothing that must re-resolve later. Finally, note the shape shared with
+#229: the loudest message in the output ("did not exit", "unknown table code")
+named the wrong cause both times, and both were believed for weeks.
+
+**Detect next time.** Compare the timestamp of `Ran all test suites.` with the
+step's exit line. A long, silent, *constant* gap is a timeout, not a leak. If
+`--detectOpenHandles` reports nothing while the process still lingers, stop
+looking for handles and read the log for bare `ReferenceError` /
+`Cannot log after tests are done` lines instead.
+
+**Confirmed after the fix — and worth being precise about.** The green run
+(`33609679765`) still prints *"Jest did not exit one second after the test run
+has completed"*, and still waits **4m28.8s** between `Ran all test suites.` and
+the end of the step. It **passes anyway**. So the message and the wait were never
+the failure: they are a separate, benign slow-exit, and the exit code was decided
+entirely by the two post-teardown errors, both now absent from the log.
+
+That leaves a standing, non-failing cost: **every mobile CI run burns ~4.5
+minutes doing nothing** after the suite finishes. Not fixed here — it is a
+different problem from the one that made the job red, and bundling it would have
+blurred which change bought the green. Worth its own investigation when Actions
+minutes matter; the probe technique in this entry (`globalTeardown` +
+`process._getActiveHandles()`, unref'd) is the tool for it, and it already
+narrowed the field to stdout/stderr with zero active requests.
