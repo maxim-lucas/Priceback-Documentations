@@ -7975,3 +7975,63 @@ server sends one) take a path pinned by an explicit no-lock test.
 
 **Status:** branch `feat/locked-drop-price`, stacked on #320. CI held until
 #320's backend run finishes — two backend suites must never share the pooler.
+
+---
+
+## 2026-09-06 — Instagram pre-launch teaser pack (social-media-manager PR #3)
+
+Not this repo and not the app: `social-media-manager`, branch
+`sm-content-teaser` → `sm-content-assets`. Logged here because it commits a
+renderer, and because the copy is bound by `legal/MARKETING_CLAIMS.md`.
+
+**What.** `sm-content/teaser/` — 20 assets, EN + FR: four numbered feed posts
+(1080×1350) and six story frames (1080×1920), four of the latter leaving a band
+for a native sticker. They name no product, category or retailer. The series is
+spined on **30** — reads as a countdown, is actually the price-adjustment
+window, so it re-reads on launch day.
+
+**Why it looks unrelated to the launch pack.** That pack is near-black, emerald
+glow, huge grotesque, and explains everything. This one is thermal-receipt
+paper, Roboto Mono, mostly empty, one emerald element per frame at most, and
+explains nothing. The distance is deliberate: the launch pack then lands as an
+answer rather than as more of the same.
+
+**Compliance is load-bearing, not decoration.** MARKETING_CLAIMS.md names the
+exact risk — a claim clipped into a social card without its paired fine print. A
+teaser has no room for fine print, so it makes no claim at all: every line is a
+question, an instruction, or hedged ("some", "might"), and **every amount on
+every frame is a black bar**. The redactions exist because we are not allowed to
+print a figure we would have to stand behind. No retailer named or shown, so no
+non-affiliation disclaimer is needed. `verify.js` gate 5 enforces this on the
+strings, so softening the gate is the wrong fix for a failure.
+
+**It ships its own source, unlike the launch pack.** Those scenes lived in a
+Cowork session and are gone — a copy change there is a rebuild. Here
+`scenes/strings.json` holds every word in both languages and a change is a
+re-render. Seeded PRNG, no `Math.random`: all 20 assets verified byte-identical
+across runs.
+
+**The gate worth reusing.** Safe zones cannot be checked by luminance in this
+pack — the surface revealed behind a torn edge is darker than paper and lighter
+than ink, and a faded kicker lands on the same value, so no threshold separates
+print from decoration. Instead each scene re-renders in a "content" mode that
+suppresses the paper, the tears and the ghost rows; content is then exactly the
+non-transparent pixels and the check is an alpha test with no judgement in it.
+It caught three real defects: a hand-drawn circle reaching into the right action
+rail, story rows running under the caption bar, and a kicker overprinted by its
+own headline. A fourth gate measures a rendered font probe, because librsvg
+substitutes a missing font silently — without it a machine lacking Roboto Mono
+ships a whole pack set in something else and nothing errors.
+
+**Regression risk: none in the app.** Different repo, additive folder, no app
+code touched. The only shared file modified is `sm-content/README.md` (rows
+added); no existing asset was re-rendered or replaced. Pre-existing uncommitted
+work in that repo's `src/` was left untouched — only the teaser paths were
+staged.
+
+**Open for the operator, not blockers.** The date renders as `09 . ▮ . 26`
+(month shown, day hidden) and is a string in `strings.json` — if the calendar
+moves, change it and re-render. Stickers must be added inside Instagram to be
+interactive. Note also that the handle `@priceback.ca` already discloses the
+name; what the pack withholds is what the product *does*, which is the part
+worth protecting.
