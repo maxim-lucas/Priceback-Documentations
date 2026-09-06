@@ -118,12 +118,13 @@ closed** — anything other than a literal `true` means off.
 
 ### What rides the lane today
 
-- **Best Buy** — in the parser registry (`LAB_STORE_PARSERS`) *and* in
-  `isStoreEnabled` (`LAB_ONLY_STORES` in `constants/stores.js`). Both halves
-  must agree: a store the scan screen accepts but the registry has no parser
-  for would silently save a generic parse.
-- **Ads** — `isAdsBuildEnabled()` now requires `adsEnabled && labEnabled`, so
-  the JS gate can never disagree with what the binary actually contains.
+- **Ads** — `isAdsBuildEnabled()` requires `adsEnabled && labEnabled`, so the JS
+  gate can never disagree with what the binary actually contains.
+
+**Best Buy came off the lane on 2026-09-02** — see §7. `LAB_STORE_PARSERS` and
+`LAB_ONLY_STORES` are both **empty**, which is the correct steady state and not
+a set that has fallen out of use: it means nothing unfinished is being held back
+right now. The next store under construction goes back into both, in one edit.
 
 ### Working on the lane
 
@@ -251,9 +252,73 @@ APP_ENV=production node -e "require('./app.config')({config:{extra:{}}})"
 
 ## 6. Open
 
-- **The Best Buy corpus is empty.** One paper photo and one online export are
-  owed. Until they land, the parser is structurally correct and empirically
-  unverified.
 - **Production stops compiling the ads SDK.** Config reads are asserted for both
   platforms, but this wants **one real production build** before the next store
   release.
+- **An undetected store still defaults its SKU lookup to Costco.** See §7's
+  note on the promotion defect; the fallback is deliberate (it preserves the
+  pre-promotion behaviour exactly) but it is a guess, and the right answer is
+  probably to skip the inference entirely when the namespace is unknown.
+
+## 7. Promoting Best Buy off the lane (2026-09-02)
+
+The lane existed because the parser had no real fixtures. It ended when it had
+nine captures (one in-store photo, eight order PDFs) plus the hardening pass
+that found four defects the corpus itself never hit. **That is the bar for a
+promotion: not "the tests are green" but "the ways this could be wrong have been
+looked for on purpose."**
+
+### The five declarations that had to move together
+
+| Where | Change |
+| --- | --- |
+| `receiptParsers/index.js` | `bestbuy` **moved** (not copied) from `LAB_STORE_PARSERS` into `STORE_PARSERS` |
+| `constants/stores.js` | `LAB_ONLY_STORES` emptied; `bestbuy.enabled` → `true`; `BUNDLED_UPDATED_AT` bumped |
+| `backend/data/policies.json` | regenerated from `stores.js` |
+| `backend/config/defaults.js` | `BESTBUY_SCAN_ENABLED` default → `true` |
+
+Five declarations of one fact is exactly the shape that gets three of five
+right, so `__tests__/bestBuyStorePromotion.test.js` now pins it mechanically:
+every id in `STORE_PARSERS` must be an enabled store on a store build, and
+`LAB_ONLY_STORES` and `LAB_STORE_PARSERS` must name the same ids. Both files
+carried a comment saying they had to agree; the comment was the entire
+enforcement.
+
+### Costco is unaffected by construction
+
+`resolveStoreParser` reads `STORE_PARSERS` **before** it consults the lane, so
+Costco's lookup does not change shape. The parity block in
+`receiptParserRegistry.test.js` replays the whole Costco corpus through the
+dispatcher as evidence rather than as a claim.
+
+### 🔴 The go-live switch is still a database UPDATE
+
+`applyRemoteStores` gates on the payload's `rev`, which is present and strictly
+greater than the runtime's initial `""` — so **the DB payload replaces the
+bundled array on every launch**. A promoted binary therefore still shows Best
+Buy disabled until the `stores` row is updated. Bumping the bundle changes the
+offline fallback only.
+
+That sequencing is a feature, not an oversight: the binary can ship and be
+device-tested before a single user sees the store. It also means the code change
+is inert for live users, which is what let this land on `development` safely.
+
+### The defect the promotion created
+
+Promoting a store turns every `"costco"` literal elsewhere in the app into a
+potential bug at once. One had teeth — `fetchMyPriceHistory` hardcoded
+`store=costco`, and `ScanScreen` calls it for any `receiptKind: "online"`, which
+is what the Best Buy parser stamps on order PDFs. Full write-up: **Bugs #236**.
+
+### One expectation moved because a parse got BETTER
+
+`ocrService.test.js`'s "Best Buy Orleans" receipt has printed arithmetic that
+does not add up: item `$3,699.99` + printed tax `$461.00` = `$4,160.99`, against
+a printed TOTAL of `$4,180.99`. 13% of $3,699.99 is **$481.00**, and
+`3699.99 + 481.00` lands on the printed total exactly — the printed tax is an 8
+read as a 6.
+
+The generic engine read the tax line verbatim and shipped the misprint. The Best
+Buy parser repairs it, and adopts the repair only because it LANDS. The test now
+asserts `481` *and* that the repaired value reconciles, so the number cannot
+drift back without the reason failing too.

@@ -7783,3 +7783,105 @@ throughout.
 
 The backend change is a narrowing: fewer inputs now reach the DELETE's
 `graceHours` as a number, and the one value that mattered (`0`) is unchanged.
+
+## 2026-09-02 (cont.) — Best Buy comes off the lab lane and becomes store #2
+
+**Ask (/goal).** Continue implementing full Best Buy store support in the app;
+once done, retrieve 10 products from the Best Buy Canada API to check the
+mechanism; run the committed Best Buy receipt fixture to prove the full path;
+then spend the remaining session on tests for the backend and the app.
+
+**Constraints restated mid-task by Maxim.** (a) Everything lands on
+`development` via a feature branch — `main` accepts nothing but a
+`development` promotion, after device testing and his explicit approval.
+(b) Never change anything that can affect Costco (parser, reader, shared
+engine). (c) **Do not deploy or edit any production backend before the code is
+on `main`.**
+
+**Status:** on `feat/bestbuy-full-store-support`, PR into `development` pending
+CI. **Not for `main` without Maxim's device test and explicit approval.**
+
+**What "full store support" turned out to mean.** Both halves already existed
+and were pinned by real data — the parser by nine captures and #317's hardening
+pass, the price feed by the adapter/registry/job built on 2026-08-31. What kept
+Best Buy from users was the lab lane, and the lane existed for a reason that had
+expired. So the work was: take the fence down, prove the mechanism against the
+live API, and close what the promotion breaks.
+
+**Five declarations of one fact had to move together** — `STORE_PARSERS`,
+`LAB_STORE_PARSERS`, `LAB_ONLY_STORES`, `enabled` in `stores.js`, and the
+regenerated `policies.json`, plus `BESTBUY_SCAN_ENABLED`. That is the shape that
+gets three of five right, so `bestBuyStorePromotion.test.js` now pins the
+agreement mechanically. Both files carried a comment saying they had to agree;
+the comment was the entire enforcement.
+
+**🔴 The promotion created a defect, and finding it was the point of looking.**
+`ScanScreen` runs quantity inference on any `receiptKind: "online"` — exactly
+what the Best Buy parser stamps on order PDFs — and the SKU lookup underneath
+hardcoded `store=costco`. Costco SKUs are 6-7 digits and Best Buy's 7-8, so the
+ranges overlap and a hit would rewrite a Best Buy line's quantity from an
+unrelated Costco price. Fixed additively (`storeId` defaults to `"costco"`, so
+every pre-existing caller is byte-identical). **Bugs #236.** The durable lesson:
+a hardcoded constant is not a bug until a second case exists, and then it is a
+bug everywhere at once — so when promoting one instance to many, grep the whole
+app for the FIRST instance's identifier, not just the subsystem being promoted.
+
+**The live probe: 10 of 11 quoted, and the one rejection was the right one.**
+New `npm run bestbuy:probe` goes through the real adapter (not a raw URL) so it
+prints what the JOB would see. Against the eleven receipt-corpus SKUs:
+`quoted=10/11 rejected={"marketplace":1} in 115.1s`. The rejection is
+`18145276` — a product a real shopper bought AT Best Buy whose buy box is now
+held by a third party, which Best Buy will not price-adjust. First live evidence
+the marketplace gate works outside a fixture written to trip it.
+
+It also found **two bad `validUntil` values** the four curated fixtures could
+never have produced: an `offerEndDate` six years in the past, and a sale-end
+date on a price already back to regular. Both were being stored, and a stored
+past date is worse than none — the display read filters expired rows and
+`findNotifiable` does not, so such a row is invisible to one reader and visible
+to the money path. **Bugs #237**, fixed inside Best Buy's own adapter so no
+Costco query changed.
+
+**Commission "exactly once", audited on Maxim's instruction** ("this feature
+doesnt have room for errors 0% chances"). The funnel is already singular — one
+ledger writer, one charge site reached only by the insert winner, a per-item
+advisory lock ordered before the prior-minimum read, and telescoping totals so
+an item's lifetime charge is exactly `dropChargeCredits(paid − lowest)` however
+many drops it saw. The legacy flyer sweep notifies but never charges. What was
+missing was any test that this survives code nobody has written yet, and any
+test at all for a second store — every existing commission test used
+`storeCode: "costco"`. Two new suites: a DB-free structural guard (one writer,
+one charge site, the unique index in both schema.js and deploy/schema.sql, no
+store identifier in the arithmetic) and a DB suite for a Best Buy national
+price including **three concurrent sweeps**, the only test that actually
+exercises the advisory lock.
+
+**A dead tool, repaired.** `regenerate-policies-json.mjs` had been broken since
+the lab-lane work gave `stores.js` an `expo-constants` import Node cannot
+resolve. While it was dead the app bundle and the backend payload drifted — two
+French claim steps had lost the word "canadien". Fixed with a narrow ESM resolve
+hook rather than hand-editing the generated file, because a generator nobody can
+run is a generator nobody runs.
+
+**One expectation moved because a parse got BETTER.** `ocrService.test.js`'s
+"Best Buy Orleans" receipt prints `item $3,699.99 + tax $461.00` against a TOTAL
+of `$4,180.99` — arithmetic that does not close. 13% of $3,699.99 is **$481.00**
+and lands on the printed total exactly; the printed tax is an 8 read as a 6. The
+generic engine shipped the misprint; the Best Buy parser repairs it, and adopts
+the repair only because it LANDS. The test now asserts both the value and that
+it reconciles.
+
+**Regression risk, stated.** Costco receipt parsing: **none by construction** —
+no Costco or shared parsing file was touched, and the parity block replays the
+whole Costco corpus as evidence. Costco price history: none — the new `storeId`
+defaults to `"costco"`, pinned by a test. Live users: none — prod serves store
+data from the DB, prod tracks `main`, and this lands on `development`. The one
+real behaviour change is that on a build from this branch a Best Buy receipt is
+parsed by the Best Buy parser instead of the generic engine. That is the
+deliverable, and it stays invisible to users until the `stores` row is flipped.
+
+**Still owed before the feed actually runs in production** (unchanged, and
+explicitly NOT done here per Maxim's "dont deploy or edit any production backend
+before the code goes on main"): the `REVIEWER_NOTES.md` second-scraper row plus
+a PDF re-render, a short PIA, Railway egress confirmation, migration 0007 applied
+by hand on prod, and the `stores` row UPDATE that actually shows the store.

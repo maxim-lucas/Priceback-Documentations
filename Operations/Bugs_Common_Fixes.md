@@ -10532,3 +10532,115 @@ the SHAPE of the value before converting it, and make "absent" a state of its
 own rather than a number. Detect next time: any `Number(config)` where `0` is
 meaningful, and any `if (Number.isFinite(x))` guard downstream of one — the
 guard reads like it is catching this, and it is not.
+
+## 236. A Best Buy SKU was looked up in the shopper's Costco history (2026-09-02, PR pending)
+
+**Symptom (latent — caught before it shipped).** None yet. This defect was
+created by promoting Best Buy off the lab lane and would have gone live with it.
+
+**What happens.** `ScanScreen` runs `inferOnlineReceiptQuantities` on any receipt
+whose `receiptKind` is `"online"`, to recover a quantity that online invoices
+never print. Underneath, `fetchMyPriceHistory` hardcoded
+`qs.set("store", "costco")`.
+
+That was harmless while Costco was the only store with a parser. `receiptKind:
+"online"` is exactly what the **Best Buy** parser stamps on an order PDF — eight
+of its nine real captures — so the moment Best Buy was promoted, every Best Buy
+online receipt looked its SKUs up in the user's **Costco** purchase history.
+
+**Why it is not simply a lookup that finds nothing.** A SKU identifies a product
+only *within one retailer's namespace*. Costco's are 6–7 digits and Best Buy's
+7–8, so the ranges overlap and the same string names two unrelated products. On
+a hit the app infers a quantity from an unrelated price — and since `price` is
+deliberately left as the printed line total, the per-unit figure the shopper
+then claims on is `line_total ÷ a fabricated quantity`.
+
+Same failure class as the parser reading `2210 BANK ST` as an item costing
+$22.10: **a plausible wrong number is worse than a visible gap, because the user
+acts on it.**
+
+**Fix.** Thread the store through, defaulting to `"costco"` so every
+pre-existing call site is byte-identical:
+
+- `fetchMyPriceHistory({ barcode, sku, storeId = "costco" })`
+- `inferOnlineReceiptQuantities(items, storeId = "costco")`
+- `ScanScreen` passes `data.store?.id`. With no store detected the picker is
+  open and the namespace is genuinely unknown, so that path keeps the historical
+  Costco fallback — unchanged behaviour, and the one case still worth revisiting.
+
+The backend route already read `req.query.store`; no server change was needed.
+
+**Prevent.** Store scoping is now pinned on both sides, because they fail
+differently: `inferOnlineReceiptQuantities.test.js` proves the service queries
+the store it is given (and still defaults to Costco when given none), and
+`scanScreenOnlineQuantityInference.test.js` proves the *screen* passes it — a
+service that scopes correctly wired to a screen that never passes the store is
+the whole bug, and either test alone is green while it is present.
+
+**Durable lesson.** **A hardcoded constant is not a bug until a second case
+exists — and then it is a bug everywhere at once.** `store=costco` was correct
+for as long as there was one store, and nothing about it looked wrong when Best
+Buy's parser was written, tested, and hardened; it only became wrong at the
+moment of promotion, in a file nobody editing the parser would open. Detect next
+time: when promoting anything from one instance to many, grep for the FIRST
+instance's identifier as a literal (`"costco"`, `"bestbuy"`) across the whole
+app, not just the subsystem being promoted. Four of the sites found that way
+were fine; this one was not.
+
+## 237. The price feed stored an offer-end date six years in the past (2026-09-02, PR pending)
+
+**Symptom (latent).** Found by running the new `npm run bestbuy:probe` against
+the live Best Buy API with the eleven SKUs pinned by the receipt corpus.
+
+**What the API actually returned.** Two of eleven live SKUs carry an end date
+that must not be stored, from opposite directions:
+
+| SKU | On sale? | Date field | Value |
+| --- | --- | --- | --- |
+| `10255247` | no | `offerEndDate` | **2020-08-10** — six years stale, next to a `saleStartDate` of 2026-02-24 |
+| `15990615` | no (`salePrice === regularPrice`) | `saleEndDate` | 2026-09-11 — a sale that already ended, leaving its date behind |
+
+`normalizeOffersPayload` took `offer.saleEndDate ?? offer.offerEndDate`
+unconditionally. Its own comment said *"Only a sale has a real end date"* — the
+code had never done that.
+
+**Why a bad `valid_until` is worse than none.** The two readers disagree:
+
+- `pricesRepo`'s active-offer read filters `valid_until IS NULL OR valid_until
+  >= today`;
+- `priceDropRepo.findNotifiable` — **the query that charges commission** — does
+  not filter on it at all.
+
+So a past-dated row is **invisible to the display path and still visible to the
+money path**. Nothing reports the disagreement, and the shape of the resulting
+bug ("the app shows no price but the user was billed for a drop") points at
+neither file.
+
+**Fix.** An `offerEndDate(offer, isOnSale, now)` helper in
+`backend/lib/bestBuyCatalog.js` — Best Buy's own adapter, so no Costco code path
+is touched. It stores a date only when the offer *is* on sale and the date has
+not already passed. The past-date rule is the mirror of the year-9999 no-expiry
+sentinel the file already refused.
+
+**Prevent.** Six assertions in `bestBuyCatalog.test.js`, all against the live
+captures now committed under `tests/fixtures/bestbuy-api/live-2026-09-02/`,
+including the `>= today` boundary stated explicitly (a one-character slip there
+silently discards every last-day sale) and a check that a *genuine* future sale
+date is still stored — a guard that threw away the case the field exists for
+would pass every other test in the file.
+
+The pre-existing on-sale assertion also had to be pinned to a fixed clock: its
+fixture's `saleEndDate` is 2026-09-08, so the new past-date rule would have
+turned it into a time bomb that failed on 2026-09-09 with a diff saying nothing
+about the cause. Same class as the UTC date-test bug that cost every receipt's
+purchase date in 2.8.5.
+
+**Durable lesson.** **Curated fixtures prove the rules; only an unfiltered
+sweep proves the rules apply.** The four hand-picked API fixtures were each
+chosen to demonstrate a rule the adapter already had, so none of them could
+possibly have found a rule that was missing. Eleven SKUs chosen by *which
+products happen to be on nine real receipts* found two defects in one pass — and
+the same eleven produced the only live evidence that the marketplace gate works
+(`18145276`, bought at Best Buy, now sold by a third party, correctly rejected).
+Detect next time: when an adapter's comment states a rule, check that the code
+below it implements the rule rather than a superset.

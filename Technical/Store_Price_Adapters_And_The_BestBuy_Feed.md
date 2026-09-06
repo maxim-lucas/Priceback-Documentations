@@ -367,5 +367,77 @@ before the flag flips.
    hand-maintained — never run `db:migrate` there. Apply the DDL and insert the
    hash. Until it is applied the national clauses resolve to `-1` and the feed
    writes nothing usable (fails closed, by design).
-5. Best Buy is still `enabled: false` and lab-lane. Promoting the *store* is a
-   separate decision from enabling the *feed*.
+5. ~~Best Buy is still `enabled: false` and lab-lane.~~ **Done 2026-09-02** —
+   the store was promoted off the lab lane and `BESTBUY_SCAN_ENABLED` now
+   defaults to `true` in code. Note what that does and does not mean: the
+   default only applies where `app_config` has no explicit row, and the store
+   the app shows still comes from the `stores` DB row, which is untouched. Both
+   remain deliberate production acts.
+
+## The live probe, and what an unfiltered sweep found (2026-09-02)
+
+`npm run bestbuy:probe` (`backend/scripts/bestbuy-quote-probe.js`) fetches SKUs
+through `resolvePriceAdapter("bestbuy")` — the adapter, not a raw URL, so what
+it prints is what the JOB would have seen, rejections included. `--save <dir>`
+writes the raw bodies as fixtures.
+
+Its default SKU list is the **eleven pinned by the real-OCR receipt corpus**, so
+it exercises the same products the receipt side already asserts on. That makes
+it a check of the mechanism end to end rather than of the API in isolation.
+
+First run: **`quoted=10/11 rejected={"marketplace":1} in 115.1s`**. Captures are
+committed under `tests/fixtures/bestbuy-api/live-2026-09-02/` with a README
+tabulating receipt price vs live price for every SKU.
+
+Three findings, none of which the four curated fixtures could have produced —
+each of those was chosen to demonstrate a rule the adapter already had:
+
+1. **The marketplace gate fired on live data.** `18145276` (Roborock Qrevo Pro)
+   is a product a real shopper bought *from Best Buy* whose buy box is now held
+   by a third-party seller. Best Buy does not price-adjust those. This is the
+   first evidence the most important rule in the adapter works outside a fixture
+   written to trip it.
+2. **Two bad `validUntil` values, from opposite directions** — a six-year-stale
+   `offerEndDate` and a sale-end date on a price already back to regular. Both
+   were being stored. **Bugs #237**, fixed in the adapter.
+3. **Prices move a lot, and mostly upward.** Nine of eleven rose since purchase;
+   `19204882` went $3,699.99 → $5,499.99. A quiet night from the drop sweep is
+   the expected case, not a broken feed — worth remembering before debugging one.
+
+### 🔴 A stored `valid_until` is read by only one of its two consumers
+
+The reason (2) mattered enough to fix inside the adapter rather than shrug at:
+
+- `pricesRepo`'s active-offer read filters `valid_until IS NULL OR valid_until
+  >= today`;
+- `priceDropRepo.findNotifiable` — **the query that charges commission** — does
+  not filter on it at all.
+
+A past-dated row is therefore invisible to the display path and still visible to
+the money path. Fixing it in `bestBuyCatalog.js` keeps the change off Costco's
+live code path entirely; teaching the shared queries about expiry would not.
+
+## Commission is charged exactly once, and that is now pinned
+
+Adding a second store put a second store on the money path for the first time.
+The funnel was audited end to end on 2026-09-02 and is singular:
+
+- **one** writer to `price_drop_notifications` (`priceDropRepo.recordNotified`);
+- **one** charge site, reached only by the winner of that insert
+  (`ON CONFLICT (receipt_item_id, price) DO NOTHING … RETURNING`);
+- a **per-item advisory lock**, taken before the prior-minimum read and in
+  sorted id order, so the three schedulers that can reach it at once (cron tick,
+  post-flyer sweep, `POST /api/me/check-drops`) cannot each bill the full delta;
+- **telescoping totals** — `dropChargeCredits(paid − new) − dropChargeCredits
+  (paid − prior)` — so an item's lifetime charge is exactly
+  `dropChargeCredits(paid − lowest)` however many drops it saw. Per-step
+  rounding does not have this property.
+
+The legacy in-memory flyer sweep notifies but never charges.
+
+Two suites hold it: `commissionChargedOnce.test.js` (no DB) pins the *shape*
+that makes double-charging impossible — including that no store identifier
+appears anywhere in the charge arithmetic — and `commissionAnyStoreDb.test.js`
+exercises it end to end for a Best Buy national price, including **three
+concurrent sweeps**, which is the only test that actually exercises the advisory
+lock (a sequential one passes with the lock deleted).
