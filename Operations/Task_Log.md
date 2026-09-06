@@ -7885,3 +7885,93 @@ explicitly NOT done here per Maxim's "dont deploy or edit any production backend
 before the code goes on main"): the `REVIEWER_NOTES.md` second-scraper row plus
 a PDF re-render, a short PIA, Railway egress confirmation, migration 0007 applied
 by hand on prod, and the `stores` row UPDATE that actually shows the store.
+
+## 2026-09-06 — A drop the shopper already paid for survives the price going back up
+
+**Ask.** Maxim, mid-session: *"does Best buy price points have a valid until
+date? or duration? if not the price point should be valid until the next
+refresh from the api but also should have an updated or created date… or a new
+row that should be retrieved on GetPrices() on the receipt button that retrieve
+the latest price point only and it should lock it until the user gets his
+refund in the policy window"* — and separately: *"make sure on every path for
+any store now or in the future to always deduct the commission only once, this
+feature doesnt have room for errors 0% chances."*
+
+**What the code actually said, before building anything.**
+
+- `valid_until` is nullable and, after the #237 fix, almost always null for Best
+  Buy. It is only set when Best Buy publishes a genuine, un-expired sale end.
+- "Valid until the next refresh" is **already what the data means**. The job is
+  write-on-change: one row per real change, so a row is implicitly valid from
+  its `observed_at` until the next supersedes it. An explicit duration would
+  have to be re-stamped nightly, which is exactly what breaks the
+  appeared-after-purchase rule (#64).
+- Both dates already exist: `observed_at` (the day this price started) and
+  `created_at` (immutable insert time).
+- `GetPrices()` is `getLatestVerifiedPrice`, and it already returns the newest
+  verified row only.
+
+**🔴 The double-charge Maxim was guarding against is already impossible, and
+saying so was more useful than building a flag.** `price_drop_notifications` is
+UNIQUE on `(receipt_item_id, price)` and the charge is unreachable unless that
+insert won (`ON CONFLICT DO NOTHING … RETURNING`). A deeper drop charges only
+the increment, so an item's lifetime charge is exactly
+`dropChargeCredits(paid − lowest)` however many times it moves. A "stop after
+the first drop" flag would have *removed* a saving the shopper is owed. So
+commission behaviour was left exactly as it is, and the guarantee was pinned
+instead (`commissionChargedOnce.test.js`, `commissionAnyStoreDb.test.js`).
+
+**What WAS missing is the display half, and Maxim picked the design.** Commission
+is debited at DETECTION; the price shown comes from `getLatestVerifiedPrice`,
+which answers with whatever is newest. So a rebound between detection and the
+shopper reaching the store erases the drop from their screen while the charge
+stands. Nine of eleven corpus SKUs moved in the live probe, so for store #2 this
+is the common case, not an edge.
+
+**The lock.** `price_drop_notifications` has recorded the price of every drop the
+sweep surfaced and billed for since the feature shipped, and nothing ever read
+it back — it existed only to elect one charger. `lockedDropsForUser` is its
+first reader: the LOWEST notified price per live watched line, keyed by
+`(receiptId, position)`.
+
+**Lowest, not latest** — the lowest is exactly what the commission was billed
+against, and "latest" is not even well defined when two sweeps land in the same
+second.
+
+**Entirely additive on the backend.** No existing query is modified, so a
+failure can only mean a missing lock, never a broken receipt list. The window,
+the claim state, the soft deletes and the ownership scope are all enforced in
+the QUERY — a lock that outlived the adjustment window would show a claim that
+can no longer be made, which is the same failure inverted, and the client caches
+whatever it is handed. Served fail-soft on `/api/me/bootstrap` alongside
+`savings`, because a throw in that Promise.all is the outage shape that once
+cost four days.
+
+**On the client** `services/lockedDrops.js` computes a FLOOR, never a ceiling: a
+deeper live price still wins and bills its own increment. A lock also applies
+when there is no live price at all, so a transient backend gap cannot erase a
+paid-for claim.
+
+**🔴 The subtle bug, guarded from both sides.** The item's position is captured
+BEFORE the watchable filter. `isWatchableLine` drops fee/deposit rows, so
+filtering first renumbers the survivors — and on any receipt containing an
+`Ecofrais` line (a real Best Buy row, pinned by two corpus fixtures) every lock
+would be applied to the wrong product at the wrong price, silently. Tested in
+both directions: a lock on position 1 must reach the survivor, and a lock on the
+filtered-out position 0 must NOT.
+
+**The disclosure is part of the feature.** A saving the till will not honour,
+shown with no explanation, sends someone to a counter to be told they are wrong.
+An amber "Price held" chip plus a one-line reason, EN + FR (`en=fr=1495`).
+Negative tests included: an ordinary drop shows neither, a claimed line never
+shows it, and a stale zero-savings record shows nothing.
+
+**Regression risk.** Commission: untouched — `findNotifiable`, `recordNotified`
+and the charge arithmetic are not modified, and the structural guard asserts
+that mechanically. Costco: it gains the same fix, which is correct — Costco has
+the same exposure on a weekly clock — and the change is display-only; no parser
+or shared parsing file is involved. Users with no locks (everyone, until the
+server sends one) take a path pinned by an explicit no-lock test.
+
+**Status:** branch `feat/locked-drop-price`, stacked on #320. CI held until
+#320's backend run finishes — two backend suites must never share the pooler.
