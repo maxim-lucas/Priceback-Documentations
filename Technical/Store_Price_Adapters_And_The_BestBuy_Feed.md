@@ -294,7 +294,7 @@ into "no price".
 
 ---
 
-## Adding the next store (Abercrombie, …)
+## Adding the next store
 
 1. **Read the store's `robots.txt` first and write down what it allows.** This
    feed exists because `/en-ca/product/` is Allowed and there is nothing to
@@ -312,39 +312,13 @@ into "no price".
    cannot. Every retailer has one and it is never optional.
 6. Add the store to `hasDbPriceFeed` **only** once it actually has a feed.
 
-### Abercrombie, triaged 2026-08-31
+### Per-store notes live in that store's own folder
 
-Step 1 comes out **green**, which is the useful part — but be precise about what
-that does and does not mean.
-
-**Verified:**
-
-- `robots.txt` disallows only checkout, account and `/shop/*/search` paths.
-  **Product pages are not disallowed.**
-- A real sitemap index is served at
-  `https://www.abercrombie.com/api/ecomm/util/sitemap/index/anf` (and explicitly
-  `Allow`ed), listing **product** and **category** sitemaps per store id
-  (`targetStoreId=10051`).
-- `abercrombie.ca` redirects to `abercrombie.com/shop/ca/`, so a Canadian
-  storefront exists.
-- Responses are slow enough to time out at 25s on a first hit — an adapter needs
-  a generous timeout and retry tolerance, unlike Best Buy's sub-second replies.
-
-**NOT yet verified — do not assume any of it:**
-
-- Whether a per-product JSON price endpoint exists. The sitemap living under
-  `/api/ecomm/` implies a JSON namespace; it does not prove a price route.
-- Whether prices are embedded in the product HTML (no `application/ld+json` was
-  found on `/shop/ca`, but that is a shell page, not a product page).
-- **What Abercrombie's equivalent of the marketplace gate is.** Apparel brings
-  its own version — final-sale and clearance items are typically excluded from
-  price adjustment, and sizes/colours are separate variants with separate
-  prices, which the SKU model here has never had to represent.
-
-So the next step is a capture session against real product pages, not a design.
-Steps 4 and 5 above apply in full.
-
----
+Abercrombie's triage, capture session and adapter design were moved out of this
+file on 2026-09-07 and now live in **`Technical/Abercrombie/`**. Standing rule:
+one store = one parser file and one documentation folder; never describe two
+stores in one document. This file stays Best Buy's, plus the store-neutral
+checklist above.
 
 ## 🔴 Owed before `BESTBUY_SCAN_ENABLED` is turned on
 
