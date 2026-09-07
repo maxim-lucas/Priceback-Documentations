@@ -155,3 +155,54 @@ a wrong one costs the shopper money and PriceBack's credibility.
   dropped — and charge each of them commission.
 - **The neutral Quote/Rejection contract** in `services/storePriceAdapters.js`.
   Never throw; a rejection is data; unit prices in the store's own currency.
+
+---
+
+## Two more findings that change the adapter's shape
+
+### 🔴 A&F throttles hard, and the 403 is transient
+
+Rapid-fire probing turned a URL that had just returned 200 into a **403**, and a
+single request **75 s later returned 200 again**. So `http_403` is *not* a
+permanent verdict on a SKU — it is backpressure.
+
+Consequences:
+
+- **Pace far more conservatively than Best Buy's 1 s.** Best Buy's throughput was
+  latency-bound; this one is politeness-bound.
+- **A 403 must be retryable, not terminal.** Treating it as a dead SKU would
+  silently drop items from the sweep and look like "the product is gone".
+- Never re-probe in a tight loop while developing. The block is IP-wide, so it
+  takes out the capture session too.
+
+### 🔴 The product SLUG is required — an id alone 404s
+
+`/shop/ca/p/63504014` → **404**. Only `/shop/<store>/p/<slug>-<productId>`
+resolves. Best Buy's API takes a bare SKU, so this is a genuinely new problem:
+**a receipt carries an item number, not a URL slug.**
+
+The sanctioned slug source would be the sitemap, which robots.txt explicitly
+`Allow`s (`Allow: /api/ecomm/util/sitemap/*`, and it is the declared `SITEMAP:`)
+— but that route answers **403 to a server-side fetch** regardless of headers,
+XML or navigation-shaped. It was reachable during the 2026-08-31 triage, so this
+is either a change or a browser-session requirement.
+
+**Therefore the adapter cannot resolve a slug on its own today**, and it must not
+guess one. Identity and addressing are separated:
+
+- **Identity** = `"<productId>:<itemId>"` — both 8-digit, retailer-issued, and
+  variant-level, which is what the "same color and size" rule requires.
+- **Addressing** = the slug, supplied through an injectable `slugFor(productId)`
+  seam. Unresolved ⇒ a distinct, counted `slug_unknown` rejection, never a guess.
+
+Candidate slug sources, in preference order:
+
+1. **The order confirmation itself.** A&F order emails/PDFs link to the product,
+   so the parser may be able to capture the slug at scan time — the receipt half
+   feeding the price half. Confirm when the first real receipt arrives.
+2. A harvested `productId → slug` catalogue, refreshed periodically — the same
+   shape as the Costco barcode harvester.
+3. A browser-assisted harvest, as Costco's flyer already requires.
+
+Until one exists the feed quotes nothing, which is the correct conservative
+answer and is why `hasDbPriceFeed` must **not** list Abercrombie yet.
