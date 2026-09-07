@@ -8223,3 +8223,73 @@ hardcoded `isCostcoWarehouse` test, whose own comment is the Abercrombie in-stor
 rule already written. PR 3 turns that `if` into store-row data (`claimEmail`,
 `claimMethods`), preserving Costco's behaviour exactly — the three pinned cases in
 `__tests__/claimAssistantScreen.test.js` are the regression proof.
+
+## 2026-09-07 — Landing Abercrombie store #3, and the red `development` it uncovered
+
+**Task.** Carry the Abercrombie price-adapter work (PR #322) through review and
+merge, together with its documentation.
+
+### What the verification run found
+
+CI does not run on feature branches by design (#313 narrowed the triggers to
+`main` pushes plus `workflow_dispatch`, to survive the free tier), so the PR
+showed no checks. Dispatched `Tests` by hand against the branch. Backend and
+security passed; **Mobile (Jest) failed one test out of 5 706** —
+`costcoPathImmutability` reporting that `__tests__/receiptParserRegistry.test.js`
+no longer matched its pinned hash.
+
+That file is **not in the Abercrombie diff**, which is backend-only.
+`git diff --stat development...HEAD -- <file>` returned empty, and
+`git show development:<file> | sha256sum` produced exactly the hash CI reported
+while the pin still held #318's value. **The failure was pre-existing on
+`development`**, inherited by every branch cut from it since #320 merged on
+2026-09-06.
+
+### Cause and fix (Bugs #238, PR #323)
+
+#320 promoted Best Buy to a production parser and correctly updated the registry
+test, but skipped the re-pin the guard's own header requires in the same commit.
+The guard fired correctly on 2026-09-06 and **fired into an empty room** — a
+`development` merge produces no CI run, so nothing read it until the next
+hand-dispatched run a day later.
+
+Before re-pinning, reviewed the edit as the guard demands: the Best Buy lane
+assertions are inverted (the promotion itself), the lab-lane block is rewritten
+for an empty `LAB_STORE_PARSERS`, and the **only** Costco-touching line is the
+inventory assertion widening from `["costco"]` to `["bestbuy","costco"]`. No
+Costco assertion weakened; all four pinned Costco *sources* unchanged, so the
+golden snapshots cannot have moved. One line re-pinned, not the table.
+
+### Also found, not fixed
+
+The immutability guard **cannot pass on a Windows checkout** with
+`core.autocrlf=true` — it hashes working-tree CRLF bytes against LF repository
+pins, so every pinned file mismatches locally. Harmless on CI (Linux, LF), but
+it makes the suite locally unrunnable. Owed: a `.gitattributes` entry or a
+newline-normalising `hashFile`, in its own change.
+
+### Shipped
+
+| PR | Repo | What |
+| --- | --- | --- |
+| #322 | Priceback | Abercrombie price adapter + the currency gate, → `development` |
+| #323 | Priceback | the stale Costco guard pin, → `development` |
+| #48 | Priceback-Documentations | Abercrombie policy + capture session, own folder |
+| (this) | Priceback-Documentations | Bugs #238 + this entry |
+
+### Regression risk
+
+**None from either merge.** #322 is additive — new files plus one `require`, one
+`PRICE_ADAPTERS` row, a doc note whose return value is unchanged, and an npm
+script; no Costco or Best Buy file is touched, and it ships inert
+(`hasDbPriceFeed` deliberately does not list Abercrombie, so every quote is
+`slug_unknown` until a slug source exists). #323 is a one-value test-only change
+that restores a tripwire currently unable to fire.
+
+### Still owed before `ABERCROMBIE_SCAN_ENABLED` is turned on
+
+1. Confirm Railway egress reaches A&F as **Canadian** — a laptop proves nothing
+   about Railway; Costco is the precedent.
+2. A genuine **CAD** capture. The one committed fixture is USD on purpose.
+3. A **slug source** — the order confirmation is the most promising, which would
+   make the receipt half feed the price half.
