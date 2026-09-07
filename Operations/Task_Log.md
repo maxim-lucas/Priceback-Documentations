@@ -8035,3 +8035,102 @@ moves, change it and re-render. Stickers must be added inside Instagram to be
 interactive. Note also that the handle `@priceback.ca` already discloses the
 name; what the pack withholds is what the product *does*, which is the part
 worth protecting.
+
+---
+
+## 2026-09-07 — The evergreen Instagram pack, a 14-day run, and a publisher that cannot double-post (social-media-manager `sm-content-evergreen`)
+
+Not this repo and not the app: `social-media-manager`, branch
+`sm-content-evergreen` off `sm-content-teaser`. Logged here because it commits a
+renderer and a scheduled poster, and because the copy is bound by
+`legal/MARKETING_CLAIMS.md`.
+
+**What.** `sm-content/evergreen/` — 38 assets, EN + FR: nine 4:5 feed posts and
+ten 9:16 story frames, plus a 14-day schedule (Mon 7 → Sun 20 Sep), two Reel
+scripts, `scripts/publish-due.js`, and two GitHub Actions workflows. Docs:
+`EVERGREEN-NOTES.md`, `CALENDAR.md`, `HOOK-BANK.md`, `AUTOMATION.md`, and
+`docs/instagram-playbook.md` with the August launch playbook archived beside it.
+
+**Why a third pack.** The launch pack was built around one retailer and one
+claim window. Both were right in August and both are now moving targets — a
+second store is live, more are queued, and every retailer sets its own terms. An
+asset that prints either becomes *wrong* the day a store with different terms
+goes live, and goes on being posted anyway, because nobody re-reads a PNG. This
+pack describes the mechanic instead. The store list still appears, as
+**categories** with two ticked, and that frame is both the growth story and the
+only follow ask in the fortnight: *new stores get announced here first.*
+
+**The constraint is enforced, not remembered.** `scenes/claims.js` holds one rule
+set — no retailer named, no window in days, no currency figure, no percentage,
+no promise — and it is imported by **both** `scenes/verify.js` (the art) and
+`scripts/check-copy.js` (the captions). The captions were the half nobody was
+gating before: verify.js only ever read `strings.json`. It fired for real during
+the build, on `on n'imprime pas un chiffre qu'on ne peut pas **garantir**` — a
+negated, genuinely harmless use. The copy moved. The gate did not: the one time
+you loosen it for a harmless case is the time the next case is not harmless.
+
+**The disclaimer is appended by the publisher, never typed per post.**
+MARKETING_CLAIMS.md names the exact failure — a claim clipped into a social card
+without its paired fine print — and a disclaimer that depends on someone
+remembering it is a disclaimer that is eventually absent. One string in
+`schedule.json`; CI fails if it loses the non-affiliation line or the
+success-fee pairing.
+
+**Four defects the gates caught, each worth keeping.**
+1. `feTurbulence` paints the whole filter *region* — for a rotated strip, its
+   bounding box, not its outline — so the paper texture was drawing a visible
+   rectangle around every frame. Fix is `feComposite in2="SourceAlpha"
+   operator="in"`, which then requires the path to carry a fill. It also took
+   the pack from 25 MB to 8 MB: the stray noise was defeating palette
+   compression.
+2. SVG `letter-spacing` is **absolute**, not an em. The type auto-fit solved for
+   size while treating tracking as if it scaled, and since the display token's
+   tracking is negative it mis-solved *upward* — hooks overran the story frames'
+   action rail.
+3. Fontconfig will not hand you a face by weight. `font-family="Roboto"`
+   resolves to a bold face at *every* weight from 400 to 900 on this machine
+   (measured — identical ink). Every hook was shipping Bold and every sub-line
+   bold too, silently, with the tokens declaring 900 and 400. Faces have to be
+   named (`Roboto Black`).
+4. **A gate can be wrong in the same direction as the bug.** The first version
+   of the font gate compared ink *extent* and reported the Black face missing at
+   552px vs 555px, on a machine where it was plainly rendering — Roboto's Black
+   and Bold have near-identical advances; weight lives in the stems. It had to
+   measure ink *area*. A gate that fails for the wrong reason teaches you to
+   ignore it.
+
+**The publisher's four properties.** Dry run by default (`--write` is the only
+way to post, and the workflow additionally requires `PUBLISH_ENABLED=true`);
+never twice (every publish recorded by slot id in `published.json`, plus an
+Actions `concurrency` group); never late (a slot is publishable only within 6h
+of its time, so a runner that was down for two days reports MISSED rather than
+dumping four posts at once); and the disclaimer above. Stories and Reels are
+deliberately **not** automated — the Graph API cannot attach a poll, quiz,
+question, slider or link, and on those frames the sticker *is* the content; the
+art leaves an empty band for it, so an automated story would publish a hole.
+
+**CI does not re-render.** `render.js` resolves fonts through the system font
+list and a runner's versions will not match the build machine's, so a CI render
+would either flake or quietly redefine "correct". CI checks facts about the
+files (schedule validity, the claim gate); a human checks facts about the pixels
+(`scenes/verify.js`, six gates, run locally).
+
+**Verification.** 38 assets rendered byte-identical across two runs (seeded
+mulberry32, no `Math.random`). `verify.js` 6 gates / 0 failures / 0 warnings;
+`check-copy.js` 445 art strings + 9 captions / 0 problems; `publish-due.js
+--check` 22 slots / 0 problems; dry run exercised end-to-end including caption
+assembly and the raw.githubusercontent asset URL. Nothing was published — the
+account was not touched and the workflow ships switched off.
+
+**Regression risk: none in the app.** Different repo, additive folders, no app
+code touched. The only pre-existing file modified is `sm-content/README.md`
+(rows and a section added); no existing asset was re-rendered or replaced.
+Pre-existing uncommitted work in that repo's `src/` was left untouched — only
+the new paths were staged.
+
+**Open for the operator.** The run is dated 7–20 Sep and shifting it means
+editing `schedule.json` and nothing else. Day 4 has no asset on purpose: it is a
+screenshot of day 1's real poll result. Day 13 promises a comment count —
+post it, an open loop you don't close costs more than the follows it bought.
+Both languages of all nine posts are rendered; this run publishes 5 EN / 4 FR
+and the other half is the next cycle, inverted so French gets the follow post.
