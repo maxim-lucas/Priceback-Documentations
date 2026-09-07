@@ -8146,3 +8146,80 @@ screenshot of day 1's real poll result. Day 13 promises a comment count —
 post it, an open loop you don't close costs more than the follows it bought.
 Both languages of all nine posts are rendered; this run publishes 5 EN / 4 FR
 and the other half is the next cycle, inverted so French gets the follow post.
+
+---
+
+## 2026-09-07 — Abercrombie & Fitch as store #3: policy read, price feed triaged, adapter started
+
+**Ask.** Maxim asked whether A&F can be added as a store, and if so to plan the
+architecture and a new parser (online **and** in-store receipts), check whether
+price adjustments can be claimed **by email for both receipt types**, and if so
+implement the whole flow including generating the email. He supplied the
+sale-terms URL and noted he has no A&F receipts yet.
+
+**Two standing rules restated during the session**, both now in memory:
+one store = **one parser file** (never mixed), and one store = **one
+documentation folder** (`Technical/<StoreName>/`, never mixed). The second was
+prompted by a plan that proposed writing Abercrombie findings into
+`Store_Price_Adapters_And_The_BestBuy_Feed.md`. That file's Abercrombie section
+has been moved out to `Technical/Abercrombie/` and its "Adding the next store"
+heading made store-neutral.
+
+**Verdict: viable, with one correction to the premise and one hard limit.**
+
+The policy was read from A&F's own pages in a real browser — both are
+JS-rendered, so WebFetch returns navigation chrome and no policy text, and three
+aggregator sites state the policy wrongly. Full quotes in
+`Technical/Abercrombie/Price_Adjustment_Policy.md`.
+
+- **Online — 14 days, US *and* Canada, from the ORDER date**, full price only,
+  one adjustment per item, same colour and size, and **email is the officially
+  designated channel** (`Abercrombie@Abercrombie.com`, order number required).
+- **In-store — 7 days, and email is NOT available**: *"please return to your
+  nearest Abercrombie or abercrombie kids store with your merchandise."*
+
+So the answer to "can both be claimed by email" is **online yes, in-store no**.
+That matters because commission is debited at **drop detection**, before any
+claim — routing an in-store buyer to email bills them for a refusal. Decision:
+in-store receipts get a guided in-store pack, which is the shape
+`ClaimAssistantScreen` already implements for Costco warehouse purchases.
+
+🔴 **Open — the in-store window.** Configured as **14 days for both channels** on
+Maxim's instruction; the 7 comes from a different official A&F page and is scoped
+to in-store purchases. One data field (`stores.adjustment_days`), so it is a
+one-line change. Owed: read the **Canadian** in-store help page.
+
+**Capture session (the feasibility crux, since a parser with no price feed is
+inert — the exact gap Best Buy had as store #2).** Full writeup in
+`Technical/Abercrombie/Price_Adapter.md`.
+
+- **A&F is not walled.** A minimal-header `fetch` returns **403**; a *complete*
+  browser header set returns **200** with the full 525 KB page. That nearly
+  produced the wrong verdict — the adapter's `HEADERS` constant is load-bearing,
+  and trimming it reintroduces a 403 that lands as silent counted data loss.
+- Prices are **inline in the HTML** as a `productPrices` global with per-variant
+  `itemId` / `listPrice` / `offerPrice` — exactly the "full price only" and
+  "same colour and size" tests the policy needs. No JSON API required.
+- 🔴 **A&F geo-routes, and the failure is silent.** From non-Canadian egress every
+  attempt (path, `Accept-Language`, country cookies, `?originalStore=ca`) lands on
+  the **worldwide** storefront `data-storeid="11203"` priced in **USD**. A USD
+  price against a CAD receipt line is numerically lower, so it reads as a price
+  drop of about the exchange rate on every item forever — and gets billed. This
+  is Abercrombie's marketplace-gate equivalent: the adapter asserts the storefront
+  and returns `currency_mismatch` rather than quoting. **Fails closed.**
+- **Owed before the scan flag flips:** confirm Railway egress reaches A&F as
+  Canadian (a laptop proves nothing about Railway — Costco is the precedent), and
+  capture fixtures only once CAD is reachable, or the suite pins the wrong currency.
+
+**Sequencing** (Maxim chose adapter-first): PR 1 price adapter → PR 2 parser on
+the lab lane (no receipts yet, so the documented promotion bar cannot be met) →
+PR 3 claim channel + email → PR 4 promotion. PRs 1 and 2 are inert for live users
+on merge.
+
+**The email half is an extension, not a build.** `ClaimAssistantScreen` already
+drafts a claim email and opens `mailto:` — with **no recipient**, which is the
+gap. It also already carries the only per-store branch in the claim flow, the
+hardcoded `isCostcoWarehouse` test, whose own comment is the Abercrombie in-store
+rule already written. PR 3 turns that `if` into store-row data (`claimEmail`,
+`claimMethods`), preserving Costco's behaviour exactly — the three pinned cases in
+`__tests__/claimAssistantScreen.test.js` are the regression proof.
