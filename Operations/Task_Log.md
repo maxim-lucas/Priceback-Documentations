@@ -16,6 +16,18 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-07 — Branch/PR policy for every repo + stale-branch audit
+
+- **Asked (/goal):** add a standing rule that in *all* GitHub repos, every
+  branched work goes through a PR and a merge; audit old branches for unmerged
+  work and, if any, PR them oldest-first. Apply now to Priceback,
+  Priceback-Documentations, social-media-manager.
+- **Done:** new `Operations/Branch_And_PR_Policy_All_Repos.md`. Audited all
+  three repos — **no unmerged work anywhere**; every branch had already gone
+  through a PR+merge. Deleted 6 stale merged branches; kept
+  `backup/main-pr314-promotion` (archival rollback ref). Table in the new doc.
+- **Status:** done. Docs PR on `docs/branch-pr-policy-all-repos`.
+
 ### 2026-08-25 — Sentry triage, Apple display names, and the USD price loop
 
 - **Asked (/goal):** check and fix the new Sentry errors; find out why every
