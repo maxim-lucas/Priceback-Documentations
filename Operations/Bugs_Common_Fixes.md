@@ -10644,3 +10644,72 @@ the same eleven produced the only live evidence that the marketplace gate works
 (`18145276`, bought at Best Buy, now sold by a third party, correctly rejected).
 Detect next time: when an adapter's comment states a rule, check that the code
 below it implements the rule rather than a superset.
+
+## 238. A guard that fired correctly went unheard for a day, and every branch inherited its red (2026-09-07, PR #323)
+
+**Symptom.** `development` failed exactly one test, on every branch cut from it,
+from 2026-09-06 onward:
+
+```
+● the Costco path is frozen › the suites that protect it
+  › __tests__/receiptParserRegistry.test.js is byte-identical to its pinned state
+
+Test Suites: 1 failed, 234 passed, 235 total
+Tests:       1 failed, 1 skipped, 5704 passed, 5706 total
+```
+
+It surfaced on the Abercrombie PR (#322), which is **backend-only** and does not
+contain the named file. The first reading a branch author gets is therefore
+"my PR broke the Costco guard", pointing at a store the change never touched.
+
+**Cause.** #320 promoted Best Buy from the lab lane to a production parser and
+updated `__tests__/receiptParserRegistry.test.js` to match — correctly. That
+file is listed in `COSTCO_GUARD_SUITES` in
+`__tests__/costcoPathImmutability.test.js`, whose header states the required
+second step in the same breath as the first:
+
+> the edit is a deliberate, reviewed Costco change — then re-pin the one hash
+> **in the same commit as the change**
+
+The edit landed; the re-pin did not. **The guard was not wrong — it was right,
+and nobody was listening**, because CI no longer runs on `development` (#313
+narrowed the triggers to `main` pushes plus manual dispatch, deliberately). A
+`development` merge produces no run, so the failure sat undiscovered until the
+next feature branch paid for a hand-dispatched one.
+
+**Fix.** One line re-pinned to the current hash, with the review the guard asks
+for recorded inline and in the commit message: diffing the pinned state (#318)
+against `development` shows the Best Buy lane assertions inverted and the
+lab-lane block rewritten for an empty `LAB_STORE_PARSERS`, and exactly **one**
+Costco-touching line —
+
+```diff
+-    expect(withLane(false, () => listStoreParserIds())).toEqual(["costco"]);
++    expect(withLane(false, () => listStoreParserIds()).sort()).toEqual(["bestbuy", "costco"]);
+```
+
+— the direct consequence of there being two production parsers. No Costco
+assertion removed or weakened, and no Costco *source* file in the diff: all four
+pinned sources still hash to their pinned values, so the golden snapshots cannot
+have moved.
+
+**Prevent.** The store-promotion checklist gains an explicit line: *promoting a
+store edits `receiptParserRegistry.test.js`, which is a pinned guard suite — the
+re-pin ships in the promotion commit.* The guard cannot enforce its own
+follow-up step; it can only fail, and it did.
+
+**Durable lesson.** **A guard is only as good as the run that reads it.**
+Trigger-narrowing and tripwires interact: #313 made feature branches and
+`development` deliberately unverified to survive the free tier, which is a sound
+trade, but it also means a tripwire on those branches fires into an empty room
+and the *next* author inherits the alarm as if they had set it off. When a
+suite fails on a file your diff does not contain, check whether it already
+failed on the base branch **before** reading it as your own regression:
+`git diff --stat <base>...HEAD -- <file>` answers it in one command.
+
+**Also found, not fixed here.** This guard **cannot pass on a Windows checkout**
+with `core.autocrlf=true`. It hashes working-tree bytes (CRLF) against pins that
+are the repository's LF bytes, so *every* pinned file mismatches locally. No
+effect on CI (Linux, LF), but the suite is locally unrunnable on Maxim's
+machine — a `.gitattributes` entry or a newline-normalising `hashFile` would fix
+it, in its own change.
