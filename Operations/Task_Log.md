@@ -8293,3 +8293,91 @@ that restores a tripwire currently unable to fire.
 2. A genuine **CAD** capture. The one committed fixture is USD on purpose.
 3. A **slug source** — the order confirmation is the most promising, which would
    make the receipt half feed the price half.
+
+## 2026-09-08 — Follow us on Instagram and Facebook, and a Profile group that outgrew its name
+
+Shipped as a hotfix off `main` (Priceback PR #324), not through `development`,
+at Maxim's instruction — it is additive UI with no dependency on anything
+sitting on `development`.
+
+### What changed
+
+The Profile page's last settings group held Help & Support, Rate PriceBack and
+About under the label **Support** (FR *Assistance*). Two rows were added
+directly under Rate PriceBack — **Instagram first, Facebook second** — which
+makes "Support" wrong as a group name: two of the five rows are now about
+following the brand, not getting help. Renamed to **Help & community** /
+**Aide et communauté**. `profile.sectionSupport` was *renamed*, not left
+orphaned; it had exactly one reader, verified by grep across `src/`,
+`__tests__/` and `scripts/`.
+
+Final order: Help & Support → Rate PriceBack → Instagram → Facebook → About.
+
+### Where the links live
+
+New `src/constants/socialLinks.js`, a sibling of `storeLinks.js` and
+`contact.js` for the same reason those exist. The handle is `priceback.ca` on
+both networks — the one `Marketing-Plan/02-social-media-strategy.md` records as
+already claimed, and the one every footer on priceback.ca already links to. It
+is pinned in one module so the app can never drift from the website.
+
+| network | primary | fallback |
+| --- | --- | --- |
+| Instagram | `instagram://user?username=priceback.ca` | `https://www.instagram.com/priceback.ca/` |
+| Facebook | `fb://facewebmodal/f?href=…` | `https://www.facebook.com/priceback.ca/` |
+
+**Why two URLs per network, and why the app scheme goes first.** A follow CTA
+that lands in the in-app browser lands on a logged-out wall — the user cannot
+tap Follow there, so the row fails at exactly the thing it exists to do. The
+custom scheme opens the installed app, where the session is live. But it fails
+outright with the app uninstalled, so the https URL is always tried second: it
+resolves everywhere, and on Android both networks own a verified app link for
+it, so it *still* opens the native app when one is present. Worst case the row
+opens the web page, which is at least the right page.
+
+`openSocial()` resolves `true` / `false` and **never rejects**. A caller does
+not need its own catch, and — the point — a link that cannot open surfaces as a
+translated alert instead of an inert row that looks broken. An unknown network
+name resolves `false` and opens nothing rather than throwing inside Profile.
+
+No SDK, no Meta API, no new permission. These are plain outbound links, so none
+of the AdMob / ATT machinery is involved.
+
+### Localization
+
+All seven new keys shipped in EN **and** FR in the same commit, per CLAUDE.md.
+`node scripts/checkI18n.js` → `2 language(s) [en=1499, fr=1499], all keys in
+sync`. The i18n test in the new suite reads the language list off the bundle
+source rather than hardcoding `["en","fr"]`, so a third language comes under it
+for free.
+
+### Tests
+
+`__tests__/profileSocialLinks.test.js`, 12 cases. Three are worth naming
+because no smoke mount would catch them:
+
+1. **Both URL pairs pinned literally.** A wrong handle is a silent dead end —
+   the page loads, it just isn't us. Nothing else in the suite would notice.
+2. **The fallback path asserted, not assumed.** The uninstalled-app case is
+   driven by rejecting the first `openURL` and asserting the *call order*, so
+   the fallback cannot rot into dead code.
+3. **Row order.** Instagram-then-Facebook-after-Rate is a product decision, and
+   `settingsSections` is a plain array anyone could reshuffle without a test
+   objecting.
+
+### Regression risk
+
+**Low, and confined to the Profile page's bottom group.** `settingsSections`
+gains two rows and one label key; no existing row, handler, modal or route is
+touched, and `handleAction` gains two new `case`s while changing none of the
+existing ones. `socialLinks.js` is a new leaf module with no imports, so
+nothing else in the app can regress through it. No store parser, no Costco or
+Best Buy code, no backend, no DB, no build config. **No version bump** — this
+is not a release; the next store build picks it up under the release-tagging
+rule as usual.
+
+### Follow-up owed
+
+Once this is on `main` it must be merged down into `development` (Maxim's
+instruction, and the branch model requires `development` to stay ahead of
+`main`, never behind on a hotfix).
