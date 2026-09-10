@@ -10797,3 +10797,95 @@ App Store Connect version, which makes `Paywall.js` render a price skeleton and
 **disable** the Subscribe button. Fixing only what the letter names is how a
 two-round rejection becomes a three-round one. The pre-submission checklist in
 `Publishing-Compliance/App_Store_Rejections.md` §0 exists for exactly this.
+
+## 240. A destructured import made the admin-protection tests fail against correct code (2026-09-10, PR #327)
+
+**Symptom.** Every run of the backend suite against a real database ended
+`fail 2`, and had since the admin console landed (#325). The same two tests,
+every time, on `main` and on the branch:
+
+```
+test at tests/adminConsoleRoutesDb.test.js:328
+✖ a protected account is never proposed, even when it matches
+  AssertionError: an admin account must never appear as a cleanup candidate
+
+test at tests/dataCleanupPredicatesDb.test.js:319
+✖ an admin account on the company domain is protected from its own group
+  AssertionError: an operator must not be able to delete the account holding
+                  the only surface that could undo it
+```
+
+Both assert the same invariant from opposite ends: an account on the admin
+allow-list can never be proposed for deletion by the cleanup console. Both set
+that account up the same way — by swapping `configService.getAdminSubs` for a
+stub that names it.
+
+**Cause.** `backend/lib/dataCleanup.js` imported the function by destructuring:
+
+```js
+const { getOpsConfig, getAdminSubs } = require("../config/configService");
+```
+
+A destructured binding is captured **once, at require time**. Reassigning
+`configService.getAdminSubs` afterwards rebinds the property on the module
+object and leaves the captured reference untouched, so `protectedSubs()` went on
+calling the original function. The stub naming the test's account was never
+consulted; the real allow-list (`ADMIN_USER_SUBS`, unset in CI) came back empty;
+nothing was protected; the account showed up as a candidate exactly as the
+assertions said it must not.
+
+The rest of the backend does not have this problem, and not by luck.
+`server.js` splits its import deliberately — `const { getOpsConfig } =
+configService;` for the plain reads, and `configService.getAdminSubs()` written
+out at each of its call sites — and `priceDropNotifier.js` does the same. The
+new file broke a convention that was load-bearing and looked cosmetic.
+
+**Why this shape is the dangerous one.** *The shipped behaviour was correct the
+entire time.* `getAdminSubs()` reads `process.env` on every call and is never
+reassigned in production, so the stale binding returned the right answer in the
+app: admins really were protected, and no operator could ever have deleted one.
+Only the test seam was broken.
+
+That is the worst configuration a red test can be in. A failure over genuinely
+broken code gets fixed. A failure over correct code invites someone to conclude
+the *test* is wrong — to relax the assertion, mark it flaky, or gate it behind a
+skip — and the invariant then has no guard at all on the day the production path
+does break. Two of these sat red for eight days across two branches.
+
+**Fix.** Late-bind the one function the tests drive, matching what `server.js`
+already did:
+
+```js
+const configService = require("../config/configService");
+const { getOpsConfig } = configService;          // plain read, never swapped
+...
+const all = [...configService.getAdminSubs(), ...fromConfig, ...extra.map(String)];
+```
+
+`getOpsConfig` stays destructured on purpose: no test swaps it, and pretending
+otherwise would suggest the namespace form is a style rule rather than a
+statement about which seams are real.
+
+**Detect.** The two tests that caught it are DB-gated (`skip: !HAS_DB`), so
+without `DATABASE_URL` they skip and report green — the regression could return
+unseen. The guard therefore lives in `backend/tests/dataCleanupRegistry.test.js`,
+which needs no database: it swaps `configService.getAdminSubs`, asserts
+`protectedSubs()` reflects the swap, asserts an emptied allow-list drops the
+account it had been protecting (so the swap is honoured in *both* directions,
+which is what lets a test set up its own "not protected yet" precondition), and
+finally asserts the real function was restored — so a broken restore cannot
+leave every later test in the file passing against a stub.
+
+The two tests that already existed beside it set `process.env.ADMIN_USER_SUBS`
+instead, which flows through the *real* `getAdminSubs()`. They pass either way.
+That is the gap: they prove the allow-list is honoured, and say nothing about
+*how it is read* — and the how was the bug.
+
+**Durable rule.**
+
+> If a test suite swaps a function on a module object, every consumer of that
+> function must call it through the module object. A destructured import freezes
+> the reference at require time and silently discards the swap — and because the
+> swap is a test-only construct, the resulting failure appears over production
+> code that is behaving perfectly.
+
