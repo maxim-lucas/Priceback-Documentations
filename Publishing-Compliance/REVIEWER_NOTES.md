@@ -147,6 +147,32 @@ After signing in:
 
 ## Permissions — why we ask
 
+### When we ask, and what you will see
+
+Right after sign-in there is a single explanatory screen listing the two
+permissions the app uses immediately, with one button: **Continue**. It has no
+skip, no dismiss and no back — pressing Continue always takes you into the iOS
+camera prompt and then the notifications prompt. Declining either is fine and
+does not block the app.
+
+Every other permission is requested **only from the action that needs it**:
+
+| Permission | Asked when |
+|---|---|
+| Photo library | you tap Upload / choose a photo |
+| Location | you open the Costco warehouse picker |
+| Photo library (scan suggestions) | you switch that option on in Profile |
+
+If you decline a permission, the app does not re-ask — iOS only prompts once.
+Instead the relevant screen explains what is unavailable and offers an **Open
+Settings** button, so there is always a route back.
+
+*(2.8.18 was rejected under 5.1.1(iv) because this screen's button read "Allow
+access" and offered a "Maybe later" that skipped the prompt. Both are gone as of
+2.8.19 — see `App_Store_Rejections.md`.)*
+
+### What each permission is for
+
 - **Camera (NSCameraUsageDescription / android.permission.CAMERA)** —
   receipt scanning is the core action; required.
 - **Photo library (NSPhotoLibraryUsageDescription on iOS; on Android: no

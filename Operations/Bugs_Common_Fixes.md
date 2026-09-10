@@ -10713,3 +10713,87 @@ are the repository's LF bytes, so *every* pinned file mismatches locally. No
 effect on CI (Linux, LF), but the suite is locally unrunnable on Maxim's
 machine — a `.gitattributes` entry or a newline-normalising `hashFile` would fix
 it, in its own change.
+
+## 239. A permission screen that argued for "yes" and offered a door marked "not now" (2026-09-09, PR #326)
+
+**Symptom.** iOS 2.8.18 (38) was **rejected** by App Review under Guideline
+5.1.1(iv) — submission `7fee471a-4ab2-4727-a1da-c164231963a3`, reviewed on an
+iPad Air 11-inch (M3). Nothing crashed, nothing misbehaved, and the reviewer got
+all the way through sign-in. They stopped at the first-run permission screen:
+
+> - A custom message appears before the permission request, and to proceed users
+>   press a "Allow access" button. Use words like "Continue" or "Next" on the
+>   button instead.
+> - A custom message appears before the permission request, and the user can
+>   close the message and delay the permission request with the "Maybe later"
+>   button. The user should always proceed to the permission request after the
+>   message.
+
+**Cause.** `src/screens/PermissionsPrimingScreen.js` shipped two buttons —
+**"Allow access"** and **"Maybe later"** — and both are disallowed, for two
+different reasons that are easy to collapse into one and get wrong:
+
+1. A priming button may not use language that **pushes the user toward
+   granting**. The OS prompt is where the user decides; the app's button may
+   only advance them to it. "Allow", "Enable", "Grant", "Autoriser" are all out.
+2. The screen may not offer a route that **skips the OS prompt**. Once the
+   explainer has been shown, the prompt must follow it.
+
+The screen itself was never the problem, which matters: the instinct on reading
+the letter is to delete the priming screen entirely, and that trades a real
+feature (the onboarding notification opt-in, which is the whole price-drop
+re-engagement loop) for no compliance gain whatsoever. Apple wrote the remedy in
+the letter. It is two edits, not a redesign.
+
+**Fix.** The screen keeps its explanatory job and loses everything else. One
+control, reading **Continue**, and every route off it goes through both OS
+prompts:
+
+- "Maybe later" and its handler deleted. `perm.allow` and `perm.later` removed
+  from **both** language blocks rather than re-worded — a key named `later` is a
+  label waiting to be re-rendered by whoever edits the screen next.
+- `App.js` gives the route `gestureEnabled: false`; the screen swallows Android
+  `hardwareBackPress` for its lifetime. A swipe-back and a bezel press are skip
+  buttons wearing different hats, and neither shows up in a render test.
+- The `finally` block that already navigated to Main unconditionally is what
+  makes removing the escape hatch safe. A thrown permission request cannot
+  strand a user on a screen that now has no exit of its own — which is the
+  reason the screen is allowed to have none.
+
+**The audit found nothing else.** Every other permission surface in the app was
+already compliant, and by the *opposite* pattern: fire the OS prompt first, show
+custom UI only **after** a denial, with a route to Settings. That is not a
+loophole — it is what Apple's own "Next Steps" paragraph recommends. Receipt
+camera, tag camera, the VisionKit preflight, all three photo-library pickers,
+camera-roll suggestions and location all do this via
+`services/permissionAlerts.js`. The Android rationale dialog is inside a
+`Platform.OS === "android"` branch and never runs on iOS. ATT is not in a
+production binary at all.
+
+**Detect.** `__tests__/permissionsPriming.test.js` pins the rule rather than the
+markup: exactly one *outermost* pressable (de-duplicated, so a touchable built
+on another primitive cannot make it pass for the wrong reason); camera →
+notifications → `replace("Main")` asserted by `invocationCallOrder`, so
+navigating first cannot pass; a thrown camera request still reaching
+notifications; hardware back returning `true`; `App.js`'s own line read for
+`gestureEnabled: false`; and the CTA checked against a forbidden-wording regex
+in **every language `getSupportedLanguages()` reports**, so a third locale is
+covered the day it is added. The forbidden regex is matched against the
+*control's label only* — body copy legitimately contains "autorisations", the
+French for "permissions", and banning that would be wrong.
+
+**Durable rule.**
+
+> A pre-permission explainer may **persuade**, but it may never use "Allow"
+> wording on its button, and it may never offer a way out that skips the OS
+> prompt — including a back gesture or a hardware back press.
+
+**Second-order lesson, and the more expensive one.** A reviewer stops at the
+first problem, so a rejection letter is a statement about **one** screen and
+says nothing about the rest of the app. Everything past the stopping point is
+unreviewed and is where the *next* rejection comes from. Here the reviewer never
+reached the paywall — and the five IAP products have never been attached to an
+App Store Connect version, which makes `Paywall.js` render a price skeleton and
+**disable** the Subscribe button. Fixing only what the letter names is how a
+two-round rejection becomes a three-round one. The pre-submission checklist in
+`Publishing-Compliance/App_Store_Rejections.md` §0 exists for exactly this.
