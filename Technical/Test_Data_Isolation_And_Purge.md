@@ -11,7 +11,12 @@ purge this systematises), `Operations/Bugs_Common_Fixes.md` #226.
 
 ## The reserved markers
 
-Defined once in `backend/tests/helpers/uniq.js` — nothing else hardcodes them.
+Defined once in **`backend/lib/testDataMarkers.js`** — nothing else hardcodes them.
+They moved out of `tests/helpers/uniq.js` on 2026-09-09 so the running server can
+use the same predicates for the admin cleanup console; `uniq.js` re-exports them
+and keeps the id builders, and `tests/dataCleanupRegistry.test.js` asserts the two
+modules hand back identical bindings, so a literal pasted back into `uniq.js`
+fails the suite rather than silently forking the marker set.
 
 | kind | marker | builder |
 |---|---|---|
@@ -75,6 +80,21 @@ DATABASE_URL=<prod-url> node backend/scripts/purge-test-data.js --dry-run
 **No production guard, by design** — this is the deliberate, outside-the-test-
 runner tool for cleaning any database. It replaces the ad-hoc `WHERE postal_code
 IS NULL` query. `npm run db:purge-test-data` is the shortcut.
+
+## The admin console reads the same predicates
+
+`backend/lib/dataCleanup.js` generates its `test_markers` section from `steps()`
+here, rather than restating the predicates — so the console and the
+after-every-test sweep can never describe different row sets, and a test asserts
+they cover the same tables.
+
+It also carries a COVERAGE MAP naming every table in the schema, including the
+ones with nothing to clean. `tests/dataCleanupRegistry.test.js` compares that map
+against `information_schema`, which means **a table added later fails the suite**
+until somebody decides whether it holds debris. That check is the reason step 2
+below is now hard to forget.
+
+Full write-up: `Operations/Admin_Console_And_Data_Cleanup.md`.
 
 ## Adding a new table to the purge
 

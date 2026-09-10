@@ -16,6 +16,70 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-09 — Admin console: production data cleanup + customer-service triage
+
+- **Asked (/goal):** a feature in the admin panel to clean test data out of the
+  production database per the rules set on 2026-08-18/30 — offer the cleanup,
+  scan every table, group the findings with counters, and open each category
+  into its dataset on tap, the way credit history does. Plus any other feature
+  that helps run customer service; the panel should be the go-to place for an
+  incident or a ticket. Mid-task: **also clean up `priceback.ca` accounts**.
+- **Decisions (confirmed):** the console DELETES from production rather than
+  handing off to the CLI, at three granularities — everything, by category, or
+  by ticked group. All three customer-service surfaces ship. Shipped as a
+  **hotfix off `main`, PR back into `main`** rather than through `development`.
+
+**What shipped.** `lib/dataCleanup.js` — 23 classifiers over six sections, each
+able to count, sample and delete itself, plus a coverage map naming all 44
+tables. A DB-gated test compares that map to `information_schema`, so a table
+added later fails until it is classified. `lib/dataCleanupRunner.js` executes:
+scan-token binding (15 min, held server-side, client never sends counts), an
+absolute ceiling AND a growth ceiling per group, per-group refusals that do not
+abandon the run, one transaction with one statement per classifier in FK order,
+and a snapshot taken from `DELETE ... RETURNING` with the cascade children
+captured first. Six routes behind the account gate, never `x-admin-token`.
+
+**Four screens.** Data cleanup, shopper report, incidents, and an admin home
+that badges what needs a person. The Profile menu's seven admin rows collapse
+into one door; every route stays registered and every one is still listed,
+pinned by a test that reads `App.js`.
+
+**Three things that existed and were unreachable now have surfaces:** the
+`/health` payload (through `buildHealthSnapshot()`, extracted rather than
+reimplemented), `auth_outcomes` (no read endpoint since #205), and
+`_authFailGuidance` (prose written for this and never displayed). An admin could
+change a balance and not read the ledger; that is closed.
+
+**Three things worth not re-deriving:**
+- **The section that deletes nothing is the point.** Orphaned price points are
+  NORMAL — they outlive a deleted receipt because they are the billable remnant
+  — and reading that count as an anomaly is what once made a healthy database
+  look like mass data loss. `reported_only` counts them, says why they stay, and
+  gives them no checkbox.
+- **`@priceback.ca` is a console-only classifier, NOT part of the marker sweep.**
+  That sweep runs unattended after every backend test run and is the standalone
+  CLI's whole predicate; the real company domain inside it would be an automated
+  hard delete of internal accounts with no operator in the loop. Production holds
+  exactly one such account today (has a postal code, no receipts).
+- **Protected accounts come from config, not code.** `CLEANUP_PROTECTED_SUBS` in
+  `app_config`, plus `ADMIN_USER_SUBS` always. The list changes and it holds real
+  people's identifiers. It does NOT replace the human cross-check against the two
+  purge docs' Kept lists — the scan states that on every run.
+
+- **Verification:** 157 mobile tests over the new suites, all green locally
+  (single-file runs, non-DB — within the standing rule); `i18n:check` 1499/1499
+  and `typecheck` clean. The backend DB suites run in CI. Coverage: all seven new
+  files clear every floor, and nothing was pinned or re-based — the reasoning is
+  in `jest.config.js` under Phase 32.
+- **Owed:** populate `CLEANUP_PROTECTED_SUBS` on production before the first
+  account-touching purge. `__tests__/flyerCard.test.js` (untracked, from an
+  earlier session) still fails 3 assertions — two over-specify decimal formatting
+  that `numToMoneyText` has never produced, and one asks whether clearing the
+  instant savings should overwrite a hand-entered sale price. Left untouched:
+  that is a flyer-pricing decision, not a console one.
+- **Status:** done. Branch `hotfix/admin-console-data-cleanup` → PR into `main`.
+- **Docs:** new `Operations/Admin_Console_And_Data_Cleanup.md`;
+  `Technical/Test_Data_Isolation_And_Purge.md` updated for the marker move.
 ### 2026-09-07 — Branch/PR policy for every repo + stale-branch audit
 
 - **Asked (/goal):** add a standing rule that in *all* GitHub repos, every
