@@ -85,8 +85,17 @@ and every one of them was live in both databases:
 the hand-written file byte-for-byte apart from those three changes is the evidence
 it is faithful.
 
-Verified non-vacuous: against the stale committed file, **5 of the 9 new tests
+Verified non-vacuous: against the stale committed file, **5 of the 10 new tests
 fail**, naming all three defects.
+
+The tenth test is worth its own line: it **round-trips every `jsonb` literal** in
+the rendered file back through `JSON.parse` and matches it value-identically
+against `policies.json`. The render escapes `'`, `&`, `<` and `>` as `\uXXXX`
+past `JSON.stringify` so the SQL survives a shell, a psql heredoc or an
+HTML-rendering diff viewer — and that escaping is hand-written, which makes it the
+one part of the file that could be *silently* wrong rather than loudly broken. A
+mis-escaped policy string is still valid SQL and still valid JSON; it just says
+something else, and it reaches French users as mangled claim copy.
 
 ### 🔴 3. The nightly price feed could never have run
 
@@ -301,5 +310,5 @@ Scribd, neither of which belongs in a committed corpus.
   `claim_steps` + `content_updated_at` for `bestbuy`; `app_config`
   `BESTBUY_SCAN_ENABLED`). Prod untouched. `store_launch_subscriptions` is empty
   on both databases, so enabling the store fired no launch notifications.
-- **Coverage:** 16 new assertions across two non-DB backend test files; no
+- **Coverage:** 17 new tests across two non-DB backend test files (10 + 7); no
   existing test was modified or deleted.
