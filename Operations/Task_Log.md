@@ -16,6 +16,69 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-10 — App Review rejection 5.1.1(iv): fix it, then audit for every other motif
+
+- **Asked (/goal):** 2.8.18 was rejected on its first App Store review. Read the
+  rejection, fix it, **and run a full audit for any other possible rejection
+  motif even if it is not in this rejection** — the app must pass the next
+  review at all costs.
+- **Rejection:** Guideline 5.1.1(iv), submission
+  `7fee471a-4ab2-4727-a1da-c164231963a3`, reviewed 2026-09-09 on an iPad Air
+  11-inch (M3). The first-run permission screen's CTA read "Allow access", and a
+  "Maybe later" button let the user dismiss the explainer without ever reaching
+  the OS prompt.
+- **Decisions (confirmed with Maxim):** apply **Apple's literal remedy** — keep
+  the priming screen, rename the button, delete the skip — rather than removing
+  the screen entirely, which would cost the onboarding notification opt-in for
+  no compliance gain. Cut 2.8.19 **from `main`**, accepting that #316/#324/#325
+  ride along.
+
+**What shipped (PR #326, 2.8.19 / 39 / 39).** `PermissionsPrimingScreen` now has
+**exactly one control**, it says **Continue**, and every route off it goes
+through both OS prompts. `perm.allow` and `perm.later` are deleted from EN and FR
+rather than re-worded. `App.js` gives the route `gestureEnabled: false` and the
+screen swallows Android `hardwareBackPress` — a swipe and a bezel press are skip
+buttons wearing different hats. The pre-existing `finally` that always navigates
+to Main is what makes removing the escape hatch safe.
+
+**The audit found no second violation.** Every other permission surface already
+used the opposite, compliant pattern: OS prompt first, custom UI only *after* a
+denial, with a route to Settings — which is what Apple's own "Next Steps"
+paragraph recommends. Receipt camera, tag camera, VisionKit preflight, all three
+photo pickers, camera-roll suggestions and location all go through
+`permissionAlerts.js`; the Android rationale is inside a `Platform.OS` branch;
+ATT is not in a production binary at all. Also verified: paywall carries Restore
++ Terms + Privacy (3.1.2), in-app account deletion exists (5.1.1(v)), Sign in
+with Apple ships alongside Google (4.8), admin screens are server-gated on
+`ADMIN_USER_SUBS` (2.3.1), and the known-broken Gmail sync is **off in
+production**, so a reviewer cannot reach a dead feature.
+
+**Three things worth not re-deriving:**
+
+- **The rejection carried good news.** The screenshot is of a screen that only
+  renders *after* onboarding sign-in — so the #228 launch crash is gone from
+  this binary and the 2.1 sign-in blocker did not recur. The reviewer got in.
+- **A reviewer stops at the first problem, so the letter describes ONE screen
+  and says nothing about the rest of the app.** Everything past the stopping
+  point is unreviewed and is where the next rejection comes from. The paywall
+  was never reached this round.
+- **The likeliest cause of a third round is not in the code.** The five IAP
+  products have never been attached to an ASC version, and with no products
+  `Paywall.js:449-452` renders a price skeleton and *disables* Subscribe. No
+  code change can compensate. Recorded, with the full pre-submission checklist,
+  in `Publishing-Compliance/App_Store_Rejections.md` §0.
+
+**Also found, unrelated and NOT fixed here:** `main` is red on the **Backend**
+job — two admin-account protection guards from #325 fail
+(`a protected account is never proposed, even when it matches`, `an admin
+account on the company domain is protected from its own group`). Mobile (Jest)
+is green. Backend-only, so it does not touch the iOS binary or this
+submission, but it means an operator could currently be offered an admin account
+as a cleanup candidate. Owed its own fix.
+
+**Docs:** `Publishing-Compliance/App_Store_Rejections.md` (new — the running
+rejection record plus the pre-submission checklist) and Bugs entry **#239**.
+
 ### 2026-09-09 — Admin console: production data cleanup + customer-service triage
 
 - **Asked (/goal):** a feature in the admin panel to clean test data out of the
