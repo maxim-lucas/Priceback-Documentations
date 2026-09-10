@@ -2,7 +2,7 @@
 
 How A&F's current price gets into `price_points`. Companion to
 `Price_Adjustment_Policy.md` (what a price entitles a shopper to) and to the
-store-neutral checklist in `Technical/Store_Price_Adapters_And_The_BestBuy_Feed.md`
+store-neutral checklist in `Technical/Store_Price_Adapters.md`
 (the adapter contract itself).
 
 **Status:** capture session done 2026-09-07; adapter in progress.
