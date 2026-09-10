@@ -16,6 +16,67 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-10 (cont.) — CI on demand only, the suite back to green, and the branch list down to two
+
+- **Asked (/goal):** make the GitHub Actions workflow run **only on demand**
+  (disable the automatic run for all branches), and **fix every failing test so
+  the suite runs green on GitHub**. Added mid-task: **before merging, make sure
+  every remaining branch is merged into its base — the only two that should
+  stay live are `main` and `development`.**
+
+**CI is now dispatch-only (PR #327).** `test.yml` loses `push: [main]` and
+`pull_request: [main]`; `workflow_dispatch` is the only trigger left, on every
+workflow in the repo. One full run bills ~30 minutes of free-tier Actions time
+(the backend job alone is ~23 minutes, serial, against a shared remote
+Postgres), and the automatic triggers spent that on every commit whether or not
+anyone was waiting to read the answer. Run it with
+`gh workflow run Tests --ref <branch>`, or **Actions → Tests → Run workflow**.
+
+`__tests__/ciTriggerPolicy.test.js` pins the policy for every file in
+`.github/workflows`. It is a port of the guard already on `development`, widened
+from "`main` only" to "on demand only" — so the two branches now agree about
+what the policy is instead of diverging at the next promotion. Verified
+non-vacuous: run against the previous `on:` block it fails on three counts.
+
+**The two red tests were red against correct code.**
+`adminConsoleRoutesDb` and `dataCleanupPredicatesDb` had failed on every run
+against a real database since the admin console landed (#325) — eight days,
+both branches. `lib/dataCleanup.js` **destructured** `getAdminSubs` from
+`configService`, freezing the reference at require time, so the swap those
+tests use to name a protected account never reached it. The shipped behaviour
+was correct throughout: `getAdminSubs()` reads `process.env` on every call and
+is never reassigned in production, so admins really were protected. Only the
+seam was broken. Fixed by the split `server.js` already used — namespace for
+`getAdminSubs`, plain destructure for `getOpsConfig`. Guard added in
+`dataCleanupRegistry.test.js`, which needs **no** database, because the two
+tests that caught it are `skip: !HAS_DB` and would report green without one.
+Full write-up: `Bugs_Common_Fixes.md` **#240**.
+
+**Branch list is down to `main` + `development`.** Neither stale branch needed
+merging — both were already fully contained, and that was proven, not assumed:
+
+- `hotfix/admin-console-data-cleanup` (`ecddca9`) — squash-merged as **#325**.
+  Its diff against `main` is *byte-identical to PR #326 in reverse*, i.e. the
+  branch was simply behind `main` by one PR and held nothing of its own.
+- `backup/main-pr314-promotion` (`b0759aa`) — every **non-merge** commit on it
+  is already on `development`; its one unique commit is the PR #314 merge
+  itself, the promotion that was done unasked and undone on `main`. Merging it
+  anywhere would have been wrong: into `main` it redoes that promotion, into
+  `development` it deletes 11k lines. Content fully preserved on `development`.
+
+Both SHAs are recorded above so the refs remain recoverable.
+
+**Two things worth not re-deriving:**
+
+- **A red test over correct code is the worst shape a failure can take.** It
+  invites relaxing the assertion instead of fixing the seam, and the invariant
+  then has no guard on the day production actually breaks. When a test fails,
+  establish *which side* is wrong before touching either.
+- **A PR will no longer show checks, and that is the intended trade.** The
+  habit that replaces it: dispatch the suite at the ref and read it green
+  before promoting a branch or cutting a release tag. The release script's six
+  fatal checks were read — none of them depends on CI status.
+
 ### 2026-09-10 — App Review rejection 5.1.1(iv): fix it, then audit for every other motif
 
 - **Asked (/goal):** 2.8.18 was rejected on its first App Store review. Read the

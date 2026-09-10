@@ -178,11 +178,36 @@ put unfinished work.
   exercise the release configuration where R8 stripping shows up). `lab` is
   standalone, points at the development Railway backend, and sets
   `LAB_ENABLED=true` so lane-gated work is actually present in the binary.
-- **CI runs on both branches.** `.github/workflows/test.yml` triggers on `push`
-  and `pull_request` for `main` *and* `development`, so a feature is tested on
-  its PR and `development` is tested again after the merge. This roughly doubles
-  the Actions minutes a change consumes — keep `[skip ci]` on version bumps and
-  config-only commits.
+- **CI runs ON DEMAND ONLY** (since 2026-09-10, PR #327).
+  `.github/workflows/test.yml` has **no automatic trigger on any branch** — no
+  `push`, no `pull_request`, no `schedule`. Run it yourself, at whatever ref you
+  care about:
+
+  ```
+  gh workflow run Tests --ref <branch>      # or Actions -> Tests -> Run workflow
+  gh run watch <run-id> --exit-status
+  ```
+
+  One full run bills ~30 minutes of free-tier Actions time (the backend job
+  alone is ~23 minutes, serial, against a shared remote Postgres). Paying that
+  automatically on every commit twice ran the month's minutes out around the
+  halfway mark and left the repo with **no CI for ~3 weeks**. Nothing about the
+  verification is weaker — dispatch runs the identical jobs; only its timing
+  moved.
+
+  Two consequences to plan around:
+
+  1. **A PR shows no checks.** That is by design, not a misconfiguration, so
+     there is nothing to wait for and nothing to investigate. Dispatch at the
+     head branch and read the run.
+  2. **Read it green before you promote or tag.** Dispatch on `development`
+     before promoting it, and on `main` before cutting a release tag — the
+     dispatch *is* the gate now, and nobody else will trigger it for you.
+
+  `[skip ci]` no longer does anything, because nothing starts a run but you.
+  `__tests__/ciTriggerPolicy.test.js` pins this policy for every workflow file,
+  so widening it back has to be a deliberate edit to that test with a reason
+  written down.
 
 ### 6b. Conventions
 
@@ -194,12 +219,15 @@ put unfinished work.
   `main`'s subjects, so the commit subject is the changelog line — write it as
   the user-visible fact ("stop advertising family sharing the app doesn't
   implement"), not as the mechanic ("edit pricing.config.js").
-- **Never merge with `--admin`.** GitHub Actions billing was fixed 2026-08-03; red
-  checks are meaningful again.
+- **Never merge with `--admin`.** Since CI is dispatch-only there are usually no
+  checks on a PR to bypass — which makes the *manual* read the thing you must
+  not skip. Dispatch the suite at the head branch and see it green before you
+  merge; "no checks shown" is not the same fact as "the suite passed".
 - CI (`.github/workflows/test.yml`, "Tests") runs three jobs — `security`,
   `mobile`, `backend` — with a coverage floor that only ratchets up. Backend sits
   near its 30-minute budget because of Supabase pooler contention
-  (`EMAXCONNSESSION`); **re-run before investigating a timeout**.
+  (`EMAXCONNSESSION`); **re-run before investigating a timeout**. All three jobs
+  run on a `workflow_dispatch`; see §6a for why that is the only trigger.
 - Never run two backend suites at once — they exhaust the shared pooler and fake
   failures that look like a regression.
 - Every feature or fix ships full-coverage tests in the same commit, and every
