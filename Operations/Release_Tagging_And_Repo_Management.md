@@ -221,6 +221,24 @@ put unfinished work.
     makes off-CI runs safe enough to be the default — do not work around it.
     Tests have reached production twice before; both needed a purge.
 
+  **The backend suite is SLOW, and slow is not stuck.** The database is in
+  `ca-central-1`, so every query pays the round trip from wherever you are.
+  Measured 2026-09-10 from Egypt: single DB-backed tests at **35 s**, **7.9 s**,
+  **2.1 s**, with the process near 0% CPU throughout — it is I/O-bound on a
+  remote Postgres, not computing. Do not read that as a hang and kill it.
+  Redirect and watch instead; piping through `tail -30` buffers everything until
+  exit, which is exactly what makes a healthy run look dead:
+
+  ```
+  cd backend && npm test > .suite.log 2>&1 &    # *.log is gitignored
+  tail -f .suite.log
+  ```
+
+  And note that killing it does not kill it: the chain is npm -> c8 ->
+  run-suite.js -> `node --test`, so stopping the wrapper leaves the grandchildren
+  holding pooler connections, which starves the next run and looks like a
+  different bug. Kill the whole tree or let it finish.
+
   `npm run test:fast` skips coverage when you only need pass/fail.
 
   Two more consequences to plan around:
