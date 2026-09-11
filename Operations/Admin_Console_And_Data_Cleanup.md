@@ -195,17 +195,27 @@ shopper without deleting them and is more often the answer than a deletion is;
 sessions **with their revoke reasons**, plus that account's own `auth_outcomes`.
 Reading a shopper's data is a privacy event and the route logs the actor.
 
-**Incidents** renders `/health` through `buildHealthSnapshot()` — extracted from
-the route rather than reimplemented, because this codebase has shipped a check
-answering "is one env var set?" instead of "does the feature work?" three times.
-Plus sign-in failures grouped by reason with the `_authFailGuidance` prose that
-has never been displayed, cron health, and a **decoder**: paste the reference a
-user quoted (`GMAIL-403-INSUFFICIENT-SCOPE`, `SIGNIN-MISCONFIGURED`) and get what
-it means, what to tell them, and what to check. A test asserts every category in
-`errorSupport.ERROR_CATEGORIES` has prose, so one added later cannot ship
-undecodable.
+**Incidents** shows sign-in refusals grouped by reason — each with a **severity**
+and the prose explaining it — plus cron health and a **decoder**: paste the
+reference a user quoted (`GMAIL-403-INSUFFICIENT-SCOPE`, `SIGNIN-MISCONFIGURED`)
+and get what it means, what to tell them, and what to check. A test asserts every
+category in `errorSupport.ERROR_CATEGORIES` has prose, so one added later cannot
+ship undecodable.
+
+**Service health** renders `/health` through `buildHealthSnapshot()` — extracted
+from the route rather than reimplemented, because this codebase has shipped a
+check answering "is one env var set?" instead of "does the feature work?" three
+times. It also holds the billing diagnostic, push delivery, and the Sentry crash
+probe.
 
 **Admin home** badges what needs a person and links onward. Every previously
-reachable admin route is still registered and still listed — pinned by a test
+reachable admin route is still registered and still reachable — pinned by a test
 that reads `App.js` — so nothing became unreachable and the `tag_review` push
 deep-link still lands.
+
+> **Superseded in part, 2026-09-11.** Health and incidents are now two screens,
+> not one; quotas moved to the console root; the menu is grouped into five
+> categories; and sign-in refusals carry a severity so routine expiries stop
+> being counted as work. See **`Admin_Console_Triage_Rework.md`** for what the
+> console now says and why. The cleanup registry, its ten safety properties and
+> every route above are unchanged.

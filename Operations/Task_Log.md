@@ -8661,3 +8661,118 @@ rule as usual.
 Once this is on `main` it must be merged down into `development` (Maxim's
 instruction, and the branch model requires `development` to stay ahead of
 `main`, never behind on a hotfix).
+
+---
+
+# 2026-09-11 · Admin console triage rework (hotfix on `main`)
+
+Branch `hotfix/admin-console-triage`, from `main` and back to `main`. Three
+defects reported off the live console in screenshots, plus the regrouping they
+made obvious, plus one audit sweep.
+
+Full write-up: `Operations/Admin_Console_Triage_Rework.md`.
+Bug entries: `Bugs_Common_Fixes.md` #243 (the token that would not die), #244
+(a verdict contradicting its own evidence), #245 (unset and failed collapsing).
+
+## What was reported, and what it actually was
+
+Every one of the three had the same shape: **the screen could not distinguish
+two different facts, so it printed the more alarming one.**
+
+1. `revenuecat` red with a `?`, above "webhook: configured · syncApi: configured"
+   → the check carried no `status` key at all, and `statusTone(undefined)` fell
+   through to `"bad"`.
+2. Six `verify_threw` rows badged as an incident → six ID tokens that arrived
+   after they expired, which is the designed end of a token's life.
+3. `r2_storage` / `railway` / `sentry_events` showing `? of 10`, `?%`, in the
+   **green** pill → "no token" and "token failed" both resolved to `null`.
+
+## The one that was a real production bug
+
+`verify_threw` was not only mis-*reported*; the client was genuinely broken.
+`getValidIdToken()` returned the stale token unconditionally once both refresh
+paths missed, so the same dead credential went out on every wake — the incident
+table has one token still being presented **nineteen days** past expiry — and
+nothing raised the credential-rejected flag, so the shopper was never told.
+
+Each token now gets exactly one diagnostic send and is then burned. The claim is
+a `Map` rather than a flag because the `await` in the obvious version lets two
+concurrent callers both be "the first" — which is literally every pair in the
+table, `/api/me` and `/api/me/bootstrap` landing in the same second.
+
+Two guards were caught by the EXISTING suite, not by review, and both were real:
+
+- an unparseable token must **not** burn (`isIdTokenFresh` is false for anything
+  it cannot parse, so burning one would lock out a possibly-valid session);
+- the new SecureStore key had to join `MANAGED_KEYCHAIN_KEYS`, or it is
+  unreadable before first unlock and a background refresh re-sends a burned
+  token.
+
+## Severity, and the badge that cried wolf
+
+`backend/lib/authOutcomeSeverity.js` — one classifier, three callers (the
+overview counter, the incident list, the alert email). Severity is decided on the
+`detail`, never the reason alone: the same `verify_threw` is `info` for "Token
+used too late" and `critical` for "Wrong recipient", and a classifier reading
+only the reason paints an outage and a yawn the same colour. `overview.authFailures`
+is now the actionable count; `authFailuresTotal` is the raw one, and the
+Dashboard shows both.
+
+## The regrouping
+
+Five groups, most-used first: Product · Accounts · Dashboard · Reports & upkeep ·
+Health & incidents. Health and Incidents split into two screens; Quotas moved out
+of the incident screen's basement to the root; the "Find a shopper" / "Shopper
+report" duplicate (same route, two names, two sections) removed; a new Dashboard
+sub-screen with a 24h/7d/30d selector that actually re-queries. The environment
+banner says **Live shoppers** / **Test data** with the project ref one tap away.
+
+## The audit sweep
+
+Notifications → Troubleshooting moved to Service health. The two surfaces that
+could NOT move — ScanScreen's raw OCR and DetailScreen's cache filename, both of
+which describe the receipt in front of you — got a switch instead, gated by one
+composed `showInAppDiagnostics()` (admin AND toggle) so neither screen can
+implement half of it. Default ON, because it replaces something already visible.
+
+## Tests
+
+- Mobile: **230 suites / 5492 tests green.** Five new files
+  (`authServiceExpiredTokenBurn`, `adminHealthScreen`, `adminQuotasScreen`,
+  `adminDashboardScreen`, `adminDiagnosticsToggle`), four updated.
+- Backend: every file in the blast radius run individually against **dev** —
+  `authOutcomeSeverity` (24), `quotaProbes` (15), `adminConsoleRoutesDb` (28),
+  `routes` (57), `dbRoutes` (7), `adminRoutesAreGuarded` (8), `adminAccountsRoutesDb`
+  + `adminTokenRateLimit` (17), the four `health*` files (45), `authFailureMonitor`
+  + `authOutcomesRepo` (15). **All green.**
+- `npm run i18n:check` — 2 languages, 1498 keys each, in sync.
+- Coverage on every changed file well above the floor (AdminHomeScreen 96%,
+  AdminIncidentScreen 96%, AdminQuotasScreen 94%, AdminHealthScreen 89%,
+  authService 96%).
+
+Two route tests were rewritten as **delta** assertions after failing against
+correct code: `auth_outcomes` is a shared forensic table on a shared dev
+database, and it already held 7 `verify_threw` rows with a NULL detail. Those
+correctly classify as `warn`, so an absolute "this group is info" was testing the
+database's history rather than the change.
+
+## Regression risk
+
+**Low-to-moderate, and concentrated in one place.** The console screens are
+admin-only and cannot affect a shopper. The real exposure is
+`getValidIdToken()`, which is on every authenticated request: the behaviour
+change is that a *provably expired, unrefreshable, already-sent* token now
+returns `null` instead of being re-sent. Fresh tokens, unparseable tokens, and
+first sends are byte-identical to before. No backend route contract was removed
+— `authFailuresTotal` and the severity fields are additive, and the one changed
+meaning (`authFailures` = actionable rather than raw) is the reported bug.
+
+No store parser touched. No Costco or Best Buy code. No DB migration. No version
+bump.
+
+## Not in this change
+
+The new unhandled Sentry errors in `prosoft-inc / priceback-canada`. No Sentry
+token is reachable from the working environment and reading Railway's env is
+blocked by the sandbox, so they could not be read. Maxim's call: ship the console
+fixes now, handle Sentry as its own follow-up.

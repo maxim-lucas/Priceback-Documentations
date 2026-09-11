@@ -10993,3 +10993,127 @@ the Costco path.
 > that matters — and becomes load-bearing the moment local runs are the way a
 > branch gets verified. The cost of a permanently-red local suite is not the red:
 > it is that people stop reading the result.
+
+## 243. A dead token re-presented for nineteen days, and nobody was told (2026-09-11)
+
+**An expired Google ID token was sent on every wake, forever.** `getValidIdToken()`
+returned the stale token unconditionally once both refresh paths missed, so the
+same dead credential went out again and again — and the app never told the
+shopper, so it simply, quietly, did not work.
+
+**Symptom.** Six `verify_threw` refusals in the admin incident console, detail
+`"Token used too late"`, across four separate days — and **in pairs landing in
+the same second**, because `/api/me` and `/api/me/bootstrap` both fire on wake:
+
+```
+09-11 09:58:30  /api/me + /api/me/bootstrap   ~1h stale
+09-11 07:50:46  /api/me                       ~9h stale
+09-10 14:49:19  /api/me/bootstrap             ~48h stale
+09-08 11:25:06  /api/me                       ~2.6d stale
+09-07 10:25:38  /api/me/credits               ~19d stale   ← nineteen days
+```
+
+**Cause.** The comment defending the unconditional return was *correct* — the
+server's refusal names the exact branch in `auth_outcomes`, where withholding the
+token downgrades the record to a bare `auth_required`. But that argument justifies
+**one** send, and was being read as a licence to send it always. Nothing bounded
+it, and nothing raised the credential-rejected flag, so the home screen's
+"session expired" banner — which has existed the whole time — never appeared.
+
+**Fix.** Each distinct token gets one diagnostic send, then is burned: the
+fingerprint is persisted, and every later call withholds the token and raises
+credential-rejected instead.
+
+Three details are load-bearing, and two of them are the kind that look like
+paranoia until you read the table:
+
+1. **The claim is a `Map`, not a flag.** `if (await alreadySpent) … else await
+   markSpent` has an open window — the `await` yields, the second caller enters,
+   the set is still empty, and *both* are "the first". That is every pair in the
+   incident above. `Map.set` is synchronous: whoever creates the entry wins, and
+   everyone else in that tick awaits the same decision and is told no.
+2. **It persists.** An in-memory guard alone caps the loop at one pair *per
+   launch* — which is exactly the observed cadence, one pair per day.
+3. **Only a PROVABLE expiry burns.** `isIdTokenFresh()` is false for anything it
+   cannot *parse*, not just for expired tokens. Burning an unparseable token
+   would lock out a session that may be perfectly valid. Caught by an existing
+   test (`an unparseable token stored by sign-in does not escalate to a re-auth`),
+   not by review.
+
+A fourth was caught by `secureStoreAccessibility.test.js`: the new SecureStore
+key had to join `MANAGED_KEYCHAIN_KEYS`, or it gets the default keychain
+accessibility and is **unreadable before first unlock** — so a background refresh
+would re-send a token it had already burned.
+
+**Durable rule.**
+
+> "Send it once so the server can tell us what is wrong" is a complete argument
+> for the first send and no argument at all for the second. Any deliberate
+> best-effort fallback that exists to produce a DIAGNOSTIC needs a bound, because
+> the diagnostic stops being new after one. And when the fallback also means the
+> feature is broken, the user has to be told — a failure mode that is silent on
+> the device is one that lasts as long as nobody happens to read a table.
+
+---
+
+## 244. A health check whose verdict contradicted its own evidence (2026-09-11)
+
+**`revenuecat` rendered bright red with a `?` badge, directly above a line reading
+"webhook: configured · syncApi: configured".**
+
+**Cause.** Two lines, entirely mechanical. `rcChecks` was `{ webhook, syncApi }`
+with **no `status` key** — every other entry in `checks` is `{ status, …detail }`.
+So `statusTone(undefined)` fell through every branch to `"bad"`, and the pill
+printed `check.status || "?"`. Nothing was broken. The screen just had no way to
+say *"I do not know"* and spelled it exactly the way it spells *"on fire"*.
+
+**Fix, on both sides** — either alone leaves the trap set for the next check:
+
+- **Server**: `revenuecat` carries a roll-up `status`, and it is a *conjunction*
+  (both write paths or it is `degraded`, never `configured`). A route test asserts
+  **every** check in the payload has a non-empty status.
+- **Client**: `statusTone()` gained an explicit `unknown` bucket. A statusless
+  check renders greyed out, spelled `unknown`, and is left **out of the failing
+  count** — a gap in our reporting is not an outage to page somebody about. An
+  unrecognised status *word* is still `bad`; that is a different thing from no
+  answer at all.
+
+**Durable rule.**
+
+> A renderer that maps "unknown" onto the same output as "broken" will eventually
+> be handed an unknown. Give every status enum an explicit absent case, and make
+> its colour and its word differ from the failure case — otherwise the first
+> payload that forgets a key becomes a false outage, printed on top of the
+> evidence that disproves it.
+
+---
+
+## 245. Two blank quotas, one shrug: "unset" and "failed" were the same value (2026-09-11)
+
+**Three quota rows rendered `? of 10` with a `?%` badge — in the GREEN pill**,
+which reads as a measurement near zero rather than as no measurement at all.
+
+**Cause.** `backend/lib/quotaProbes.js` returned `null` for *both* "the token is
+not configured" and "the token is configured and the provider call failed". The
+work those two imply is opposite — **add** a variable, or **fix** one — and the
+console had no way to tell an operator which.
+
+**Fix.** Three outcomes instead of two: `null` (unset), `{ used, limit }` (a
+reading), `{ error }` (configured and failed, carrying the provider's own
+message). The rows now read `no live reading · set CLOUDFLARE_API_TOKEN + …`, or
+`the live reading failed · Provider said: HTTP 401`, and the cap-only row is
+muted rather than green — it is a real ceiling, not an error. Failures cache for
+60 s instead of 5 min so a token fixed at the provider appears on the next
+refresh.
+
+Note the second-order bug the old contract hid: a `null` from a *200 response we
+could not parse* meant a provider schema change looked exactly like an absent
+credential. That case is now an `{ error }` naming the field that was missing.
+
+**Durable rule.**
+
+> When a probe can fail for reasons that need different fixes, "returns null on
+> any failure" is not defensive — it is lossy. Best-effort means *never throws*,
+> not *never explains*. And a value the UI cannot render should never be printed
+> into the success-coloured control: `?%` in a green pill is a worse answer than
+> a blank one, because it looks like data.
