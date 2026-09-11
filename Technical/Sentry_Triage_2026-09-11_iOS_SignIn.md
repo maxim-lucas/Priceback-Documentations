@@ -196,3 +196,37 @@ right.
   now tells the truth about it. The working door for App Review remains the
   reviewer access code.
 - **`sentry_events` quota gauge** needs a User Auth Token with `org:read`.
+
+---
+
+## 8. Closed out — 2026-09-11 (later the same day)
+
+A **User Auth Token** (`sntryu_…`) now exists and is stored as
+`SENTRY_API_TOKEN` in the app repo's `.env`. It carries `event:admin`,
+`project:write`, `org:read` and `project:releases`, so the whole of §7's tooling
+problem is gone: issues are read *and* written over a plain
+`Authorization: Bearer` call, with **no browser session and no `sentry-sc` CSRF
+cookie**. The `sntrys_` org token stays, and stays for source-map upload only.
+
+Two gotchas worth keeping:
+
+- `statsPeriod` on `/projects/{org}/{proj}/issues/` accepts **only** `''`, `24h`
+  and `14d`. `90d` is a hard `400 Invalid stats_period`, not an empty result.
+- `/organizations/prosoft-inc/stats_v2/` answers **200** with this token (the
+  org token 403'd), so the admin console's `sentry_events` gauge is unblocked —
+  it needs `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` set **in the Railway backend
+  environment** to the user token. That deploy-side change is not done yet.
+
+**B and C were set `resolvedInNextRelease`, marked against `PriceBack@2.8.20`.**
+
+The marker matters. Both issues' newest events are release `2.8.20` / dist `40`,
+which reads at a glance as *"the fix is live and failed"* — it is not.
+`v2.8.20` points at `2efa185`; PR #333 is `bc38260`, which landed **after** the
+tag. No shipped binary has ever carried the fix, so every event to date is
+backlog, not evidence against it.
+
+Resolving *in the next release* rather than outright is the honest state: the
+issues are closed for triage, and Sentry reopens them as a **regression** the
+moment an event arrives from a build newer than 2.8.20 — i.e. one that actually
+contains #333. That regression, if it comes, is the real result of the fix and
+should be read as new information. Do not hand-resolve it away.
