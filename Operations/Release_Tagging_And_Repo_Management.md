@@ -239,6 +239,21 @@ put unfinished work.
   holding pooler connections, which starves the next run and looks like a
   different bug. Kill the whole tree or let it finish.
 
+  **From a long-haul link the FULL backend suite is not a usable signal.**
+  Measured 2026-09-10 from Egypt: 228 of 1583 tests in two hours (~14 h
+  projected), and it began MANUFACTURING failures -- two tests in
+  `claimRouteDb.test.js` went red with `ECONNRESET` / "Connection terminated
+  unexpectedly", reporting durations of 2 h 05 m and 3 h 43 m because the
+  connection died and the test hung on it. The same file then passed **6/6 in 13
+  seconds** run alone.
+
+  So: a red backend test from a local full-suite run is NOT evidence of a bug
+  until you re-run that file by itself. Never chase one straight into a fix.
+
+  When far from `ca-central-1`, run the files in your change's blast radius
+  (`grep -rl "<module>" backend/` finds the importers) and leave the full suite to
+  a CI dispatch on `main` -- that is what the on-request escape hatch is for.
+
   `npm run test:fast` skips coverage when you only need pass/fail.
 
   Two more consequences to plan around:
