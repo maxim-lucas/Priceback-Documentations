@@ -10889,3 +10889,107 @@ That is the gap: they prove the allow-list is honoured, and say nothing about
 > swap is a test-only construct, the resulting failure appears over production
 > code that is behaving perfectly.
 
+
+---
+
+## 241
+
+**A currency gate that checked only the currency.** `backend/lib/abercrombieCatalog.js`
+would have accepted an FX-converted foreign price as a Canadian one — and billed
+the shopper for the drop it invented. Found by audit 2026-09-10, before the
+adapter was wired to anything.
+
+**Symptom (never reached production).** Abercrombie's price adapter refused a page
+unless its JSON-LD said `priceCurrency: "CAD"`, and read `data-storeid` only to
+decorate the rejection message. A USD price against a CAD receipt line is
+numerically *lower*, so it does not read as an error — it reads as a price drop of
+roughly the exchange rate, on every item, forever. `findNotifiable` charges
+commission at detection, before a human sees it.
+
+**Why the currency check is not enough.** A&F ships a **multi-currency selector**
+— the worldwide storefront's own page carries AUD, COP and USD. So a foreign
+storefront can render an FX-converted price and *honestly* declare that currency.
+`priceCurrency: "CAD"` is not evidence of a Canadian price; it is evidence of a
+dropdown setting.
+
+**The test suite encoded the hole rather than catching it.** Its `deriveCad()`
+helper built the "Canadian" page by stamping `data-storeid="10051"` — which is
+A&F's real **US** storefront. Every "CAD is accepted" case therefore asserted
+*that a US page carrying a CAD string is accepted*: the exact scenario the gate
+exists to refuse, pinned as correct behaviour by 35 green tests.
+
+**Fix.** Two assertions, storefront first, both before any price is read:
+
+```js
+// STOREFRONT before currency: a worldwide page with the selector set to CAD
+// declares CAD and is still the wrong price.
+if (!allowed.includes(String(storeId))) return { sku, rejected: "storefront_mismatch", detail };
+if (currency !== REQUIRED_CURRENCY)    return { sku, rejected: "currency_mismatch", detail };
+```
+
+`CANADIAN_STORE_IDS` is **empty**, deliberately: the real id can only be read off a
+page served to Canadian egress, and none has ever been captured. Empty refuses
+everything, which is correct and matches reality anyway. The suite injects a
+deliberately *fake* id so the pricing path stays covered without blessing a real
+foreign storefront.
+
+**Detect.** Ten cases, mutation-verified — neutering the storefront half turns 8
+of them red. The load-bearing ones assert that a page declaring **CAD on storefront
+11203** and **CAD on storefront 10051** are both refused.
+
+**Durable rule.**
+
+> A gate that reads two signals and decides on one is not a gate; it is a
+> comment. When a retailer lets the *client* choose how a value is presented —
+> currency, locale, units, tax-inclusive pricing — that value describes the
+> request, not the merchandise. Assert the thing the client cannot choose.
+
+A second, related rule, from the same file:
+
+> Do not publish a field whose name answers a question the code cannot see. The
+> adapter exported `isFullPrice` (meaning `regularPrice === price`, i.e. "on sale
+> right now") while the policy's "purchased at the full price" is a fact about the
+> *receipt*. The probe script had already misread it, labelling the store's
+> central case — bought at full price, marked down later — as "not claimable".
+
+---
+
+## 242
+
+**A byte-hash freeze test that fails on Windows and passes in CI.** `npm test`
+was red out of the box on a Windows checkout — 12 failures, 2 suites, none real.
+
+**Symptom.** `__tests__/costcoPathImmutability.test.js` reported every frozen
+Costco file as *"not byte-identical to its pinned state"* — the parser, the tag
+scanner, the warehouse constants, all ten guard suites — on a tree where
+`git status` was clean and `git diff` empty.
+
+**Cause.** The test hashes raw bytes (`fs.readFileSync`, no normalisation). Git
+had `core.autocrlf=true` and the repo had **no `.gitattributes`**, so Windows
+checked those files out with CRLF while CI (ubuntu) sees LF. The LF-normalised
+worktree hash matched the git blob exactly:
+
+```bash
+git show HEAD:<file> | sha256sum     # 7c33c4b1…
+# worktree, CRLF                     # 3adcccda…
+# worktree, CRLF→LF                  # 7c33c4b1…  ← identical
+```
+
+**Fix.** `.gitattributes` with `* text=auto eol=lf`, plus rewriting the affected
+worktree files from their git blobs (`git show HEAD:<f> > <f>`) — provably
+content-neutral, and it touches no Costco file's *content*. Separately,
+`scripts/checkI18n.js` was emitting `path.relative` output with OS-native
+separators (`src\screens\Thing.js:3` vs `src/screens/Thing.js:3`); now normalised
+through a `rel()` helper.
+
+**Do NOT** fix this by re-pinning the hashes — that bakes CRLF into the pin and
+breaks CI instead — and do not edit the freeze test's logic; it is the guard for
+the Costco path.
+
+**Durable rule.**
+
+> Any test that compares bytes, filesystem paths, or OS-formatted strings makes
+> its answer depend on where it ran. That is invisible while CI is the only venue
+> that matters — and becomes load-bearing the moment local runs are the way a
+> branch gets verified. The cost of a permanently-red local suite is not the red:
+> it is that people stop reading the result.

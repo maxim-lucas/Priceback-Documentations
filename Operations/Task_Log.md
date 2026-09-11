@@ -16,6 +16,61 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-10 (cont. 3) — Abercrombie audit + "CI on `main` only"
+
+- **Asked (/goal):** full audit of the Abercrombie integration on `development`,
+  fix the problems, continue the missing work — but **first** settle the
+  feasibility of getting CAD prices, since A&F "is handled only in USD for any
+  country". Fallback of last resort: signal the drop *event*, not the amount.
+  Plus a new standing rule: **never run GitHub Actions tests on `development`;
+  only on `main`, and only when Maxim asks. Other branches use local runs.**
+
+**The CAD question turned out to be a vantage-point problem.** The 2026-09-07
+capture session's "non-Canadian egress" was **Egypt** (`41.45.134.97`, AS8452
+TE-AS) — re-confirmed live this session. **No request to A&F has ever been made
+from a Canadian IP.** Reproduced the USD result exactly (`/shop/ca` → `/shop/wd`,
+storeId 11203, no CAD anywhere in 423 KB), but A&F's own gift-card page says
+*"purchases of merchandise in CAD will be subject to an exchange rate
+conversion"*, and A&F is expanding its Canadian store network. Evidence points to
+CAD being real and simply invisible from outside Canada.
+
+- **Maxim's call:** document the verification, run it back in Canada (~2026-09-22),
+  **reminder set for 2026-09-24**. Don't build on the assumption either way.
+- **Fallback, if CAD proves unreachable:** percentage drop (currency-invariant),
+  commission charged by applying the percentage to the shopper's own CAD receipt
+  line. Specced in `Technical/Abercrombie/Fallback_Percentage_Drop.md`, **not
+  built**.
+
+**Audit result: the integration is the price adapter and nothing else** — no
+receipt parser, no store row, no refresh job, no slug source. All correctly
+inert. Four defects fixed, one critical:
+
+1. 🔴 The currency gate checked the currency and **not the storefront**. A&F has a
+   multi-currency selector, so a foreign page can declare CAD over an
+   FX-converted price. The suite *encoded* the hole: `deriveCad()` stamped
+   `data-storeid="10051"` — A&F's real **US** storefront. Bugs #241.
+2. `isFullPrice` measured "on sale right now" (a page fact) under the name of a
+   receipt fact; the probe script already misread it. Removed.
+3. "A 403 is retryable" was documented but never implemented. Now a bounded
+   retry (2 extra attempts, doubling backoff), cap asserted.
+4. Test corpus no longer blesses a foreign storefront.
+
+**The CI rule needed a second lock.** `main` was already dispatch-only, but a
+dispatch can name any ref — `gh workflow run Tests --ref development` billed the
+full ~30 min. Every job now carries `if: github.ref == 'refs/heads/main'`, pinned
+per job in `ciTriggerPolicy.test.js` and mutation-tested.
+
+**Blocked local runs first.** `npm test` was red out of the box on Windows — 12
+failures, all line-ending/path artifacts on a tree `git status` called clean
+(Bugs #242). A "verify locally" rule is worthless with a permanently red suite,
+so that was fixed too (`.gitattributes`, `checkI18n` path normalisation).
+
+- **Status:** PR into `development`. Adapter suite 35 → 45 cases; mobile 236
+  suites / 5727 tests green locally.
+- **Still blocked, deliberately:** receipt parser (needs real A&F receipts — the
+  Best Buy lesson), slug source (sitemap now times out entirely), store row,
+  refresh job.
+
 ### 2026-09-10 (cont. 2) — Best Buy full-integration audit on `development`
 
 - **Asked (/goal):** run a full audit on the **dev branch** for what is missing
