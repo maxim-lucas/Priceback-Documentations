@@ -48,6 +48,11 @@ items; the scan pipeline decides what an empty parse means.
 
 ### Adding store #3
 
+> **Superseded by `Technical/Adding_A_New_Store.md`**, which is the complete
+> procedure and the one kept current. Sport Chek shipped as store #3 on
+> 2026-09-11 (lab lane) — see `Technical/SportChek/`. The four steps below
+> are still true; they are four of about forty.
+
 1. Confirm `STORE_DETECTION_PATTERNS` matches the store.
 2. Write `src/services/<store>ReceiptParser.js` against the contract, reusing
    `parseReceiptEngine` and its `reshapeLines` / `handleDiscountLine` hooks

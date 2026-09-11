@@ -16,6 +16,57 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-11 — Sport Chek as store #3: parser, price adapter, and a store-integration guide
+
+- **Asked (/goal):** add a Sport Chek Canada receipt parser on `development`
+  (**always a separate parser**), but **first** settle the feasibility of the
+  full integration — "same concept as Best Buy", i.e. whether prices can be
+  pulled automatically. Two local eReceipt PDFs to start from (one purchase, one
+  refund of the same product). Plus: **write a complete implementation guide for
+  adding a store**, based on a deep analysis of the existing ones (**excluding
+  Costco**, which is not the common example), and **a standing rule that the
+  guide is read and completed on every future store**.
+- **Decisions taken before coding** (asked, answered): build the parser **and**
+  the price adapter now; **run** the Google Vision capture for the two PDFs; and
+  register the parser on the **lab lane**, not in production.
+
+**Feasibility — two findings that shaped the work.**
+
+🔴 **A Sport Chek receipt is currently detected as NO STORE AT ALL.** Not as the
+wrong store: `detectStore` returns `null`. `STORE_DETECTION_PATTERNS` is
+first-match-wins and **returns** on that match; `canadiantire` sits at index 5,
+`sportchek` at index 16, and every Sport Chek receipt carries the Triangle
+Rewards / CT Money / "Canadian Tire Triangle Mastercard" footer because Sport
+Chek is an FGL/CTC banner. `canadiantire` is not one of the six stores in
+`STORES`, so the lookup is `undefined`, the expression collapses to `null`, and
+strategies 3–5 — including the `SPORTCHEK` keyword that matches
+`www.sportchek.ca` — never run. **14 of the 20 pattern ids have no store record
+and each is the same black hole.** No Sport Chek parser is reachable until this
+is fixed.
+
+**The price feed is feasible but is not a Best Buy-shaped drop-in.** The first
+probe said "Akamai-walled like Costco" and was **wrong in exactly the way
+`Technical/Abercrombie/Price_Adapter.md` warns about**: a `User-Agent`-only
+request gets 403, a complete browser header set gets 200. `robots.txt` allows
+product/category/search, the catalogue is enumerable from a published sitemap
+(42,912 URLs in file 1 alone), and the PDP markup carries the whole API
+catalogue. But the price is **not** in the HTML — it is a client-side call to
+`/v1/product/api/v2/product/sku/PriceAvailability` behind an Akamai cookie
+gate (cold = 403; after one HTML page load = 200).
+
+🔴 **The gating problem is addressability, not access.** The receipt prints a
+12-digit **UPC** (`627555628505`); the live search API returns `resultCount: 0`
+for it and the string appears in no response. Sport Chek addresses its catalogue
+by a 9-digit SKU code and an 8-digit family code, and nothing observed maps one
+to the other. Name search is not a substitute (100 results for two words, and
+`currentPrice` came back **null for the multi-SKU family we actually want**).
+Same posture as Abercrombie: **build the adapter, keep it out of
+`hasDbPriceFeed` until it returns real quotes.**
+
+- **Status:** in progress on `feat/sportchek-store-parser`.
+- **Not in it:** turning Sport Chek on, a nightly job, the UPC→SKU resolver
+  (scoped as its own work), Sports Experts / Atmosphere.
+
 ### 2026-09-10 (cont. 3) — Abercrombie audit + "CI on `main` only"
 
 - **Asked (/goal):** full audit of the Abercrombie integration on `development`,
