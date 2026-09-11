@@ -5,7 +5,15 @@ How A&F's current price gets into `price_points`. Companion to
 store-neutral checklist in `Technical/Store_Price_Adapters.md`
 (the adapter contract itself).
 
-**Status:** capture session done 2026-09-07; adapter in progress.
+**Status:** adapter built and **inert on purpose** — it quotes nothing until a
+Canadian capture supplies a storefront id. Audited and corrected 2026-09-10.
+
+> ⚠️ **The 2026-09-07 finding was under-specified and read wrongly for three
+> days.** "Measured from a non-Canadian egress" meant **Egyptian** egress
+> (`41.45.134.97`, AS8452 TE-AS, Alexandria). No request to A&F has ever been made
+> from a Canadian IP, so nothing below is evidence about A&F Canada's pricing —
+> only about what the rest of the world sees. The measurement that settles it is
+> `Canadian_Egress_Verification.md`.
 
 ---
 
@@ -20,7 +28,7 @@ at all. A&F comes out on the **Best Buy** side of that line, not the Costco side
 | `robots.txt` | Disallows only checkout, account and `/shop/*/search`. **Product pages are not disallowed.** No `Crawl-delay`. |
 | `GET /shop/<store>/p/<slug>` with a *minimal* header set | **403**, 149-byte `Bad Request` body |
 | `GET /shop/<store>/p/<slug>` with a **full browser header set** | **200**, ~525 KB |
-| `GET /api/ecomm/util/sitemap/index/anf` | **403**, even with full headers |
+| `GET /api/ecomm/util/sitemap/index/anf` | **403** on 2026-09-07; **no response at all** (60 s timeout) on 2026-09-10 |
 | First-byte latency | ~0.5–3.6 s warm; one 45 s timeout on a cold first hit |
 
 ### 🔴 The 403 was header completeness, not an anti-bot wall
@@ -39,8 +47,9 @@ The adapter's `HEADERS` constant is therefore **load-bearing, not cosmetic**.
 Trimming it "because it looked redundant" reintroduces a 403 that arrives as a
 counted `http_403` rejection — silent data loss, not a visible error.
 
-The sitemap route stays 403 regardless. It is not needed: like Best Buy, the scan
-is **watchlist-driven** (SKUs on live watched receipt lines), never a crawl.
+The sitemap route is unreachable regardless. It is not needed for the scan: like
+Best Buy, that is **watchlist-driven** (SKUs on live watched receipt lines), never
+a crawl. It *would* have solved the slug problem, which is why its loss matters.
 
 ### The price is inline in the HTML
 
@@ -74,9 +83,9 @@ from one they cannot, and it is never optional. Best Buy's is `isMarketplace`.
 **A&F's is currency**, and it is worse than Best Buy's because it fails *silently
 and plausibly*.
 
-**A&F geo-routes by IP.** Measured 2026-09-07 from a non-Canadian egress, every
-one of these landed on the **worldwide** storefront (`data-storeid="11203"`)
-priced in **USD**:
+**A&F geo-routes by IP.** Measured 2026-09-07 **from Egyptian egress** (and
+re-confirmed 2026-09-10), every one of these landed on the **worldwide**
+storefront (`data-storeid="11203"`) priced in **USD**:
 
 | Attempt | Final path | Currency |
 | --- | --- | --- |
@@ -87,7 +96,8 @@ priced in **USD**:
 | `/shop/ca/…?originalStore=ca` | `/shop/wd/…` | USD |
 
 Neither the URL path, `Accept-Language`, nor a guessed country cookie overrides
-it. The `/shop/ca` path exists but is only *served* to Canadian egress.
+it. The `/shop/ca` path exists but is only *served* to Canadian egress — which is
+exactly the thing nobody has tested. See `Canadian_Egress_Verification.md`.
 
 ### Why this is dangerous rather than merely wrong
 
@@ -101,29 +111,74 @@ That is the same failure class as the receipt parser reading `2210 BANK ST` as a
 item costing $22.10: *a plausible wrong number is worse than a visible gap,
 because the user acts on it* — except this one bills the user.
 
-### The rule
+### 🔴 The gate has TWO halves — checking currency alone is not enough
 
-The adapter **asserts the storefront and refuses to quote when it is not the
-Canadian one.** Concretely: parse `data-storeid` and the JSON-LD `priceCurrency`
-out of every response, require `CAD`, and return a distinct
-`rejected: "currency_mismatch"` otherwise. A distinct counted reason means a
-storefront change shows up in the run summary instead of hiding.
+**This was the audit's headline defect (2026-09-10).** The first implementation
+required `priceCurrency === "CAD"` and read `data-storeid` only to decorate the
+rejection message. That is insufficient, and reachably so.
 
-**Fail closed.** Until Canadian egress is confirmed the adapter quotes nothing,
-which is the correct conservative answer — a missing price costs an opportunity,
-a wrong one costs the shopper money and PriceBack's credibility.
+**A&F ships a multi-currency selector.** The worldwide storefront's own page
+carries AUD, COP and USD, and offers a "Search Currencies" picker. So a *foreign*
+storefront can render an **FX-converted** price and honestly declare that currency
+in its JSON-LD. `priceCurrency: "CAD"` is therefore **not** evidence the price is
+A&F Canada's — it may be a worldwide page with the dropdown flipped, which is
+precisely the fabricated number the gate exists to refuse.
+
+The test suite had encoded the hole rather than catching it: its `deriveCad()`
+helper stamped `data-storeid="10051"` — **A&F's real US storefront** — so every
+"CAD is accepted" case asserted that *a US page carrying a CAD string is
+accepted*.
+
+### The rule, as it now stands
+
+Two assertions, storefront first, both before any price is read:
+
+1. **Storefront** — `data-storeid` must be in `CANADIAN_STORE_IDS`, else
+   `rejected: "storefront_mismatch"`. Known foreign ids are named in the detail
+   (`11203` worldwide, `10051` US) so a run summary says *which* storefront
+   answered rather than just "not ours".
+2. **Currency** — then `priceCurrency` must be `CAD`, else
+   `rejected: "currency_mismatch"`.
+
+Storefront first because a worldwide page declaring CAD must be refused on the
+storefront, not accepted on its own say-so about currency.
+
+**`CANADIAN_STORE_IDS` is EMPTY, deliberately.** The real value can only be read
+off a page served to Canadian egress, and no such page has ever been captured.
+Guessing it would defeat the gate on the first guess that is wrong in the
+permissive direction. Empty means every page is refused — the correct conservative
+answer, and it matches today's real behaviour anyway, since with no slug source
+nothing reaches the gate in production.
+
+**Filling that list in from a real capture is the single edit that turns the
+adapter on.** Procedure: `Canadian_Egress_Verification.md`.
 
 ### Owed before the scan flag is ever flipped
 
-1. **Confirm Railway's egress reaches A&F as Canadian.** Railway regions are
-   largely US; if egress is US, the worldwide/USD storefront is all we can see
-   and the feed cannot ship on the current host without a Canadian egress path.
-   Best Buy is the precedent for verifying this on the real host — a laptop
-   proves nothing about Railway.
-2. Re-measure latency from Railway; the one cold 45 s timeout means the timeout
-   must be generous (Best Buy needed 30 s for the same reason).
-3. Capture real responses as fixtures **once CAD is reachable** — a USD fixture
-   would pin the wrong currency into the test suite.
+In order — each step is blocked by the one above it.
+
+1. 🔴 **Establish whether A&F serves CAD to Canadian egress at all.** Nothing else
+   on this list can be decided first, and it has never been measured. Scheduled
+   for on/after **2026-09-24**; full procedure and decision tree in
+   `Canadian_Egress_Verification.md`.
+2. **Fill in `CANADIAN_STORE_IDS`** from that capture. One edit; it is what turns
+   the adapter from "refuses everything" into "refuses everything foreign".
+3. **Give the backend a Canadian egress path.** Railway has **no Canadian
+   region**, so its own egress is US and it will see storefront 11203 forever —
+   a laptop in Canada proves nothing about the host. The shape that fits is a thin
+   fetch-relay on **GCP Cloud Run in `northamerica-northeast1` (Montréal)** called
+   by the Railway job; GCP project `695135372222` already exists and a nightly
+   watchlist sweep sits inside the free tier. Verify the relay's *own* egress
+   before trusting it.
+4. **Re-measure latency from wherever the fetch actually egresses**; the one cold
+   45 s timeout is why the timeout is generous (Best Buy needed 30 s for the same
+   reason).
+5. **Replace the derived CAD fixtures with a real Canadian capture.** The suite's
+   `deriveCad()` / `deriveSale()` helpers exist only because no real one does.
+6. **Solve the slug source** — see the colour-family finding above, which makes
+   the catalogue one entry per *style*.
+
+Only after all six is `hasDbPriceFeed` even a question.
 
 ---
 
@@ -131,8 +186,8 @@ a wrong one costs the shopper money and PriceBack's credibility.
 
 | Gate | Rule | Rejection |
 | --- | --- | --- |
-| **Currency** | storefront must be Canadian; `priceCurrency === "CAD"` | `currency_mismatch` |
-| **Full price** | policy adjusts only items bought at full price | `not_full_price` |
+| **Storefront** | `data-storeid` must be in `CANADIAN_STORE_IDS` | `storefront_mismatch` |
+| **Currency** | `priceCurrency === "CAD"` | `currency_mismatch` |
 | **Variant** | quote the shopper's `itemId` (size + colour), never the product-level `low/highContractPrice`, which span variants | `variant_unresolved` |
 | **Availability** | no price / out of range | `no_price`, `price_out_of_range` |
 
@@ -183,9 +238,11 @@ resolves. Best Buy's API takes a bare SKU, so this is a genuinely new problem:
 
 The sanctioned slug source would be the sitemap, which robots.txt explicitly
 `Allow`s (`Allow: /api/ecomm/util/sitemap/*`, and it is the declared `SITEMAP:`)
-— but that route answers **403 to a server-side fetch** regardless of headers,
-XML or navigation-shaped. It was reachable during the 2026-08-31 triage, so this
-is either a change or a browser-session requirement.
+— but that route is not usable server-side. It answered **403** on 2026-09-07
+regardless of headers, XML or navigation-shaped, and on **2026-09-10 it stopped
+answering at all**: a 60 s timeout with no response, from an egress that fetched
+`robots.txt` in 1.2 s the same minute. It was reachable during the 2026-08-31
+triage, so this is a deliberate change on A&F's side, not a header problem.
 
 **Therefore the adapter cannot resolve a slug on its own today**, and it must not
 guess one. Identity and addressing are separated:
@@ -194,6 +251,29 @@ guess one. Identity and addressing are separated:
   variant-level, which is what the "same color and size" rule requires.
 - **Addressing** = the slug, supplied through an injectable `slugFor(productId)`
   seam. Unresolved ⇒ a distinct, counted `slug_unknown` rejection, never a guess.
+
+### 🟢 One slug covers a whole colour family — the problem is smaller than it looks
+
+Found while auditing the committed capture (2026-09-10), and it changes the size
+of the slug catalogue by roughly the number of colours per style.
+
+A single product page carries `productPrices[...]` for **every colour sibling of
+the style**, not just the one addressed. The capture for
+`lyocell-cotton-pleated-baggy-trouser-63504014` also contains complete variant
+price maps for `63504015` and `63503945`, plus a `productCatalog[...]` entry
+naming each. All three are the same trouser in different colours.
+
+`extractProductPrices(html, productId)` already keys off the **requested**
+product id, so it reads a sibling's prices out of that page today with no change
+at all. The consequence:
+
+> A slug catalogue needs **one entry per style**, not one per productId. Fetching
+> any colour's page prices every colour of that style.
+
+That is one request and one slug covering N products, which makes both the
+harvest and the nightly sweep materially cheaper against a store that throttles
+IP-wide. It does not make the slug problem go away — a style still needs *a* slug
+from somewhere — it makes it roughly N times smaller.
 
 Candidate slug sources, in preference order:
 

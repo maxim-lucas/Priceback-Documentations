@@ -178,36 +178,80 @@ put unfinished work.
   exercise the release configuration where R8 stripping shows up). `lab` is
   standalone, points at the development Railway backend, and sets
   `LAB_ENABLED=true` so lane-gated work is actually present in the binary.
-- **CI runs ON DEMAND ONLY** (since 2026-09-10, PR #327).
-  `.github/workflows/test.yml` has **no automatic trigger on any branch** — no
-  `push`, no `pull_request`, no `schedule`. Run it yourself, at whatever ref you
-  care about:
+- **CI runs ON DEMAND, ON `main`, AND NOWHERE ELSE** (dispatch-only since
+  2026-09-10 / PR #327; narrowed to `main` the same day on Maxim's instruction).
+
+  Two independent locks, because they fail differently:
+
+  1. `.github/workflows/test.yml` has **no automatic trigger on any branch** — no
+     `push`, no `pull_request`, no `schedule`.
+  2. **Every job** carries `if: github.ref == 'refs/heads/main'`. A dispatch can
+     name any ref, so lock 1 alone caps *when* the suite runs but not *where*.
+     A job whose `if` is false is skipped before a runner is allocated, so a
+     mis-aimed dispatch costs ~0 minutes instead of ~30.
 
   ```
-  gh workflow run Tests --ref <branch>      # or Actions -> Tests -> Run workflow
+  gh workflow run Tests --ref main         # `main` only, and only when Maxim asks
   gh run watch <run-id> --exit-status
   ```
 
   One full run bills ~30 minutes of free-tier Actions time (the backend job
   alone is ~23 minutes, serial, against a shared remote Postgres). Paying that
   automatically on every commit twice ran the month's minutes out around the
-  halfway mark and left the repo with **no CI for ~3 weeks**. Nothing about the
-  verification is weaker — dispatch runs the identical jobs; only its timing
-  moved.
+  halfway mark and left the repo with **no CI for ~3 weeks**.
 
-  Two consequences to plan around:
+  ### 🔴 Every non-`main` branch is verified LOCALLY
 
-  1. **A PR shows no checks.** That is by design, not a misconfiguration, so
-     there is nothing to wait for and nothing to investigate. Dispatch at the
-     head branch and read the run.
-  2. **Read it green before you promote or tag.** Dispatch on `development`
-     before promoting it, and on `main` before cutting a release tag — the
-     dispatch *is* the gate now, and nobody else will trigger it for you.
+  This **replaces** the old step "dispatch on `development` before promoting it".
+  That step is now forbidden. Before a promotion, run the suites yourself:
+
+  ```
+  npm test                    # mobile — jest, no database, always safe
+  npm run i18n:check          # every language has every key
+  cd backend && npm test      # backend — one run at a time, dev DB only
+  ```
+
+  The backend suite has two rules attached, and neither is optional:
+
+  - **One run at a time.** Supabase's session pooler caps total connections at
+    15, and that ceiling is shared with the always-on `priceback-development`
+    Railway service. Two concurrent runs manufacture failures that look real.
+  - **Dev database only.** `backend/scripts/run-suite.js` refuses a
+    `DATABASE_URL` pointing at the production project ref. That guard is what
+    makes off-CI runs safe enough to be the default — do not work around it.
+    Tests have reached production twice before; both needed a purge.
+
+  **The backend suite is SLOW, and slow is not stuck.** The database is in
+  `ca-central-1`, so every query pays the round trip from wherever you are.
+  Measured 2026-09-10 from Egypt: single DB-backed tests at **35 s**, **7.9 s**,
+  **2.1 s**, with the process near 0% CPU throughout — it is I/O-bound on a
+  remote Postgres, not computing. Do not read that as a hang and kill it.
+  Redirect and watch instead; piping through `tail -30` buffers everything until
+  exit, which is exactly what makes a healthy run look dead:
+
+  ```
+  cd backend && npm test > .suite.log 2>&1 &    # *.log is gitignored
+  tail -f .suite.log
+  ```
+
+  And note that killing it does not kill it: the chain is npm -> c8 ->
+  run-suite.js -> `node --test`, so stopping the wrapper leaves the grandchildren
+  holding pooler connections, which starves the next run and looks like a
+  different bug. Kill the whole tree or let it finish.
+
+  `npm run test:fast` skips coverage when you only need pass/fail.
+
+  Two more consequences to plan around:
+
+  1. **A PR shows no checks.** By design, not a misconfiguration — nothing to
+     wait for and nothing to investigate.
+  2. **`main` is the only ref CI can speak about.** Read it green before cutting
+     a release tag; that dispatch *is* the gate, and nobody else will trigger it.
 
   `[skip ci]` no longer does anything, because nothing starts a run but you.
-  `__tests__/ciTriggerPolicy.test.js` pins this policy for every workflow file,
-  so widening it back has to be a deliberate edit to that test with a reason
-  written down.
+  `__tests__/ciTriggerPolicy.test.js` pins **both** locks — the trigger list and
+  the per-job ref guard — so widening either back has to be a deliberate edit to
+  that test with a reason written down.
 
 ### 6b. Conventions
 
