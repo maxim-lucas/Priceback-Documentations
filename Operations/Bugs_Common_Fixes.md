@@ -11117,3 +11117,73 @@ credential. That case is now an `{ error }` naming the field that was missing.
 > not *never explains*. And a value the UI cannot render should never be printed
 > into the success-coloured control: `?%` in a green pill is a worse answer than
 > a blank one, because it looks like data.
+
+## 246. Both sign-in buttons were dead, and the app said "try again" 89 times (2026-09-11)
+
+- Date: 2026-09-11 · PR: pending · Area: mobile
+
+**Symptom.** `PRICEBACK-CANADA-C` (Apple `ERR_REQUEST_UNKNOWN`, 52 events) and
+`PRICEBACK-CANADA-B` (Google *"Unable to open Safari"*, 37 events). 100% iOS,
+eleven distinct installs, six iPhone models, `environment: production`, every
+release from 2.8.5 to 2.8.20, every event inside US-Pacific business hours. In
+each session the person taps Apple, is told to try again, taps Google, is told
+to try again, taps Apple again. **Nobody ever got in.**
+
+**Cause — and the wrong cause that was fixed first.** The pairing was originally
+read as a presenter collision: iOS allows one authorization session at a time,
+so a second request while the first stands kills both. v2.8.13 (PR #291) shipped
+`_presentAuthorization` to serialize them. **It changed nothing.** 29 further
+events landed on builds carrying the lock, and the Apple:Google ratio is
+identical either side of it — 25/35 = 0.71 before, 12/17 = 0.71 after.
+
+The measurement that settles it is `attemptMs`, which the Google path has
+recorded since PRICEBACK-CANADA-F: **3-60 ms in all 37 events**. Not once did an
+attempt live long enough for a browser to open, and that holds for events whose
+breadcrumbs show a clean onboarding screen beforehand — there was no first sheet
+for a second to collide with. The failures are also 3-17 **seconds** apart, not
+milliseconds. The device is refusing to present any authorization UI at all,
+which is what Screen Time / MDM restrictions on Account Changes and Web Content
+do, and what a managed or review-fleet iPhone looks like.
+
+**So the shipped defect is not the failure — it is the answer.**
+`err.signInPresentationBody` said *"it usually works the second time"* (0 for 37;
+one install failed at 22:13:34 and again at 22:15:00), and
+`err.signInUnavailableBody` sent the user to Google, which was dead in the same
+session. Two locked doors, each pointing at the other.
+
+**Fix.** Three things, none of which pretend to unlock the phone:
+1. `signInWithApple` now records `attemptMs`, mirroring the Google path — a
+   187 ms rejection and a 30 s one are different bugs and shared one issue.
+2. After **two distinct providers** fail with a presentation-class category in
+   one session, OnboardingScreen stops offering a retry and names the
+   restriction (Screen Time → Content & Privacy → Account Changes / Web Content)
+   with a support contact. One failure keeps the ordinary alert; a 500 never
+   counts toward the tally.
+3. The copy no longer promises a retry will work, and the two code comments that
+   asserted the refuted cause now carry the measurement instead.
+
+**Files.** `src/services/authService.js` (`signInWithApple`, the presenter
+note), `src/services/errorSupport.js` (the `unable to open safari` branch note),
+`src/screens/OnboardingScreen.js` (`reportAndExplain`, the device-blocked
+sheet), `src/services/i18n.js` (en + fr).
+
+**Detect next time.** `attemptMs` in the Sentry event. Under ~100 ms on a sheet
+that should have waited for a human means it never appeared — read it before
+reading the error text, which for both providers is uninformative by design.
+
+**Prevent.** `__tests__/onboardingSignInDeadEnd.test.js` pins the real
+`classifyError` path and mutation-fails three ways (guard at 1 instead of 2,
+classification ignored, alert not suppressed). It also asserts Sentry still
+receives **both** failures — quieting the user must never quieten the telemetry.
+
+**Durable rules.**
+
+> A fix has to be checked against the field, not against the reasoning that
+> produced it. The presenter lock was correct code for a real hazard and was
+> shipped as the answer to an issue it had no effect on; the rate said so for
+> seventeen days and nobody looked.
+
+> When the cause is on the device and cannot be fixed, the deliverable is the
+> sentence. "Try again" to someone for whom retrying provably cannot work is a
+> product defect, even though every line of the failing code is behaving exactly
+> as designed.

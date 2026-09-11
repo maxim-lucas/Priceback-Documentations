@@ -8776,3 +8776,114 @@ The new unhandled Sentry errors in `prosoft-inc / priceback-canada`. No Sentry
 token is reachable from the working environment and reading Railway's env is
 blocked by the sandbox, so they could not be read. Maxim's call: ship the console
 fixes now, handle Sentry as its own follow-up.
+
+---
+
+# 2026-09-11 · Sentry triage — the iOS sign-in dead end
+
+Branch `fix/ios-signin-dead-end`, from `main`. This is the follow-up the entry
+above deferred ("no Sentry token is reachable from the working environment").
+The token supplied this session unblocked it.
+
+Full write-up: `Technical/Sentry_Triage_2026-09-11_iOS_SignIn.md`.
+Bug entry: `Bugs_Common_Fixes.md` #246.
+
+## What Sentry actually held
+
+Seven issues. **Five were already fixed by shipped code** and were only stale on
+the board — D and F were classification bugs closed in v2.8.10 / v2.8.12, E is
+adb noise dropped since v2.8.10, G is the deliberate R8 probe, H fails closed by
+design. All five have been resolved in Sentry against the release that fixed
+each (G archived, since it recurs by design every time the probe is used).
+
+**Two were live**: `PRICEBACK-CANADA-C` (Apple `ERR_REQUEST_UNKNOWN`, 52) and
+`-B` (Google "Unable to open Safari", 37). 89 events, 100% iOS, eleven installs,
+six iPhone models, every release 2.8.5 → 2.8.20, last seen 2026-09-10 19:32.
+
+## The finding
+
+**The fix that shipped for these did nothing, and the rate said so for 17 days.**
+v2.8.13 (PR #291) shipped `_presentAuthorization` on the reading that the pairing
+was a sheet collision. 29 further events landed on builds carrying the lock and
+the Apple:Google ratio is *identical* either side of it — 25/35 = 0.71 before,
+12/17 = 0.71 after.
+
+`attemptMs` settles it: **3-60 ms in all 37 Google events**, including events
+whose breadcrumbs show a clean onboarding screen beforehand. No attempt ever
+lived long enough for a browser to open, and there was no first sheet for a
+second to collide with. The paired failures are 3-17 *seconds* apart — a person
+pressing buttons. The device is refusing to present any authorization UI, which
+is what Screen Time / MDM restrictions on Account Changes and Web Content do,
+and every event falls inside US-Pacific business hours. This is App Review's
+fleet, not shoppers.
+
+**So the shipped defect is the answer, not the failure.** The copy said *"it
+usually works the second time"* (0 for 37) and *"sign in with Google instead"*
+(dead in the same session). Two locked doors, each pointing at the other.
+
+## What changed
+
+1. `signInWithApple` records `attemptMs` — the Google path has had it since
+   PRICEBACK-CANADA-F; Apple's absence is why 52 events were unreadable.
+2. Two distinct providers failing with a presentation-class category in one
+   session now replaces the retry alert with guidance naming the restriction,
+   plus a support contact. One failure keeps the ordinary alert; a 500 never
+   counts.
+3. The false copy is gone (en + fr), and the two code comments asserting the
+   refuted cause now carry the measurement.
+4. `event.user` is rebuilt from an allowlist carrying a random per-install UUID,
+   so affected-user counts work at all. Every issue in this project's history
+   reported `users: 0`. PIA updated (§6a) — deliberately NOT the hardware-derived
+   `getDeviceFingerprint()`, which is the anti-abuse key for credit grants.
+
+## Corrected non-finding
+
+`app:///main.jsbundle:1` on every frame looked like a dead source-map upload. It
+is not — 20+ artifact bundles, dSYMs and proguard mappings are all present, and
+our own frames resolve elsewhere. B and C carry only a `CodedError` constructor
+chain because the error is born inside the native module. Recorded because the
+wrong version of that conclusion looks right and is expensive.
+
+## Tests
+
+**231 suites / 5514 tests green**, 0 failures. Coverage 82.17 / 74.33 / 71.82 /
+84.75 — every floor met (jest exits non-zero otherwise). Changed files:
+`analyticsService` 95.3/84.9/94.6/96.3, `authService` 96.1/87.9/89.8/98.4,
+`errorSupport` 98.1/96.0/100/98.8, `OnboardingScreen` 77.1/76.1/69.4/81.4.
+`i18n:check` green — 2 languages, 1503 keys each, in sync.
+
+New `__tests__/onboardingSignInDeadEnd.test.js` (8 cases) drives the **real**
+`classifyError`, and mutation-fails three ways: guard at 1 instead of 2 (6 red),
+classification ignored (2 red), alert not suppressed (3 red). The scrubber's
+allowlist mutation-fails 4 ways. It also asserts Sentry still receives **both**
+failures — quieting the user must never quieten the telemetry.
+
+**No GitHub Actions run was dispatched.**
+
+## Regression risk
+
+**Low, and confined to two surfaces.** `signInWithApple` gains one timing field
+on an error already being thrown — success path, nonce binding and the cancel
+branch are byte-identical, and the cancel is checked *before* the field is set
+so a dismissal is never given a diagnostic. The real exposure is
+`scrubSentryEvent`, which now emits a `user` object where it previously deleted
+one; mitigated by an allowlist rather than a filter, and by the pinned tests
+rewritten to assert the stricter shape. Onboarding adds state that only renders
+after two distinct provider failures.
+
+No store parser touched — no Costco, no Best Buy. No backend, no DB migration,
+no version bump, no tag, no `eas build`.
+
+## Not in this change
+
+- **The device restriction.** We cannot unlock a managed iPhone. B and C stay
+  open in Sentry until the fix ships in a build; the app now tells the truth
+  about it, which is the whole deliverable. App Review's working door remains
+  the reviewer access code.
+- **The `sentry_events` quota gauge.** The supplied org token `403`s on
+  `stats_v2` (it lacks `org:read`) — that gauge needs a **User** Auth Token.
+- **Shipping.** Tag + release + EAS build are Maxim's call.
+- **`main` lacks the `.gitattributes` LF normalization** that landed on
+  `development` in PR #330, so `core.autocrlf=true` stores CRLF here. This
+  change is consistent with what `main` already holds (verified: no whole-file
+  rewrites), but the two branches will differ until #330 merges down.
