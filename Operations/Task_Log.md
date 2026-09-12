@@ -8887,3 +8887,98 @@ no version bump, no tag, no `eas build`.
   `development` in PR #330, so `core.autocrlf=true` stores CRLF here. This
   change is consistent with what `main` already holds (verified: no whole-file
   rewrites), but the two branches will differ until #330 merges down.
+
+
+# 2026-09-11 · Carrying `main` down into `development` (PR #332)
+
+`main` was six commits ahead of `development` — the admin console (#325, #331),
+2.8.20 (#328), the CI trigger change (#327), the App Review priming screen (#326)
+and the iOS sign-in fix (#333). `development` was eighteen ahead the other way.
+Six files conflicted textually. One more was broken **semantically**, with no
+marker anywhere, and that one is the story.
+
+## The six textual conflicts, and how each was decided
+
+| File | Kept | Why |
+|---|---|---|
+| `.github/workflows/test.yml` | `development` | Both are dispatch-only; only `development` also carries the per-job `if: github.ref == 'refs/heads/main'`. Verified the bodies differ **only** by those three lines, so nothing from #327 was dropped. |
+| `__tests__/ciTriggerPolicy.test.js` | `development` | An add/add whose first 122 lines are byte-identical; `development` appends the ref-guard half. A strict superset. |
+| `backend/tests/helpers/uniq.js` | `main` | #325 moved the marker values into `lib/testDataMarkers.js` because the running server needs the same predicates and cannot import from `tests/`. Kept the move; carried `development`'s domain rationale across with the constant. |
+| `backend/tests/helpers/purgeTestData.js` | `main` | Same move — `steps()` now lives in the lib. Step lists compared line by line first: identical. |
+| `backend/tests/priceHistoryDb.test.js` | `development` | Both branches independently fixed the same ageing-fixture bug. `development`'s version explains the **UTC** choice, which the TZ matrix cares about. |
+| `jest.config.js` | **both** | A phase log. `development`'s Phase 30/30b/31 and `main`'s Phase 32 are appended in order; the floors are `development`'s higher Phase 31 numbers (73/65/64/76 vs `main`'s 68/55/59/70). |
+
+### The one that had no conflict marker
+
+`main`'s `lib/testDataMarkers.js` is a **new file**, so it merged clean — carrying
+`QA_EMAIL_DOMAIN = "qa.priceback.test"`, the value from before #315 consolidated
+every test email onto `priceback.test.ca`. Nothing conflicts: one branch moved a
+constant, the other changed it. Left alone, the purge would have matched a domain
+no test uses and swept **nothing**, on a repo whose test data has reached
+production twice. Corrected to `priceback.test.ca`; `purgeTestData.test.js` pins
+the value and `dataCleanupRegistry.test.js` pins that both modules hand back the
+same one.
+
+## The defect that existed only in the merge
+
+`main`'s admin console pins *"every check in the payload carries a status, so none
+can render as unknown"*. `development`'s price feed publishes `checks.priceFeeds`
+as a **map of stores** — one level deeper than every other check, so
+`check.status` is `undefined`. Both suites green on their own branch; the pair is
+broken. The admin health row greyed out as *"we do not know"* about the only check
+that knew precisely, per store. It is [#244] over again, quieter.
+
+Fixed with `priceFeedsRollup()` (pure, in `lib/priceFeedHealth.js`): all feeds up
+→ `available`, some → `degraded`, none → `unavailable`, a store with no verdict
+counts as **off**. The per-store entries stay — one word cannot carry "one of two
+is dead". An empty feed list reports `unavailable` + `no_feeds_scheduled` rather
+than a tidier new word, because `statusTone()` paints anything it does not
+recognise **red**, and "there is nothing to run" is not an outage. Full write-up:
+`Bugs_Common_Fixes.md` #247.
+
+## Tests
+
+- **Mobile: 251 suites / 6043 tests green**, coverage **83.54 / 75.78 / 73.31 /
+  86.04** against floors of 73/65/64/76 — every metric **above** the
+  pre-merge `development` figures (82.6/74.6/72.0/85.1). The seven admin files
+  entered the global pool unpinned and lifted it.
+- `i18n:check` green — 2 languages, **1505 keys** each, in sync.
+- **Backend by blast radius**, per the rule that a full local suite from this
+  connection manufactures failures: `purgeTestData` · `dataCleanupRegistry` ·
+  `dataCleanupRunnerGuards` · `purgeStaleSignups` · `adminRoutesAreGuarded`
+  (**77 pass**), `dataCleanupPredicatesDb` · `priceHistoryDb` (**16 pass**),
+  `adminConsoleRoutesDb` (**28 pass**), `priceFeedHealth` (**14 pass**, 7 new),
+  `healthAppleAuth` · `healthAuthAudiences` · `healthDataDir` · `healthSessions` ·
+  `storePriceAdapters` · `bestBuyPriceRefresh` (**64 pass**),
+  `authOutcomeSeverity` · `quotaProbes` (**39 pass**). **238 backend tests, 0
+  failures.**
+- `purge-test-data --dry-run` against dev afterwards: **clean**, nothing left
+  behind by the out-of-wrapper runs.
+- **No GitHub Actions run was dispatched.**
+
+## Regression risk
+
+**Low, and one behaviour actually changes.** Five of the six conflict
+resolutions are comments or a strict superset; `uniq.js` / `purgeTestData.js`
+adopt a refactor that `main` has already run. The one real change is
+`checks.priceFeeds`, which gains a `status` key it never had — additive, the
+per-store entries are byte-identical, nothing reads them programmatically
+(grepped: no consumer in `src/`, `backend/tests/` or `__tests__/`), and `healthy`
+is untouched, so Railway's deploy gate cannot move.
+
+The marker-domain correction is a **restoration**, not a change: it puts back the
+value `development` has used since #315 and that ~40 test files write.
+
+No store parser touched — no Costco, no Best Buy. No DB migration, no version
+bump (2.8.20 / 40 / 40 carries down unchanged), no tag, no `eas build`.
+
+## Not in this change
+
+- **Pinning `adminCleanup.js` and `supportReference.js` as coverage gate files.**
+  Both qualify — one decides what gets deleted from production, the other what an
+  operator is told to say. Pinning **subtracts** a file from the global pool, and
+  doing that inside a merge would leave a global percentage traceable to neither
+  parent. Recorded in `jest.config.js` Phase 32 to be done on its own.
+- **The full backend suite.** Unusable from this connection (~14 h projected, and
+  it starts manufacturing `ECONNRESET` failures). Blast radius above instead.
+- **Promoting `development`.** This merge goes one way only: `main` → `development`.

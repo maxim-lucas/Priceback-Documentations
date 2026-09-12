@@ -11187,3 +11187,68 @@ receives **both** failures — quieting the user must never quieten the telemetr
 > sentence. "Try again" to someone for whom retrying provably cannot work is a
 > product defect, even though every line of the failing code is behaving exactly
 > as designed.
+
+
+---
+
+## 247. The check that was fine on both branches and broken in the merge (2026-09-11, PR #332)
+
+**`checks.priceFeeds` arrived with no `status`, so the admin health row greyed
+out as "unknown" while the server knew the answer precisely, per store.**
+
+This is **#244 again, six days later**, and nothing was wrong with either half.
+`main` carried the admin console, which pins *"every check in the payload carries
+a status, so none can render as unknown"*. `development` carried the nightly
+price feed, whose check is a **map** — `{ bestbuy: { status, reasons } }` — one
+nesting level deeper than every other entry, because it answers per store. Each
+branch's own suite was green. The defect existed only in the **merge**, and the
+only thing that found it was running the other branch's test file against the
+merged tree.
+
+**Cause.** `checks.priceFeeds` was the store map verbatim. Every other entry in
+the payload is `{ status, …detail }`, so `check.status` was `undefined`. The
+console has learned (#244) to grey an absent status out rather than guess
+`"broken"`, so this rendered grey, not red — a quieter failure than #244 and a
+worse one to notice: the screen said *"we do not know"* about the one check that
+knew, item by item, exactly what was wrong.
+
+**Fix.** `priceFeedsRollup()` in `backend/lib/priceFeedHealth.js` — pure, so the
+conjunction is unit-tested without booting a server, matching the module it joins:
+
+- every feed available → `available`; **some** off → `degraded`; all off →
+  `unavailable`. A store whose verdict never arrived counts as **off**, never as
+  fine.
+- The per-store entries survive alongside the roll-up. One word cannot carry
+  "one of two feeds is dead", and that is the half somebody has to act on.
+- **No feeds scheduled at all** reports `unavailable` + `no_feeds_scheduled`.
+  The tidy-looking `"none_scheduled"` was rejected on purpose: `statusTone()`
+  maps any word it does not recognise to `bad` and paints it **red**, so a new
+  constant would have rendered *"there is nothing to run"* as an outage. A test
+  pins that every status the roll-up can emit is one the console colours.
+- The roll-up is spread **last** into the flat object, so the payload always
+  answers `.status`; a test refuses a store code of `status` or `reasons` so the
+  collision fails the suite instead of silently dropping a store's verdict.
+
+**Files.** `backend/lib/priceFeedHealth.js` (`priceFeedsRollup`),
+`backend/server.js` (`priceFeedStores` → `priceFeedChecks`),
+`backend/tests/priceFeedHealth.test.js` (7 new cases),
+`backend/tests/adminConsoleRoutesDb.test.js` (the pinned public check set gains
+`priceFeeds`).
+
+**Detect next time.** `curl /health | jq '.checks | map_values(.status)'` — any
+`null` is this bug. The generic route test
+(*"every check in the payload carries a status"*) is the mechanical version and
+is what caught it here.
+
+**Prevent.** The route test already existed on `main`; what was missing was
+**running it against the merge**. See the durable rule.
+
+**Durable rules.**
+
+> A merge of two green branches is not verified by either branch's green. The
+> defect lives in the pair, so the check that finds it is the *other* side's test
+> file run against the merged tree — not the suite either branch signed off on.
+
+> A contract test written as "every X has a Y" earns its keep exactly once: the
+> day an X arrives from somewhere its author never saw. Prefer it to N tests that
+> each name one X.
