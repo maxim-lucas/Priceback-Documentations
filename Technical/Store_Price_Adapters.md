@@ -158,6 +158,12 @@ agreeing, and setting this opts out of it.
 
 ## Adding the next store
 
+> **Read `Technical/Adding_A_New_Store.md` first.** It is the complete
+> procedure for a store — feasibility probes, the five declarations a store
+> record lives in, the detection traps, the parser, the lane, this adapter,
+> go-live, and a PR checklist. What follows is the adapter-shaped summary of
+> it; the guide is the part that is kept current.
+
 1. **Read the store's `robots.txt` first and write down what it allows.** This
    feed exists because `/en-ca/product/` is Allowed and there is nothing to
    defeat. Costco needs a human and a real browser because it is Akamai-walled.
