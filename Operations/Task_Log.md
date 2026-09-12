@@ -16,6 +16,31 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-12 — Closing out the Sport Chek session: two docs PRs, and the Costco path re-verified
+
+- **Asked (/goal):** finish the previous session's open work. It had committed in
+  both repos but never opened the PRs. Keep unrelated changes in their own commit
+  and PR — explicitly "unlike what happened last session" — and **fix the Costco
+  tests if needed**. Sport Chek itself was already merged (PR #334).
+- **The Costco tests needed no fix; they were already green.** Verified rather
+  than assumed, on `development` at `f59a00d`: the seven Costco-path suites pass
+  (940 tests, 55 snapshots), and the full mobile suite passes **6092 tests across
+  253 suites**, with `i18n:check` in sync (en=1505, fr=1505). The one hash
+  re-pinned in `costcoPathImmutability.test.js` is the *guard suite*
+  `receiptParserRegistry.test.js`, which Sport Chek legitimately edits — every
+  Costco **source** hash is untouched, which is the half that matters.
+- **The docs branch held two unrelated commits, so it became two PRs.** **#60**,
+  the write-ups already sitting uncommitted when the Sport Chek session began
+  (Task Log for PR #332, Bugs #247 — not authored there); **#61**, this session's
+  guide plus `Technical/SportChek/`. #60 first, so #61 rebased onto it cleanly.
+- **Branch hygiene, both repos.** Ten stale merged branches deleted: eight
+  local-only here, two local+remote in Priceback. Each was checked against its
+  merged PR *and* its content first — one branch had no PR under its name, so its
+  two commits were verified line by line as present in `main` before removal.
+  Both repos are now `main` (+ `development` in Priceback) and nothing else.
+- **Regression risk: none.** No product code was written or changed in this
+  session — documentation and branch refs only.
+
 ### 2026-09-11 — Sport Chek as store #3: parser, price adapter, and a store-integration guide
 
 - **Asked (/goal):** add a Sport Chek Canada receipt parser on `development`
@@ -63,7 +88,8 @@ to the other. Name search is not a substitute (100 results for two words, and
 Same posture as Abercrombie: **build the adapter, keep it out of
 `hasDbPriceFeed` until it returns real quotes.**
 
-- **Status:** in progress on `feat/sportchek-store-parser`.
+- **Status:** ✅ merged — Priceback PR #334 into `development` (squash `f59a00d`);
+  docs in PR #61. Branch deleted.
 - **Not in it:** turning Sport Chek on, a nightly job, the UPC→SKU resolver
   (scoped as its own work), Sports Experts / Atmosphere.
 
