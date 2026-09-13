@@ -16,6 +16,80 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-13 — Best Buy + Abercrombie: a store-gated confidence signal, and two paths nothing was executing
+
+- **Asked (/goal):** continue the full integration of the new stores (Best Buy,
+  Abercrombie) on `development`, and add tests covering the paths they added.
+- **Read `Adding_A_New_Store.md` end to end first**, per the standing rule, and
+  surveyed both stores against its five-declaration checklist. Best Buy is
+  structurally complete — parser promoted, all five declarations present,
+  adapter, `hasDbPriceFeed`, `SCHEDULED_PRICE_FEEDS`, probe script. Abercrombie
+  is the price adapter and nothing else, correctly inert. What was left was one
+  open defect and two blind spots, all three **measured** rather than assumed.
+
+**1. Audit finding 9 was a live money-path defect, and is now closed (Bugs #248).**
+`computeParseConfidence` penalised low SKU coverage only for `storeId ===
+"costco"`, so a Best Buy parse with **zero** usable SKUs scored `{confidence: 1,
+signals: []}` — and 1.0 is the instruction that nothing can be improved. The SKU
+is what makes a line watchable (`p.sku ~ '^[0-9]{7,8}$'`), so those lines are
+never quoted, never drop and never earn a claim, and the re-OCR that could have
+recovered them was told to stand down.
+
+**Maxim's call on the shape:** *fix it, but keep it totally separate from the
+Costco logic — every store has its own format and they should never share logic.*
+So the obvious fix (widen the gate to a set of store ids) was rejected: the three
+stores disagree on every term of the rule — identifier, denominator, and whether
+a store-number signal exists at all. Instead the scorer learns a **mechanism**
+(`parserSignals`) and each parser owns its own rule. Best Buy's lives in
+`bestBuyReceiptParser.js` and measures **trackable lines only**, because its
+service lines carry SKUs and counting them hides a lost SKU on the one claimable
+line.
+
+**Costco is provably untouched:** `git diff` on `receiptParsingShared.js` shows
+**zero removed lines** — the change is purely additive and Costco stamps nothing,
+so it cannot reach the new code. Both halves are mutation-tested.
+
+**2. The Best Buy nightly job was at 45.59% statements / 0% functions.** All ten
+of its tests are `{skip: !HAS_DB}`, and `DATABASE_URL` is loaded by
+`scripts/run-suite.js` and nothing else — so `node --test tests/<file>`, the
+command CLAUDE.md and the guide both recommend, reports `skipped 10` and exits
+green. On every branch but `main`, the job that decides which Best Buy prices get
+written was executing none of its logic. New offline suite following the existing
+`tests/pruneJobs.test.js` `require.cache` pattern — **no production seam**, 34
+tests, **100/100/100/100**. The DB-gated suite is untouched; it pins the SQL.
+
+**3. Abercrombie's adapter had 20 uncovered branches, all rejection paths** — the
+brace scanner's escape/string state machine (whose failure mode is silent
+truncation into a *smaller valid object*), `pickVariant`'s four outcomes, and six
+rejection reasons. Rule 2 of the adapter contract is "a rejection is data", so
+those were uncovered contract. 46 → 76 tests, branches **82.75% → 100%**.
+
+- **Abercrombie's integration beyond that stays blocked, deliberately.** The
+  CAD-vs-USD storefront answer needs a request from Canadian egress (reminder
+  fires 2026-09-24) and there is still no sanctioned server-side slug source.
+  Building the store row, refresh job or `hasDbPriceFeed` before those is exactly
+  the Best Buy failure the guide exists to prevent.
+
+- **Verification.** Mobile **253 suites / 6118 tests**, coverage 83.73/75.82/
+  73.63/86.23 — up on every metric from 83.54/75.78/73.31/86.04, and both pinned
+  files clear their floors. `i18n:check` in sync (en=1505, fr=1505). Backend
+  blast radius (derived by `grep -rl`) **217 tests, 0 failures, 0 skipped**; plus
+  both job suites run together **against the dev DB** — 44 pass, **0 skipped** —
+  proving the offline stubs do not leak into the DB-gated file. **No GitHub
+  Actions run was dispatched.**
+
+- **Guide updated, per the second half of the standing rule.** New §4.4 (declare
+  your store's confidence signals; never join another store's gate) and §10.1
+  (`node --test` does not load `.env` — read the `skipped` count), plus checklist
+  lines and an appendix row.
+
+- **Regression risk: low, and one behaviour changes by design.** A Best Buy
+  receipt whose trackable lines lost their SKUs now scores below 1.0 and enters
+  the second pass — bounded, and adopted only on a strict improvement. All nine
+  real captures are at 100% coverage and stay at 1.0. Parts 2 and 3 are
+  test-only. No Costco file touched, no store promotion, no DB migration, no
+  `store-content-sync.sql` change, no version bump, no tag, no `eas build`.
+
 ### 2026-09-12 — Closing out the Sport Chek session: two docs PRs, and the Costco path re-verified
 
 - **Asked (/goal):** finish the previous session's open work. It had committed in

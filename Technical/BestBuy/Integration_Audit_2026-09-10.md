@@ -194,7 +194,7 @@ copy fix:
 psql "$DEV_DATABASE_URL" -f backend/db/deploy/store-content-sync.sql
 ```
 
-### 🟢 9. Flagged, not changed: the SKU-coverage confidence signal is Costco-only
+### ✅ 9. RESOLVED 2026-09-13 — the SKU-coverage confidence signal was Costco-only
 
 `computeParseConfidence` (`receiptParsingShared.js:508`) penalises low SKU
 coverage **only** when `storeId === "costco"`. A Best Buy receipt whose SKUs were
@@ -206,6 +206,31 @@ live code path and the standing rule is that it stays byte-identical without
 Maxim's confirmation. The Best Buy-local fix — stamping the signal inside
 `bestBuyReceiptParser.js` — is possible but `computeParseConfidence` is called by
 the *caller*, not the parser, so it needs a design decision rather than an edit.
+
+**Resolved 2026-09-13 (Bugs #248).** The design decision was made and the fix
+shipped. Maxim's steer settled the shape: *fix it, but keep it totally separate
+from the Costco logic — every store has its own format and they should never
+share logic.*
+
+- Best Buy's rule lives in `bestBuyReceiptParser.js` as
+  `bestBuyTrackabilitySignals`, stamped as `parserSignals` at the single exit
+  point all three formats already pass through.
+- `computeParseConfidence` gained a **store-neutral** collection loop that
+  applies whatever a parser declares. It learns a mechanism, never a store's
+  rule — which is also what stops store #4 editing that file again.
+- **Costco's block is byte-identical**: `git diff` on `receiptParsingShared.js`
+  shows **zero removed lines**, Costco stamps no `parserSignals`, and an
+  invariance suite pins its signals, their order and its penalties. The freeze
+  hashes, the golden snapshot and the Costco realocr suite all pass in the same
+  run.
+- Best Buy's denominator deliberately differs from Costco's: **trackable lines
+  only**. Its service lines carry SKUs, so counting them inflates coverage and
+  hides a lost SKU on the one line a shopper could actually claim.
+- All nine real captures are at **100% SKU coverage**, so none moved off
+  `confidence: 1`. What changed is that the realocr assertion is no longer
+  vacuous — it could not have failed for this store before.
+- Both halves are mutation-tested: stopping the parser stamping, and making the
+  scorer ignore what it stamped, each turn the same test red.
 
 ---
 
@@ -285,7 +310,8 @@ Scribd, neither of which belongs in a committed corpus.
    one-curl check for whether it landed.
 4. 🟠 The production items in `Price_Feed.md` §"Owed" — reviewer notes + PDF
    re-render, the Law 25 PIA, and the drizzle ledger rows.
-5. 🟡 Decide finding 9 (the SKU-coverage signal), and split §3/§7 of the receipt
+5. ~~🟡 Decide finding 9 (the SKU-coverage signal)~~ — **done 2026-09-13**
+   (Bugs #248). Still owed: split §3/§7 of the receipt
    parser doc into this folder.
 
 ---

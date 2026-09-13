@@ -358,6 +358,66 @@ is a footer URL, a cropped photo leaves no evidence. The dispatcher already
 resolved the store to choose your parser — fall back to that rather than
 re-deriving `null`.
 
+### 4.4 🔴 Declare your store's confidence signals — the scorer is store-gated
+
+**This section was missing, and a store shipped, was hardened and was audited
+without it. Added 2026-09-13.**
+
+`computeParseConfidence` decides whether the scan runs its **second pass** —
+more parse strategies, then a high-resolution re-OCR, each adopted only on a
+strict improvement. Exactly `1.0` means "nothing here can be improved", so a
+parse that scores 1.0 is never looked at again.
+
+Most of its signals are store-agnostic (totals reconcile, printed total, zero
+prices, placeholder names, a missing date). **The ones that matter most to a new
+store are not.** Costco's block is gated on a literal `storeId === "costco"`, so
+a new store inherits **none** of it and scores full marks on everything that
+block asks.
+
+Best Buy lived with the consequence for weeks: a receipt whose OCR lost **every**
+SKU scored `{ confidence: 1, signals: [] }`. The SKU is what makes a line
+price-watchable — the nightly scan selects on `p.sku ~ '^[0-9]{7,8}$'` — so those
+lines were never quoted, never dropped and never earned a claim, and the one
+mechanism that could have recovered them was told to stand down. Bugs #248.
+
+**So: ask what a lost identifier does to YOUR store, and declare it.**
+
+```js
+// src/services/<store>ReceiptParser.js
+export function <store>TrackabilitySignals(parsed) { … }  // → [{name, cost}]
+// stamped on the result at the parser's single exit point:
+result.parserSignals = <store>TrackabilitySignals(result);
+```
+
+`computeParseConfidence` applies whatever a parser declares. It is a
+**mechanism**, not a shared rule, and that is deliberate:
+
+> **Never join another store's gate. Declare your own.** Every store prints a
+> different receipt, so the rule differs on every term — the identifier, the
+> denominator, and whether a store-number signal exists at all:
+>
+> | | identifier | denominator | store number |
+> | --- | --- | --- | --- |
+> | Costco | item number | every item | warehouse number, its own signal |
+> | Best Buy | 7–8 digit SKU, non-zero-padded | **trackable lines only** | none |
+> | Sport Chek | 12–13 digit UPC — does not address the catalogue | — | `STR n REG n` |
+>
+> Widening `storeId === "costco"` to a set would make one rule correct for at
+> most one of them, and touching Costco's rule at all needs Maxim's confirmation
+> (§4.2). Costco stamps no `parserSignals` and its block stays byte-identical.
+
+**The denominator is where this gets store-specific, so think about it.** Best
+Buy's service lines (Geek Squad, protection plans, memberships) **carry SKUs**
+and are never price-watched, so counting them inflates coverage — four plans
+plus one television whose SKU was lost scores 80% and stays silent while the only
+claimable line is unwatchable. Best Buy therefore measures **trackable lines
+only**. Ask what your store's equivalent is before copying a threshold.
+
+**And check that your assertion is not vacuous.** `expect(confidence).toBe(1)`
+passed for all nine Best Buy captures the entire time the signal could not fire
+for that store. A confidence assertion is only evidence if you have also proven
+the signal CAN fire — write the negative case.
+
 ---
 
 ## 5. The lab lane — where an unfinished parser lives
@@ -535,6 +595,55 @@ Work out the blast radius rather than guessing: `grep -rl "<module>" backend/`
 gives every importer. **Never dispatch GitHub Actions** — `main` only, on
 Maxim's explicit request.
 
+### 10.1 🔴 `node --test` does not load `.env` — DB-gated suites skip and print GREEN
+
+**Added 2026-09-13, because the command recommended directly above is the one
+that hides the answer.**
+
+82 backend test files gate every test on `HAS_DB`:
+
+```js
+const HAS_DB = !!process.env.DATABASE_URL;
+test("…", { skip: !HAS_DB }, async () => { … });
+```
+
+`DATABASE_URL` is loaded from `backend/.env` by **`scripts/run-suite.js`** — the
+`npm test` wrapper — and by nothing else. Run a file directly and the variable is
+absent, so **every** test in it skips and node reports:
+
+```
+ℹ pass 0
+ℹ fail 0
+ℹ skipped 10        ← the entire file
+```
+
+…and exits **0**. Nothing is red. 50+ of those files are gated end to end, so
+"I ran the blast radius and it was green" can mean "I ran nothing at all".
+
+`jobs/bestBuyPriceRefresh.js` — the job that decides which Best Buy prices get
+written — sat at **45.59% of statements and 0% of functions** for this reason,
+on every branch other than `main`.
+
+**What to do:**
+
+```bash
+# load the env the wrapper would have loaded
+cd backend && DOTENV_CONFIG_PATH=.env node -r dotenv/config --test tests/<file>.test.js
+
+# and ALWAYS read the skipped count, not just the exit code
+… | grep -E "^ℹ (pass|fail|skipped)"
+```
+
+**Better still, split the suite.** A job's SQL genuinely needs Postgres; its
+decisions do not. `tests/pruneJobs.test.js` and
+`tests/bestBuyPriceRefreshOffline.test.js` test `jobs/*` with **no database** by
+installing stubs into `require.cache` before requiring the job — no production
+seam, no `deps` parameter on a money path, and the suite runs in 300 ms on any
+branch. A new store's refresh job should ship with both halves.
+
+> A skipped test and a passing test exit the same way. When a suite's whole point
+> is a DB, "green" is not the signal — `skipped` is.
+
 ---
 
 ## 11. The completion checklist
@@ -584,6 +693,9 @@ PARSER
 [ ] labelled purchase date; foreign date blocks cut
 [ ] service/fee lines ignored:true but visible
 [ ] never throws on junk
+[ ] confidence signals DECLARED via parserSignals (§4.4) — the scorer is
+    store-gated and a new store inherits none of Costco's
+[ ] the negative case is written (proof the signal CAN fire)
 
 LANE
 [ ] LAB_STORE_PARSERS + LAB_ONLY_STORES both updated
@@ -594,6 +706,8 @@ TESTS
 [ ] realocr suite with ground truth (incl. nulls)
 [ ] Costco freeze re-pinned ONE line, with evidence
 [ ] full mobile suite + i18n green
+[ ] backend blast radius run with .env LOADED - read the `skipped` count (§10.1)
+[ ] the refresh job has an offline suite, not only a DB-gated one
 
 ADAPTER (if there is one)
 [ ] contract satisfied; never throws; rejections named after the truth
@@ -620,3 +734,4 @@ GO-LIVE
 | **Best Buy** | Synthetic tests are not evidence (1,070 passed, 9 real receipts failed). The go-live switch is a generated SQL file. `app_config` outranks a code default. |
 | **Abercrombie** | A 403 may be header completeness, not a wall. Write down a measurement's vantage point — "non-Canadian egress" meant Egypt, and reading it loosely cost three days. |
 | **Sport Chek** | A sibling banner's loyalty footer steals detection. A pattern id with no store record ends the scan. curl is not Node. The receipt's identifier may not address the catalogue at all. |
+| **Best Buy, again** (2026-09-13) | The parse-confidence scorer is store-gated, so a new store scores FULL MARKS on every signal it does not name — a receipt that lost every SKU reported a perfect parse and suppressed the re-OCR that could have recovered it (Bugs #248). Declare your own signals; never join another store's gate. And `node --test` does not load `.env`, so a DB-gated suite skips its whole file and exits green — which is how that store's nightly job sat at 0% function coverage on every branch. |
