@@ -11252,3 +11252,91 @@ is what caught it here.
 > A contract test written as "every X has a Y" earns its keep exactly once: the
 > day an X arrives from somewhere its author never saw. Prefer it to N tests that
 > each name one X.
+
+---
+
+## 248. A Best Buy receipt that lost every SKU reported a perfect parse (2026-09-13)
+
+**`computeParseConfidence` only penalised low SKU coverage when
+`storeId === "costco"`. So a Best Buy parse with ZERO usable SKUs scored
+`{ confidence: 1, signals: [] }` — and a score of exactly 1.0 is the pipeline's
+instruction that there is nothing left to improve.**
+
+Measured, on the same object with one field changed:
+
+```
+zero skus, scored as bestbuy → { confidence: 1,   signals: [] }
+zero skus, scored as costco  → { confidence: 0.9, signals: ["low_sku_coverage"] }
+```
+
+**Why it costs money.** The SKU is what makes a line price-watchable.
+`jobs/bestBuyPriceRefresh.js` selects its nightly targets with
+`p.sku ~ '^[0-9]{7,8}$'`, and a line whose SKU the OCR lost carries a synthetic
+`ln:<receiptId>:<idx>` instead — so it is excluded at the query, never quoted,
+never drops and never earns the shopper a claim. Nothing on screen says so: the
+receipt looks parsed, the total reconciles, and the item sits there apparently
+watched.
+
+And the one mechanism that could have recovered it was switched off by the same
+bug. Confidence below 1.0 is what triggers the scan's second pass — more parse
+strategies, then a high-resolution re-OCR, each adopted only on a strict
+improvement. Reporting 1.0 told that pass to stand down.
+
+**How it survived.** Best Buy was promoted off the lab lane on nine real
+captures and hardened by a pass that found four more defects, then audited eight
+days later. The audit **found** this one and correctly declined to fix it
+(finding 9) because the fix lands in `receiptParsingShared.js`, which is shared
+parsing code and therefore treated as Costco under the standing rule. It stayed
+open because the obvious fix — widening the `costco` gate to a set of store ids
+— was the wrong shape, not because the defect was unclear.
+
+The realocr suite asserted `confidence === 1` for all nine captures and passed
+throughout. It was true, and on this dimension it was **vacuous**: the signal
+could not fire for this store regardless of the input.
+
+**Fix — and why it is not a shared rule.** Every store prints a different
+receipt, so "is this parse trackable?" has a different answer per retailer and
+the same rule cannot serve two of them:
+
+| | identifier | denominator | store-number signal |
+| --- | --- | --- | --- |
+| Costco | item number, every item | every item | warehouse number |
+| Best Buy | 7–8 digit SKU, non-zero-padded | **trackable lines only** | none — a number invented from a shipping address is worse than null |
+| Sport Chek | 12–13 digit UPC, which does not address the catalogue at all | — | `STR n REG n` |
+
+So the scorer learns a **mechanism**, never a store's rule. A parser stamps
+`parserSignals: [{name, cost}]` on its result; `computeParseConfidence` applies
+whatever it finds there. Costco's block is **byte-identical and stamps nothing**,
+so no Costco score can reach the new code at all — the change is purely additive
+(`git diff` shows zero removed lines in that file).
+
+Best Buy's rule lives in `bestBuyReceiptParser.js` as
+`bestBuyTrackabilitySignals`, applied at the single exit point every format
+already passes through.
+
+**The denominator is the interesting half.** Best Buy service lines — Geek Squad,
+protection plans, memberships — **carry SKUs**; the file's own comment says they
+are "indistinguishable from a product by shape alone". They are also never
+price-watched. Counting them inflates coverage, and the inflation hides exactly
+the case that matters: four protection plans plus one television whose SKU was
+lost scores 80% and stays silent, while the only claimable line on the receipt is
+unwatchable. Measuring trackable lines only, it scores 0% and fires.
+
+**Evidence the fix is safe.** All nine real captures are at **100%** SKU
+coverage, so not one moves off `confidence: 1`. What changes is that the
+assertion now means something.
+
+**Guards.** Both halves are mutation-tested — stopping the parser stamping, and
+making the scorer ignore what it stamped, each turn the same test red. Costco
+invariance is pinned explicitly (its signals, their order, its penalties, and
+that it keeps measuring coverage over *every* item including ignored ones), and
+the freeze hashes, the golden snapshot and the Costco realocr suite all pass in
+the same run.
+
+> A store-gated rule is a rule that is silently absent for every store it does
+> not name. When the gate is a literal store id, ask what the OTHER stores score —
+> the answer is usually "full marks", and full marks is an instruction.
+
+> A test can be green, honest, and vacuous at the same time. `expect(confidence)
+> .toBe(1)` passed for nine receipts on a signal that could not fire for that
+> store at all.
