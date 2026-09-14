@@ -16,6 +16,93 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-14 — App Store rejection 3.1.2(c): "2 FREE MONTHS" on a subscription that has no free trial
+
+- **Asked (/goal):** understand a second iOS rejection — Apple says the purchase
+  flow references a free trial the submitted subscriptions don't have. Maxim's
+  reading was "the app doesn't include free trial, but free credit (pay as you
+  go)", and the letter's wording genuinely does not say which control it means.
+- **Cause:** the reviewer means the **`2 FREE MONTHS` badge on the Annual half of
+  the billing toggle** (`Paywall.js:358`, `ManageSubscriptionScreen.js:314`, key
+  `paywall.twoFreeMonths`) — *not* the 75 welcome credits. Confirmed no
+  user-visible "free trial" string exists anywhere: `FREE_TRIAL_CREDITS` and the
+  `manage.trial*` / `profile.subscriptionSubTrial` keys are internal names that
+  all render "Pay-as-you-go (Basic)".
+- **Second defect found in the same place:** `shared/pricing.config.js:138`
+  hardcodes annual at `$49.99`; the reviewer's screenshot shows `$39.99/year`. A
+  fixed "2 months" claim beside a live store price is unverifiable on any
+  storefront — the same bug class as the rejection itself.
+- **Decision (Maxim):** do NOT create a real introductory offer in ASC — that
+  would give away two months per annual subscriber we never intended to sell.
+  Annual is a discount, so state it as a price: a derived `SAVE N%` badge plus
+  "12 months for the price of N" in the tier description, both computed from the
+  live StoreKit prices. Every free-period word leaves subscription copy.
+- **Branch:** `fix/ios-3-1-2c-subscription-copy`, cut from **`main`** — Maxim
+  asked for main only. `development` is not touched, merged or rebased.
+- **Prices confirmed (Maxim, 2026-09-14):** **$4.99 CAD/month, $49.99 CAD/year.**
+  Checked in all four places the number lives, and every one already carried it:
+  `shared/pricing.config.js` and `backend/shared/pricing.config.js` (byte-identical),
+  `priceback.subscription_plans` on **dev** `gnedluuylimjwdmtvswl` and on **prod**
+  `xjfrlzwonyaorwktnkpj` (both `4.99` / `49.99`). Nothing to correct — the stale
+  `$49.99` the previous session feared would outlive the fix was never stale.
+- **The reviewer's `$39.99/year` was a storefront translation, not a wrong price.**
+  Apple's tier matrix maps CAD 49.99 to USD 39.99; the reviewer was on a non-CA
+  storefront. Same shape as [`ios-prices-wrong-in-app-store-connect`] — ASC is
+  correct, the region differs. `annualSavings` survives it by construction: it
+  divides one storefront's annual by the *same* storefront's monthly, so US
+  (39.99/3.99) and CA (49.99/4.99) both land on "12 months for the price of 10".
+- **No display path can reach a written-down price.** Verified every render site
+  goes through the live store: `Paywall.js`, `ManageSubscriptionScreen.js`,
+  `BuyCreditsScreen.js`, `StoresAndProfileScreens.js` all call `priceFor`/`infoFor`,
+  and the two FAQ sentences that quote a price take it from
+  `pricingCatalogService.priceStringFor`, falling back to price-free `*NoPrice`
+  variants rather than to a catalog number. `priceNum` reaches the DB seed and
+  nothing else.
+- **Version: 2.9.0 (build 41)**, not 2.8.21 — Maxim's call, this is the build he
+  intends as the final review submission.
+- **Status:** **PR #336 open against `main`**, now carrying the bump. Mobile
+  234 suites / 5549 tests green, coverage 82.25/74.70/71.96/84.83, `i18n:check`
+  green (en=1504, fr=1504), backend blast radius (`sharedPricing.test.js`) 38/38.
+  No Actions dispatched. Still owed: merge, tag `v2.9.0`, build from the tag,
+  GitHub release.
+
+### 2026-09-14 — Deep security audit of `main`, and the accepted risks whose reasoning expired
+
+- **Asked (/goal):** run a deep, full security audit based on `main`, respecting
+  Google Play and App Store guidelines, and fix findings per best practices.
+- **Audited tree:** `git log --oneline development..main` is empty, so
+  `development` strictly contains `main` — auditing the working tree covers
+  `main` in full. Last full audit was **2026-08-04**; everything since (session
+  tokens #253, admin console + data-cleanup runner #331, reviewer code #299,
+  locked drops #321, the adapter registry and three store feeds, the AdMob lane)
+  had never been security-reviewed.
+
+**The headline is a compliance hole, not a crash.** `isGmailSourcedReceipt` gates
+exactly ONE egress path (`receiptSyncService.js:200`). `registerForPriceWatch`
+(`priceService.js:480`) is a second one and has no source check — it POSTs item
+names and prices to `/api/watch`, which stores the array verbatim server-side.
+The gate's own comment says Gmail receipts are local-only "unconditionally" and
+reasons that the crowd path rejects non-Costco shapes; that is true of
+`crowdRepo.recordObservation` and **not** of the `watchedItems.set` half it never
+considered. Latent only because `gmailSyncEnabled: false` — it fires the day CASA
+verification clears and that flag flips.
+
+**Three of the last audit's conclusions had expired**, which matters more than the
+new surface, because an accepted risk is only accepted while its reasoning holds:
+`form-data` and `undici` now have non-breaking fixes (they were deferred as
+"needs a breaking major"); the mobile triage's "no runtime exposure in the
+installed app" is false (`nanoid`, `decode-uri-component` ship inside
+react-navigation — neither exploitable, but the sentence justifying inaction is
+wrong); and three ops actions from 08-04 are still open, including a live R2
+credential still reachable in git history at `4b41643`.
+
+**Maxim's calls on scope:** two PRs (High+Medium now, Low follow-up); re-mask the
+nine Best Buy fixtures rather than extending the Costco "declined" decision;
+in scope — drizzle-orm major, the device-ownership proper fix, and dropping the
+unread `memberId`; out of scope — excluding AsyncStorage from iCloud backup.
+
+- **Status:** in progress on `security/audit-2026-09-14`.
+
 ### 2026-09-13 — Best Buy + Abercrombie: a store-gated confidence signal, and two paths nothing was executing
 
 - **Asked (/goal):** continue the full integration of the new stores (Best Buy,

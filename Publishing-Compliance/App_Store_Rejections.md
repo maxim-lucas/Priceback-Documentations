@@ -21,10 +21,14 @@ Check the whole path, not just the last fix.
 **Binary / code**
 
 - [ ] No custom screen appears before an OS permission prompt with anything but
-      neutral wording and a single forward route. See rejection #1 below.
+      neutral wording and a single forward route. See rejection #2 below.
 - [ ] Every permission is requested from the action that needs it; custom UI
       only ever appears *after* a denial, with a route to Settings.
 - [ ] The paywall renders real store prices, and Subscribe is enabled.
+- [ ] No subscription copy states or implies a free period ("free", "gratuit",
+      "essai", "on us", "N mois offerts") unless a matching introductory offer
+      is live in ASC for that product. A discount is stated as a price, derived
+      from the live store price. See rejection #1 below.
 - [ ] Restore Purchases works and reports honestly when there is nothing to
       restore.
 - [ ] Terms of Use (EULA) and Privacy Policy links are on the paywall itself and
@@ -51,7 +55,140 @@ Check the whole path, not just the last fix.
 
 ---
 
-## 1. Guideline 5.1.1(iv) — a permission explainer that talked the user into it, and let them out of it
+## 1. Guideline 3.1.2(c) — a discount advertised in the language of a free trial
+
+- **Version:** 2.8.20 (40) · **Reviewed:** 2026-09-14
+- **Answered by:** 2.9.0 (41), PR #336 · Bugs entry #249
+- **Predicted by the entry below.** §2 closes with *"everything past this screen —
+  the paywall above all — went unreviewed and will be exercised next round."* It
+  was, and this is what they found there.
+
+### What Apple said
+
+> One or more auto-renewable subscriptions are marketed in the purchase flow in a
+> way that may mislead or confuse users about the subscription terms or pricing.
+> Specifically: the app includes references to a free trial for the subscription,
+> but the submitted subscriptions do not include a free trial period.
+
+Their suggested remedy was to create the offer in App Store Connect and wire up
+`Transaction.Offer.PaymentMode`. We did the opposite, deliberately — see
+*What shipped*.
+
+### What was actually wrong
+
+The letter never names the control, and the first reading in-house was that Apple
+had confused the **75 welcome credits** with a subscription trial. It had not.
+
+The screenshot is the **Plan & credits** screen (`ManageSubscriptionScreen`), and
+the object of the complaint is a single caption: the **Annual** half of the
+billing toggle rendered **"2 FREE MONTHS"** — `paywall.twoFreeMonths`, drawn at
+`Paywall.js:358` and `ManageSubscriptionScreen.js:314`.
+
+To App Review, "free months" printed on an auto-renewable subscription **is** a
+free-trial claim. `priceback_unlimited_annual` carries no introductory offer, so
+there was nothing behind it.
+
+Cleared at the same time, and worth recording because it was the first suspicion:
+there is **no** user-visible "free trial" string anywhere in the app.
+`FREE_TRIAL_CREDITS` and the `manage.trial*` / `profile.subscriptionSubTrial` keys
+are internal names that all render *"Pay-as-you-go (Basic)"*.
+
+**The copy was never wrong about the money — it was wrong about the kind of thing
+on offer.** `shared/pricing.config.js` said so in its own comment: *"10 x the
+monthly price — 12 months for the price of 10."* That is a discount. Apple has no
+objection to accurate comparative pricing; it objects to a free period that does
+not exist.
+
+### The second defect, found while checking the arithmetic
+
+`shared/pricing.config.js` hardcodes the annual price at **$49.99**. The
+reviewer's screenshot shows **$39.99/year**. The bundled catalog and the screen
+the reviewer saw disagreed — so the fixed "2 months" was not merely mis-*framed*,
+it was **unverifiable**: at $4.99/$49.99 a year costs ~10 months of monthly
+spending, at $4.99/$39.99 it costs ~8.
+
+This is the same bug class `storePrices.js` already carries a scar from — a
+hardcoded `monthlyEquiv: "$4.17"` that once rendered a USD figure beneath a CAD
+price. **A price claim written into the bundle cannot track what a storefront
+charges.** That is why the remedy derives rather than rewrites.
+
+#### Resolved: the two numbers were never in conflict
+
+Maxim confirmed the real prices on 2026-09-14: **$4.99 CAD/month and $49.99
+CAD/year.** The reviewer's `$39.99` is the **USD storefront translation** of the
+CAD 49.99 tier, not a different price — the same confusion recorded in
+`ios-prices-wrong-in-app-store-connect`, where App Store Connect was correct all
+along and the tester's region supplied the other number.
+
+Checked in all four places the number is written down; every one already carried
+`4.99` / `49.99`:
+
+| Where | Monthly | Annual |
+|---|---|---|
+| `shared/pricing.config.js` (mobile) | 4.99 | 49.99 |
+| `backend/shared/pricing.config.js` (byte-identical) | 4.99 | 49.99 |
+| `priceback.subscription_plans`, **dev** `gnedluuylimjwdmtvswl` | 4.99 | 49.99 |
+| `priceback.subscription_plans`, **prod** `xjfrlzwonyaorwktnkpj` | 4.99 | 49.99 |
+
+**The seed does not lie, and the DB check was not optional.** `seedTierConfig`
+reconciles prices with `coalesce(<existing>, excluded)` — a price already present
+in a row is **never** overwritten by a reseed. Had prod held a stale number, the
+catalog fix would not have reached it and no amount of re-running the seed would
+have. It held the right one; this is recorded so the next person knows the check
+is required rather than reassuring.
+
+**And the derivation survives the region split by construction.** `annualSavings`
+divides one storefront's annual by *that same storefront's* monthly and refuses
+to compare across currency codes, so the US pair (39.99 / 3.99) and the Canadian
+pair (49.99 / 4.99) both land on the same claim — 12 months for the price of 10,
+`SAVE 16%`. A written-down "2 months" would have been wrong on at least one of
+them. That is the whole argument for deriving, demonstrated on the very storefront
+mismatch that exposed it.
+
+### What shipped
+
+- **`storePrices.annualSavings(monthlyInfo, annualInfo)`** — derives the saving
+  from the two **live** StoreKit prices. Returns null (meaning *render nothing*)
+  unless both prices are present, the currency codes match, and a real saving
+  exists. The percentage is **floored**, never rounded up. "12 months for the
+  price of N" prints only when N lands within 0.15 of a whole month; otherwise the
+  percentage stands alone.
+- The caption now reads `SAVE {percent}%`. The selected tier's card carries
+  *"12 months for the price of {months} — {monthlyEquiv} a month instead of
+  {monthlyPrice}."* Both languages, in the same edit.
+- Every free-period word left subscription copy: `paywall.subscribeAnnualSub`,
+  `manage.switchToUnlimitedAnnual`, `catalog.tier.unlimited.description`, and the
+  `description` fallback in **both** `pricing.config.js` copies.
+- **Deliberately kept:** `manage.planPaygPrice: "Free"`. Pay-as-you-go is not a
+  subscription and genuinely costs $0 — a free *tier* is not a free *trial*. If a
+  reviewer ever asks, that is the answer.
+
+### Why it shipped unpinned
+
+Every render test in the repo gives the Unlimited tier `annual: null`, so
+`_anyAnnualPlan` was false, the billing toggle never mounted, and **no suite had
+ever rendered this control.** A caption can only survive that long if nothing is
+looking at it. `__tests__/paywallAnnualBadge.test.js` now gives the tier a real
+annual SKU and renders both surfaces, asserting the derived number reaches the
+label and that the rejected wording cannot.
+
+### Durable rule
+
+> No subscription copy may state or imply a free period — "free", "gratuit",
+> "essai", "on us", "N mois offerts" — unless a matching introductory offer is
+> live in App Store Connect for that product. A discount is stated as a **price**,
+> and that price is **derived from the live store price**, never written down.
+
+Guarded by `__tests__/noFreeTrialClaims.test.js`, which scans every
+`paywall.*` / `manage.*` / `catalog.tier.*` key in **every** language block the
+bundle defines, plus the customer-facing strings of both `pricing.config.js`
+copies. It carries one justified allowlist entry (`manage.planPaygPrice`) and
+mutation assertions proving the pattern actually catches the strings that were
+rejected — including the French synonyms a reword would reach for first.
+
+---
+
+## 2. Guideline 5.1.1(iv) — a permission explainer that talked the user into it, and let them out of it
 
 - **Version:** 2.8.18 (38) · **Submission:** `7fee471a-4ab2-4727-a1da-c164231963a3`
 - **Reviewed:** 2026-09-09, on an iPad Air 11-inch (M3) — the app is iPhone-only

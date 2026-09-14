@@ -11340,3 +11340,59 @@ the same run.
 > A test can be green, honest, and vacuous at the same time. `expect(confidence)
 > .toBe(1)` passed for nine receipts on a signal that could not fire for that
 > store at all.
+
+---
+
+## 249. The annual plan advertised "2 FREE MONTHS" on a subscription that has no free trial (2026-09-14, PR #336)
+
+- Date: 2026-09-14 · PR: #336 · Area: mobile
+- Symptom: App Review rejects the build under **Guideline 3.1.2(c)** — *"the app
+  includes references to a free trial for the subscription, but the submitted
+  subscriptions do not include a free trial period."* The letter names no
+  control, so the first reading in-house was that Apple had confused the **75
+  welcome credits** with a subscription trial. It had not.
+- Root cause: the **Annual** half of the billing toggle rendered a caption
+  reading **"2 FREE MONTHS"** (`paywall.twoFreeMonths`). To App Review, "free
+  months" printed on an auto-renewable subscription **is** a free-trial claim,
+  and `priceback_unlimited_annual` carries no introductory offer to back one.
+  The copy was never wrong about the money — annual really is cheaper — it was
+  wrong about the **kind of thing on offer**. A discount is not a trial.
+- Second defect, same line of code: the claim was a **fixed string beside a
+  dynamic price**. `pricing.config.js` hardcodes annual at `$49.99`; the
+  reviewer's screenshot shows `$39.99/year`. At 4.99/49.99 a year costs ~10
+  months of monthly spending; at 4.99/39.99 it costs ~8. The written-down "2
+  months" is true on neither and verifiable on nothing.
+- Fix: `storePrices.annualSavings(monthlyInfo, annualInfo)` derives the saving
+  from the two **live** StoreKit prices and returns `null` — render nothing —
+  unless both prices are present, the currency codes match, and a real saving
+  exists. The percentage is **floored**, never rounded up. "12 months for the
+  price of N" prints only when N lands within 0.15 of a whole month. The caption
+  became `SAVE {percent}%`; the tier card carries the price comparison. Every
+  free-period word left subscription copy in both languages.
+- Files: `src/services/storePrices.js` (`annualSavings`),
+  `src/components/Paywall.js` (`savingsForTier`, the toggle caption, the value
+  line), `src/screens/ManageSubscriptionScreen.js` (`unlimitedSavings`),
+  `src/services/i18n.js` (both language blocks),
+  `shared/pricing.config.js` + `backend/shared/pricing.config.js`.
+- Detect next time: `npm test` — `__tests__/noFreeTrialClaims.test.js` fails the
+  build on any free-period word in a `paywall.*` / `manage.*` /
+  `catalog.tier.*` key, in **every** language the bundle defines.
+- Prevent: the guard above, plus `__tests__/paywallAnnualBadge.test.js`, which
+  renders both purchase surfaces with a **real annual SKU**. That is the gap
+  that let this ship: every pre-existing render test gives the Unlimited tier
+  `annual: null`, so `_anyAnnualPlan` was false, the toggle never mounted, and
+  no suite had ever seen the control.
+
+> A price written into the bundle cannot track what a storefront charges. If a
+> number is going to sit next to a live store price, derive it from that price —
+> `monthlyEquiv: "$4.17"` (Bugs #211-era) and "2 FREE MONTHS" are the same bug
+> twice, four months apart.
+
+> Read the rejection for the *control*, not the vocabulary. "Free trial" in
+> Apple's sentence meant our badge, not our free credits — and the word "trial"
+> appears nowhere in the app's UI. Asking "which pixel is it looking at?" beats
+> matching their words against our feature names.
+
+> A UI element behind a feature flag that no fixture enables is untested no
+> matter how green the suite is. `annual: null` in every mock meant 5,541
+> passing tests and zero coverage of the control that got the app rejected.
