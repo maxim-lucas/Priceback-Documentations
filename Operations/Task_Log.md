@@ -16,6 +16,72 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-14 — App Store rejection 3.1.2(c): "2 FREE MONTHS" on a subscription that has no free trial
+
+- **Asked (/goal):** understand a second iOS rejection — Apple says the purchase
+  flow references a free trial the submitted subscriptions don't have. Maxim's
+  reading was "the app doesn't include free trial, but free credit (pay as you
+  go)", and the letter's wording genuinely does not say which control it means.
+- **Cause:** the reviewer means the **`2 FREE MONTHS` badge on the Annual half of
+  the billing toggle** (`Paywall.js:358`, `ManageSubscriptionScreen.js:314`, key
+  `paywall.twoFreeMonths`) — *not* the 75 welcome credits. Confirmed no
+  user-visible "free trial" string exists anywhere: `FREE_TRIAL_CREDITS` and the
+  `manage.trial*` / `profile.subscriptionSubTrial` keys are internal names that
+  all render "Pay-as-you-go (Basic)".
+- **Second defect found in the same place:** `shared/pricing.config.js:138`
+  hardcodes annual at `$49.99`; the reviewer's screenshot shows `$39.99/year`. A
+  fixed "2 months" claim beside a live store price is unverifiable on any
+  storefront — the same bug class as the rejection itself.
+- **Decision (Maxim):** do NOT create a real introductory offer in ASC — that
+  would give away two months per annual subscriber we never intended to sell.
+  Annual is a discount, so state it as a price: a derived `SAVE N%` badge plus
+  "12 months for the price of N" in the tier description, both computed from the
+  live StoreKit prices. Every free-period word leaves subscription copy.
+- **Branch:** `fix/ios-3-1-2c-subscription-copy`, cut from **`main`** — Maxim
+  asked for main only. `development` is not touched, merged or rebased.
+- **Status:** **PR #336 open against `main`.** Mobile 234 suites / 5549 tests
+  green, coverage 82.25/74.70/71.96/84.83, `i18n:check` green, backend blast
+  radius (`sharedPricing.test.js`) 38/38. No Actions dispatched. Still owed:
+  confirm the real ASC prices for both Unlimited SKUs (`priceNum` seeds the DB),
+  then bump to 2.8.21 (41), tag, build from the tag, GitHub release.
+
+### 2026-09-14 — Deep security audit of `main`, and the accepted risks whose reasoning expired
+
+- **Asked (/goal):** run a deep, full security audit based on `main`, respecting
+  Google Play and App Store guidelines, and fix findings per best practices.
+- **Audited tree:** `git log --oneline development..main` is empty, so
+  `development` strictly contains `main` — auditing the working tree covers
+  `main` in full. Last full audit was **2026-08-04**; everything since (session
+  tokens #253, admin console + data-cleanup runner #331, reviewer code #299,
+  locked drops #321, the adapter registry and three store feeds, the AdMob lane)
+  had never been security-reviewed.
+
+**The headline is a compliance hole, not a crash.** `isGmailSourcedReceipt` gates
+exactly ONE egress path (`receiptSyncService.js:200`). `registerForPriceWatch`
+(`priceService.js:480`) is a second one and has no source check — it POSTs item
+names and prices to `/api/watch`, which stores the array verbatim server-side.
+The gate's own comment says Gmail receipts are local-only "unconditionally" and
+reasons that the crowd path rejects non-Costco shapes; that is true of
+`crowdRepo.recordObservation` and **not** of the `watchedItems.set` half it never
+considered. Latent only because `gmailSyncEnabled: false` — it fires the day CASA
+verification clears and that flag flips.
+
+**Three of the last audit's conclusions had expired**, which matters more than the
+new surface, because an accepted risk is only accepted while its reasoning holds:
+`form-data` and `undici` now have non-breaking fixes (they were deferred as
+"needs a breaking major"); the mobile triage's "no runtime exposure in the
+installed app" is false (`nanoid`, `decode-uri-component` ship inside
+react-navigation — neither exploitable, but the sentence justifying inaction is
+wrong); and three ops actions from 08-04 are still open, including a live R2
+credential still reachable in git history at `4b41643`.
+
+**Maxim's calls on scope:** two PRs (High+Medium now, Low follow-up); re-mask the
+nine Best Buy fixtures rather than extending the Costco "declined" decision;
+in scope — drizzle-orm major, the device-ownership proper fix, and dropping the
+unread `memberId`; out of scope — excluding AsyncStorage from iCloud backup.
+
+- **Status:** in progress on `security/audit-2026-09-14`.
+
 ### 2026-09-13 — Best Buy + Abercrombie: a store-gated confidence signal, and two paths nothing was executing
 
 - **Asked (/goal):** continue the full integration of the new stores (Best Buy,
