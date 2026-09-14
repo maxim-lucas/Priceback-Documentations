@@ -60,11 +60,18 @@
   nothing else.
 - **Version: 2.9.0 (build 41)**, not 2.8.21 — Maxim's call, this is the build he
   intends as the final review submission.
-- **Status:** **PR #336 open against `main`**, now carrying the bump. Mobile
-  234 suites / 5549 tests green, coverage 82.25/74.70/71.96/84.83, `i18n:check`
-  green (en=1504, fr=1504), backend blast radius (`sharedPricing.test.js`) 38/38.
-  No Actions dispatched. Still owed: merge, tag `v2.9.0`, build from the tag,
-  GitHub release.
+- **Status: SHIPPED to the tag.** PR #336 merged (`10bf00c`), version bump PR
+  #337 merged (`9c04ba5`), docs PR #65 merged. Tag **`v2.9.0`** is annotated and
+  pushed at `9c04ba5`; the GitHub release is published. Mobile 234 suites / 5549
+  tests green, coverage 82.28/74.72/71.99/84.86, `i18n:check` green (en=1504,
+  fr=1504). No Actions dispatched. **Still owed: `git checkout v2.9.0` →
+  `eas build --profile production` (iOS) → submit.** Nothing on `main` is
+  outside the tag.
+- **Note for the tagger:** `scripts/releaseTag.js` check 1 uses
+  `git status --porcelain`, which counts **untracked** files. The two Sport Chek
+  eReceipt PDFs sitting untracked in `__tests__/fixtures/receipts-sportchek/`
+  fail it. They were moved out of the tree for the tag and moved back after —
+  do not commit them, they are real receipts.
 
 ### 2026-09-14 — Deep security audit of `main`, and the accepted risks whose reasoning expired
 
