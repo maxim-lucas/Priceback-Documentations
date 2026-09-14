@@ -58,7 +58,7 @@ Check the whole path, not just the last fix.
 ## 1. Guideline 3.1.2(c) — a discount advertised in the language of a free trial
 
 - **Version:** 2.8.20 (40) · **Reviewed:** 2026-09-14
-- **Answered by:** 2.8.21 (41), PR #336 · Bugs entry #249
+- **Answered by:** 2.9.0 (41), PR #336 · Bugs entry #249
 - **Predicted by the entry below.** §2 closes with *"everything past this screen —
   the paywall above all — went unreviewed and will be exercised next round."* It
   was, and this is what they found there.
@@ -101,22 +101,49 @@ not exist.
 
 ### The second defect, found while checking the arithmetic
 
-`shared/pricing.config.js` hardcoded the annual price at **$49.99**. The
-reviewer's screenshot shows **$39.99/year**. The bundled catalog and the live
-storefront disagreed — so the fixed "2 months" was not merely mis-*framed*, it was
-**unverifiable**: at $4.99/$49.99 a year costs ~10 months of monthly spending, at
-$4.99/$39.99 it costs ~8.
+`shared/pricing.config.js` hardcodes the annual price at **$49.99**. The
+reviewer's screenshot shows **$39.99/year**. The bundled catalog and the screen
+the reviewer saw disagreed — so the fixed "2 months" was not merely mis-*framed*,
+it was **unverifiable**: at $4.99/$49.99 a year costs ~10 months of monthly
+spending, at $4.99/$39.99 it costs ~8.
 
 This is the same bug class `storePrices.js` already carries a scar from — a
 hardcoded `monthlyEquiv: "$4.17"` that once rendered a USD figure beneath a CAD
 price. **A price claim written into the bundle cannot track what a storefront
 charges.** That is why the remedy derives rather than rewrites.
 
-> WARNING — still owed: confirm the real ASC prices for
-> `priceback_unlimited_monthly` and `priceback_unlimited_annual`. `priceNum` seeds
-> the database via `backend/db/seed.js`, so a stale value outlives the display
-> fix. Nothing on screen reads it — the fix is correct either way — but the seed
-> should not lie.
+#### Resolved: the two numbers were never in conflict
+
+Maxim confirmed the real prices on 2026-09-14: **$4.99 CAD/month and $49.99
+CAD/year.** The reviewer's `$39.99` is the **USD storefront translation** of the
+CAD 49.99 tier, not a different price — the same confusion recorded in
+`ios-prices-wrong-in-app-store-connect`, where App Store Connect was correct all
+along and the tester's region supplied the other number.
+
+Checked in all four places the number is written down; every one already carried
+`4.99` / `49.99`:
+
+| Where | Monthly | Annual |
+|---|---|---|
+| `shared/pricing.config.js` (mobile) | 4.99 | 49.99 |
+| `backend/shared/pricing.config.js` (byte-identical) | 4.99 | 49.99 |
+| `priceback.subscription_plans`, **dev** `gnedluuylimjwdmtvswl` | 4.99 | 49.99 |
+| `priceback.subscription_plans`, **prod** `xjfrlzwonyaorwktnkpj` | 4.99 | 49.99 |
+
+**The seed does not lie, and the DB check was not optional.** `seedTierConfig`
+reconciles prices with `coalesce(<existing>, excluded)` — a price already present
+in a row is **never** overwritten by a reseed. Had prod held a stale number, the
+catalog fix would not have reached it and no amount of re-running the seed would
+have. It held the right one; this is recorded so the next person knows the check
+is required rather than reassuring.
+
+**And the derivation survives the region split by construction.** `annualSavings`
+divides one storefront's annual by *that same storefront's* monthly and refuses
+to compare across currency codes, so the US pair (39.99 / 3.99) and the Canadian
+pair (49.99 / 4.99) both land on the same claim — 12 months for the price of 10,
+`SAVE 16%`. A written-down "2 months" would have been wrong on at least one of
+them. That is the whole argument for deriving, demonstrated on the very storefront
+mismatch that exposed it.
 
 ### What shipped
 

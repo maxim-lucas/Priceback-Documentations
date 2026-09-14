@@ -39,11 +39,32 @@
   live StoreKit prices. Every free-period word leaves subscription copy.
 - **Branch:** `fix/ios-3-1-2c-subscription-copy`, cut from **`main`** — Maxim
   asked for main only. `development` is not touched, merged or rebased.
-- **Status:** **PR #336 open against `main`.** Mobile 234 suites / 5549 tests
-  green, coverage 82.25/74.70/71.96/84.83, `i18n:check` green, backend blast
-  radius (`sharedPricing.test.js`) 38/38. No Actions dispatched. Still owed:
-  confirm the real ASC prices for both Unlimited SKUs (`priceNum` seeds the DB),
-  then bump to 2.8.21 (41), tag, build from the tag, GitHub release.
+- **Prices confirmed (Maxim, 2026-09-14):** **$4.99 CAD/month, $49.99 CAD/year.**
+  Checked in all four places the number lives, and every one already carried it:
+  `shared/pricing.config.js` and `backend/shared/pricing.config.js` (byte-identical),
+  `priceback.subscription_plans` on **dev** `gnedluuylimjwdmtvswl` and on **prod**
+  `xjfrlzwonyaorwktnkpj` (both `4.99` / `49.99`). Nothing to correct — the stale
+  `$49.99` the previous session feared would outlive the fix was never stale.
+- **The reviewer's `$39.99/year` was a storefront translation, not a wrong price.**
+  Apple's tier matrix maps CAD 49.99 to USD 39.99; the reviewer was on a non-CA
+  storefront. Same shape as [`ios-prices-wrong-in-app-store-connect`] — ASC is
+  correct, the region differs. `annualSavings` survives it by construction: it
+  divides one storefront's annual by the *same* storefront's monthly, so US
+  (39.99/3.99) and CA (49.99/4.99) both land on "12 months for the price of 10".
+- **No display path can reach a written-down price.** Verified every render site
+  goes through the live store: `Paywall.js`, `ManageSubscriptionScreen.js`,
+  `BuyCreditsScreen.js`, `StoresAndProfileScreens.js` all call `priceFor`/`infoFor`,
+  and the two FAQ sentences that quote a price take it from
+  `pricingCatalogService.priceStringFor`, falling back to price-free `*NoPrice`
+  variants rather than to a catalog number. `priceNum` reaches the DB seed and
+  nothing else.
+- **Version: 2.9.0 (build 41)**, not 2.8.21 — Maxim's call, this is the build he
+  intends as the final review submission.
+- **Status:** **PR #336 open against `main`**, now carrying the bump. Mobile
+  234 suites / 5549 tests green, coverage 82.25/74.70/71.96/84.83, `i18n:check`
+  green (en=1504, fr=1504), backend blast radius (`sharedPricing.test.js`) 38/38.
+  No Actions dispatched. Still owed: merge, tag `v2.9.0`, build from the tag,
+  GitHub release.
 
 ### 2026-09-14 — Deep security audit of `main`, and the accepted risks whose reasoning expired
 
