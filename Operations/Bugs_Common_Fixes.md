@@ -11530,3 +11530,88 @@ the same run.
   including the off-by-one at exactly the cap. Standing rule: when you fix a helper,
   mutate its **call site** too — a test that only exercises the helper cannot tell
   you the helper is wired.
+
+## 254. The drizzle 0.45 upgrade turned every transient DB failure into a permanent one (2026-09-16, PR #340)
+
+- Date: 2026-09-16 · PR: #340 · Area: backend
+- Symptom: none observed yet — found while reading the log of a PASSING test run.
+  Would have surfaced as 500s instead of 503s during a Supabase restart, and as
+  retry loops that stop retrying at the exact moment retrying is correct.
+- Root cause: drizzle-orm >= 0.45 wraps every query failure in
+  `DrizzleQueryError`, whose constructor sets `this.cause = cause` and **does not
+  copy `code`**, and whose `message` is `Failed query: <sql>\nparams: …`.
+  `db/client.js:isTransientDbError` read exactly two things — `err.code` and
+  `err.message` against a word list — so after the bump the code was `undefined`
+  and the driver's own text ("terminating connection due to administrator
+  command") appeared nowhere in the message. Measured:
+  `isTransientDbError(pgError('…','57P01'))` → `true`;
+  `isTransientDbError(DrizzleQueryError(sql, [], <that same error>))` → `false`.
+- **The full 1592-test suite passed with this in place.** No test throws a
+  transient error through a real drizzle query; the failures the suite does
+  provoke are deterministic (a numeric overflow proving transaction rollback),
+  and those are correctly non-transient either way. A dependency bump can change
+  the SHAPE of an error without changing any behaviour a test asserts.
+- Blast radius: `/health` (`transient: false`, `code: null` for a live outage),
+  any route mapping transient → 503, and `seedWithRetry`, whose entire 15-second
+  budget exists to ride out a pooler-saturation window.
+- Fix: `isTransientDbError` and a new `dbErrorCode` walk the `cause` chain rather
+  than reading the top error. A loop, not a single `.cause`: the wrapper is one
+  layer today and a future version nesting another must not silently reopen it.
+- Detect next time: after any ORM/driver major, grep for `err.code` and
+  `err.message` in error-classification paths and ask what the new wrapper does
+  to each. The tell here was a `DrizzleQueryError` in a **passing** run's log.
+- Prevent: `drizzleErrorUnwrap.test.js` (19) pins BOTH directions — seven
+  transient shapes stay transient once wrapped, and five permanent ones (`23505`,
+  `23503`, `42P01`, `22003`, a plain bug) are NOT dragged into transience by the
+  unwrap. Deliberately needs no database: a file that silently skips is how this
+  survived. Standing rule: classify on the whole cause chain, never on the top
+  error alone.
+
+## 255. A resold phone let the new owner erase the previous owner's contributions (2026-09-16, PR #341)
+
+- Date: 2026-09-16 · PR: #341 · Area: backend
+- Symptom: none observed. `DELETE /api/me/observations` (and the account-erasure
+  path) deleted EVERY crowdsourced observation carrying a device hash, and
+  `owner_sub` transfers on assertion — so the second account on a shared, resold
+  or hand-me-down phone erased the first account's contributions, as could anyone
+  who learned the deviceId.
+- **The obvious fix was already tried and reverted, and that is the lesson.**
+  Refusing the transfer (`COALESCE(existing, new)`) went red against
+  `barcodeDeviceDb.test.js`, which asserts the transfer outright. That is a
+  stated invariant, not fixture drift (Bugs #185): without it the second account
+  is permanently unable to delete its own data or export it —
+  `callerOwnsDevice` answers false for them forever. A hardening item traded for
+  a data-rights regression.
+- Fix: leave the claim rule alone and scope the DELETION. New
+  `devices.owner_claimed_at` (migration `0007`), and
+  `crowdRepo.revokeForDevice(deviceId, { since })` bounds the delete to rows
+  created at or after the current owner claimed the device.
+- **Keyed on `created_at`, never `observed_at`.** `observed_at` is mutable, an
+  ON CONFLICT re-observation moves it, and a receipt's purchase date can backdate
+  it — keying on it would let a caller drag another owner's rows inside their own
+  window and delete them. `created_at` is the immutable insert time.
+- Why a column and not a join: `price_points` carries `device_hash` and no owner
+  by design, and `credit_ledger.ref = price_points.source_ref` only covers
+  observations that EARNED a credit — the observation route is deliberately
+  anonymous ("nobody to credit later"). A partial answer on a deletion path
+  silently keeps rows the user asked to erase.
+- Both fail-open cases are deliberate: no boundary (an anonymous caller) and an
+  unparseable boundary both delete unscoped. Leaving data behind after a user
+  asked for it to go is the PIPEDA / Law 25 failure, and it is worse than
+  deleting a little extra from a device the caller already proved they own.
+- **Mutation testing changed the PR twice.** (1) Every assertion was against the
+  repo helper — the same shape that let two M12 mutations survive in the
+  2026-09-14 audit; two route-level tests were added, and removing
+  `{ since: claimedAt }` from the call site now goes red. *A correct helper
+  nothing calls is not a fix.* (2) `IS DISTINCT FROM` had to replace `<>`:
+  `NULL <> 'sub'` is NULL, so with `<>` a FIRST claim over an existing UNOWNED row
+  never stamps — the common real sequence, since an anonymous `/api/device/sync`
+  creates the row and the user signs in afterwards. Every test created its row
+  fresh via INSERT and missed it.
+- Detect next time: when a permission check and a destructive helper disagree
+  about SCOPE, fix the helper. "Who may call this" and "what this may touch" are
+  separate questions, and only the second bounds the damage.
+- Prevent: `deviceObservationScopingDb.test.js` (10), including the ON CONFLICT
+  claim path and two tests that DELETE through the real route. Migration applied
+  by hand to both databases before the merge; historical transfers are not
+  retroactively protected, because the timestamp was never recorded.

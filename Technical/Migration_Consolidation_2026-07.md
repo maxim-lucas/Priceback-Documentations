@@ -250,3 +250,32 @@ A first pass probed `subscription_events.subscription_is_sandbox`, got `false` o
 **both** databases, and briefly looked like a real gap on prod. Read the migration's
 DDL before trusting the probe — a false "prod is missing a column" is how someone
 talks themselves into running DDL against production that it does not need.
+
+### 0007 applied by hand, 2026-09-16 — and the hash trap
+
+`0007_device_owner_claimed_at` was applied to **both** databases before its code
+merged, because prod's ledger is hand-maintained and `db:migrate` is never run
+there. Additive and idempotent (`ADD COLUMN IF NOT EXISTS` + a guarded backfill).
+
+Result — prod `xjfrlzwonyaorwktnkpj`: 7 devices, all 7 owned, all 7 stamped, 0
+unstamped; 189 crowd rows untouched; ledger 16 rows -> 17. Fingerprints identical
+on both afterwards: `3cc4b48958b2522fb2da62362f3f0743`, **358 columns**, 44 tables
+(357 before).
+
+**The ledger hash is the LF-normalised digest, and getting that wrong is easy on
+Windows.** drizzle hashes the migration file's RAW BYTES
+(`createHash("sha256").update(readFileSync(path).toString())`), so a CRLF working
+copy produces a different hash than the LF one a Linux checkout sees — and `main`
+has no `.gitattributes`, so a Windows checkout is CRLF.
+
+Verify against ground truth rather than guessing: prod's existing `0006` row is
+`1e7d6a08…`, which is exactly that file's **LF** hash; its CRLF hash
+(`8261f419…`) matches nothing. So:
+
+```js
+const lf = fs.readFileSync(p, "utf8").replace(/\r\n/g, "\n");
+crypto.createHash("sha256").update(lf).digest("hex");
+```
+
+`0007` = `ff29ad70e029d924ca29a9c875370fc5b165da137f0f00f556ac812bf8fd2b55`.
+Insert guarded by `where not exists (... where hash = ...)` so re-running is safe.
