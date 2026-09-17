@@ -1,5 +1,10 @@
 # Security Recommendations — Deferred Hardening
 
+> **Superseded as a backlog (2026-09-17, audit run 3).** Every open security item — this
+> file's register, the three 2026 audit reports and the operator actions — now lives in ONE
+> place: [`Security_Roadmap.md`](./Security_Roadmap.md). Update that file when an item
+> closes. The register below is kept for its reasoning and is no longer maintained.
+
 These are technical hardening items intentionally **not** changed, to keep launch
 risk low. None are launch blockers; each has a concrete fix for when it's worth
 doing. Items that *were* fixed are listed at the bottom for reference.
