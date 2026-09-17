@@ -392,6 +392,29 @@ rejecting a US ZIP becomes a bug on the first expansion. What it stops is the ac
 defect — arbitrary unbounded content in a column the iOS privacy manifest declares
 as `PhysicalAddress`.
 
+> ## ✅ L2 CLOSED 2026-09-16 (PR #341) — exactly as the last paragraph below said it would have to be
+>
+> The deletion is now scoped, and the claim rule is **untouched** — which is the
+> point, since changing it is what failed last time. New
+> `devices.owner_claimed_at` (migration `0007`) records when the current owner
+> took the device, and `crowdRepo.revokeForDevice(deviceId, { since })` bounds
+> its delete by it. `barcodeDeviceDb.test.js` passes unchanged (6/6).
+>
+> Compared against `price_points.created_at`, **never `observed_at`** — the
+> latter is mutable, an ON CONFLICT re-observation moves it, and a receipt's
+> purchase date can backdate it, so keying on it would let a caller drag another
+> owner's rows inside their own window.
+>
+> **Why a column and not a join:** `price_points` carries `device_hash` and no
+> owner by design, and the `credit_ledger.ref` join only covers observations that
+> EARNED a credit — the observation route is deliberately anonymous ("nobody to
+> credit later"), so that answer is partial, and a partial answer on a deletion
+> path silently keeps rows the user asked to erase.
+>
+> Migration applied by hand to **both** databases before the merge. Historical
+> transfers are not retroactively protected: the timestamp was never recorded and
+> cannot be reconstructed. Full reasoning in Bugs #255.
+
 **L2 — device ownership transfers on assertion. Fixed, then REVERTED.** This one
 is worth reading in full, because the fix was written, shipped to CI, and turned
 out to be worse than the finding.

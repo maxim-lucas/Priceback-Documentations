@@ -65,14 +65,42 @@
   (CVE-2025-7783 was backported, so 2.5.6 is patched despite sorting below 4.0.6),
   and in this lockfile the HOISTED `form-data` is `dev: true` while the nested copy
   under `@types/request` is the production one.
-- **PR #340 — the last production high, and the CI gate.** `drizzle-orm`
-  0.36 → 0.45.2 (GHSA-gpj5-g38j-94v9). Backend production highs **1 → 0**, which
-  finally allows the `npm audit` CI gate to move from `critical` to `high` — what
-  its own comment had been asking for since 2026-08-04. The level is now **pinned
-  by a test** rather than left to an intention with no expiry. `drizzle-kit` stays
-  at 0.28 deliberately (devDependency, outside `--omit=dev`, and a bump risks the
+- **PR #340 — MERGED (`51a5930`).** `drizzle-orm` 0.36 → 0.45.2
+  (GHSA-gpj5-g38j-94v9). Backend production highs **1 → 0**, which finally allows
+  the `npm audit` CI gate to move from `critical` to `high` — what its own comment
+  had been asking for since 2026-08-04. The level is now **pinned by a test**
+  rather than left to an intention with no expiry. `drizzle-kit` stays at 0.28
+  deliberately (devDependency, outside `--omit=dev`, and a bump risks the
   hand-maintained migration snapshot format); verified compatible via
   `drizzle-kit check` → "Everything's fine".
+- 🔴 **The upgrade introduced a live defect, caught by reading a PASSING run's
+  log.** drizzle ≥0.45 wraps every query failure in `DrizzleQueryError`, which
+  sets `cause` and does **not** copy `code`, and whose message is just the SQL.
+  `isTransientDbError` read only those two things — so a `57P01` during a Supabase
+  restart, an `ECONNRESET`, or the pooler's `EMAXCONNSESSION` all classified as
+  **PERMANENT**: 500 instead of 503, and every retry loop keyed on transience
+  (including `seedWithRetry`) stopping at the moment retrying is correct. **The
+  full 1592-test suite passed with it in place** — a dependency bump changed the
+  SHAPE of an error without changing any behaviour a test asserted. Fixed by
+  walking the `cause` chain; 19 new cases pin both directions. Bugs #254.
+- **PR #341 — MERGED (`595dfc3`). iOS audit Pass 6 finding L2, closed.** A resold
+  phone let the new owner erase the previous owner's crowdsourced contributions.
+  The claim rule is **untouched** — changing it is what failed last time
+  (`barcodeDeviceDb` asserts the transfer as a stated invariant, and refusing it
+  strands the second account). Instead the DELETION is scoped: new
+  `devices.owner_claimed_at` (`0007`) bounds `revokeForDevice`, keyed on
+  `price_points.created_at` and never the backdatable `observed_at`. Mutation
+  testing changed the PR twice — it forced route-level tests (the M12 "a correct
+  helper nothing calls is not a fix" trap) and `IS DISTINCT FROM` over `<>`, since
+  `NULL <> 'sub'` means a first claim over an existing unowned row never stamps.
+  Bugs #255.
+- ✅ **`0007` applied BY HAND to prod and dev before the merge**, so `main` could
+  not deploy ahead of the column. Prod: 7 devices, all 7 stamped, **189 crowd rows
+  untouched**, ledger 16 → 17. Fingerprints identical afterwards
+  (`3cc4b48958b2522fb2da62362f3f0743`, 358 columns, 44 tables). The ledger hash is
+  the **LF-normalised** digest — verified against ground truth, since prod's
+  existing `0006` row is that file's LF hash and its CRLF hash matches nothing. A
+  Windows checkout would have recorded the wrong one.
 - 🔴 **Found during verification, NOT fixed — `daysRemaining` is timezone-dependent.**
   Three mobile tests fail locally after ~20:00 Toronto time and pass at UTC. Proven
   on an identical tree: `TZ=UTC` 39/39 green, `TZ=America/Toronto` and

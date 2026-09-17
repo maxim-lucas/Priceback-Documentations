@@ -235,6 +235,21 @@ while its reasoning holds.**
 - **Three ops actions from 2026-08-04 are still open**, including a live R2
   credential still reachable in git history at `4b41643`.
 
+**All three dependency acceptances are now closed** (PRs #339, #340). Backend
+production dependencies report **0 critical / 0 high / 7 moderate**, every
+moderate transitive under the dormant `@google-cloud/storage` SDK. The `npm audit`
+CI gate moved from `critical` to `high` and the level is pinned by a test, so it
+cannot drift back the way the last one did.
+
+⚠️ **The drizzle upgrade introduced a defect of its own, and the suite could not
+see it.** drizzle ≥0.45 wraps query failures in `DrizzleQueryError`, which does
+not copy `code` and whose message is just the SQL — so `isTransientDbError`
+classified every transient DB failure as permanent (500 instead of 503, retries
+abandoned). All 1592 backend tests passed with it in place. Found by reading a
+`DrizzleQueryError` in a passing run's log and asking what `err.code` would be.
+Fixed and pinned: Bugs #254. **A dependency bump can change the shape of an error
+without changing any behaviour a test asserts.**
+
 ---
 
 ## Status on `main`
