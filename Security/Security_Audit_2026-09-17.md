@@ -95,6 +95,31 @@ device-row deletion, or the lock-out.
 an attacker "must first obtain a hashed device id that is never published, logged or
 returned by any endpoint." That premise is H-2.
 
+**Fixed — and NOT the way this audit first proposed.** The plan said "enforce ownership
+on `/api/device/sync` and `/api/device/scan`; make the owner claim conditional." Reading
+`devicesRepo.js` before touching it showed that is the fix which **was already written,
+shipped to CI and reverted** (iOS audit Pass 6, L2): that route *is* the mechanism by
+which a resold phone's new account becomes the owner, and gating it strands them with a
+permanent 403 on export and erase. Applying it would have traded this finding for a
+data-rights regression against a real user.
+
+The actual defect is narrower and was sitting in plain sight: **PR #341 bounded the
+delete and left the read alone.** `revokeForDevice` takes `{ since }`;
+`contributionsForDevice` took no boundary at all. So the fix is the same predicate on the
+read — same column (`created_at`, immutable), same null-means-unscoped semantics for
+devices claimed before migration 0007. The claim rule is untouched.
+
+It also settles an inconsistency that was already shipped: unbounded, the export listed
+rows the delete refused to remove, so a user could see data they could not erase. Export
+and erase now describe the same set, and a test asserts exactly that.
+
+Residual, stated plainly: an attacker can still *assert* someone's deviceId and take the
+row. With the read bounded that discloses nothing, and the real owner's next app launch
+re-claims it (last-writer-wins), so the lock-out is transient rather than permanent as
+first assessed. What remains is that their device row can be deleted by the account-delete
+path — losing an anti-reinstall scan count, which is abuse against us, not disclosure.
+H-2 is what removes the ability to guess the id in the first place.
+
 ---
 
 ### H-2 — `deviceId` is not the capability token the backend assumes
@@ -188,7 +213,27 @@ sentence run 1 caught being **false** for `nanoid` and `decode-uri-component`, w
 ship inside react-navigation. An accepted risk is only accepted while its reasoning
 holds, and this one had never been checked.
 
-See *Verification* for the measured result.
+**Measured, not argued.** `expo export --platform android --dump-sourcemap` was built and
+every flagged package looked up in the sourcemap's 2239-module list:
+
+| | packages |
+|---|---|
+| **Absent** from the bundle (build-time only) | `shell-quote` (the lone critical), `ws`, `js-yaml`, `postcss`, `browserslist`, `image-size`, `brace-expansion`, `@xmldom/xmldom`, `metro`, `metro-config`, `metro-transform-worker`, `@expo/metro` |
+| **Ships** | `nanoid`, as `nanoid/non-secure/index.js` |
+
+Twelve of thirteen are genuinely build-time only, so the informational step is correct
+about them and stays informational. The thirteenth ships, and the entry point it ships is
+precisely the one `GHSA-28wg-ghj8-5hjv` names ("non-secure generators can loop
+indefinitely with negative size"). Exploitability here is nil — react-navigation calls it
+with no size argument, so nothing reaches the vulnerable parameter — but it was bumped
+(3.3.12 → 3.3.19) because it is a patch within the range every dependent already allows,
+and because "we think it isn't reachable" is the reasoning that has now expired twice.
+
+Mobile production highs 12 → 11. The floor is pinned in
+`__tests__/ciSupplyChainPolicy.test.js`, with a second test asserting there is only **one**
+resolved copy — otherwise the floor would pass while a different copy is the one loaded.
+The workflow comment now carries the method, so a future finding there is dismissible only
+once the package is shown absent from that module list.
 
 ---
 
@@ -389,12 +434,19 @@ reaches neither the backend, nor `price_points`, nor the LLM, nor the ads SDK.
 
 ## Operational actions — outside the repository
 
-1. **Confirm the R2 key rotation.** The Cloudflare R2 secret access key committed at
-   `4b41643` (and visible again in the removal diff at `b6c9b11`) is still readable in
-   git history. Maxim recalls rotating it several weeks ago; **four documents still say
-   it is owed** — `SecurityRecommendations.md:306`, `Security_Audit_2026-08-04.md:183`,
+1. 🔴 **Confirm the R2 key rotation — this is the one open item from run 2.**
+   The Cloudflare R2 secret access key committed at `4b41643` (and visible again in the
+   removal diff at `b6c9b11`) is still readable in git history. Maxim recalls rotating it
+   several weeks ago; **four documents still say it is owed** —
+   `SecurityRecommendations.md:306`, `Security_Audit_2026-08-04.md:183`,
    `PUBLISH_CHECKLIST.md:883`, `Task_Log.md:4514`. One look at Cloudflare → R2 → API
    Tokens settles it, and those four documents should then be corrected.
+
+   The bucket holds **user receipt photos**, so this is the highest-value credential in
+   the system. Rotation is what kills the exposure; a history rewrite without it changes
+   nothing. If it has been rotated, the purge drops to optional hygiene and the four
+   documents are simply wrong — which is its own small finding, since three separate
+   audits have now re-derived the same open item from stale text.
    Mitigating: **both repositories are private.** CI's gitleaks runs `--no-git` (working
    tree only) by deliberate design, so history is not gated and a purge would not be
    caught by it either way. Rotation is what kills the exposure; a history rewrite
@@ -405,6 +457,43 @@ reaches neither the backend, nor `price_points`, nor the LLM, nor the ads SDK.
 3. **Consider a least-privilege database role** (see *Verified clean*).
 
 ---
+
+## Verification performed
+
+| | result |
+|---|---|
+| Mobile suite | **237 suites / 5598 tests / 55 snapshots, green** |
+| Coverage S/B/F/L | 82.22 / 74.64 / 71.99 / 84.78 — floors 73 / 65 / 64 / 76 |
+| `i18n:check` | en=1504, fr=1504, in sync (no user-facing strings changed) |
+| Backend blast radius | **73 pass, 0 fail, 0 skipped** across 10 files |
+| Backend DB regression sample | 46 pass, 0 fail, 0 skipped |
+| H-3 live check | real client path connects with `rejectUnauthorized: true`; wrong hostname rejected `ERR_TLS_CERT_ALTNAME_INVALID` |
+
+Skipped counts were read explicitly, never inferred from an exit code.
+
+**Every guard was mutation-tested, and it mattered three times.**
+
+- H-3: flipping `rejectUnauthorized` back to `false` turns 2 red; swapping the CA file for
+  an attacker root turns the fingerprint pin red.
+- H-1: dropping `{ since: claimedAt }` from the route turns 2 red; removing the repo
+  predicate turns 3 red.
+- H-2: restoring the `if (hardwareId)` optionality turns 3 red, including the same-model
+  collision test.
+- D-1: lowering the lockfile below the floor turns the pin red.
+
+⚠️ **One mutation reported a FALSE GREEN.** The first attempt at the H-1 repo mutation used
+a `perl -0pi` replacement that silently did not apply; the suite came back 14/14 and would
+have been recorded as "the guard is not load-bearing". It was caught only because the
+before/after occurrence count was identical. Verify a surprising green by editing the file
+directly — a mutation that does not apply looks exactly like a test that does not care.
+
+**A second lesson, for the blast radius.** Running four DB files in one command produced 5
+failures in a file that passes 14/14 alone, every one `Connection terminated due to
+connection timeout` at ~25 s. Re-run alone: green. This is the documented long-haul
+behaviour, and it is why a red backend test from a batched local run is not evidence until
+the file is re-run by itself.
+
+**No GitHub Actions run was dispatched.**
 
 ## Method
 

@@ -9352,3 +9352,120 @@ bump (2.8.20 / 40 / 40 carries down unchanged), no tag, no `eas build`.
 - **The full backend suite.** Unusable from this connection (~14 h projected, and
   it starts manufacturing `ECONNRESET` failures). Blast radius above instead.
 - **Promoting `development`.** This merge goes one way only: `main` → `development`.
+
+
+# 2026-09-17 · Security audit run 2, on `main` (branch `security/audit-2026-09-17`)
+
+**Ask:** a full, deep security audit of `main` — run 2 — fixing what is critical,
+with an explicit answer to "is there a potential security data leak?". Run 1
+(2026-09-14) had been performed on `development` and only reached `main`
+retroactively via PR #338.
+
+`main` was extracted with `git archive` into a scratchpad tree and audited there,
+so the `development` working tree could not be mistaken for it. That is
+deliberate: mistaking the two is what run 1 was about.
+
+**Result: 0 Critical, 3 High, 8 Medium, 10 Low.** Maxim's call was Critical +
+High; Medium and Low are recorded in
+`Security/Security_Audit_2026-09-17.md` with a follow-up PR proposed.
+
+## What was fixed
+
+- **H-3 — the database connection encrypted the wire and verified nobody.**
+  `ssl: { rejectUnauthorized: false }`, unconditional, production included, under
+  a comment claiming it "pins our TLS behavior so it can't drift". Now verifies
+  against Supabase's published root, committed at `backend/certs/` as the public
+  half. Bugs #257.
+- **H-1 — #341 bounded the delete and left the read alone.** The device-ownership
+  transfer that no longer let a new owner *erase* the previous owner's
+  contributions still let them *export* them. Bugs #258.
+- **H-2 — the device id was a hash of four public attributes** whenever the
+  hardware-id lookup came back empty: enumerable, and identical for every user
+  with the same phone model. Bugs #259.
+- **D-1 — the mobile dependency acceptance was verified rather than inherited.**
+
+## Three things worth remembering
+
+1. **The plan's fix for H-1 was the wrong fix, and the file said so.**
+   It proposed adding `callerOwnsDevice` to `/api/device/sync`. `devicesRepo.js`'s
+   own header records that this exact change was written, shipped to CI and
+   **reverted** — that route is the mechanism a resold phone's new account relies
+   on, and gating it strands them with a permanent 403 on export and erase. The
+   real defect was narrower and already half-fixed: #341 bounded
+   `revokeForDevice` and never bounded `contributionsForDevice`. Reading the
+   file's history before editing it is what caught this.
+
+2. 🔴 **A mutation test reported a FALSE GREEN.** The first attempt at the H-1
+   repo mutation used a `perl -0pi` replacement that silently did not apply. The
+   suite came back 14/14 and would have been recorded as "the guard is not
+   load-bearing". It was caught only because the before/after occurrence count
+   was identical. A mutation that does not apply is indistinguishable from a test
+   that does not care — verify a surprising green by editing the file directly.
+
+3. **"Toolchain CVEs never execute in the shipped app" was measured, not argued.**
+   `expo export --dump-sourcemap`, then every flagged package looked up in the
+   sourcemap's 2239-module list. 12 of 13 genuinely absent — including the lone
+   `critical` — and `nanoid` ships, as `nanoid/non-secure`, which is exactly the
+   entry point its advisory names. Run 1 had already caught that sentence being
+   wrong for the same package. The workflow comment now carries the **method**,
+   not just the conclusion.
+
+## Tests
+
+- **Mobile: 237 suites / 5598 tests green**, coverage 82.22 / 74.64 / 71.99 /
+  84.78 against floors of 73 / 65 / 64 / 76.
+- `i18n:check` green — 2 languages, 1504 keys each. No user-facing strings changed.
+- **Backend by blast radius**, per the rule that a batched local run from this
+  connection manufactures failures: `deviceObservationScopingDb` (14),
+  `crowdsourceDb` (9), `dataExportIdentityDb` (4), `securityDb` (4),
+  `dbRoutesExtra` (5), `missingRoutes` (14), `receiptMemberIdDb` (2),
+  `tagCreditsEngineDb` (6), `tagReviewsDb` (7), `dbTlsVerification` (8) —
+  **73 pass, 0 fail, 0 skipped**. Plus a 46-test DB regression sample for H-3.
+- H-3 additionally verified live through the app's own code path against the dev
+  pooler: `rejectUnauthorized=true`, CA loaded, query returns; a deliberately
+  wrong hostname is rejected `ERR_TLS_CERT_ALTNAME_INVALID`.
+- Every guard mutation-tested; see the audit document for what each kills.
+- **No GitHub Actions run was dispatched.**
+
+## The batched-run trap, again
+
+Running four DB files in one command produced 5 failures in a file that passes
+14/14 alone, each at ~25 s with `Connection terminated due to connection
+timeout`. Re-run individually: green. Recorded because the temptation is to
+debug the "failure" — the standing rule is to re-run the file by itself first,
+and it was right again.
+
+## Regression risk
+
+**H-3 is the one that could take the backend down**, and it is the reason the CA
+was measured rather than assumed: `rejectUnauthorized: true` without the bundled
+root fails every query. Verified live against the dev project before commit.
+`DB_SSL_CA` exists so a Supabase CA rotation is an env change, not a deploy.
+
+**H-2 changes identity generation**, so it is scoped to the path that was already
+broken: the cached-id read still comes first, and where a hardware id exists the
+derivation is byte-identical, so no existing install loses its scan count or its
+contribution history.
+
+**H-1 touches an ownership path four other routes depend on** — the claim rule
+itself is untouched, which is the half that broke last time.
+
+No store parser touched — no Costco, no Best Buy. No DB migration, no version
+bump, no tag, no `eas build`.
+
+## Not in this change
+
+- **The 8 Medium and 10 Low findings.** Recorded in full in the audit document
+  with a follow-up PR proposed. The two worth naming: `DELETE /api/me/observations`
+  skips its ownership check entirely when no bearer is sent, and
+  `isAdminContributor` resolves admin-ness from a client-supplied `deviceId` on
+  two unauthenticated routes.
+- 🔴 **Confirming the R2 key rotation.** Needs Cloudflare, not the repo. Maxim
+  recalls rotating it; four documents still say it is owed. The bucket holds user
+  receipt photos.
+- **A least-privilege database role.** The backend connects as `postgres`, the
+  superuser. Recorded as hardening, not a finding.
+- **Entry #256 in `Bugs_Common_Fixes.md`** is another session's in-flight
+  timezone work. It existed only in this working tree — uncommitted, unpushed,
+  one machine — so it is carried along rather than discarded, which is exactly
+  the failure mode this audit's own document argues against.

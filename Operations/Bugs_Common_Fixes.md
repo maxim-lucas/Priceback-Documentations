@@ -11761,3 +11761,127 @@ the same run.
   `getMonth` → `getUTCMonth` survived) and a window-length contract that only
   a numeric string could distinguish.
 
+## 257. The database connection encrypted the wire and verified nobody (2026-09-17, PR TBD)
+
+- Date: 2026-09-17 · PR: TBD · Area: backend (db/client.js)
+- **Symptom:** none observable. Nothing fails, nothing logs, and every test
+  passes — which is the entire difficulty with this class.
+- **Root cause.** `getPool()` opened every pool with
+
+  ```js
+  ssl: { rejectUnauthorized: false },
+  ```
+
+  unconditional, no environment branch, production included. Four lines above
+  it a comment claimed the setup "pins our TLS behavior so it can't drift". It
+  did pin it — to the weakest setting available.
+
+  TLS then provides confidentiality against a *passive* observer and nothing at
+  all against an active one. Anyone able to get in path between Railway and
+  Supabase presents any self-signed certificate and the pool accepts it, reading
+  **and rewriting** every statement: user emails, `credit_ledger`, receipts, and
+  `user_sessions.refresh_token_hash` — which is a sufficient credential for
+  `rotate()`, so the at-rest hashing in `sessionsRepo` is undone in transit.
+- **Fix.** Bundle Supabase's published root and verify against it:
+  `ssl: { ca: databaseCa(), rejectUnauthorized: true }`.
+- **What made it non-obvious.** The instinct is "just set it to true". Measured
+  first: the pooler chains to `Supabase Root 2021 CA`, a self-signed root in no
+  public trust store, so strict mode against Node's default CA set fails
+  `SELF_SIGNED_CERT_IN_CHAIN`. The choice was never "strict or lax" — it was
+  "bundle their root, or verify nothing". Setting `rejectUnauthorized: true`
+  without the CA takes production's database away.
+- **Generalisable rules.**
+  1. **A CA certificate is not a secret and belongs in the repo**; a private key
+     never does. `backend/certs/*.crt` is the public half, the same way
+     `certs/certificate.pem` is committed while `keys/` is banned outright.
+  2. **Pin the anchor's fingerprint in a test.** A CA file is trust, in a file.
+     Swapping it silently re-points every connection at whoever issued the
+     replacement, and no behavioural test notices because the connection still
+     works.
+  3. **Give operators a way to change WHO you trust, never WHETHER you verify.**
+     `DB_SSL_CA` replaces the anchor for a rotation or a provider move. A
+     `DB_SSL_INSECURE=1` flag is how this defect returns: it gets set in the
+     middle of an outage and never unset. The test asserts no such var exists.
+  4. **A comment asserting a guarantee the code does not make is worse than no
+     comment** — it is why nobody re-read the line for months. Same shape as H1
+     of the 2026-09-14 audit.
+
+## 258. #341 stopped the new owner ERASING the old owner's data, not READING it (2026-09-17, PR TBD)
+
+- Date: 2026-09-17 · PR: TBD · Area: backend (crowdRepo, data-export)
+- **Symptom:** none reported. `GET /api/me/data-export` returned every
+  crowdsourced observation ever made from a device — SKU, price, warehouse,
+  province, date — to whoever currently owned the device row, including
+  contributions made by a previous owner. A purchase-behaviour profile of
+  another person.
+- **Root cause.** `devices.owner_sub` transfers on assertion, deliberately;
+  refusing the transfer was tried once and reverted because it strands the
+  second account on a resold phone (entry 255). PR #341 closed the dangerous
+  half by bounding `crowdRepo.revokeForDevice` to `owner_claimed_at` — and
+  bounded **only the delete**. `contributionsForDevice` took no boundary at all,
+  so the same assertion that no longer let you erase someone else's rows still
+  let you export them.
+
+  Reachable without owning anything first: `/api/device/sync` performs the
+  transfer with no ownership check, so asserting a stranger's deviceId there and
+  then calling the export was the whole attack.
+- **Fix.** The same predicate on the read — same column (`created_at`,
+  immutable), same null-means-unscoped semantics for devices claimed before
+  migration 0007.
+- **Generalisable rules.**
+  1. **When a finding has a read path and a write path, fix both in the same
+     change.** This repo has now paid for the twin-path defect three times
+     (`imagePresignDecision`, the price-tag vs receipt objectKey check, and
+     this). A fix applied to one of two symmetric paths reads as complete in
+     review, because the half you changed is correct.
+  2. **Export and erase must describe the same set.** Unbounded, the export
+     listed rows the delete refused to remove — a user could see data they could
+     not erase. That inconsistency shipped and nobody noticed, because nothing
+     compared the two answers. A test now does.
+  3. **Read the file's own history before applying the obvious fix.** The plan
+     for this work said "add `callerOwnsDevice` to `/api/device/sync`".
+     `devicesRepo.js`'s header says that exact fix was written, shipped to CI and
+     reverted. Applying it would have traded this finding for a data-rights
+     regression against a real user.
+
+## 259. The "secret capability token" was a hash of four public attributes (2026-09-17, PR TBD)
+
+- Date: 2026-09-17 · PR: TBD · Area: mobile (purchaseService.getDeviceFingerprint)
+- **Symptom:** two, and the second needed no attacker. Device ids were
+  **enumerable** from a device-model list; and users with the same phone model,
+  OS version and RAM **shared one device row**, so one person's
+  `DELETE /api/me/observations` erased another's contributions and they shared
+  the anti-reinstall scan count that gates free scans.
+- **Root cause.** The hardware id was appended only `if (hardwareId)`, and all
+  three ways it can come back empty — the API missing, an empty string, a throw
+  — were silently swallowed. On that path the id collapsed to
+  `SHA256("Samsung|SM-G991B|13|8")`: brand, model, OS version, RAM. The further
+  fallbacks were worse — `btoa(parts.join("|"))` is **reversible**, and the last
+  resort was `Math.random()` seeded from `Date.now()`.
+
+  `backend/server.js` documents `callerOwnsDevice` as safe *because* this value
+  "behaves like a secret capability token", and six routes rest on that sentence.
+- **THE SUITE HAD ENCODED THE DEFECT.** Three tests asserted it as intended
+  behaviour: that a thrown lookup still produced "a fingerprint (no id in it)";
+  that missing descriptors "still produce a stable fingerprint" over
+  `nb|nm|nov|0`; and that a digest failure fell back to "a bounded btoa hash".
+  The suite was green on an id six routes treat as a capability.
+- **Fix.** The hardware id is now mandatory for the derived scheme; without it a
+  256-bit CSPRNG id is minted. Ids are scheme-tagged (`h1_`/`r1_`/`r0_`) so the
+  populations stay countable.
+- **Generalisable rules.**
+  1. **An identifier is only a capability token if it is unguessable.** If code
+     elsewhere is authorised *because* a value is secret, the generator is a
+     security control and must be audited as one.
+  2. **"Optional entropy" is no entropy.** `if (x) parts.push(x)` on the only
+     unguessable input means the guessable branch is what ships to whoever hits
+     the error path — and error paths are exactly where nobody looks.
+  3. **A collision is a security bug, not a quality bug.** Two users sharing an
+     identifier means one user's delete acts on another user's data.
+  4. **Migrate by leaving the cache alone.** The cached-id read comes first, so
+     no existing install loses its identity, its scan count or its history; only
+     new generations change. A fix that reset every device id would have been a
+     worse outage than the defect.
+  5. **Returning nothing is not automatically the safe answer.** Refusing to
+     produce an id was written first and reverted: every deviceId route rejects a
+     missing id, so it would have stopped scanning and OCR outright.
