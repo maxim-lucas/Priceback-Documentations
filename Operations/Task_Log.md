@@ -16,6 +16,97 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-16 — The security audit was run on `development`. Putting it on `main`.
+
+- **Asked (/goal):** *"I requested a few days ago a full security audit on the
+  master branch but it was done on the dev branch, this is unacceptable. Bring all
+  the fixes on main (cherry-pick), don't bring any other code for features that
+  aren't on main yet."*
+- **The diagnosis, which is not "someone picked the wrong branch".** The 2026-09-14
+  entry below records the reasoning: `development..main` was empty, so
+  `development` strictly contained `main`, so auditing the working tree "covers
+  `main` in full". That is a true statement about **what was read** and says
+  nothing about **where the fixes land**. The four commits went onto a branch
+  stacked on `development` and were **never pushed** — so they existed on one
+  machine only, while `main` took the **v2.9.0 tag the same day** carrying every
+  finding unfixed.
+- **Portability was measured, not assumed.** The net security delta applies to
+  `main` with `git apply --3way` at exit 0, zero conflicts. 16 of the 20 ported
+  files are **byte-identical** to the originals; the other four differ by
+  **exactly the inverse of the feature delta** (`backend/server.js` is `+7 -101`
+  against the original, mirroring development's `101+/7-` of Best Buy and
+  locked-drops code). Route tables are identical on both branches (74 routes, 26
+  admin) — which is what makes M11's catch-all invariant safe to port.
+- **Maxim's calls this session:** (1) **exclude finding L-C** — it edits
+  `src/services/receiptParser.js`, the shared store dispatcher, and shared parsing
+  code counts as Costco; (2) do **everything still in scope**, not just the
+  cherry-pick; (3) **squash-merge**.
+- **PR #338 — MERGED (`2b93c89`).** Thirteen findings on `main`: 20 files,
+  +1843/-60. No Best Buy / Sport Chek / Abercrombie / AdMob / locked-drops code.
+  Mobile 237 suites / 5591 tests green (up from a 234/5549 baseline), coverage up
+  on all four metrics, backend 104 non-DB + 92 DB pass, **0 failures, 0 skipped**.
+  **All 12 new guards mutation-tested — each goes red.** No Actions dispatched.
+- **L-C stays open on `main`, deliberately.** The membership number is still
+  written to the local `receipts_v2` record for no feature. Extraction is
+  unaffected, so its digits still leave the OCR text — it never reaches
+  `receipts.raw_ocr`, the backend, or the LLM payload.
+- **Two findings are unrecoverable.** M7 and M10 are referenced by no commit and no
+  document; the audit's findings list was never written down and the session is
+  gone. The Low-findings follow-up PR was never started. Both have the same root
+  cause as the branch mistake — **the findings lived only in commit messages on an
+  unpushed branch.** Standing fix recorded in the audit report: write the findings
+  table into `Security/` and push it *before* the fixes.
+- **PR #339 — MERGED (`4a2003b`).** The expired acceptances. `form-data` and
+  `undici` were deferred on 2026-08-04 as "needs a breaking major"; both now take
+  non-breaking fixes. Backend production highs 3 → 1, lockfile only,
+  `package.json` untouched. New `dependencyFloors.test.js` pins the *other*
+  direction — a future `npm install` that walks either package backwards goes red.
+  **Two traps it found by failing on correct code:** a floor is per MAJOR LINE
+  (CVE-2025-7783 was backported, so 2.5.6 is patched despite sorting below 4.0.6),
+  and in this lockfile the HOISTED `form-data` is `dev: true` while the nested copy
+  under `@types/request` is the production one.
+- **PR #340 — the last production high, and the CI gate.** `drizzle-orm`
+  0.36 → 0.45.2 (GHSA-gpj5-g38j-94v9). Backend production highs **1 → 0**, which
+  finally allows the `npm audit` CI gate to move from `critical` to `high` — what
+  its own comment had been asking for since 2026-08-04. The level is now **pinned
+  by a test** rather than left to an intention with no expiry. `drizzle-kit` stays
+  at 0.28 deliberately (devDependency, outside `--omit=dev`, and a bump risks the
+  hand-maintained migration snapshot format); verified compatible via
+  `drizzle-kit check` → "Everything's fine".
+- 🔴 **Found during verification, NOT fixed — `daysRemaining` is timezone-dependent.**
+  Three mobile tests fail locally after ~20:00 Toronto time and pass at UTC. Proven
+  on an identical tree: `TZ=UTC` 39/39 green, `TZ=America/Toronto` and
+  `TZ=Africa/Cairo` each fail the same 2. **CI runs at UTC, so CI is green and the
+  bug is invisible there** — the exact trap [[ci-runs-at-utc-date-tests]] names.
+  This is user-visible: a shopper in Toronto opening the app in the evening can see
+  one more day of adjustment window than they actually have, and the urgency colour
+  lags with it. Out of scope for a security session; owed its own PR with a
+  `process.env.TZ` matrix.
+- ✅ **Prod migration audit (asked for alongside the device fix): prod has ZERO
+  pending migrations.** Maxim asked that any unrelated migration owed on prod be
+  run too. There are none. **The ledger says otherwise and the ledger is wrong** —
+  `drizzle.__drizzle_migrations` on prod is hand-maintained and has drifted from
+  the journal (16 rows vs dev's 15, two of prod's being round numbers one second
+  apart — the signature of a hand-inserted pair). Read naively it claims the two
+  databases are several migrations apart. The schema says otherwise and the schema
+  is what matters: a `md5(string_agg(table.column:type))` fingerprint over
+  `information_schema.columns` is **identical** on both —
+  `d2c25ddad5811a5a1bab12868333f6cb`, 357 columns, 44 tables. Both are current
+  through `0006_auth_outcomes`. Procedure recorded in
+  `Technical/Migration_Consolidation_2026-07.md`, including the trap that nearly
+  caused unnecessary prod DDL: probe the object a migration **actually** creates
+  (`0003` puts `subscription_is_sandbox` on `users`, not on `subscription_events`).
+- **Device-ownership proper fix (`crowdRepo.revokeForDevice`): designed, and it
+  needs a migration.** `price_points` carries only `device_hash` and no owner, and
+  `devices` has no ownership-claim timestamp — so "scope the delete to the caller's
+  own contributions" cannot be expressed against today's schema. The credit-ledger
+  join (`credit_ledger.ref == price_points.source_ref`) covers only CREDITED
+  observations, and the observation path is deliberately anonymous ("nobody to
+  credit later"), so it is a partial answer. A new `devices.owner_claimed_at` is
+  required. **Do NOT merge that change before the migration is applied to prod** —
+  prod's drizzle ledger is hand-maintained, and deploying code that selects a
+  missing column takes the backend down.
+
 ### 2026-09-14 — App Store rejection 3.1.2(c): "2 FREE MONTHS" on a subscription that has no free trial
 
 - **Asked (/goal):** understand a second iOS rejection — Apple says the purchase
@@ -108,7 +199,13 @@ nine Best Buy fixtures rather than extending the Costco "declined" decision;
 in scope — drizzle-orm major, the device-ownership proper fix, and dropping the
 unread `memberId`; out of scope — excluding AsyncStorage from iCloud backup.
 
-- **Status:** in progress on `security/audit-2026-09-14`.
+- **Status: SUPERSEDED — the fixes were written against the wrong branch.** The
+  four commits landed on `security/audit-2026-09-14`, which is stacked on
+  **`development`**, and were never pushed. The "audited tree" reasoning above is
+  where it went wrong: `development ⊇ main` made it correct to *read* the tree,
+  and said nothing about where the *fixes* would land. `main` took the v2.9.0 tag
+  that same day carrying every finding unfixed. Corrected 2026-09-16 — see that
+  entry and `Security/Security_Audit_2026-09-14.md`.
 
 ### 2026-09-13 — Best Buy + Abercrombie: a store-gated confidence signal, and two paths nothing was executing
 

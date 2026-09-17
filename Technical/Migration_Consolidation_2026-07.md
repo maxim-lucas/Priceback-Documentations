@@ -184,3 +184,69 @@ undo the sync, restore these values by `code`.
 
 Rows with `short_name` = — are operational-only and never reach the payload.
 The 20 consumer-facing rows other than the six kept are now `visible=false`.
+
+---
+
+## How to tell whether a database is actually up to date (2026-09-16)
+
+**Do not answer this from `drizzle.__drizzle_migrations`.** On prod that ledger is
+hand-maintained, and it has drifted from the journal in a way that makes a
+ledger-to-journal comparison actively misleading. Measured on 2026-09-16:
+
+| | prod `xjfrlzwonyaorwktnkpj` | dev `gnedluuylimjwdmtvswl` |
+|---|---|---|
+| ledger rows | 16 (ids 2–17) | 15 (ids 16–30) |
+| `created_at` values matching the journal's `when` | **not a match** | mostly |
+| rows prod has that dev does not | `1785835800000`, `1785835801000`, `1786950000000` | — |
+| rows dev has that prod does not | — | `1785832689803`, `1785839698865` |
+
+Two of prod's rows are round numbers one second apart (`…35800000`,
+`…35801000`), which is what a hand-inserted pair looks like. Read naively, that
+table says the two databases are several migrations apart. **They are not.**
+
+### The check that is actually true
+
+Compare the **schema itself**, with one fingerprint per database:
+
+```sql
+select md5(string_agg(table_name||'.'||column_name||':'||data_type,
+                      ',' order by table_name, column_name)) as schema_fingerprint,
+       count(*) as columns,
+       count(distinct table_name) as tables
+from information_schema.columns
+where table_schema = 'priceback';
+```
+
+Run it on both. Equal fingerprints mean equal schemas, whatever the ledgers say.
+
+**Result on 2026-09-16 — identical on both:**
+
+```
+schema_fingerprint = d2c25ddad5811a5a1bab12868333f6cb
+columns = 357     tables = 44
+```
+
+So **prod had zero pending migrations**: it is current through `0006_auth_outcomes`,
+and the whole `0000..0006` chain is present on both. Any future claim that "prod is
+behind" should be tested this way before anything is applied.
+
+When the fingerprints differ, localise it by dropping the `md5(...)` and diffing
+the two `table.column:type` lists, then probe the specific objects each migration
+creates — e.g. `to_regclass('priceback.auth_outcomes')` for `0006`.
+
+### One trap worth keeping
+
+Probe the object a migration **actually** creates, not the one its filename
+suggests. `0003_sandbox_purchase_tagging` reads as though `subscription_events`
+gets `subscription_is_sandbox`; it does not. The real DDL is:
+
+```sql
+ALTER TABLE priceback.users              ADD COLUMN subscription_is_sandbox boolean ...
+ALTER TABLE priceback.credit_ledger      ADD COLUMN is_sandbox              boolean ...
+ALTER TABLE priceback.subscription_events ADD COLUMN is_sandbox             boolean ...
+```
+
+A first pass probed `subscription_events.subscription_is_sandbox`, got `false` on
+**both** databases, and briefly looked like a real gap on prod. Read the migration's
+DDL before trusting the probe — a false "prod is missing a column" is how someone
+talks themselves into running DDL against production that it does not need.

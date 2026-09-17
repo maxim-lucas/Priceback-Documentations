@@ -11396,3 +11396,137 @@ the same run.
 > A UI element behind a feature flag that no fixture enables is untested no
 > matter how green the suite is. `annual: null` in every mock meant 5,541
 > passing tests and zero coverage of the control that got the app rejected.
+
+## 250. A second egress path posted Gmail receipt content to the backend (2026-09-14 audit H1, PR #338)
+
+- Date: 2026-09-16 · PR: #338 · Area: mobile
+- Symptom: none observed — found in the 2026-09-14 security audit, and latent
+  today only because `gmailSyncEnabled: false` at build time. It fires the day
+  CASA verification clears and that flag flips.
+- Root cause: `isGmailSourcedReceipt` had exactly **one** caller,
+  `syncReceiptToBackend`. A second egress path, `registerForPriceWatch` →
+  `POST /api/watch`, filtered on claimed + expiry + `isWatchableLine` and never on
+  source — so mailbox-derived item names, SKUs and prices were posted to the
+  backend, which stores the array verbatim in `watched.json`. That is the
+  "transfer" the `gmail.readonly` restricted-scope **Limited Use** claim filed
+  with Google rules out.
+- **The comment is the interesting part.** The gate's own comment stated Gmail
+  receipts are local-only *"unconditionally"*, and justified it by reasoning that
+  the crowd path "is Costco+SKU-shaped and rejects everything else". True of
+  `crowdRepo.recordObservation`; **not** true of the `watchedItems.set` half
+  sitting beside it, which the comment never considered. A comment asserting a
+  guarantee the code does not make is worse than no comment — it is why nobody
+  re-checked.
+- Fix: the predicate moved to `src/utils/receiptSource.js` — dependency-free and
+  **statically** importable, so every egress path can consult it without dodging
+  an import cycle. A dynamic `await import()` was the alternative and is the wrong
+  one: its failure mode is **fail-open**, which for a compliance gate means leaking
+  the data it exists to hold back. The gate runs **first** in the filter chain for
+  the same reason — a compliance refusal must not depend on another predicate
+  having run.
+- Detect next time: for any predicate that enforces a compliance promise, grep its
+  call sites and count them against the paths that leave the device. One caller
+  against two egress paths was visible from a single grep.
+- Prevent: 4 cases in `priceServiceNetwork.test.js` pin it in its **strongest**
+  form — no mailbox-derived string of any kind on the wire, not merely "the array
+  is the right length" — plus the legacy-row fail-closed path and Outlook still
+  registering. Standing rule: a gate with one caller and more than one egress path
+  is a bug, not a design.
+
+## 251. A column called `ip_hash` held a raw, client-supplied IP address (2026-09-14 audit M1, PR #338)
+
+- Date: 2026-09-16 · PR: #338 · Area: backend
+- Symptom: none observed. Plaintext PII in `consent_events` — the one record that
+  deliberately **outlives account soft-deletion**, so the consent trail survives a
+  PIPEDA / Law 25 question.
+- Root cause, one line with two defects:
+  `ipHash: (req.headers["x-forwarded-for"] || req.ip || "").toString().slice(0, 80)`
+  (1) it was never hashed, and (2) it read the raw `x-forwarded-for` **header**
+  ahead of `req.ip` — exactly the attacker-controlled value
+  `app.set("trust proxy", 1)` exists to neutralise. A client could write any string
+  it liked into its own legal audit row: a forged address, or the whole
+  comma-separated proxy chain.
+- **The column's own name concealed both.** Nobody re-reads a line called `ipHash`
+  to check whether it hashes.
+- Fix: use `middleware/audit.js`'s existing `hashIp` — one directory away, already
+  in use by the request audit log, salted with a per-process-day random so rows
+  cannot trivially link a user across days. The row builder moved to
+  `lib/consentEvents.js` and is now **pure**: it cannot see headers at all, so
+  defect 2 is *unrepresentable* rather than merely fixed.
+- Why pure, not just corrected: a DB-backed test for this would be one of the
+  suites that silently **skips** when `.env` is absent and still exits green —
+  the worst possible property for a test whose subject is a legal record.
+- Detect next time: `grep -rn "x-forwarded-for" backend/` and check the ORDER. The
+  other two readers (`audit.js`, `clientIpForRateKey`) both correctly prefer
+  `req.ip` and fall back to the **rightmost** hop; the consent line was the only
+  leftmost read in the codebase.
+- Prevent: `consentEvents.test.js` (13). Mutation-tested — returning the raw ip
+  goes red. Standing rule: a field named `*_hash` gets a test asserting the stored
+  value does not equal the input.
+
+## 252. A malformed size declaration bought an unbounded presigned upload URL (2026-09-14 audit M3, PR #338)
+
+- Date: 2026-09-16 · PR: #338 · Area: backend
+- Symptom: `{"imageBytes": "x"}` returned a presigned PUT with no `ContentLength`
+  into the production R2 bucket — the upload cap was opt-out-able by sending
+  garbage instead of a number.
+- Root cause: `imagePresignDecision` treated a **malformed** declaration exactly
+  like an **absent** one. The unbounded absent branch is a real, documented
+  compromise for builds already in the field; malformed was never that case. The
+  client proves it — `imageBytesForPresign` returns a finite positive number or
+  `undefined`, never a string, never `NaN`.
+- **The existing suite had pinned "not-a-number" and `NaN` into the absent set,
+  encoding the hole.** A test can hold a bug in place, and this one did: anyone
+  who tightened the branch would have gone red and assumed they were wrong.
+- Fix: malformed is now **capped**, not refused. A garbled declaration is not a
+  declared intent to upload something huge — that is the over-cap branch, which
+  still refuses — and every real capture fits far under the ceiling. The JS
+  coercion quirks (`[]` to 0 to refused, `true` to 1 to a one-byte cap) are
+  asserted separately so that list cannot be quietly widened back.
+- Detect next time: for any "absent means unbounded" compromise, ask what
+  *malformed* does. The two are the same branch far more often than intended.
+- Prevent: 2 new cases in `imagePresignCap.test.js`; reverting the malformed
+  branch to unbounded goes red.
+
+## 253. Twelve routes had no rate limit, and two caps bounded the count but not the size (2026-09-14 audit M11/M12, PR #338)
+
+- Date: 2026-09-16 · PR: #338 · Area: backend
+- Symptom: none observed. `GET /api/barcode/resolve` was **public and
+  unauthenticated** with three DB round trips per call, against a session pooler
+  capped at 15 connections shared with the always-on development service.
+  `PUT /api/me/profile` appended up to 10 rows per call to `consent_events`, which
+  is append-only by design and deliberately outlives account deletion, so nothing
+  prunes what one account can add.
+- **The audit named three routes. Writing the catch-all invariant found nine
+  more** — the three price-tag-review routes (one **grants credits**), the three
+  credit-reconciliation routes (one **applies** them), `flyer-scan/commit` (a
+  2000-item bulk write), `unlinked-products` and `barcode-link`. The three a human
+  could name by reading were a quarter of the real answer, because a human reading
+  a 9,000-line file finds the routes they happen to look at.
+- Second defect (M12): `POST /api/analytics` bounded every field except
+  `properties`, which was written whole — 200 events per batch, 60 batches an hour
+  per IP, against a 10 MB body limit, into files **nothing pruned**, on the same
+  volume as `watched.json` and the send-once notify ledger. Filling that disk does
+  not merely lose analytics: it **breaks the price-watch registry and starts
+  sending duplicate pushes**. `POST /api/watch` capped `items.length` at 500 and
+  item contents not at all, and the map key is a client-chosen `deviceId`, so an
+  abuser mints unlimited keys.
+- Fix: all twelve on the shared brake, grouped by desk, charged **after** the admin
+  check so a non-admin cannot drain an admin's bucket by hammering a route they
+  cannot use. Analytics properties bounded by **serialized size** rather than a
+  field whitelist (properties are free-form by design; a whitelist would silently
+  drop new events instead of refusing oversized ones), plus a 30-day prune reading
+  the day **from the filename** rather than the mtime — a redeploy that copies the
+  volume rewrites mtimes and would spare every file forever.
+- **Two mutations survived the first draft of the tests**: reverting the analytics
+  route to write `e.properties` whole, and deleting the prune's call site from
+  `runDailyMaintenance`. Both left the suite green, because the tests asserted the
+  helpers in **isolation** and never that anything called them. *A correct helper
+  nothing calls is not a fix.*
+- Detect next time: write the catch-all, not the list. `routesAreRateLimited.test.js`
+  asserts that **no** `/api/admin` route with `requireAuth` lacks a brake — the
+  failure here is precisely the route nobody thought about.
+- Prevent: `routesAreRateLimited.test.js` (9) + 11 cases in `security.test.js`,
+  including the off-by-one at exactly the cap. Standing rule: when you fix a helper,
+  mutate its **call site** too — a test that only exercises the helper cannot tell
+  you the helper is wired.

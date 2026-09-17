@@ -23,8 +23,9 @@ sections; the three items added by the 2026-08-04 audit are marked **NEW**.
 | No Zod request validation (§3) | Low | Accepted | When a route's manual checks get complex enough to get wrong |
 | In-memory, device-keyed rate limits (§4) | Medium | Accepted | The moment the backend scales past one instance |
 | RevenueCat webhook has no HMAC check (§5) | Low | Accepted | If the shared token is ever suspected leaked |
-| `drizzle-orm` <0.45.2 advisory (§6) | High (not exploitable) | Accepted | A deliberate dependency-bump pass |
-| `npm audit` CI gate at `critical` not `high` (§7) | Low | **NEW** — accepted | Once the 3 triaged highs clear |
+| `drizzle-orm` <0.45.2 advisory (§6) | High (not exploitable) | ✅ **CLOSED 2026-09-16** — bumped to 0.45.2 | — |
+| `form-data` / `undici` advisories (§6) | High (not reachable) | ✅ **CLOSED 2026-09-16** — the "needs a breaking major" reasoning had expired; both took non-breaking fixes | — |
+| `npm audit` CI gate at `critical` not `high` (§7) | Low | ✅ **CLOSED 2026-09-16** — tightened to `high`, and the level is now pinned by a test | — |
 | OTA channel exposure after signing (§8) | Medium | **NEW** — mitigation shipped, ops step owed | Before production gets a `channel` |
 | `allowBackup="true"` copies receipts to cloud backup (§9) | Low | **NEW** — accepted | If receipt contents ever become more sensitive |
 
@@ -136,10 +137,39 @@ against a leaked token being replayed.
 
 ## 6. Dependency advisories (`npm audit`)
 
-**Status:** Re-reviewed 2026-07-16 — none exploitable in current usage; each
-would need a code path we don't exercise. `npm audit fix` (non-`--force`) does
-NOT resolve any of them — every remaining fix requires a major bump — so none
-were auto-applied. Revisit on a deliberate dependency-bump pass.
+> ## ✅ RESOLVED 2026-09-16 — backend production highs are now **ZERO**
+>
+> `npm audit --package-lock-only --omit=dev` reports **0 critical / 0 high /
+> 7 moderate**. All three highs below are closed:
+>
+> - **`form-data` and `undici`** — non-breaking fixes (PR #339). The triage
+>   below said "every remaining fix requires a major bump", and that stopped
+>   being true at some point nobody noticed. **An accepted risk is only accepted
+>   while its reasoning holds**, and nothing in the repo re-read that reasoning
+>   for six weeks. `backend/tests/dependencyFloors.test.js` now pins the other
+>   direction — it goes red if either package walks *backwards* into a
+>   vulnerable range on some future `npm install`.
+> - **`drizzle-orm`** — bumped 0.36 → 0.45.2. `drizzle-kit` deliberately stays
+>   at 0.28: the advisory is on the ORM only, drizzle-kit is a devDependency
+>   outside `--omit=dev`, and bumping it risks the migration snapshot format
+>   (this ledger is hand-maintained on prod). Verified compatible —
+>   `drizzle-kit check` reports "Everything's fine" against the 0.45 schema.
+> - **The §7 CI gate is tightened to `high`** and pinned by
+>   `__tests__/ciSupplyChainPolicy.test.js`, so it cannot drift back quietly.
+>
+> The remaining 7 moderates are all transitive under the **dormant**
+> `@google-cloud/storage` SDK (prod runs `OBJECT_STORE=r2`).
+>
+> **Also corrected:** the mobile paragraph below claims "no runtime exposure in
+> the installed app". That is **false** — `nanoid` and `decode-uri-component`
+> ship inside react-navigation. Neither is exploitable, but the sentence
+> justifying inaction is wrong and should not be reused.
+
+**Status (historical — superseded by the box above):** Re-reviewed 2026-07-16 —
+none exploitable in current usage; each would need a code path we don't
+exercise. `npm audit fix` (non-`--force`) does NOT resolve any of them — every
+remaining fix requires a major bump — so none were auto-applied. Revisit on a
+deliberate dependency-bump pass.
 
 **Backend (production deps) — 3 high, 8 moderate:**
 - **`drizzle-orm` < 0.45.2 — SQL injection via SQL *identifiers*
@@ -175,18 +205,28 @@ Re-run `npm audit --omit=dev` after any dependency change and re-evaluate.
 
 ---
 
-## 7. `npm audit` CI gate sits at `critical`, not `high` — **NEW 2026-08-04**
+## 7. `npm audit` CI gate sits at `critical`, not `high` — ✅ **CLOSED 2026-09-16**
 
-**Where:** `.github/workflows/test.yml`, "npm audit — backend (gate on critical)"
-**Status:** Accepted.
+**Where:** `.github/workflows/test.yml`, "npm audit — backend (gate on high)"
+**Status:** ✅ Tightened to `high`, and the level is now pinned by a test.
 
-The gate fails only on a **critical** production-runtime advisory. The three
-highs in §6 are triaged as not-exploitable, so gating at `high` would leave the
-build permanently red — a red gate nobody can act on gets ignored or muted, which
-is precisely the failure mode that produced Bugs_Common_Fixes #146.
+The gate used to fail only on a **critical** production-runtime advisory, which
+meant it was green on a production-runtime **high** — the severity every finding
+this repo has actually had. That was the right call at the time: the three highs
+in §6 were triaged as not-exploitable, so gating at `high` would have left the
+build permanently red, and a red gate nobody can act on gets muted, which is
+Bugs_Common_Fixes #146.
 
-**Fix when the highs clear:** change `--audit-level=critical` to `high` in the
-same step. Do it *with* the §6 dependency bump, not before.
+**Done with the §6 bump, as this note said to.** `npm audit --package-lock-only
+--omit=dev` now reports 0 critical / 0 high, so `high` is the tightest level that
+can hold green — which is the only kind of gate that survives.
+
+**The part worth keeping:** "fix when the highs clear" is an intention with no
+expiry and nothing watching it. The highs cleared and the gate would have stayed
+loose indefinitely. So the level is no longer trusted to a comment —
+`__tests__/ciSupplyChainPolicy.test.js` asserts it, and mutation-testing confirms
+that loosening it back to `critical`, neutering it with `|| true`, or dropping
+`--omit=dev` each go red.
 
 ---
 
