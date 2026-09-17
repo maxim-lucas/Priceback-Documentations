@@ -11615,3 +11615,149 @@ the same run.
   claim path and two tests that DELETE through the real route. Migration applied
   by hand to both databases before the merge; historical transfers are not
   retroactively protected, because the timestamp was never recorded.
+
+## 256. The claim countdown closed a day early in Canada — and the guard written to catch this had never once run (2026-09-17, PR TBD)
+
+- Date: 2026-09-17 · PR: TBD · Area: mobile (price-adjustment window)
+- **Symptom:** none reported by a user, which is part of the problem. Found while
+  closing out the 2026-09-16 session's one deferred finding. A shopper in
+  Vancouver opening the app after 16:00 local, or in Toronto after 19:00, was
+  shown **one day fewer** of adjustment window than they had — and at the
+  boundary the receipt flipped to "Expired", the watch stopped, and the receipt
+  was de-registered from backend price watching. East of Greenwich the error runs
+  the other way: Cairo was shown one day MORE between 00:00 and 02:00.
+- **Root cause.** `priceService.daysRemaining` mixed three clocks in one
+  expression:
+
+  ```js
+  const purchase = new Date(purchaseDate);                  // date-only ISO -> UTC midnight
+  const expiry = new Date(purchase);
+  expiry.setDate(expiry.getDate() + store.adjustmentDays);  // LOCAL calendar arithmetic
+  const diff = Math.ceil((expiry - new Date()) / 86400000); // instant difference, 24h buckets
+  ```
+
+  `purchaseDate` is a **local** calendar date (`todayLocalISO`, or the printed
+  date off the receipt). Parsing it as UTC midnight, then doing local `setDate`,
+  then differencing instants, makes the result depend on both the device's offset
+  and the time of day.
+
+  Measured against a pure-calendar reference for every hour of 2026: **the number
+  of broken hours per local day equals the UTC offset, and the sign follows the
+  offset's sign.**
+
+  | Zone | Wrong during these local hours | Direction |
+  |---|---|---|
+  | UTC, Europe/London | none | — |
+  | America/Vancouver | 16:00–23:59 (8 h/day) | **undercounts by 1 day** |
+  | America/Toronto | 19:00–23:59 (5 h/day) | **undercounts by 1 day** |
+  | America/St_Johns | 21:00–23:59 (3 h/day) | **undercounts by 1 day** |
+  | Africa/Cairo | 00:00–01:59 (2 h/day) | overcounts by 1 day |
+  | Asia/Tokyo | 00:00–08:59 (9 h/day) | overcounts by 1 day |
+  | Pacific/Auckland | 00:00–12:59 (13 h/day) | overcounts by 1 day |
+
+  A second, independent defect sat on the same line: `setDate` on an *instant*
+  walks wall-clock days, so a window spanning a DST transition is 24 h ± 1 h out
+  and `Math.ceil` rounds it the wrong way. That is what the
+  `expect([a, b]).toContain(result)` hedges in `priceService.test.js` were
+  quietly accommodating.
+- **It was not a display bug.** The same comparison gated three writers:
+  `storageService.updateExpiredReceipts` (writes `status:"expired"`, clears
+  `watchEnabled` on every item, **mirrors each stop to the backend durably**, so
+  it survives a reinstall), `priceService.checkAllPriceDrops` (which receipts get
+  checked at all) and `priceService.registerForPriceWatch` (what is POSTed to
+  `/api/watch` — the surface that sends the push). So the Canadian shopper lost
+  the last day of the window *and* the notification that would have told them
+  there was something to claim.
+- 🔴 **Why every test stayed green — read this part.** Three independent reasons,
+  and the first is the one with teeth beyond this bug:
+
+  1. **Assigning `process.env.TZ` inside a Jest test does nothing.** Node re-reads
+     the zone only when the assignment goes through the real `process.env`
+     setter; Jest hands each test file a cloned env object, so the setter never
+     fires. Measured: setting TZ to `UTC`, `Asia/Tokyo`, `America/Vancouver` and
+     `Pacific/Auckland` in turn produced the **same local hour every time**.
+     **Four suites in this repo were written that way** —
+     `purchaseDate.test.js`, `receiptParsingShared.test.js`,
+     `ocrServiceExtra.test.js`, `receiptPipeline.live.test.js` — each running at
+     one ambient zone while naming nine. One of them is the matrix added by
+     **#159** specifically to stop a local/UTC mix from recurring. It has never
+     measured anything.
+  2. **The fixtures cancelled the bug out.** `daysAgo`/`inDays` in
+     `coreScenarios.test.js`, `priceService.test.js` and
+     `priceService.extended.test.js` did local `setDate` then `toISOString()` —
+     the *same* clock-mixing the production code committed — so both sides
+     drifted together and the assertions held.
+  3. **CI runs at UTC**, the single offset where none of it reproduces.
+- **Fix.** Calendar arithmetic, in two small modules:
+  - `src/utils/adjustmentWindow.js` — pure, and contains **no `Date` token at
+    all**, greppable by a test. Same discipline as `utils/purchaseDate.js` after
+    #159, but enforced rather than requested, because the #159 version was a
+    comment and the next editor walked past it. Day-number primitive is Hinnant
+    `days_from_civil`/`civil_from_days`, verified against the platform for all
+    **109,938 days from 1900-01-01 to 2200-12-31**.
+  - `src/utils/localClock.js` — the only file allowed to cross between the wall
+    clock and a calendar date (`todayLocalISO`, `localInstantAt`). Its own grep
+    guard: no `new Date("<string>")`, no `setDate`, no `toISOString`.
+
+  Converted with it: `adjustmentExpiry` (now **local** midnight, so
+  `i18n.formatDate` stops printing the previous day west of Greenwich — do NOT
+  hand `formatDate` the ISO string, it re-parses as UTC midnight), the two window
+  filters, `updateExpiredReceipts`, all three notification schedulers, and
+  `ScanScreen`'s "watch until" preview. That preview was the **only correct copy
+  in the app**, so the same receipt showed two different expiry dates on two
+  screens.
+- **Detect next time.** Ask what the counter says at 22:00 local and at 10:00 the
+  next morning for the same receipt: if it changes by more than one, or if
+  "Expires: <date>" disagrees with the ScanScreen preview, it is this. In the DB,
+  a receipt whose client says expired while `policy_status` still says `watching`
+  is the *expected* one-day difference (see below), not this bug.
+- **Prevent.**
+  1. **A `process.env.TZ` loop inside a Jest test proves nothing.** The only
+     mechanism that works is TZ in the **process environment**, so
+     `__tests__/adjustmentWindowTimezone.matrix.test.js` re-runs the
+     date-sensitive suites in a **child process per zone**. It lives in a test
+     rather than in the workflow because `ciParity.test.js` forbids test
+     parameters there — which means a plain `npm test` runs a real matrix,
+     locally and in CI alike.
+  2. **A zone matrix alone is not enough — pin the HOUR too.** The defect hides
+     for 19 hours out of 24 in Toronto, so a zone-only matrix would have been
+     green all morning and red in the evening, and been dismissed as a flake.
+  3. **Never build a fixture with the arithmetic under test.** Use
+     `Date.UTC(localY, localM, localD) ± n*86400000`: that builds a *label*, not
+     an instant, and stays in UTC afterwards, so it is exact at every offset.
+  4. Do calendar work with no `Date` at all, and grep for it.
+- **Deliberately NOT changed, and tracked separately:** the client treats day
+  `purchase + N` as **closed**; `backend/repos/receiptsRepo.js`
+  `recomputePolicyStatus` treats it as **open** (`expired iff purchase_date +
+  window < today`). The two have differed by one day since long before this, the
+  difference exists at UTC, and this fix *narrows* it (to 24 h − |offset|). Moving
+  it is a data change with a durable backend side effect, so it gets its own PR.
+  Pinned by a named test so nobody "fixes" it by accident.
+- **Also recorded, not fixed:** `backend/priceDropNotifier.js` `urgencyTier` calls
+  itself a deliberate mirror of the mobile `priceDropUrgency`. It is not one any
+  more — mobile flips at local midnight, the server at UTC midnight, so the emoji
+  in a push title can be one tier from the chip in the app for ~|offset| hours
+  around each of the two crossings. **No backend-only change closes it**: the
+  server does not know the device's offset. The fix is to send the device's local
+  date with the watch registration. The stale comment was corrected in the same
+  PR even though the code was not, because a false "kept in sync" note is how the
+  next person recouples them.
+- **Files:** `src/utils/adjustmentWindow.js`, `src/utils/localClock.js` (new);
+  `src/services/priceService.js` (`daysRemaining`, `priceDropUrgency`,
+  `adjustmentExpiry`, new `adjustmentExpiryISO` + `isWindowOpen`),
+  `src/services/storageService.js` (`updateExpiredReceipts`),
+  `src/services/notificationService.js` (all three schedulers),
+  `src/screens/ScanScreen.js`, `backend/priceDropNotifier.js` (comment only).
+  Tests: `__tests__/adjustmentWindow.test.js`, `localClock.test.js`,
+  `adjustmentWindowTimezone.test.js`, `adjustmentWindowTimezone.matrix.test.js`,
+  `storageServiceExpiryWindow.test.js`, plus the de-poisoned helpers in
+  `coreScenarios`, `priceService`, `priceService.extended` and the real
+  `todayLocalISO` in `screens.test.js`.
+- **Proof the new matrix bites:** reverting `todayLocalISO` to `toISOString()`
+  leaves **UTC green** and fails all six other zones, with the failure count
+  scaling by offset (Auckland 53, Tokyo 37, Vancouver 28, Toronto 16). 24 guards
+  mutation-tested, all killed — and mutation testing changed the work twice: it
+  exposed a month-boundary probe the suite lacked (every probe sat mid-month, so
+  `getMonth` → `getUTCMonth` survived) and a window-length contract that only
+  a numeric string could distinguish.
+
