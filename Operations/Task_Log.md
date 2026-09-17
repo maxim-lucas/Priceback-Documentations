@@ -16,6 +16,45 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-17 — Security audit run 3, on `main` at `8575baf`: the report and the roadmap, no code
+
+- **Asked (/goal):** *"run a full audit on the master branch to make sure the app is safe
+  for live production … (Cybersecurity, data leak, ...etc) i dont want essentialy to fix
+  everything now but i want a separate documented md file to keep for roadmap, you can fix
+  the critical and high risk now but for the rest ill do it later."* Mid-session: *"there
+  was new merges since 2.9.0 i want you to run the audit on the latest code version."*
+- **Audited tree:** `main` HEAD `8575baf` — six merges past `v2.9.0`, as instructed. Not
+  the tag.
+- **Result: 0 Critical, 0 High, 2 Medium (one latent), 13 Low/informational.** Nothing to
+  hot-fix under the Critical/High rule, so **no code branch was opened.** Deliverables:
+  `Security/Security_Audit_2026-09-17_run3.md` and — the file Maxim asked for —
+  `Security/Security_Roadmap.md`, now the ONE backlog for every open item from runs 1–3
+  (M-1…M-8, L-1…L-10, L-C, R3-1…R3-15, the operator items). `SecurityRecommendations.md`
+  points at it and is no longer maintained as a register.
+- **The check this run added: production runs the audited commit.** Railway deployment
+  `54f0f6e3` is built from `8575baf`, SUCCESS, three minutes after #344 merged; `/health`
+  shows `db: ok` through the verified-TLS client. Runs 1 and 2 never asked this question.
+- **The two Mediums:** `priceback.ca` DMARC is `p=none` (brand mail spoofable — an operator
+  DNS change, minutes); mailbox OAuth tokens (`email_tokens_v1`) survive sign-out AND
+  account deletion, and Outlook receipts are not local-only, so on a shared device the next
+  account syncs the previous user's receipts into its own backend account (latent: Gmail is
+  off at build time; Outlook enablement in prod unverified).
+- **Two run-2 facts corrected:** L-3's "dormant" analytics sink is live via
+  `reportHandledError`; M-6 is downgraded to Low (keys are caller-prefixed and stored
+  literally — no cross-user path).
+- **Two facts that make deferred fixes cheaper:** the website makes no browser API calls, so
+  M-4's CORS deny-by-default is free; the client Apple nonce is in `v2.9.0` via #259, so
+  M-5 enforcement locks out nothing in a store.
+- **Not measured, and not worked around:** admin-secret strength (R3-15). The auto-mode
+  classifier refused the Railway production variable read. Maxim settles it with one call:
+  `/health?token=…` → `secrets.*.strength`. `eas env:list` is interactive-only, so Outlook
+  enablement is also unverified.
+- **Offered and not taken up:** an optional quick-wins PR (M-1 limiter, L-1 throttle, M-5
+  nonce flip, R3-2 token clearing) was listed in the plan; Maxim approved the docs-only
+  default. All four stay on the roadmap's "before the first users" list.
+- **Status:** docs PR #71 on `security/audit-2026-09-17-run3`, squash-merged. No Actions
+  dispatched. No test suite run — no code changed.
+
 ### 2026-09-16 — The security audit was run on `development`. Putting it on `main`.
 
 - **Asked (/goal):** *"I requested a few days ago a full security audit on the
