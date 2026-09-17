@@ -9354,7 +9354,7 @@ bump (2.8.20 / 40 / 40 carries down unchanged), no tag, no `eas build`.
 - **Promoting `development`.** This merge goes one way only: `main` → `development`.
 
 
-# 2026-09-17 · Security audit run 2, on `main` (branch `security/audit-2026-09-17`)
+# 2026-09-17 · Security audit run 2, on `main` (PR #344, docs PR #69)
 
 **Ask:** a full, deep security audit of `main` — run 2 — fixing what is critical,
 with an explicit answer to "is there a potential security data leak?". Run 1

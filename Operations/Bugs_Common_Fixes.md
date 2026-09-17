@@ -11616,9 +11616,9 @@ the same run.
   by hand to both databases before the merge; historical transfers are not
   retroactively protected, because the timestamp was never recorded.
 
-## 256. The claim countdown closed a day early in Canada — and the guard written to catch this had never once run (2026-09-17, PR TBD)
+## 256. The claim countdown closed a day early in Canada — and the guard written to catch this had never once run (2026-09-17, PR #342)
 
-- Date: 2026-09-17 · PR: TBD · Area: mobile (price-adjustment window)
+- Date: 2026-09-17 · PR: #342 · Area: mobile (price-adjustment window)
 - **Symptom:** none reported by a user, which is part of the problem. Found while
   closing out the 2026-09-16 session's one deferred finding. A shopper in
   Vancouver opening the app after 16:00 local, or in Toronto after 19:00, was
@@ -11761,9 +11761,9 @@ the same run.
   `getMonth` → `getUTCMonth` survived) and a window-length contract that only
   a numeric string could distinguish.
 
-## 257. The database connection encrypted the wire and verified nobody (2026-09-17, PR TBD)
+## 257. The database connection encrypted the wire and verified nobody (2026-09-17, PR #344)
 
-- Date: 2026-09-17 · PR: TBD · Area: backend (db/client.js)
+- Date: 2026-09-17 · PR: #344 · Area: backend (db/client.js)
 - **Symptom:** none observable. Nothing fails, nothing logs, and every test
   passes — which is the entire difficulty with this class.
 - **Root cause.** `getPool()` opened every pool with
@@ -11806,9 +11806,9 @@ the same run.
      comment** — it is why nobody re-read the line for months. Same shape as H1
      of the 2026-09-14 audit.
 
-## 258. #341 stopped the new owner ERASING the old owner's data, not READING it (2026-09-17, PR TBD)
+## 258. #341 stopped the new owner ERASING the old owner's data, not READING it (2026-09-17, PR #344)
 
-- Date: 2026-09-17 · PR: TBD · Area: backend (crowdRepo, data-export)
+- Date: 2026-09-17 · PR: #344 · Area: backend (crowdRepo, data-export)
 - **Symptom:** none reported. `GET /api/me/data-export` returned every
   crowdsourced observation ever made from a device — SKU, price, warehouse,
   province, date — to whoever currently owned the device row, including
@@ -11844,9 +11844,9 @@ the same run.
      reverted. Applying it would have traded this finding for a data-rights
      regression against a real user.
 
-## 259. The "secret capability token" was a hash of four public attributes (2026-09-17, PR TBD)
+## 259. The "secret capability token" was a hash of four public attributes (2026-09-17, PR #344)
 
-- Date: 2026-09-17 · PR: TBD · Area: mobile (purchaseService.getDeviceFingerprint)
+- Date: 2026-09-17 · PR: #344 · Area: mobile (purchaseService.getDeviceFingerprint)
 - **Symptom:** two, and the second needed no attacker. Device ids were
   **enumerable** from a device-model list; and users with the same phone model,
   OS version and RAM **shared one device row**, so one person's
