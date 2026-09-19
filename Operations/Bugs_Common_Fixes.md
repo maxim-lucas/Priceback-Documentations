@@ -11885,3 +11885,151 @@ the same run.
   5. **Returning nothing is not automatically the safe answer.** Refusing to
      produce an id was written first and reverted: every deviceId route rejects a
      missing id, so it would have stopped scanning and OCR outright.
+
+---
+
+## 260. A one-line privacy fix to a push title failed five tests in three files (2026-09-19, PR #346)
+
+- **Date:** 2026-09-19 · **Area:** backend (tests)
+- **Symptom.** CI on `main` went red with five price-drop failures that looked
+  like three different bugs: two assertion failures ("crowd-verified drop
+  pushed", "the flyer-authoritative P1 drop is pushed"), one string mismatch,
+  and one test that sat for **60 seconds** and then reported `Timed out waiting
+  for the post-import background sweep's push`. Nothing was wrong with the
+  sweep, and every push fired exactly as designed.
+- **Root cause.** Security roadmap **L-6** took the product name out of the
+  verified-drop push title (`{emoji} Price drop on {item}` →
+  `{emoji} Price drop on a recent purchase`) because a push renders on a locked
+  screen and crosses Expo, then Apple or Google, in the clear. Five tests
+  identified *which* push was which by that text —
+  `sent.find(m => m.title.includes("Test product A"))` — so with the name gone
+  every lookup returned `undefined`. The timeout was the same bug wearing a
+  worse costume: a `waitFor` whose predicate can never be true does not fail,
+  it waits out its whole ceiling first.
+- **Fix.** Address a notification by its machine payload, never by its copy.
+  The drop tests now key on `data.currentPrice` (every fixture verifies at a
+  distinct price) plus `data.type`. Both halves of L-6 are now pinned
+  explicitly — the title and body must NOT contain the product name — so the
+  privacy property is asserted instead of merely assumed.
+- **Files:** `backend/tests/priceDropDb.test.js`,
+  `priceDropPipelineE2E.test.js`, `priceDropWindowSourceDb.test.js`;
+  the change under test was `backend/lib/pushI18n.js` +
+  `backend/priceDropNotifier.js`.
+- **Generalisable rules.**
+  1. **User-visible copy is not an identifier.** Anything a translator, a
+     designer or a privacy review may rewrite must not be the key a test
+     matches on. `data.*` exists for machines; titles and bodies exist for
+     people.
+  2. **A polling helper converts a wrong predicate into a timeout.** When a
+     `waitFor` reports a timeout, ask whether the predicate *could* have
+     matched before looking for what is slow. The 60 s ceiling here was
+     correct; the predicate was not.
+  3. **When you remove a field from a payload, grep the tests for its value,
+     not just for its name.** `displayName` appeared nowhere in the five
+     failing assertions — `"Test product A"` did.
+  4. **A privacy property deserves a negative assertion.** Removing the name is
+     a one-word edit away from being undone; `assert.doesNotMatch(title, ...)`
+     is what makes putting it back a test failure rather than a silent leak.
+
+## 261. Two test runs against one database delete each other's rows — and it reads as a bug in the code under test (2026-09-19, PR #346)
+
+- **Date:** 2026-09-19 · **Area:** backend (test harness)
+- **Symptom.** Two tests in two different files failed seven seconds apart with
+  `TypeError: Cannot read properties of null (reading 'scanCredits')` —
+  `sybilVerificationDb` and `tagCreditsEngineDb`. Each one creates a user, calls
+  one function, reads the user back, and gets `null`. Neither reproduced in
+  isolation, repeatedly. The shape ("a row I just wrote is gone") points
+  straight at the repo layer, and that is where the investigation goes.
+- **Root cause.** Nothing deleted those users from inside the run. Every backend
+  suite — CI's and every developer's — points at the **same** shared development
+  database, and `tests/helpers/purgeTestData.js` deletes by **marker**, not by
+  run id: any sub starting `qa-`/`test-`/`seed-`..., **and any address at
+  `@example.com` or `@test.local`**. `engine-ruleN-sub-0@example.com` and
+  `sybil-attacker-<run>@test.local` both match. So a second run's post-purge —
+  which `scripts/run-suite.js` performs unconditionally, on pass or fail —
+  deletes the rows a run still in flight is using, from another machine. The
+  existing lock lived in `os.tmpdir()` and could only see the local machine,
+  which is not where the contention is.
+- **Fix.** `backend/scripts/runLock.js` — a Postgres **session-level advisory
+  lock** (`pg_try_advisory_lock`) taken before the clean-slate pre-purge and
+  released after the post-purge. A run that cannot take it refuses to start and
+  says why. Session-scoped means a killed run cannot wedge the lock: the
+  database releases it when the connection drops. Every failure to *attempt* the
+  lock (no `DATABASE_URL`, unreachable host) fails **open** — a suite that
+  cannot run because its mutual-exclusion plumbing broke is worse than the race.
+- **Files:** `backend/scripts/runLock.js` (new),
+  `backend/scripts/run-suite.js`, `backend/tests/runLockDb.test.js` (new),
+  `__tests__/ciParity.test.js`.
+- **Detect next time.** Failures that (a) cluster in time rather than by
+  subject, (b) are all "a row I just created is missing", and (c) never
+  reproduce alone. Check whether the missing rows match a purge marker before
+  reading any application code.
+- **Generalisable rules.**
+  1. **Cleanup that matches by marker matches other people's rows too.** The
+     only safe blast radius for a destructive sweep is one run's own data;
+     anything broader needs mutual exclusion, not care.
+  2. **Put the lock where the contention is.** A lock in `os.tmpdir()` cannot
+     see CI, and CI is the other party. Shared database, shared lock.
+  3. **A harness that can corrupt a run must be the one to say so.** Left
+     silent, it spends the next engineer's afternoon in the repo layer.
+  4. **Fail open on the guard, not on the work.** Refusing to run because the
+     lock could not be attempted turns a rare race into a permanent outage.
+
+## 262. A launch policy asserted against a database that is supposed to change (2026-09-19, PR #346)
+
+- **Date:** 2026-09-19 · **Area:** backend (tests)
+- **Symptom.** `storePoliciesDb` failed on `exactly one store should be enabled
+  at launch`. Nothing about store go-live had changed in the commit under test.
+- **Root cause.** The assertion read `GET /api/v1/policies.json`, which serves
+  the **shared development database** — and Best Buy was enabled there, because
+  Best Buy and Sport Chek ride the lab lane and get switched on in dev while
+  they are still dark in production. The test made a product invariant depend on
+  an environment whose entire job is to drift, so it went red the moment someone
+  did exactly what the lab lane is for. Both ways out were bad: turn off a store
+  another thread of work needs, or delete the assertion.
+- **Fix.** Split by oracle. The DB-backed test keeps what is true in *every*
+  environment — every store carries an explicit `enabled` boolean, and Costco is
+  enabled. The launch invariant moved to `backend/data/policies.json`, the file
+  `db/deploy/store-content-sync.sql` is generated from, which is what actually
+  puts the launch set on a database. It needs no DB, so it runs everywhere.
+- **Files:** `backend/tests/storePoliciesDb.test.js`,
+  `backend/data/policies.json`, `backend/db/deploy/store-content-sync.sql`.
+- **Generalisable rules.**
+  1. **Assert a policy against the artefact that declares it**, not against a
+     running copy that something else is allowed to edit.
+  2. **A test that a legitimate action turns red is a wrong test**, however
+     correct the property it names.
+  3. **Shared mutable state is not an oracle.** If two people may both be right
+     about a value, no assertion on it can be.
+
+## 263. Tightening the secret-scanner allowlist exposed two test fixtures — and the two obvious fixes are both forbidden (2026-09-19, PR #346)
+
+- **Date:** 2026-09-19 · **Area:** repo/CI
+- **Symptom.** The Security job failed with `leaks found: 2` on a tree where
+  nothing secret had been added: a JWT in `__tests__/gitleaksAllowlist.test.js`
+  and a synthetic one in `backend/tests/authOutcomesRepo.test.js` (its signature
+  is literally `base64("signature")`).
+- **Root cause.** Both had been in the tree for weeks, **hidden by the very
+  allowlist entry the 2026-09-14 audit (M6) tightened**. The old i18n pattern
+  was unbounded in segment length, so it silently muted every dot-separated
+  alphanumeric token in the repo — including real JWTs. M6 bounded it, and the
+  two fixtures it had been covering became visible. The scanner was not newly
+  wrong; it had newly started working.
+- **Fix.** Neither of the reflexes `.gitleaks.toml` forbids. **Not** a path
+  exemption (that hides every future secret in the same file), and **not** a
+  wider regex (an allowlist that can spell a credential is not an allowlist —
+  and `gitleaksAllowlist.test.js` asserts exactly that, so adding the JWT to the
+  allowlist would have failed the test that exists to prevent it). Instead both
+  fixtures are **joined from their segments at runtime**, the idiom that file
+  already used for its other vectors: split, the tree carries no JWT; joined,
+  the value under test is byte-for-byte what it always was.
+- **Files:** `__tests__/gitleaksAllowlist.test.js`,
+  `backend/tests/authOutcomesRepo.test.js`, `.gitleaks.toml` (unchanged — on
+  purpose).
+- **Generalisable rules.**
+  1. **New findings after tightening an allowlist are a backlog, not a
+     regression.** Expect the first honest scan to be the noisy one.
+  2. **A scanner reads shape, not secrecy.** "It is only a fixture" is an
+     argument for changing the fixture, not for muting the rule.
+  3. **Never widen an allowlist to cover a credential shape.** The next real
+     credential of that shape ships silently, and nothing reports it.
