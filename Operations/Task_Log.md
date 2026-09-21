@@ -16,6 +16,57 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-21 — HOTFIX: a receipt scanned as a price tag reached the live catalog
+
+- **Asked (/goal):** *"few hours ago a user scanned a receipt as a price tag on production
+  (main branch), i need to use the scanned photos as an example to fix this bug, also the
+  user should get an error and redirect the receipt to the receipt scanner instead. I also
+  need to know on the admin console (price tag review screen) which user uploaded the price
+  tag. use also the new receipts to check if the parser gets all the products correctly and
+  submit them into the user account after verification. Also for the admin notification
+  (new price tag needs review), it should redirect me directly on the review screen when i
+  click on the notification instead of just opening the app (this should be the behavior for
+  all notifications for users or admins)."* Declared a **hotfix**; branch
+  `hotfix/receipt-scanned-as-price-tag` off `main`.
+- **The incident.** 2026-09-21 00:14 UTC. A user who had signed up ten minutes earlier
+  photographed a Costco Laval #505 receipt in the PRICE TAG scanner. One photo, submitted
+  twice → `tag_scan_reviews` 4 and 5, `price_points` 272/273, `products` 20244
+  (`CREV 16/20`, a real receipt line) and 20245 (`APPROVED THANK YOU … AMOUNT 220,50` —
+  the payment footer, keyed by the receipt's INVOICE number as its SKU). No credits were
+  charged: tag credits settle on admin verify.
+- **Root cause.** `parseCostcoTags` segments on SKU-shaped numbers and a receipt is a table
+  of `<sku> <NAME> <price>` rows, so the item table became N candidate "tags", every one of
+  which cleared `tagSubmittable`. Nothing anywhere classified the document.
+- **Decisions Maxim made:** gate inside `scanCostcoTags` (one added early return) rather
+  than duplicating it in the screens; full 16-type notification routing + cold start rather
+  than a `tag_review`-only fix; **delete** the junk catalog rows outright; and, on the
+  French-receipt defect found on the way, *"the parser should detect the langage first then
+  maybe if its better to have 2 parser one english and one french"* → one parser with a
+  language-detection front door, not two parsers (structure is identical, only notation
+  differs). HEIC upload issue: logged, not fixed.
+- **Shipped, four commits:**
+  1. `shared/documentKind.js` + both-sided enforcement. The SERVER gate is the one that
+     protects production — OTA is unavailable on this EAS plan, so a client-only gate
+     reaches nobody until users update.
+  2. Uploader identity on the admin review queue, resolved at READ time via
+     `devices.owner_sub` (no migration, and it works retroactively on rows 4/5).
+     `reviewed_by` now records which admin, not the literal string "admin".
+  3. All 16 notification types routed + cold-start park-and-replay + a derived drift guard.
+  4. The French-receipt parser fix (five defects — see Bugs #265).
+- **Production data (authorised).** Reviews 4/5 rejected via the app's own semantics
+  (`flags.excluded`), then price_points 272/273 and products 20244/20245 deleted outright.
+  Sara's receipt filed into her account as `r_1790035456737_lav05`: 11 items, subtotal
+  $200.89, tax $19.61, total $220.50, 10 watched lines, 11 price points, and the 1-credit
+  scan charge (75 → 74) with its `credit_ledger` row — mirroring `POST /api/receipts`.
+- **Found on the way, all documented:** Bugs **264** (the tag/receipt confusion), **265**
+  (a Quebec receipt parsed 3 of 11 items and every invariant agreed), **266** (the PII
+  scrub never matched "Membre"), **267** (the notification branch existed and the tap still
+  went nowhere), **268** (HEIC uploaded under a `.jpg` key — logged only).
+- **Also:** `npm run capture:receipts` can now capture through the backend's `/api/ocr`
+  proxy when no Vision key is on disk, which is the normal case — until now nobody could
+  capture a receipt fixture locally at all.
+- **Status:** PR pending on `hotfix/receipt-scanned-as-price-tag` → `main`.
+
 ### 2026-09-19 — `main` CI was red: 16 backend failures + 2 gitleaks findings, all in tests
 
 - **Asked (/goal):** *"i ran the github workflow on the actions <main> branch and it failed,

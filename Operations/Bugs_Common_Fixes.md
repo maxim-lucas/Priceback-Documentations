@@ -12033,3 +12033,179 @@ the same run.
      argument for changing the fixture, not for muting the rule.
   3. **Never widen an allowlist to cover a credential shape.** The next real
      credential of that shape ships silently, and nothing reports it.
+
+## 264. A receipt in the price-tag scanner did not fail to parse — it succeeded (2026-09-21, PR pending)
+
+- **Date:** 2026-09-21 · **Area:** mobile/scan, backend/observations
+- **Symptom.** A user photographed a Costco receipt inside the **price tag**
+  scanner. Two invented products reached the live production catalog:
+  `CREV 16/20` at $27.69 (a real receipt line, filed as a shelf price) and
+  `APPROVED - THANK YOU … AMOUNT 220,50` — the payment footer — keyed by the
+  receipt's **invoice number** (006967) as its SKU. Two `price_points`, two
+  pending admin reviews, two admin pushes.
+- **Root cause.** `parseCostcoTags` segments text on SKU-shaped numbers, and a
+  receipt is a table of `<sku> <NAME> <price>` rows, so the item table became N
+  candidate "tags". The filter (`costcoTagScanner.js:466`) accepts any segment
+  carrying a price **and** a word, which every receipt line does; `tagSubmittable`
+  then passed them all. `confidence` is computed and never consulted. **Nothing
+  anywhere classified the document** — verified across `src/`, `backend/`,
+  `shared/`, `scripts/`.
+- **Fix.** `shared/documentKind.js`: a conjunction of ≥2 distinct receipt marker
+  FAMILIES and zero Costco register labels. Both halves are load-bearing —
+  `hotDogAndMandu` is a genuine multi-tag photo that trips two structural
+  families and is saved only by its "PRICE AT REGISTER" label, while the
+  PII-scrubbed Gloucester captures carry no membership number or transaction
+  footer and are caught only by SHAPE (multi-row item table, per-line tax flags,
+  trailing-negative discounts).
+  Enforced on **both** sides: the client offers the receipt scanner carrying the
+  photo already taken, and `POST /api/observations/tag` refuses with
+  `RECEIPT_NOT_A_TAG` before any write.
+- **Files:** `shared/documentKind.js`, `src/services/costcoTagScanner.js`
+  (one added early return), `src/services/tagScanQueue.js`,
+  `src/screens/PriceTagScanScreen.js`, `src/screens/PendingTagScanScreen.js`,
+  `backend/server.js`.
+- **Generalisable rules.**
+  1. **The server half is the fix; the client half is the UX.** OTA is
+     unavailable on the current EAS plan, so a client-only gate reaches nobody
+     until every user installs a new build. The API gate covers every binary
+     already in the field the moment it redeploys.
+  2. **A computed-but-unread signal is not a guard.** `confidence` existed for
+     months and stopped nothing. Make the verdict binary and load-bearing.
+  3. **A wrong document needs a third terminal state.** The offline queue had
+     `ready_review` (a lie — no tag in the photo) and `error` ("couldn't read
+     it, enter by hand" — an invitation to hand-type a receipt into a tag form).
+     Read the SENTENCE a status renders, not its constant name.
+
+## 265. A Quebec receipt parsed 3 of its 11 items, and every invariant agreed (2026-09-21, PR pending)
+
+- **Date:** 2026-09-21 · **Area:** mobile/receipt parsing
+- **Symptom.** Found while turning the receipt from #264 into a fixture — the
+  first French receipt ever captured. The parse returned **3 items, a $48.67
+  subtotal and `reconciled=true`** for a $220.50 receipt, and the whole realocr
+  suite passed on it.
+- **Root cause — five, each independently fatal.**
+  1. **Decimal commas.** Quebec prints `29,99`; every price pattern required a
+     period and read a comma as a *thousands* separator. 3 of 10 price lines
+     recognised — exactly the three Vision happened to read with a period.
+  2. **The `FP` tax flag.** Quebec marks a line F (TPS), P (TVQ) or FP (both).
+     Every price pattern allows ONE flag character, so `12.99 FP` matched none
+     of the eighteen of them — hiding the column-split "bas du panier" block and
+     losing its first two items. `countPurchaseLines` missed it too, because
+     `[HPFRYNGB]\b` cannot match the `F` in `FP`.
+  3. **`TAXE`.** `tax(?:es)?` cannot match the French singular: the boundary
+     after `TAX` fails on the following `E`. The tax row became a $19.61 **line
+     item** and the tax fell through to a fallback that picked up the coupon.
+  4. **`SOUS - TOTAL`.** Geometry joins words with single spaces, so a hyphen
+     Vision read as its own word yields a spelling `includes("sous-total")`
+     misses. `extractPrintedTotal` then returned the SUBTOTAL (200.89) as the
+     grand total, which made a 10-item parse **outscore** the correct 11-item
+     one. The English half of that alternation was already spacing-tolerant.
+  5. **The Quebec coupon**, printed as a bare `<barcode> / <sku>` with no
+     TPD/CPN keyword.
+- **And the guard built to catch exactly this could not fire.** The items-sold
+  cross-check scans ±3 lines from its label for a bare integer; here the `11`
+  sits 4 lines below, behind an interleaved `TOTAL RABAIS` and its two amounts.
+  Same for the discount total. Nothing ever compared 3 against 11.
+- **Fix.** `shared/receiptLocale.js` detects the language first and normalises
+  the **notation** — decimal commas, the FP flag — rather than forking a second
+  French parser. Plus the four label fixes above, and both self-check windows
+  widened to ±6 (safe because a count is a BARE integer among decimals and the
+  discount is the only amount with a leading `$`).
+- **Files:** `shared/receiptLocale.js`, `src/services/costcoReceiptParser.js`,
+  `src/services/receiptParsingShared.js`, `scripts/captureReceiptOcr.js`.
+- **Generalisable rules.**
+  1. **One parser, two notations — not two parsers.** The receipt's STRUCTURE is
+     identical in both languages; only the separator and a few labels differ. A
+     second parser duplicates every hard part and then drifts, which is the
+     failure `ocrCleanup.js` and `receiptPiiScrub.js` already warn about.
+  2. **A self-check that returns null is not a passing self-check.** Both
+     counters read `null` here, so `scoreParse` had nothing to disagree with and
+     scored a 3-of-11 parse as fine. Assert that a check FIRED, not just that it
+     did not object.
+  3. **Bilingual patterns rot asymmetrically.** Four of the five defects were an
+     English spelling that had been made tolerant and a French one beside it
+     that had not. When you loosen one alternative, loosen its siblings.
+  4. **The corpus is the oracle.** "Zero false positives" and "44 receipts
+     round-trip byte-for-byte" are measurable over committed fixtures. Measure
+     them; do not assert them in prose.
+
+## 266. Every French receipt carried a real membership number into the repo (2026-09-21, PR pending)
+
+- **Date:** 2026-09-21 · **Area:** tooling/fixtures, privacy
+- **Symptom.** Scrubbing the Laval receipt for commit left `46 Membre
+  111978813257` and the cashier's full name in the text.
+- **Root cause.** `receiptPiiScrub`'s rule was `/(Members?h?i?p?\s*#?\s*)\d{6,}/`
+  — which matches "Member", "Members", "Membership" and **not** "Membre". No
+  French receipt had ever been captured, so nothing had exercised it.
+- **Fix.** `Memb(?:ers?h?i?p?|res?)`, plus a cashier rule (FR receipts print
+  `Caissier(ère): <name>` — a named employee who never chose to be in this
+  repo). A dry run over all 44 existing captures confirmed **no existing fixture
+  changes**, so the rules only bite on the language that needed them.
+- **Files:** `scripts/lib/receiptPiiScrub.js`, `__tests__/receiptPiiScrub.test.js`.
+- **Generalisable rules.**
+  1. **A PII rule is only as good as the corpus it has met.** An untested
+     language is an untested rule, and it fails open.
+  2. **Prove the blast radius before changing a scrub rule.** Re-run it over the
+     whole corpus and diff: a rule that changes nothing existing is safe to add.
+
+## 267. The notification branch existed, and the tap still went nowhere (2026-09-21, PR pending)
+
+- **Date:** 2026-09-21 · **Area:** mobile/notifications
+- **Symptom.** Tapping the admin "price tag awaiting review" push opened the app
+  to wherever it happened to be, even though `App.js:341` had an explicit
+  `tag_review → AdminTagReview` branch and a test asserting it.
+- **Root cause — two, stacked.**
+  1. The branch only runs for a **warm** app. A tap on a killed app never
+     reaches `addNotificationResponseReceivedListener` at all: the process
+     starts, the listener registers after the fact, and the only record of the
+     tap is the one the OS holds via `getLastNotificationResponseAsync` — which
+     was never called anywhere in the repo.
+  2. Even calling it would not have been enough. `SplashScreen` `replace`s the
+     whole stack 1.8–2.6 s after mount (6 s on the failsafe), so any `navigate`
+     issued before that lands is silently discarded by it.
+- **And a third, wider one.** The tap callback's signature was
+  `(receiptId, type)`, which discarded every other field — so `reviewId`,
+  `storeCode`, `balance` and `count` could not reach the navigator **even where
+  a branch existed**. Only 4 of 16 push types routed anywhere.
+- **Fix.** The callback forwards the payload verbatim;
+  `src/services/notificationRouting.js` maps all 16 types in one pure table. The
+  cold-start route is **parked** (`pendingDeepLink.js`) during the awaited
+  notification init and taken by SplashScreen immediately after it decides the
+  user may enter — and dropped entirely when the answer is Onboarding.
+  `navigationRef` becomes a `createNavigationContainerRef` so `isReady()` exists.
+- **Files:** `src/services/notificationRouting.js`, `src/services/pendingDeepLink.js`,
+  `src/navigation/navigationRef.js`, `src/services/notificationService.js`,
+  `src/screens/SplashScreen.js`, `App.js`.
+- **Generalisable rules.**
+  1. **"The branch exists" is not "the path runs."** Ask which lifecycle states
+     reach it. Warm, backgrounded and cold-started are three different programs.
+  2. **A navigate before the splash resolves is a no-op, not a race.** Park the
+     intent and replay it after the stack it targets exists.
+  3. **A callback signature is a contract about what can ever be used.**
+     `(receiptId, type)` capped the feature at two fields for the life of the
+     code — no amount of branch-adding downstream could recover the rest.
+  4. **Enumerate the senders, not the branches.** The guard that keeps this
+     fixed walks every backend push site, extracts each `data.type`, and fails
+     if any is unroutable — in both directions, so a type the table declares but
+     nothing sends is caught too. Mutation-checked: renaming one entry
+     (verified 1 → 0 occurrences) fails it.
+
+## 268. An iPhone photo is HEIC, whatever the object key says (2026-09-21, logged not fixed)
+
+- **Date:** 2026-09-21 · **Area:** mobile/upload, admin review
+- **Symptom.** The tag photo at `prod/price-tags/3bd8cf9d6aafe539/4.jpg` is not
+  a JPEG. Its magic bytes are `ftypheic` — an iPhone HEIC — stored under a
+  `.jpg` key, presigned as `image/jpeg`. Google Vision refuses it outright
+  ("Bad image data"), and it had to be transcoded before it could be read.
+- **Why it matters.** The OCR that produced this scan's `raw_ocr` clearly read
+  *something*, so the client appears to send a converted copy to `/api/ocr`
+  while uploading the ORIGINAL to R2. The admin review screen then presigns a
+  GET for a file many renderers cannot display, so the reviewer may see a broken
+  photo for iOS uploads while the scan itself looked fine.
+- **Status.** **Logged, not fixed** — out of scope for the 2026-09-21 hotfix by
+  explicit decision. Worth its own change: confirm where the conversion happens,
+  whether the upload can reuse the converted copy, and whether the presigned
+  content-type should follow the actual bytes.
+- **Generalisable rule.** An extension and a presigned content-type are
+  assertions, not facts. If a pipeline can receive a file it did not create,
+  check the magic bytes before trusting either.
