@@ -195,6 +195,12 @@ shopper without deleting them and is more often the answer than a deletion is;
 sessions **with their revoke reasons**, plus that account's own `auth_outcomes`.
 Reading a shopper's data is a privacy event and the route logs the actor.
 
+> **Since 2026-09-21 this body is shared, not exclusive to that screen.** It
+> lives in `src/components/AdminAccountReport.js` and also renders inside the
+> account desk's detail screen, reached from the 📄 icon on an account row. The
+> standalone Shopper report keeps the entry the desk does not offer — free-text
+> search across every account. See `Admin_Account_Desk_Merge.md`.
+
 **Incidents** shows sign-in refusals grouped by reason — each with a **severity**
 and the prose explaining it — plus cron health and a **decoder**: paste the
 reference a user quoted (`GMAIL-403-INSUFFICIENT-SCOPE`, `SIGNIN-MISCONFIGURED`)

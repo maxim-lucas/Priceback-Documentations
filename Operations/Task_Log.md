@@ -16,6 +16,39 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-21 — Admin console: the Accounts desk absorbs the shopper report
+
+- **Asked (/goal):** *"admin console -> Accounts, needs to be merged with the shopper report,
+  i want to open accounts and have a report icon instead of the down arrow, when i click on
+  the icon i can see the full details, you can also make another icon to add another related
+  action from admin account or a new idea so i can use it for the customer service (example
+  merge manage credit for an account)."* Branch `feat/admin-account-desk` off **`main`**
+  (Maxim: *"this is on main branch"*).
+- **The problem.** Answering one ticket meant three screens and three searches for the same
+  person: Accounts (who they are), Shopper report (what happened to them), Manage credits
+  (do something about it). The row chevron expanded into a panel that could only suspend and
+  flag — every other question was a second search somewhere else.
+- **Decisions Maxim made:** the report icon opens a **full-screen** account detail view, not
+  an inline expansion (the report has eight collapsible sections and would bury the list);
+  and **three** row icons rather than two — report, credits, and an overflow sheet for the
+  rest.
+- **Shape:** the row's chevron is replaced by `📄 report · 💳 credits · ⋯ more`. The report
+  body and the credit-adjust form become shared components so Accounts, the new detail
+  screen, Shopper report and Manage credits all render the same thing instead of four
+  near-copies.
+- **Files:** `src/screens/AdminAccountsScreen.js`, new `src/screens/AdminAccountDetailScreen.js`,
+  new `src/components/AdminAccountReport.js`, new `src/components/AdminCreditAdjuster.js`,
+  new `src/services/adminAccountActions.js`, `src/screens/AdminUserReportScreen.js`,
+  `src/screens/AdminCreditsScreen.js`, `src/screens/AdminHomeScreen.js`, `App.js`.
+- **Backend:** none. Every route already existed and was already admin-gated; no migration.
+- **The one new action:** *Email the shopper* — a `mailto:` draft addressed to them with
+  their own account facts in the body. Disabled **with a reason**, not hidden, when there is
+  no address on file.
+- **Verified:** full mobile Jest **256 suites / 6218 tests, 0 fail**; coverage
+  82.77/75.26/72.76/85.30 vs floors 68/55/59/70 — up on all four against the 2026-09-19
+  baseline. `npm run i18n:check` passed (en/fr, 1509 keys each). No Actions run dispatched.
+- **Status:** shipped — PR #348 (app), PR #74 (docs).
+
 ### 2026-09-21 — HOTFIX: a receipt scanned as a price tag reached the live catalog
 
 - **Asked (/goal):** *"few hours ago a user scanned a receipt as a price tag on production
