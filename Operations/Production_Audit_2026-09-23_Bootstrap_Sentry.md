@@ -165,6 +165,15 @@ signed in yet, so "Sign in with Apple fails on iOS 27" cannot be ruled out from 
 from the fact that this exact pattern predates iOS 27 on the same fleet. A B/C event from a
 non-Cupertino, non-`zh_CN` iOS 27 device is the signal.
 
+> **Corrected 2026-09-24 — the premise was a Darwin mapping error, and the watch is closed.**
+> iOS 27 is **`Darwin/27`**, not `Darwin/26`: the Sentry events for iOS 27.0 (build `24A437`) carry
+> `Darwin Kernel Version 27.0.0`, while iOS 26.x is `Darwin/25.x`. Read with the right mapping,
+> production's `consent_events.user_agent` shows two **real** accounts — not the reviewer account —
+> completing Sign in with Apple and onboarding on `CFNetwork/3896 Darwin/27.0.0`: 2026-09-14
+> (build 40) and 2026-09-17 (build 41), both Canadian. Sign in with Apple works on iOS 27.0 in the
+> field. Google sign-in on iOS 27 has no field data yet either way (no real attempt, and no Canadian
+> iOS 27 device anywhere in Sentry). See Bugs #279.
+
 ### F7 — Android `Token used too late`
 
 40 of the 42 rows are one admin device (Android): the silent refresh misses once at cold start, the
@@ -225,3 +234,25 @@ the 19-day-stale token already documented on 09-07. Benign; left as a follow-up.
 5. New `auth_outcomes` rows: a `Token used too late` row reads `…: [token payload redacted]`; a `bootstrap_threw` row carries `db <SQLSTATE> <constraint> on <statement>`.
 6. Scrub: `update priceback.auth_outcomes set detail = regexp_replace(detail, '^(Token used too (late|early), [0-9.]+ > [0-9.]+):.*$', '\1: [token payload redacted]') where detail ~ '^Token used too (late|early), [0-9.]+ > [0-9.]+: \{'` — count first (42), then zero rows matching `\{"` must remain.
 7. Sentry: B, C, J, H → archived until escalating, each with a comment linking this doc.
+
+---
+
+## Follow-up 2026-09-24 — the five "Observed, not fixed" items, resolved
+
+Maxim (/goal): *"fix these on main branch"*; mid-task: Canada is the only market that matters, and
+2.9.0 carries the right Canadian prices. Cut from `main` @ `56cf44b`, built to merge cleanly beside
+#350 / #351 / #352.
+
+| Observation | Root cause, confirmed | Resolution |
+|---|---|---|
+| No Railway volume — watch list, send-once ledger, OCR budget reset every deploy | `DATA_DIR` inside the image; the registry and ledger lived only there. The OCR budget already had a `kv_state` mirror, but a scan before the boot restore overwrote the month (reproduced: `Vision 1/1000` over a stored 500) | Postgres, not a volume (a volume costs downtime on every deploy): migration `0010` + `lib/durableWatchState.js`; budget write gate. Account deletion + data export now cover `push:` registrations too. **PR #354** · Bugs #275, #276 |
+| Supabase "RLS disabled" (44 tables) | Not reachable (no client USAGE on the schema; no Data API user) — one `GRANT` from an open door | Migration `0009`: RLS on every table, no policies, never FORCEd; a live-catalog test fails any future table without it. **PR #354** · Bugs #278 · Roadmap L-11 |
+| RevenueCat on the review device: no products | Canada-only IAPs on a non-Canadian storefront (Apple's US / `zh_CN` / iOS 27 fleet, every run since 2.9.0 went live) — correct. Canadian devices load all five at the right CAD prices | No store change. Screens say "Purchases are only available in Canada" outside Canada; a **Canadian** storefront with no products is now reported; reviewer notes say to use a Canadian sandbox account. **PR #353** · Bugs #280 |
+| `SET search_path` breaks on pg@9 | Issued from the pool `connect` event; `pool.query()` queued its first statement behind it | pg-pool's awaited `onConnect` hook. **PR #354** · Bugs #277 |
+| "Nobody on iOS 27 has signed in" | A mapping error: iOS 27 is `Darwin/27`, not `Darwin/26` | Two real Canadian accounts signed in with Apple on iOS 27.0 (09-14, 09-17). Watch closed. Bugs #279 |
+
+**Two notes for whoever runs the post-merge checklist above.** Step 3 (Railway HTTP logs) could not be
+done from this machine on 2026-09-24: `railway logs --http` (CLI 5.41.2) returns nothing, and the
+GraphQL `httpLogs` query returned `[]` for the live deployment — re-measure from the Railway dashboard
+instead. And `/health`'s `checks.storage` will keep saying `ephemeral` in production: that is expected
+now; its note says what is still file-only (the flyer overlay, the analytics logs).

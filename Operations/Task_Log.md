@@ -16,6 +16,32 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-24 — The five "observed, not fixed" items from the 2026-09-23 audit, fixed on `main`
+
+- **Asked (/goal):** *"fix these on main branch"* — the audit's five open observations: no Railway
+  volume (watch list, send-once ledger and OCR budget file reset on every deploy); the Supabase
+  "RLS disabled" warning; Apple's review device loading no products; the `SET search_path` that
+  breaks on pg@9; and "nobody on iOS 27 has signed in yet". Branch named: **`main`** — feature
+  branches cut from `origin/main` @ `56cf44b`, PR'd back to `main`.
+- **Decisions Maxim made mid-task:** *"dont ever consider egypt market, the main market that really
+  matters is canada only, configure everything to serve best canadian market"*; iOS prices after
+  review are correct for Canada, and *"the 2.9.0 has the right prices for canadian market"*. So no
+  store territory or price is changed, and nothing is widened to make a non-Canadian device work.
+- **Does not reverse anything recorded here.** Durable state goes to Postgres (the direction
+  `kv_state` already took for the OCR budget) instead of a Railway volume, because a volume makes
+  every deploy take downtime — see the PR for the trade. Built to merge cleanly beside the three
+  audit PRs still open (#350 / #351 / #352): no shared hunks.
+- **Files:** `backend/db/client.js`, `backend/db/schema.js`, `backend/db/migrations/0009_*`,
+  `0010_*`, new repos for the watch registry and the send-once ledger, `backend/server.js`,
+  `backend/lib/dataCleanup.js`; `src/services/storePrices.js`, the three purchase screens,
+  `src/services/i18n.js`.
+- **Status:** PRs open and verified locally, **merge is Maxim's** — **#354** backend (items 1, 2,
+  4: full suite 1754 · 1753 pass · 0 fail · 1 skip) and **#353** app (item 3: 257 suites / 6233
+  tests green; ships with the next store build). Item 5 needed no code: iOS 27 is `Darwin/27`, and
+  two real Canadian accounts had already signed in with Apple on iOS 27.0 (Bugs #279). Production
+  database state: see PR #354. Docs: Bugs #275–#280, roadmap L-9 / L-11, reviewer notes.
+  `development` lags `main` by 13+ commits (since #336) — the merge-down is still owed.
+
 ### 2026-09-23 — Production audit: bootstrap failures and Sentry errors on `main`
 
 - **Asked (/goal):** *"run an audit on the priceback main branch, few problem appeared on bootstrap in

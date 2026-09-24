@@ -47,6 +47,13 @@ Check the whole path, not just the last fix.
 - [ ] The reviewer access code is in App Review Information → Notes, with the
       instructions from `REVIEWER_NOTES.md`. Both providers fail on review
       devices; the code is the only path that works.
+- [ ] The notes also carry the **Canadian-storefront instruction** ("In-app
+      purchases are sold on the Canadian App Store only … use a Sandbox Apple
+      Account whose Country or Region is Canada"). The five IAPs exist on the
+      Canadian storefront only — correct, Canada is the only market — so a
+      reviewer on any other storefront gets no products. Since 2.9.0 went live
+      (2026-09-17) that is what every run of Apple's own test fleet shows
+      (Bugs #280); a reviewer who is not told will find an empty paywall.
 - [ ] The App Privacy answers match what the binary actually does. They are
       maintained by hand and nothing syncs them to the build — if the ads lane
       is off, the binary declares no tracking, and ASC must agree.

@@ -295,6 +295,20 @@ Putting these here so a reviewer doesn't have to ask:
 
 ## Subscription tiers + credit packs
 
+**Purchases are sold on the Canadian App Store only.** PriceBack is distributed
+in Canada, and its in-app purchases exist on the Canadian storefront only. To
+test a purchase, please use a Sandbox Apple Account whose Country or Region is
+**Canada** (on the device: Settings → Developer → Sandbox Apple Account). On any
+other storefront the store returns no products, and the purchase screens say
+"Purchases are only available in Canada" instead of showing prices.
+
+> Why this is here (2026-09-24): every "no products" event in our crash
+> reporting since 2.9.0 went live comes from Apple's own test devices —
+> US network, Chinese-language UI, iOS 27 — where the Canadian products
+> correctly do not exist. Canadian devices load all five products at the right
+> CAD prices. Nothing about the products needs changing; the reviewer needs the
+> Canadian storefront.
+
 Tested via App Store / Play Store sandbox accounts. RevenueCat is wired
 end-to-end; subscription entitlements flip the in-app premium flag (unlocks
 PDF export and email sync), and consumable credit-pack
@@ -310,7 +324,8 @@ purchases land via the RC `NON_RENEWING_PURCHASE` webhook → backend ledger.
   scan math, and claims cost `floor(savings_in_$ × 15)` credits.
   Larger packs give more credits per dollar (Max is the best value).
 - **Unlimited** — auto-renewing subscription, $4.99/mo or $49.99/yr
-  (annual = 12 months for the price of 10, i.e. 2 free months). Both
+  (the annual plan is a discount on twelve monthly payments — no free period
+  is offered; see App_Store_Rejections.md, Guideline 3.1.2(c)). Both
   cycles unlock: unlimited scans, no per-drop charge, email sync
   (Gmail + Outlook), PDF export, advanced analytics, priority price
   checking (every 2 h). **Family Sharing is deliberately off** on both
@@ -371,6 +386,11 @@ We respond within 1 business day to reviewer questions.
 > Then: scan a receipt with the camera FAB (any receipt photo works) → see it
 > appear on Home → tap to view Detail → try Profile → Download my data and
 > Delete my account.
+>
+> **In-app purchases are sold on the Canadian App Store only.** To test one,
+> use a Sandbox Apple Account whose Country or Region is Canada (Settings →
+> Developer → Sandbox Apple Account). On any other storefront the store has no
+> products and the purchase screens say "Purchases are only available in Canada".
 >
 > Privacy: https://priceback.ca/privacy-policy · Support: https://priceback.ca/support
 >

@@ -12359,3 +12359,145 @@ the same run.
   unchanged.
 - **Generalisable rule.** `a?.() ?? b()` asks whether the CALL returned nullish,
   not whether `a` exists.
+
+## 275. Every deploy forgot every watch list — and then re-sent pushes already sent (2026-09-24, PR #354)
+
+- **Date:** 2026-09-24 · **Area:** backend/notifications, infra
+- **Symptom.** Silent. After each deploy the boot log read `[DB] Loaded 0 watched
+  tokens from disk` (eight deploys in the week of the 2026-09-23 audit). A user
+  who did not open the app got no flyer/web-price alert until they did; once the
+  phones re-registered, the next sweep pushed drops that had already been pushed.
+- **Root cause.** Production has **no Railway volume**, so `DATA_DIR` resolves
+  inside the image and is recreated empty by every deploy. The watch registry
+  (`watched.json`) and the sweeps' send-once ledger (`notifyLedger.json`) lived
+  only there. The admin `/health` `checks.storage` had reported `ephemeral` for
+  weeks; the remedy it recommended — mount a volume — would have made every deploy
+  take the API offline (a service with a volume cannot overlap deployments).
+- **Fix.** Migration `0010_durable_watch_state` (`watch_registrations`,
+  `sweep_notify_ledger`) + `lib/durableWatchState.js`: the Maps stay the hot
+  path, the tables are their durable mirror, rebuilt at boot — ledger FIRST. Sends
+  are persisted before the batch goes to Expo; a failed write is retried, not
+  dropped; `/api/watch` writes are monotonic on `touched_at`. The ledger stores a
+  SHA-256 digest of the send key, never the push token (old raw-key files are
+  re-digested on load).
+- **The trap that came with durability.** Account deletion and the data export
+  only knew `dev:<deviceId>` keys; every user who allows notifications is under
+  `push:<token>`. The wipe-per-deploy had been hiding it. Both routes now resolve
+  the `push:` key from the caller's own `users` row.
+- **Files:** `backend/db/migrations/0010_durable_watch_state.sql`,
+  `backend/lib/durableWatchState.js`, `backend/repos/watchRegistryRepo.js`,
+  `backend/repos/sweepNotifyLedgerRepo.js`, `backend/server.js`.
+- **Detect next time.** Boot log `[WatchState] restored N watch registrations and
+  M sends from the database`; `select count(*) from priceback.watch_registrations`.
+  A `[WatchState] … not restored: 42P01` line means the migration never reached
+  that database.
+- **Guardrail.** `tests/watchStateServerDb.test.js` "deploys" the process (empties
+  the Maps, runs the boot restore) and asserts the watch and the send both survive;
+  mutation-checked (disable the ledger restore → red).
+- **Generalisable rule.** **Ephemeral state is a data-loss bug even when nothing
+  errors.** A health check that says "ephemeral" is a finding — and its remedy has
+  to be weighed for regressions: the obvious one here (a volume) cost downtime on
+  every deploy.
+
+## 276. An OCR scan in the first seconds after a deploy reset the month's Vision count (2026-09-24, PR #354)
+
+- **Date:** 2026-09-24 · **Area:** backend/budgets
+- **Symptom.** Reproduced on dev, not seen in prod data: with 500 Vision units
+  stored for the month, one scan served before the boot restore produced
+  `[Budget] restored from kv_state · Vision 1/1000`.
+- **Root cause.** The budget's durable copy is `kv_state` (the file is empty after
+  every deploy — #275). `restoreBudgetsFromKv()` runs AFTER `listen()`, and every
+  OCR request calls `saveBudgets()`, which wrote the in-memory counters straight to
+  `kv_state`. A scan in the gap wrote "1" over "500"; the restore read the 1 back.
+  The cap that keeps Vision inside Google's free tier reset with it.
+- **Fix.** `kv_state` writes wait until the restore has read the stored count; the
+  restore merges `max(stored, file-at-boot) + usage-since-boot`; a failed restore
+  keeps writes OFF and retries (30 × 60 s), because undercounting one process's
+  usage is a lesser loss than overwriting the month.
+- **Files:** `backend/server.js` (`persistBudgetsToKv`, `restoreBudgetsFromKv`,
+  `_mergeRestoredCount`), `backend/tests/ocrBudgetRestoreRaceDb.test.js`.
+- **Guardrail.** The test reproduces the race against the real `kv_state` row and
+  asserts 501; mutation-checked (remove the gate → red).
+- **Generalisable rule.** **A restore that runs after the server starts must gate
+  every write it could lose to.** "Snapshot on every save" plus "restore on boot"
+  is a race unless the first save waits for the restore.
+
+## 277. The first query on every new database connection would throw on pg@9 (2026-09-24, PR #354)
+
+- **Date:** 2026-09-24 · **Area:** backend/db
+- **Symptom.** `DeprecationWarning: Calling client.query() when the client is
+  already executing a query is deprecated and will be removed in pg@9.0` in the
+  Railway logs (traced with `--trace-deprecation` in the 2026-09-23 audit).
+  Harmless on pg 8; on pg 9 the first statement on each new connection throws.
+- **Root cause.** `db/client.js` issued `SET search_path` from the pool's
+  `connect` EVENT, fire-and-forget. pg-pool emits it from inside the driver's
+  connection callback, before the client is marked ready, so the `SET` was still
+  queued when `pool.query()` pushed the caller's statement behind it.
+- **Fix.** pg-pool's `onConnect` hook (3.14+, shipped with pg 8.21), which the
+  pool awaits before releasing the client. A failed `SET` now fails the checkout
+  instead of handing out a connection that resolves against `public`.
+- **Files:** `backend/db/client.js` (`pinSearchPath`),
+  `backend/tests/dbSearchPathOnConnectDb.test.js`, `backend/tests/dbClientPool.test.js`.
+- **Guardrail.** The test listens for the driver's own warning on a fresh
+  `pool.query()` (in its own file: node emits a deprecation once per process),
+  and checks three concurrent new connections all land on `priceback`.
+- **Generalisable rule.** **Per-connection setup belongs in a hook the pool
+  awaits, never in an event it emits.**
+
+## 278. "RLS disabled on 44 tables" — not an open door, but one grant from one (2026-09-24, PR #354)
+
+- **Date:** 2026-09-24 · **Area:** backend/db, security
+- **Symptom.** Supabase's security advisor on PRODUCTION lists every `priceback`
+  table under "RLS disabled". Dev's advisor did not flag the same tables — most
+  likely because dev does not expose the schema to its Data API (not verified).
+- **Root cause.** Not an exposure on the day it was examined — `anon`,
+  `authenticated`, `service_role` hold no USAGE on the schema, and nothing uses the
+  Data API — but that rested on a single grant.
+- **Fix.** Migration `0009_enable_row_level_security`: RLS on every table, no
+  policies, never FORCEd. The backend is `postgres` — owner of every table, and
+  BYPASSRLS — so no query changes. Afterwards the advisor lists the tables under
+  the INFO-level "RLS enabled, no policy" lint: the intended posture.
+- **Guardrail.** `tests/rowLevelSecurityDb.test.js` reads the live catalog, so a
+  future table without RLS fails the suite; and proves it behaviourally — a
+  rolled-back grant to `anon` reads 0 rows (27 before).
+- **Generalisable rule.** **Defence in depth means a second layer that holds when
+  the first is changed by hand.** A grant is one dashboard click away.
+
+## 279. "Nobody on iOS 27 has signed in" — two people had; the Darwin mapping was off by one (2026-09-24, docs only)
+
+- **Date:** 2026-09-24 · **Area:** diagnostics
+- **Symptom.** The 2026-09-23 audit kept "an iOS 27 sign-in problem cannot be ruled
+  out" as a watch item, reading every real iOS request as `Darwin/25` (iOS 26).
+- **Root cause.** The old offset (iOS 18 = Darwin 24, iOS 26 = Darwin 25) does not
+  continue: **iOS 27.0 is `Darwin/27.0.0`** (Sentry: build `24A437`, `Darwin Kernel
+  Version 27.0.0`; `CFNetwork/3896`). Looking for `Darwin/26` finds nothing.
+- **What the data said.** `consent_events.user_agent`: two real accounts (not the
+  reviewer account) completed Sign in with Apple + onboarding on `Darwin/27.0.0` —
+  2026-09-14 (build 40) and 2026-09-17 (build 41), both Canadian.
+- **Generalisable rules.** (1) **Take the OS→kernel mapping from a source that
+  reports both** (a Sentry event's `os` context) — never from an offset. (2) The UA
+  is in `consent_events.user_agent` for every sign-up; that answers "has anyone on
+  iOS N signed in?" in one query.
+
+## 280. Apple's review device "could not load any products" — and a Canadian one would have failed silently (2026-09-24, PR #353)
+
+- **Date:** 2026-09-24 · **Area:** mobile/purchases
+- **Symptom.** RevenueCat `None of the products registered in the RevenueCat
+  dashboard could be fetched` on every run of Apple's own test fleet (Cupertino,
+  Chinese UI, iOS 27; 2.8.5 / 2.8.20 / 2.9.0), 2026-09-17 → 09-24.
+- **Root cause.** Not a product problem: PriceBack sells in Canada only, its IAPs
+  exist on the Canadian storefront only, and 2.9.0 serves all five at the correct
+  CAD prices to Canadian devices. The failures began when the IAPs went live with
+  2.9.0 — the 2.8.20 reviewer had seen USD prices while they were unapproved.
+  What WAS wrong: the screens told a non-Canadian storefront "tap to retry"; and a
+  Canadian storefront returning zero products was reported nowhere.
+- **Fix.** `storePrices` exposes `outsideCanada`; Paywall / Buy Credits / Plan &
+  credits say "Purchases are only available in Canada" (EN + FR) there. A Canadian
+  storefront with no products is reported once per session via
+  `reportHandledError` (`flow: "store_prices"`). `REVIEWER_NOTES.md` tells App
+  Review to use a Canadian Sandbox Apple Account.
+- **Detect next time.** A Sentry issue titled "The Canadian storefront returned no
+  purchasable products" is a real outage for paying customers. The same RevenueCat
+  line from a non-Canadian device is expected.
+- **Generalisable rule.** **Before fixing "no products", ask which storefront
+  asked.** A Canada-only catalogue is correctly empty everywhere else.
