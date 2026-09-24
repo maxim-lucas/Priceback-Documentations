@@ -180,7 +180,7 @@ the 19-day-stale token already documented on 09-07. Benign; left as a follow-up.
 | **Production has no Railway volume.** `DATA_DIR` falls back to the container's `backend/data`, so `watched.json`, `notifyLedger.json`, `ocrBudget.json` and the analytics logs reset on every deploy (`[DB] Loaded 0 watched tokens from disk`) — eight deploys in the last week. | Code comments and the run-3 audit both assume a volume. Needs its own decision (attach one, or retire the file-backed state). |
 | Supabase advisor "RLS disabled on 44 tables" | **False positive here:** `anon`, `authenticated`, `service_role` and `authenticator` have no `USAGE` on schema `priceback`; nothing is reachable through the Data API. Enabling RLS would be defence in depth only (the backend connects as the table owner). Left to Maxim. |
 | RevenueCat on the review device: *"None of the products registered … could be fetched"* | Consistent with the known "IAPs never attached to a version" blocker. |
-| `DeprecationWarning: Calling client.query() when the client is already executing a query` | Parallel queries on one pooled client; throws on pg@9. |
+| `DeprecationWarning: Calling client.query() when the client is already executing a query` | Traced (`--trace-deprecation`): `db/client.js`'s pool `connect` handler fires `SET search_path` fire-and-forget while pg-pool hands the same client straight to the caller's first query. Harmless on pg 8 (queued); **throws on pg@9**. Fix belongs with the next `pg` upgrade. |
 | Referral codes are 6 base-30 characters derived from `sub` | A collision between two *different* users locks the newcomer out; ≈ 7 % chance of at least one by 10 000 users. |
 
 ---
@@ -198,12 +198,30 @@ the 19-day-stale token already documented on 09-07. Benign; left as a follow-up.
 
 ## Fix status
 
-*Updated at the end of the work.*
-
 | Item | PR | Status |
 |---|---|---|
-| F1, F3, F4 — backend | — | pending |
-| F2 — region | — | pending |
-| F5, F6 — app | — | pending |
-| `auth_outcomes` scrub | — | pending |
-| Sentry archive | — | pending |
+| F1, F3, F4 — backend | [#350](https://github.com/maxim-lucas/Priceback/pull/350) | Verified locally; **awaiting Maxim's merge** (merging deploys to production — the auto-merge was refused by the session's safety classifier as "merge without review") |
+| F2 — region | [#351](https://github.com/maxim-lucas/Priceback/pull/351) | Schema-validated; **awaiting merge** (redeploys production in `us-east4`) |
+| F5, F6 — app | [#352](https://github.com/maxim-lucas/Priceback/pull/352) | Verified locally; awaiting merge; ships with the next store build (no build started) |
+| `auth_outcomes` payload scrub | — | Authorized; runs **after #350 is live** (otherwise new rows keep arriving unscrubbed) |
+| Sentry B/C/J/H archive | — | Authorized; runs after deploy, with a note linking this doc |
+
+### Verification done
+
+| Check | Result |
+|---|---|
+| Backend full suite (`npm test`, c8 gate) on #350 | 1746 tests · 1745 pass · 0 fail · 1 skip (long-standing `watched_items` dormant) · coverage 94.1 / 79.55 / 93.89 / 94.1 vs floors 90 / 75 / 91 / 90 |
+| Mobile full suite (`npm test`) on #352 | 257 suites · 6234 pass · 0 fail · 1 skip (key-dependent OTA test) · coverage 82.83 / 75.32 / 72.84 / 85.34 vs floors 68 / 55 / 59 / 70 |
+| New assertions fail on the original code | yes — every source file swapped back to `origin/main` and re-run; swap confirmed by marker count |
+| F1 race, reproduced locally | original code: 2 of 80 rounds lost to production's exact 23505; fixed: 0 of 40 |
+| `i18n:check` / typecheck / gitleaks 8.18.4 (checksum-verified) | 1509 = 1509 / clean / no leaks on either diff |
+
+### After #350 and #351 are merged — the checklist
+
+1. `railway status --json` → manifest `us-east4-eqdc4a` × 1 and nothing in `asia-southeast1`.
+2. `/health` → `healthy: true`; `db.latencyMs` well below the 1907 ms measured on 2026-09-24 before the move.
+3. Re-measure bootstrap / refresh / `/api/me` percentiles from Railway HTTP logs (targets: bootstrap p50 < 1 s, refresh < 0.5 s); 499s on `/api/me` should disappear.
+4. Supavisor: no `ECLIENTSOCKETCLOSED … auth_scram_final_wait`; `job_runs`: every scheduled job succeeds after the egress change.
+5. New `auth_outcomes` rows: a `Token used too late` row reads `…: [token payload redacted]`; a `bootstrap_threw` row carries `db <SQLSTATE> <constraint> on <statement>`.
+6. Scrub: `update priceback.auth_outcomes set detail = regexp_replace(detail, '^(Token used too (late|early), [0-9.]+ > [0-9.]+):.*$', '\1: [token payload redacted]') where detail ~ '^Token used too (late|early), [0-9.]+ > [0-9.]+: \{'` — count first (42), then zero rows matching `\{"` must remain.
+7. Sentry: B, C, J, H → archived until escalating, each with a comment linking this doc.
