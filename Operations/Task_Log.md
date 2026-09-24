@@ -16,6 +16,29 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-23 — Production audit: bootstrap failures and Sentry errors on `main`
+
+- **Asked (/goal):** *"run an audit on the priceback main branch, few problem appeared on bootstrap in
+  the last few days and also some errors on sentry. this is live production state. i need it to be
+  analyzed and fixed with solid solutions."* Branch named: **`main`** — fixes cut from `origin/main`
+  @ `56cf44b` (= Railway prod deployment `9fa279c2`), PR'd back to `main`.
+- **Findings** (full evidence: `Operations/Production_Audit_2026-09-23_Bootstrap_Sentry.md`, pushed
+  before any fix): F1 a new user's first sign-in can 503 — concurrent first upserts trip
+  `users_referral_code_unique`; F2 backend in Singapore, DB in Montréal (bootstrap 3–7 s); F3 a dropped
+  refresh response burned a real user's session (30 s replay grace); F4 PII in logs/`auth_outcomes` and
+  no Postgres cause; F5 iOS mints 2–3 sessions per sign-in; F6 Sentry B/C/J/H = Apple's review fleet;
+  F7 Android stale-token rows = one admin device, benign.
+- **Decisions Maxim made:** move prod to Railway `us-east4` via `railway.json`; replay grace 30 s →
+  24 h; both app fixes merged for the next build, no build now; scrub `auth_outcomes` payloads and
+  archive Sentry B/C/J/H after deploy.
+- **Does not reverse anything recorded here.** It extends #291's replay rule (same security condition,
+  longer clock) and #333's sign-in handling (reporting level only; copy unchanged).
+- **Files:** `backend/repos/usersRepo.js`, `backend/repos/sessionsRepo.js`,
+  `backend/repos/authOutcomesRepo.js`, new `backend/lib/errorRedaction.js`, `backend/db/client.js`,
+  `backend/server.js`, `backend/railway.json`; `src/services/authService.js`,
+  `src/services/errorSupport.js`, `src/services/analyticsService.js`.
+- **Status:** in progress.
+
 ### 2026-09-21 — Admin console: the Accounts desk absorbs the shopper report
 
 - **Asked (/goal):** *"admin console -> Accounts, needs to be merged with the shopper report,
