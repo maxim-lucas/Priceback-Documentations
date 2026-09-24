@@ -12209,3 +12209,153 @@ the same run.
 - **Generalisable rule.** An extension and a presigned content-type are
   assertions, not facts. If a pipeline can receive a file it did not create,
   check the magic bytes before trusting either.
+
+## 269. A new user's first sign-in could 503 — two requests created one account (2026-09-23, PR #350)
+
+- **Date:** 2026-09-23 · **Area:** backend/users, auth
+- **Symptom.** 2026-09-22 00:42 UTC: a brand-new iPhone user's first
+  `GET /api/me/bootstrap` answered `503 bootstrap_unavailable` — "service
+  unavailable" on the very first screen. The retry 8 s later worked, and the
+  account had been created in the same second the 503 was served.
+- **Root cause.** The bootstrap and `POST /api/auth/session` started in the same
+  millisecond and both ran `usersRepo.upsertFromOAuth` for an account that did
+  not exist yet. `INSERT … ON CONFLICT (sub) DO NOTHING` arbitrates **only**
+  `users_pkey`. The referral code is derived from the sub, so both inserts carried
+  the same code and the loser tripped the **non-arbiter** unique index
+  `users_referral_code_unique` — raised by Postgres as a plain 23505, which the
+  clause does not absorb (Postgres log 00:42:03.978). Two-to-four concurrent
+  first upserts are the iOS norm: see #273.
+- **Fix.** `upsertFromOAuth` re-runs its transaction **once** when a unique
+  violation leaves this sub's row in place (it then takes the existing-user
+  branch; the trial grant stays once-only via `trial_credits_granted_at`). A
+  violation with no row for the sub is a genuine collision of the derived code
+  and is thrown as a named `ReferralCodeCollisionError`.
+- **Evidence the test catches it:** stress on the dev DB, 4 parallel first
+  sign-ins per round — original code lost **2 of 80** rounds to production's
+  exact 23505, fixed code **0 of 40**. The regression test does not wait for the
+  race: it injects a REAL driver error (a real insert tripping the real index)
+  into the losing attempt.
+- **Files:** `backend/repos/usersRepo.js`, `backend/db/client.js`
+  (`dbErrorCause`), `backend/tests/usersRepoUpsertRaceDb.test.js`.
+- **Generalisable rules.**
+  1. **`ON CONFLICT` protects exactly one index.** Every other unique index on
+     the table is a plain error under concurrency. Enumerate them when writing an
+     upsert.
+  2. **A value derived from the conflict key is not safe in a second unique
+     column** — it makes two concurrent inserts of one key collide on BOTH.
+  3. **Test a race by injecting the real error into the losing attempt.** A test
+     that waits for the interleaving passes by luck (here: 2 rounds in 80).
+
+## 270. A dropped refresh response burned a real session — the 30 s window measured the wrong retry (2026-09-23, PR #350)
+
+- **Date:** 2026-09-23 · **Area:** backend/sessions, iOS
+- **Symptom.** An Apple user on iOS lost their whole first-party session:
+  `user_sessions` shows `#50` rotated to `#56` at 2026-09-22 19:06:54, the
+  phone's connections all dropping at 19:06:55.24 (app suspended mid-refresh —
+  `session/refresh` 499 after 1157 ms), and the relaunch **82 s** later
+  re-presenting `#50` → `reuse_detected`, family revoked. Two later re-mints
+  were dropped the same way; the phone has run on ten-minute Apple tokens since.
+- **Root cause.** Bugs #216's replay rule serves a rotation the client never
+  received — the security condition is *no descendant has ever been presented*,
+  and it held (`#56.last_used_at` was null). But it also required the retry
+  within `SESSION_REPLAY_GRACE_MS` = 30 s, sized for the retry of an 8 s client
+  abort. The retry that actually comes after a suspension is the **next launch**.
+  The 3.6 s refreshes of #272 widened the window in which the OS suspends the app
+  mid-answer.
+- **Fix.** Default 30 s → **24 h** (chosen over a week). The clock-free condition
+  is unchanged; the env override and `/health` reporting are kept.
+- **Files:** `backend/repos/sessionsRepo.js`,
+  `backend/tests/sessionReplayGraceDb.test.js` (82 s and next-day relaunches
+  served; a presented heir burns its parent hours later),
+  `backend/tests/healthSessions.test.js`.
+- **Generalisable rule.** Size a grace window by the retry that actually comes,
+  not the one you designed for — and keep the security decision clock-free, with
+  the clock only as a bound.
+
+## 271. The error log carried the user, and not the cause (2026-09-23, PR #350)
+
+- **Date:** 2026-09-23 · **Area:** backend/logging, auth_outcomes
+- **Symptom.** #269's 503 wrote the new user's Google sub, email address, **full
+  name** and photo URL to Railway's log, while its `auth_outcomes.detail` held
+  300 characters of SQL and no cause — the 23505 had to be dug out of the
+  Postgres log. Separately, 42 `auth_outcomes` rows stored a Google sub and the
+  start of an email address.
+- **Root cause.** Two libraries put personal data in their error MESSAGES:
+  drizzle ≥ 0.45 (`Failed query: <sql>\nparams: <bound values>`, the driver error
+  on `cause`), and google-auth-library (`Token used too late, X > Y: {decoded
+  payload}`). The backend logs `err.message` at 111 sites in `server.js` alone;
+  `authOutcomesRepo._scrub` only knew `Bearer` and `eyJ…` shapes.
+- **Fix.** `backend/lib/errorRedaction.js` — `redactSensitive` (params tails,
+  token-payload tails, JWTs, Bearer values, email addresses), `describeError`
+  (`db 23505 users_referral_code_unique on insert into priceback.users: …`), and
+  `installConsoleRedaction`, installed first thing in `server.js` so every
+  console site is covered. `_scrub` uses it; the auth / bootstrap / session /
+  `/api/me` / referral catch sites record `describeError`.
+- **Generalisable rules.**
+  1. **A library's error message is data you do not control.** Redact at the
+     sink (the console), not at each call site — the next site is written
+     tomorrow.
+  2. **Record the driver's error, not the wrapper's message.** The code and the
+     constraint are the diagnosis; the SQL is not.
+  3. **A redaction test needs a fixture produced by the real library** — a
+     genuinely signed expired JWT refused by google-auth-library, drizzle's real
+     `DrizzleQueryError` — or a format change slips past it.
+
+## 272. The backend ran in Singapore, its database in Montréal, and nobody knew (2026-09-23, PR #351)
+
+- **Date:** 2026-09-23 · **Area:** infra/Railway
+- **Symptom.** Bootstrap p50 5.3 s on Android and 3.3 s on iOS (max 7 s); session
+  refresh 3.6 s; `GET /api/me` 2.7–5.8 s, so the app's 5 s reconcile budget
+  expired (a steady stream of 499s); the splash's 6 s failsafe fired on signed-in
+  cold starts; once, the pool gave up mid-SCRAM at its 5 s connect timeout
+  (`ECLIENTSOCKETCLOSED … auth_scram_final_wait`).
+- **Root cause.** Railway `asia-southeast1` (every deployment since ≥ 09-08, dev
+  too) against Supabase `ca-central-1` (prod and dev): ≈ 230 ms per query and
+  ≈ 2 s per new pooled connection, with a 30 s idle timeout forcing 48–94
+  reconnects an hour. A doc even stated the egress was US.
+- **Fix.** `backend/railway.json` → `deploy.multiRegionConfig`:
+  `us-east4-eqdc4a` × 1 and `asia-southeast1-eqsg3a: null`.
+- **Generalisable rules.**
+  1. **Check where a service runs relative to its database.** 230 ms × a dozen
+     sequential queries is a slow app no code review will find.
+  2. **Pin the region in config-as-code**, so it is visible and reviewable.
+  3. **When moving regions through config-as-code, null the old one** — the
+     config merges into the manifest, and a leftover replica runs every
+     in-process cron twice.
+
+## 273. iOS opened two or three sessions per sign-in (2026-09-23, PR #352)
+
+- **Date:** 2026-09-23 · **Area:** mobile/auth (iOS)
+- **Symptom.** 9 of 11 Apple sign-ups in `user_sessions` have 2–3 session
+  families created within the same minute; only one is ever used. Each mint
+  also upserts the user — the concurrent first insert behind #269.
+- **Root cause.** `openFirstPartySession` had two callers that did not know about
+  each other: the sign-in finalizer, and `_reopenSessionAfterFallback`, which
+  `authedFetch` fires whenever a provider token succeeds on iOS — and every
+  request made before the first session is stored qualifies. The re-open path
+  was single-flighted only against itself.
+- **Fix.** One in-flight mint shared by every caller; a session "generation"
+  bumped whenever a pair lands in the keychain, read by `authedFetch` when the
+  request leaves and again when it returns — a changed value means the session
+  arrived mid-flight, so no re-open. A genuinely lost session (cleared by a 401)
+  is not a landing and still re-opens.
+- **Generalisable rule.** Two single-flight guards on two entry points to ONE
+  side effect are not a single-flight guard. Put the latch on the side effect.
+
+## 274. Every handled error was captured twice — Dedupe hid it (2026-09-23, PR #352)
+
+- **Date:** 2026-09-23 · **Area:** mobile/analytics, Sentry
+- **Symptom.** None visible — which was the problem. Found while making Sentry
+  file App Review's device-refused sign-ins (PRICEBACK-CANADA-B/C) at `info`.
+- **Root cause.** `_Sentry.withScope?.((scope) => { …; captureException(e) })
+  ?? _Sentry.captureException(e)`. `withScope` returns its callback's value —
+  `undefined` — so the `??` fallback ran on every call and captured the error a
+  second time outside the scope. Sentry's Dedupe integration dropped the twin
+  only because it was identical; a scoped level or fingerprint would have made
+  them differ, and the unscoped copy would have reached Sentry as a plain error.
+- **Fix.** An explicit `typeof withScope === "function"` branch. Device-refused
+  sign-in categories (`signin_unavailable`, `signin_presentation_failed`) are
+  filed at `info` under `["signin-device-refused", flow]`; the on-screen copy is
+  unchanged.
+- **Generalisable rule.** `a?.() ?? b()` asks whether the CALL returned nullish,
+  not whether `a` exists.

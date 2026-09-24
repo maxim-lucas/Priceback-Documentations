@@ -144,7 +144,11 @@ the whole problem was our vantage point.
    helper** in `abercrombieCatalog.test.js` with it. The derived pages exist only
    because no real one did.
 3. **Railway cannot reach this.** Railway has no Canadian region, so the backend's
-   own egress is US and will see storeId 11203 forever. The feed needs a Canadian
+   own egress is never Canadian and will see storeId 11203 forever. (Correction,
+   2026-09-23 production audit: the egress was not even US — the service ran in
+   Railway's **Singapore** region until PR #351 moved it to `us-east4`. Any
+   storefront observation made "from the backend" before that move was made from
+   Southeast Asia.) The feed needs a Canadian
    egress path — a thin fetch-relay on **GCP Cloud Run in
    `northamerica-northeast1` (Montréal)**, called by the Railway job. GCP project
    `695135372222` already exists; a nightly watchlist sweep sits inside the free

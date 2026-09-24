@@ -37,7 +37,11 @@
   `backend/repos/authOutcomesRepo.js`, new `backend/lib/errorRedaction.js`, `backend/db/client.js`,
   `backend/server.js`, `backend/railway.json`; `src/services/authService.js`,
   `src/services/errorSupport.js`, `src/services/analyticsService.js`.
-- **Status:** in progress.
+- **Status:** PRs open and verified — #350 (backend: F1/F3/F4), #351 (region: F2), #352 (app:
+  F5/F6 + a double Sentry capture found on the way). **Merge is Maxim's**: the session's safety
+  classifier refused the auto-merge of #350 ("merge without review"), and #350/#351 deploy to
+  production. After both are live: region/latency checks, the `auth_outcomes` payload scrub and the
+  Sentry archive (both authorized) — checklist in the audit doc. Docs: Bugs #269–#274.
 
 ### 2026-09-21 — Admin console: the Accounts desk absorbs the shopper report
 
