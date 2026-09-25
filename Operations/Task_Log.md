@@ -16,6 +16,38 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-25 — Cleanup rule for Apple's "John Apple" reviewer accounts
+
+- **Asked (/goal):** *"add the cleanup rule for John apple, i double checked John apple, it created 4
+  accounts in the exact time of the app review each time, i am sure these are test or review users,
+  you can check more details in the users table, maybe its John Appleseed but it got truncated
+  somewhere on the account creation or the backend make sure this doesnt happen to real users"*.
+  Branch: `fix/john-apple-review-account-cleanup` off `main` @ `81b9ee3`.
+- **Investigated first (prod, `xjfrlzwonyaorwktnkpj`):** all 4 `users` rows are `name = 'John Apple'`
+  exactly (10 chars, not a truncated `"John Appleseed"`), each on a distinct real
+  `@privaterelay.appleid.com` address, 0 receipts / 0–1 devices / 2–3 sessions / unspent signup credit
+  each, created 09-09, 09-14, and twice on 09-17 within a minute — review-cycle timestamps, not a real
+  shopper. **No truncation bug**: `users.name` is unbounded `text`, `displayName.js`'s
+  `MAX_DISPLAY_NAME = 120` is nowhere near 10 chars, and `authService.js`'s
+  `givenName`/`familyName` join does no slicing either. Apple's own reviewer identity discloses
+  `familyName: "Apple"`, not `"Appleseed"`, on the one-time Sign-in-with-Apple identity token
+  ([[apple-name-disclosed-once]], PR #298) — a human App Store reviewer's manual sign-in, distinct
+  from the automated Cloud Test Lab fleet already covered by `appstore_review_accounts`.
+- **Built:** new `apple_reviewer_named_accounts` classifier in `backend/lib/dataCleanup.js`
+  (`store_review_accounts` section, heuristic/reviewable, never auto-deleted), matched on
+  `lower(u.name) IN ('john apple', 'john appleseed')` rather than the email domain — the private-relay
+  address alone is indistinguishable from a real shopper's. Admin allow-list still applies. Doc'd in
+  `Admin_Console_And_Data_Cleanup.md` and `Bugs_Common_Fixes.md` #283.
+- **Tests:** `dataCleanupPredicatesDb.test.js` — a "John Apple"/"John Appleseed" pair is found, a real
+  name on the same private-relay domain is not, an admin account on the allow-list is excluded.
+  Mutation-verified (predicate temporarily broken, both new tests failed as expected, then restored).
+  15/15 green in that file; 27/27 green in `dataCleanupRegistry.test.js` — against the **dev** pooler.
+- **Not done here, deliberately:** the 4 real prod accounts were NOT deleted by this session — this
+  module's whole design is "reviewed from the admin console, one selection at a time," never an
+  automated or scripted DELETE. They will now surface under Admin → Data cleanup → Store review
+  accounts for Maxim (or another admin) to review and delete.
+- **Status:** in progress, branch not yet pushed/PR'd.
+
 ### 2026-09-25 — City from postal code + admin segment reports + Accounts row credit/subscription badge
 
 - **Asked (/goal):** *"the new city field is not required on signup so it should be calculated based

@@ -35,7 +35,7 @@ no read endpoint; and an admin could **change** a shopper's balance but could no
 ## The cleanup registry
 
 `backend/lib/dataCleanup.js` declares; `backend/lib/dataCleanupRunner.js`
-executes. 25 classifiers across seven sections. Each knows how to count itself,
+executes. 26 classifiers across seven sections. Each knows how to count itself,
 sample itself and delete itself.
 
 | Section | Safety | What it is |
@@ -44,7 +44,7 @@ sample itself and delete itself.
 | `fixture_residue` | marker | Pre-marker fixtures the sweep structurally misses: `source_ref` prefixes, `wh-` warehouse codes, `dev_` top-ups, orphan products |
 | `internal_accounts` | heuristic | Accounts on a `@priceback.ca` address |
 | `abandoned_signups` | heuristic | `staleSignups.fingerprint()`, reused verbatim |
-| `store_review_accounts` | heuristic | Play Console (`<name>.<5 digits>@gmail.com`) and App Store Connect (`@cloudtestlabaccounts.com`) review-fleet accounts left behind after a store submission review |
+| `store_review_accounts` | heuristic | Play Console (`<name>.<5 digits>@gmail.com`) and App Store Connect Cloud Test Lab (`@cloudtestlabaccounts.com`) review-fleet accounts, plus a human App Store reviewer's manual Sign in with Apple, matched on the name Apple discloses (`John Apple` / `John Appleseed`) rather than the email, since that account is a real, working `@privaterelay.appleid.com` address indistinguishable from a genuine shopper's |
 | `retention` | retention | History past the window its own cron enforces, read from the same config the cron reads |
 | `reported_only` | none | Counted, explained, **no checkbox** |
 
