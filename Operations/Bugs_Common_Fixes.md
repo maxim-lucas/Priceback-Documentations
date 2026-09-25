@@ -12536,3 +12536,68 @@ the same run.
 - **Generalisable rule.** **When the merge is the deploy, "owed on prod" is an
   outage waiting for the first user.** A green `/health` proves the pool connects, not
   that the schema matches the code.
+
+## 282. Five notifications the user could not switch off — and a new switch the server could forget (2026-09-25, PR: feat/reengagement-notifications)
+
+- **Date:** 2026-09-25 · **Area:** both (notifications)
+- **Symptom.** Found while auditing every notification for Maxim's rule *"all
+  notifications must fall in a category that can be disabled"*:
+  - the two offline "your scan is ready to review" alerts obeyed only the master switch;
+  - the claim reminder's **"Remind me tomorrow"** snooze was scheduled with **no gate at
+    all** — it fired even with every notification turned off — and with no identifier, so
+    neither reconcile nor a receipt delete could ever cancel it;
+  - `store_launch` had a category but **no row** on the Notifications screen;
+  - the admin "Price tag awaiting review" push had no category (master only).
+- **Root cause.** Each notification's category was a string literal at its call site, and
+  the four lists that must agree were kept in step by comment. They are the app's
+  `DEFAULT_PREFS` / `NOTIFICATION_PREF_KEYS`, the server's `_NOTIFICATION_PREF_KEYS`
+  (which **silently drops** unknown keys), the seeded `notification_types`, and the
+  screen's rows. `sendUserPush`'s `category` was optional — omit it and only the master
+  switch applied.
+- **Second, latent defect.** `notificationSettingsRepo` caches `notification_types` for the
+  life of the process, but the boot seed that inserts a NEW category runs in the background
+  on the first `getDb()`. A request in the first seconds after a deploy cached the OLD type
+  set; from then until the next restart, `upsertMany` dropped the new code as unknown and
+  every settings map lacked it. For an `explicitOnly` category that means the one row the
+  server needs before it may send at all could never be written.
+- **Fix.**
+  - **One registry.** `shared/notificationCategories.js`, mirrored to `backend/shared`,
+    maps every `data.type` to exactly one category.
+  - **The server derives the gate.** `sendUserPush` derives the category from `data.type`
+    and REFUSES a type with none; a caller's wrong `category` cannot route around the
+    registry.
+  - **The app uses the same gate.** Every local sender gates through `isAllowed(prefs,
+    type)`. `settingCodes()` is the source of the server whitelist and of
+    `NOTIFICATION_PREF_KEYS`.
+  - **New categories.** `notifScanResults` covers the scans-ready alerts and the new
+    follow-up. `notifAdminAlerts` covers the admin push, shown to admins only.
+    `notifStoreLaunch` gets its row.
+  - **The snooze** is now gated by its claim-reminder category and carries the id
+    `expiry-snooze-<receiptId>`. Reconcile cancels it when that switch is off, and it is
+    cancelled on receipt delete and by the orphan sweep.
+  - **The cache race.** `_allTypes()` awaits `ensureSeeded()` before its first read, and a
+    failed seed falls through to the read as before.
+- **Files.**
+  - Shared registry: `shared/notificationCategories.js` (+ `backend/shared/`),
+    `backend/scripts/sync-shared.js`.
+  - Backend: `backend/server.js` (sendUserPush, pref keys, admin push),
+    `backend/repos/notificationSettingsRepo.js`, `backend/db/seed.js`.
+  - App services: `src/services/{notificationService,storageService,syncService}.js`.
+  - App screen: `src/screens/NotificationsScreen.js`.
+- **Detect next time.** `[push] refused: data.type … belongs to no notification category`
+  in the backend log is a new sender that skipped the registry. `[push] …: caller passed X,
+  the registry says Y` is a call site that disagrees.
+- **Prevent.**
+  - `__tests__/notificationCategories.test.js`: every routable type has a category;
+    defaults and keys follow the registry; labels exist in every language.
+  - `__tests__/notificationsScreenDurableSync.test.js`: every category has exactly one row;
+    admin-only and consent rows behave.
+  - `backend/tests/notificationCategoriesRegistry.test.js`: the seed, the whitelist
+    derivation, every emitted type, and every `sendUserPush` call site.
+  - `backend/tests/userPushCategoryDb.test.js`: refusal, the category and master switches,
+    the registry winning, marketing consent.
+  - `backend/tests/notificationSettingsSeedWait.test.js`: the cache race, mutation-checked
+    (it fails with the wait removed).
+- **Generalisable rule.** **A rule about "every X" needs one list of X that everything else
+  derives from — and a test that fails on the X nobody has written yet.** A comment saying
+  "keep in lock-step" is a list that is already drifting.

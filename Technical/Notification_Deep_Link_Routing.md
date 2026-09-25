@@ -50,8 +50,16 @@ routeForNotification(data) -> { route, params } | null
 | `daily_digest` | `Main` → `Receipts` | — |
 | `tag_scans_ready` | `PendingTagScan` | — |
 | `receipt_scans_ready` | `PendingReceiptScan` | — |
+| `scan_review_reminder` *(2026-09-25)* | `PendingTagScan` / `PendingReceiptScan` | `kind` (`tag` \| `receipt`) |
+| `first_receipt`, `scan_reminder` *(2026-09-25)* | `Scan` (the root-stack scanner modal, not the `ScanTab` placeholder) | — |
+| `monthly_recap` *(2026-09-25)* | `Main` → `Receipts` | — |
+| `referral_nudge` *(2026-09-25)* | `InviteFriend` | — |
 | `tag_review` (admin) | `AdminTagReview` | `reviewId` |
 | `test` | *nowhere, deliberately* | — |
+
+21 types since 2026-09-25. Every one of them — except `test` — also belongs to a
+switch in `shared/notificationCategories.js`; see
+`Technical/Notification_Categories.md`.
 
 `null` means "just open the app" — which is exactly what every unrouted type did
 before, so an unrecognised push can never be worse than it is today. An unknown
@@ -115,9 +123,12 @@ distinction is precisely what the cold-start path needs.
 The table is only as good as somebody remembering to extend it. The last block
 of `__tests__/notificationRouting.test.js` walks the **actual senders**
 (`backend/server.js`, `backend/priceDropNotifier.js`,
-`src/services/notificationService.js`), extracts every `data.type` they emit,
-and fails if any is unroutable — so a new push type is caught at CI time rather
-than in production, which is how twelve of them got there in the first place.
+`src/services/notificationService.js`, and — derived, since 2026-09-25 — every
+file in `backend/jobs/`), extracts every `data.type` they emit, and fails if any
+is unroutable — so a new push type is caught at CI time rather than in
+production, which is how twelve of them got there in the first place. A sender
+must spell `data: { type: "…" }` literally for the guard to see it
+(`jobs/reengagement.js` does, on purpose).
 
 It checks **both directions**: a type the table declares but nothing sends is
 dead weight, and dead weight is how a table stops being trusted. It also asserts
@@ -131,7 +142,13 @@ occurrences in the source) failed the guard.
 
 ## Adding a new push type
 
-1. Add the sender.
-2. Add its `data.type` to `ROUTES` in `notificationRouting.js`.
+1. Add the type to a category in `shared/notificationCategories.js` (a new
+   category needs its seed row, `DEFAULT_PREFS` entry, a row on the
+   Notifications screen and labels in every language — the tests list what is
+   missing). Copy it into `backend/shared/` (or run `node backend/scripts/sync-shared.js`).
+2. Add the sender, with a literal `data: { type: "…" }`.
+3. Add its `data.type` to `ROUTES` in `notificationRouting.js`.
 
-If you skip step 2, `notificationRouting.test.js` fails. That is the point.
+If you skip step 1, the server's `sendUserPush` refuses the push and
+`notificationCategories.test.js` fails; if you skip step 3,
+`notificationRouting.test.js` fails. That is the point.

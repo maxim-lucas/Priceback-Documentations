@@ -16,6 +16,66 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-25 — Re-engagement notifications + every notification in a switch-off-able category
+
+- **Asked (/goal):** *"on main branch, add these features : 1-New notifications for the users that
+  didnt scan any receipt (scan your first receipt) after 1 week of account creation without receipts
+  in their account 2-Notification to remind the users to scan their costco receipt every week if they
+  didnt upload any receipt over a week (not costco only) all notifications must fall in a category
+  that can be disabled in the notifications configurations (should be the same for all notifications
+  in th app)"*. Mid-task: *"if you have any other ideas for notifications for re-engagement dont
+  hesitate to present it to me before including it in the plan"*. Branch named: **`main`** →
+  `feat/reengagement-notifications` off `origin/main` @ `f79586f`, PR'd back to `main`.
+- **Decisions Maxim made:** extra ideas approved: monthly savings recap (*"show the price drops found
+  part only if they have a price drop … Show the receipts count first thing in the notification
+  before the items count"*), review follow-up, referral nudge; the streak-aware reminder was not
+  chosen. Reminders are **service reminders, ON by default**, not marketing. Copy **names the live
+  stores**; the weekly reminder *"should always be costco … as it is a food store, it should be
+  recurrent, but try to find a formula to highlight it as costco or any other store"*. PR #356:
+  *"apply 0011, i already merged the PR"* (done first, see Bugs #281).
+- **Built:**
+  - **The registry.** `shared/notificationCategories.js` is one registry mapping every
+    `data.type` to a switch. `sendUserPush` derives its gate from it and refuses an
+    unregistered type; the app gates every local notification through `isAllowed`.
+  - **Five gaps closed:** the two scans-ready alerts, the claim snooze (it had no gate at
+    all), the store-launch row, and admin alerts.
+  - **New switches:** Scan reminders, Monthly recap, Scans ready to review, Tips & offers
+    (the CASL consent, re-surfaced) and Admin alerts (admins only).
+  - **The job.** `backend/jobs/reengagement.js` runs daily at 17:00 UTC and is elected once
+    per slot through `kv_state`. It is **stateless: no migration**.
+  - **Old binaries.** The server-sent categories are `explicitOnly`, so an old binary never
+    receives one; the new app writes the explicit rows once per account after hydrate.
+  - **Review follow-up.** A local reminder 24 h after offline scans become reviewable.
+  - **Seed race.** The types-cache race is fixed (Bugs #282).
+- **Does not reverse anything recorded here.**
+  - The 2026-07-12 truthfulness rule holds: each re-engagement push states only what is true
+    of the user's own account.
+  - The Bug #117/#118 durable-outbox paths are reused, not bypassed.
+  - The marketing switch that was "intentionally hidden" in the Profile screen is re-surfaced
+    on the Notifications screen, because the approved referral nudge needs a switch — as
+    that screen's own comment anticipated.
+- **Files:**
+  - Registry: `shared/notificationCategories.js` (+ `backend/shared/`, `sync-shared.js`).
+  - Backend: `backend/{server.js, jobs/reengagement.js, repos/reengagementRepo.js,
+    repos/kvStateRepo.js, repos/notificationSettingsRepo.js, lib/pushI18n.js,
+    config/defaults.js, db/seed.js}`.
+  - App: `src/services/{notificationService, notificationRouting, storageService, syncService,
+    tagScanQueue, receiptScanQueue, bootService, i18n}.js` and
+    `src/screens/NotificationsScreen.js`.
+  - Tests and docs as listed in the PR.
+- **Status:** **merged — PR #357** (`39b558e`, squash-merged 2026-09-25 15:09Z; branch deleted).
+  - **Verified locally:**
+    - backend `npm test`: 1871 tests, 1870 pass / 0 fail / 1 pre-existing intentional skip;
+      c8 94.51 / 80.01 / 94.5 / 94.51 against floors 90 / 75 / 91 / 90;
+    - mobile jest: 260 suites / 6364 tests, 0 fail; coverage 83 / 75.52 / 73 / 85.49 against
+      floors 68 / 55 / 59 / 70;
+    - `i18n:check` passes (1535 keys, en = fr);
+    - three mutation probes each turned a test red.
+  - **Dry run against dev:** 0 sends, the expected inert state.
+  - **Not done:** CI (dispatch-only by policy); no device test; no version bump, tag or build.
+    The app half reaches users with the next store release, and until then the backend sends
+    nothing.
+
 ### 2026-09-25 — Admin Accounts rework: store-review cleanup, OS/profile row, delete, receipt review desk
 
 - **Asked (/goal):** *"some accounts are created on prod after review (store submission for both

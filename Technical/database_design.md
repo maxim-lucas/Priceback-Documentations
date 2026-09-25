@@ -100,7 +100,8 @@ read-path performance.
 
 #### `notification_types`  *(NEW — backs `user_notification_settings`)*
 `id serial PK · code text UNIQUE · label text · is_master bool default false · default_enabled bool default true · sort_order smallint default 0`
-The 9 `code`s ARE the mobile `NOTIFICATION_PREF_KEYS` (notificationsEnabled [master], notifUrgentClaims, notifClaimReminders, notifDailyDigest, notifCommissionEarned, notifFriendJoins, notifFlaggedVerified, notifOtherCredit, notifLowBalance). `default_enabled` mirrors the app's `DEFAULT_PREFS` so a user with no setting row folds to the same (fail-open) default.
+The `code`s ARE the categories of `shared/notificationCategories.js` (the one registry both sides read) that live in this table — i.e. `settingCodes()`: notificationsEnabled [master], notifUrgentClaims, notifClaimReminders, notifDailyDigest, notifDropCharge, notifFriendJoins, notifFlaggedVerified, notifOtherCredit, notifLowBalance, notifStoreLaunch, and since 2026-09-25 notifScanReminders, notifMonthlyRecap, notifScanResults, notifAdminAlerts (14). The mobile `NOTIFICATION_PREF_KEYS` and the server's `PUT /api/me/profile` whitelist are DERIVED from the same registry. `default_enabled` mirrors the registry (and the app's `DEFAULT_PREFS`) so a user with no setting row folds to the same (fail-open) default — pinned by `backend/tests/notificationCategoriesRegistry.test.js`. The marketing consent ("Tips & offers") is deliberately NOT a row here: it lives in `consent_events`.
+> **Read by the re-engagement job as a capability, not only a preference.** For the `explicitOnly` categories (notifScanReminders, notifMonthlyRecap) the server sends ONLY to users with an explicit enabled row — which only an app version that shows the switch writes — so an older binary never receives a notification it has no switch for. Details: `Technical/Notification_Categories.md`.
 
 ### Config
 
@@ -403,7 +404,8 @@ gates every displayed store.
 - `subscription_event_types`: add `free_trial`.
 - `subscription_plans`: seed `free` + `unlimited` for country CA, numeric prices.
 - `credit_packs`: seed in its own table for country CA, numeric `price`.
-- `notification_types`: seed the 9 categories (defaults mirror the mobile `DEFAULT_PREFS`).
+- `notification_types`: seed the categories (defaults mirror the mobile `DEFAULT_PREFS`). 2026-09-25: + `notifScanReminders` (10), `notifMonthlyRecap` (11), `notifScanResults` (12), `notifAdminAlerts` (13), all default ON — seed rows only, no migration.
+- `app_config` (notifications, 2026-09-25): `REENGAGEMENT_PUSHES_ENABLED` (default true — kill switch for the daily re-engagement job) and `SCAN_REMINDER_DAYS` (default 7). `kv_state` gains one row, `job:reengagement:slot` (the job's once-per-slot election).
 - `credit_event_types`: add `referral_referrer_bonus` + `referral_referee_bonus`.
 - `app_config`: add `REFERRAL_REFERRER_CREDITS` + `REFERRAL_REFEREE_CREDITS` (default 15 each, DB-tunable; read via `configService.getOpsConfig`, surfaced in the pricing payload).
 - `app_config` (crowd_verification): `PRICE_VERIFY_MIN_USERS` (default 3 — distinct contributors that must observe the same price in the same province+country before a drop is push-worthy), `PRICE_VERIFY_WINDOW_DAYS` (default 14 — agreement freshness window), `ADMIN_USER_SUBS` (default `[]` — user subs whose own uploads bypass the rule of N; admin uploads still carry a province like every price point).
