@@ -63,7 +63,18 @@
     tagScanQueue, receiptScanQueue, bootService, i18n}.js` and
     `src/screens/NotificationsScreen.js`.
   - Tests and docs as listed in the PR.
-- **Status:** in progress — local verification running; PR next.
+- **Status:** **merged — PR #357** (`39b558e`, squash-merged 2026-09-25 15:09Z; branch deleted).
+  - **Verified locally:**
+    - backend `npm test`: 1871 tests, 1870 pass / 0 fail / 1 pre-existing intentional skip;
+      c8 94.51 / 80.01 / 94.5 / 94.51 against floors 90 / 75 / 91 / 90;
+    - mobile jest: 260 suites / 6364 tests, 0 fail; coverage 83 / 75.52 / 73 / 85.49 against
+      floors 68 / 55 / 59 / 70;
+    - `i18n:check` passes (1535 keys, en = fr);
+    - three mutation probes each turned a test red.
+  - **Dry run against dev:** 0 sends, the expected inert state.
+  - **Not done:** CI (dispatch-only by policy); no device test; no version bump, tag or build.
+    The app half reaches users with the next store release, and until then the backend sends
+    nothing.
 
 ### 2026-09-25 — Admin Accounts rework: store-review cleanup, OS/profile row, delete, receipt review desk
 
