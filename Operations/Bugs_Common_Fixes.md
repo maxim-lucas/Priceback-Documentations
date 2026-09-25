@@ -12601,3 +12601,50 @@ the same run.
 - **Generalisable rule.** **A rule about "every X" needs one list of X that everything else
   derives from — and a test that fails on the X nobody has written yet.** A comment saying
   "keep in lock-step" is a list that is already drifting.
+
+## 283. Four accounts named "John Apple" — not a truncation bug, App Review's own identity (2026-09-25, branch fix/john-apple-review-account-cleanup)
+
+- **Date:** 2026-09-25 · **Area:** backend (data cleanup registry)
+- **Symptom.** Maxim spotted four `users` rows all named exactly `John Apple`,
+  created 2026-09-09, 09-14, and twice on 09-17 within a minute of each other —
+  timestamps that line up with iOS review-submission windows, not real signups.
+  Suspected `users.name` was truncating Apple's placeholder `"John Appleseed"`.
+- **What the data said.** `priceback.users` on prod (`xjfrlzwonyaorwktnkpj`): all
+  four on distinct `@privaterelay.appleid.com` addresses (real, working Sign in
+  with Apple accounts), `name = 'John Apple'` exactly (10 chars), **0 receipts**
+  each, 0–1 devices, 2–3 sessions, `scan_credits = 75` (the untouched signup
+  default), 1 ledger row (the signup grant, never spent).
+- **Root cause — there wasn't one.** `users.name` is unbounded `text`, and
+  `lib/displayName.js`'s `normalizeDisplayName()` caps at `MAX_DISPLAY_NAME =
+  120` — nowhere near 10 chars. `authService.js` joins
+  `credential.fullName.{givenName,familyName}` with no slicing either. Apple's
+  identity token discloses the name **once**, on the first authorization
+  ([[apple-name-disclosed-once]], PR #298); what it disclosed here was
+  literally `familyName: "Apple"`, not `"Appleseed"` — a human App Store
+  reviewer's own Sign in with Apple identity, distinct from the automated Cloud
+  Test Lab fleet (`@cloudtestlabaccounts.com`, already covered by
+  `appstore_review_accounts`) which never triggers this path at all.
+- **Fix.** New classifier `apple_reviewer_named_accounts` in
+  `backend/lib/dataCleanup.js`, section `store_review_accounts`: matches
+  `lower(u.name) IN ('john apple', 'john appleseed')` (both known forms of
+  Apple's disclosed reviewer identity, in case the longer one ever appears).
+  Matched on the **name**, not the email domain — every genuine Apple sign-in
+  also lands on `@privaterelay.appleid.com`, so the domain alone cannot
+  discriminate a reviewer from a real shopper. Stays a `heuristic` (reviewable
+  in the admin console, never auto-deleted): a real shopper coincidentally
+  named this could exist, so the operator reads the receipts/devices/sessions
+  sample first, same as every other classifier in this registry. The admin
+  allow-list (`notProtected`) still applies.
+- **Files.** `backend/lib/dataCleanup.js`, `backend/tests/dataCleanupPredicatesDb.test.js`,
+  `Operations/Admin_Console_And_Data_Cleanup.md`.
+- **Detect next time.** A `users` row with a normal-looking display name but
+  zero receipts and a barely-touched signup grant is a reviewer or smoke-test
+  account regardless of which field matched — check the footprint columns the
+  `users` sample already carries before trusting a name or email shape alone.
+- **Generalisable rule.** **When Apple/Google's own review pipeline is the
+  suspect, verify the disclosed value by querying prod, don't assume a
+  client-side truncation bug.** The name Apple sends on first authorization is
+  authoritative and un-editable by us; treat it as a real (if synthetic)
+  identity, not as evidence of a bug in `displayName.js` or the client's join
+  logic, until the numbers actually show a byte cut off somewhere in our own
+  code.
