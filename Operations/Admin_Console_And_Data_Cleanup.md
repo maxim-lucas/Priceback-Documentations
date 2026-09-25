@@ -35,7 +35,7 @@ no read endpoint; and an admin could **change** a shopper's balance but could no
 ## The cleanup registry
 
 `backend/lib/dataCleanup.js` declares; `backend/lib/dataCleanupRunner.js`
-executes. 23 classifiers across six sections. Each knows how to count itself,
+executes. 25 classifiers across seven sections. Each knows how to count itself,
 sample itself and delete itself.
 
 | Section | Safety | What it is |
@@ -44,6 +44,7 @@ sample itself and delete itself.
 | `fixture_residue` | marker | Pre-marker fixtures the sweep structurally misses: `source_ref` prefixes, `wh-` warehouse codes, `dev_` top-ups, orphan products |
 | `internal_accounts` | heuristic | Accounts on a `@priceback.ca` address |
 | `abandoned_signups` | heuristic | `staleSignups.fingerprint()`, reused verbatim |
+| `store_review_accounts` | heuristic | Play Console (`<name>.<5 digits>@gmail.com`) and App Store Connect (`@cloudtestlabaccounts.com`) review-fleet accounts left behind after a store submission review |
 | `retention` | retention | History past the window its own cron enforces, read from the same config the cron reads |
 | `reported_only` | none | Counted, explained, **no checkbox** |
 
@@ -197,9 +198,17 @@ Reading a shopper's data is a privacy event and the route logs the actor.
 
 > **Since 2026-09-21 this body is shared, not exclusive to that screen.** It
 > lives in `src/components/AdminAccountReport.js` and also renders inside the
-> account desk's detail screen, reached from the 📄 icon on an account row. The
+> account desk's detail screen, reached by tapping an account row (the row USED
+> to carry a separate 📄 icon that opened the exact same screen — removed
+> 2026-09-25 as redundant; the row itself is the one way in now). The
 > standalone Shopper report keeps the entry the desk does not offer — free-text
 > search across every account. See `Admin_Account_Desk_Merge.md`.
+
+**Receipt review** (`GET /api/admin/receipts`, added 2026-09-25) is the newest
+receipts across EVERY account — photo + raw/header OCR — searchable by owner
+email. Read-only: a receipt is already accepted and credited on upload, so this
+answers "does this one look right" the way an operator used to answer it by
+opening a shopper's own account and hunting for the receipt by hand.
 
 **Incidents** shows sign-in refusals grouped by reason — each with a **severity**
 and the prose explaining it — plus cron health and a **decoder**: paste the

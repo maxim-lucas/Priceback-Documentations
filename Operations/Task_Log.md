@@ -16,6 +16,61 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-25 — Admin Accounts rework: store-review cleanup, OS/profile row, delete, receipt review desk
+
+- **Asked (/goal):** *"some accounts are created on prod after review (store submission for both
+  platforms) find the pattern and add a button to cleanup these accounts on the admin console. What
+  i found is that the play console review generate usualy gmail accounts as follows :
+  (firstname)(lastname).5digits@gmail.com, the app store connect generate accounts with domain
+  @cloudtestlabaccounts.com. Also i need an optimization for the navigation in the admin console ->
+  Accounts : Some access are redundunt. i need to see the os type (IOS or android) side by side the
+  account status (2nd line) every os with different color. replace first icon with informations
+  about the profile (first name, last name, join date, ios, device type (Brand and model), city,
+  province, postal code. I need the possibility to delete an account as the suspend and flag button
+  style. Create a new section in the admin console to view the receipts (photos and OCR) so i can
+  verify the new receipts if needed"* Also mid-task: *"in the admin console when i click on the 3
+  dots and i want to close the popup menu i should be able to close it if i click anywhere outside
+  the menu."* Branch: **`feature/admin-accounts-cleanup-and-receipts`** off `main` (Maxim: *"yes
+  main"* — cut from and merges back to `main`, no `development` involved).
+- **Store review-account cleanup.** Two new heuristic classifiers in
+  `backend/lib/dataCleanup.js` (`playstore_review_accounts` — email matches
+  `^[a-z]+\.[0-9]{5}@gmail\.com$`; `appstore_review_accounts` — email ends
+  `@cloudtestlabaccounts.com`), in a new "Store review accounts" section. No new UI needed — this
+  reuses the existing `AdminDataCleanupScreen` scan/sample/purge machinery, so a "Clean category"
+  button appears there automatically. Both admin-protected via the existing `notProtected()` guard.
+- **Accounts row redesign.** Removed the redundant 📄 report icon (it opened the exact same screen
+  tapping the row already did). In its place: a profile-info block (name, join date, device
+  brand/model, city/province/postal — no separate first/last name fields exist anywhere in the
+  schema, so `users.name` is shown as one line) and, on the row's second line, an OS badge (iOS/
+  Android, colour-coded) side by side with the existing status badges. ⋯ sheet now closes on an
+  outside tap (`Pressable` backdrop) as well as its own Close button.
+- **Delete account.** New `POST /api/admin/users/:sub/delete` (typed `{confirm:"DELETE"}`, NOT the
+  bulk-purge typed-word modal — same `Alert.alert` confirm style as Suspend/Flag, per Maxim's ask).
+  Refuses self-delete and any account on the admin allow-list, same reasoning as
+  `_refuseSelfTargetedAdminAction`/`dataCleanup.protectedSubs`.
+- **Receipt review desk.** New read-only `AdminReceiptsReviewScreen` + `GET /api/admin/receipts`:
+  newest receipts across every account, photo + raw/header OCR, searchable by owner email (never by
+  OCR text). `memberId` stays write-only per the existing compliance rule.
+- **New DB columns** (migration `0011_admin_account_profile_fields.sql`, applied to dev
+  `gnedluuylimjwdmtvswl`, **owed on prod** — hand-apply per the prod-migration convention):
+  `devices.os`/`brand`/`model` (self-reported by `expo-device` on `/api/device/sync`, COALESCE-on-
+  update so an older client's blank sync never erases them) and `users.city` (self-reported, best-
+  effort reverse-geocode piggybacked on the existing warehouse-picker first-run location flow — no
+  new UI/permission prompt).
+- **Files:** `backend/db/schema.js`, `backend/db/migrations/0011_*`, `backend/db/deploy/schema.sql`
+  (regenerated), `backend/repos/{devicesRepo,usersRepo,receiptsRepo}.js`, `backend/server.js`,
+  `backend/lib/dataCleanup.js`; `src/screens/{AdminAccountsScreen,AdminHomeScreen}.js`, new
+  `src/screens/AdminReceiptsReviewScreen.js`, `src/services/{adminAccountActions,purchaseService,
+  locationService}.js`, `src/hooks/useWarehouseSelection.js`, `App.js`.
+- **Does not reverse anything recorded here.** Extends the 2026-09-21 Accounts-desk merge (PR
+  #348) and reuses `lib/dataCleanup.js`'s existing predicate/protection machinery as-is.
+- **Status:** **merged — PR #356** (`f79586f`, merged by Maxim 2026-09-25 09:45Z); not yet
+  built/shipped as a binary — no version bump, no tag. Railway auto-deployed the merge at ~09:46Z
+  **before** migration `0011` reached prod → `column users.city does not exist` on
+  `/api/me/bootstrap` 10:17:12–10:18:05Z (31 failed statements, one account — Maxim's own). `0011`
+  hand-applied to prod 10:22:42Z (4 columns + drizzle ledger row 22, hash `c91b5992…1c4b`); prod
+  schema fingerprint now equals dev's (`f3d6721f…`, 367 columns / 46 tables). Bugs #281.
+
 ### 2026-09-24 — The five "observed, not fixed" items from the 2026-09-23 audit, fixed on `main`
 
 - **Asked (/goal):** *"fix these on main branch"* — the audit's five open observations: no Railway
