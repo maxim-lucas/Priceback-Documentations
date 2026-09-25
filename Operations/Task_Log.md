@@ -16,6 +16,35 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-25 — City from postal code + admin segment reports + Accounts row credit/subscription badge
+
+- **Asked (/goal):** *"the new city field is not required on signup so it should be calculated based
+  on the postal code / in the reports in the admin panel, i need user count by city, warehouse and OS
+  type, subscription, ..etc / Credit balance in accounts should be in the 2nd line too as the ios and
+  the status on a different color, also add an icon next to it if the account has subscriped"*. Branch:
+  `feat/admin-and-profile-updates` off `main` @ `39b558e`.
+- **Decisions Maxim made:** for the postal→city lookup, chose the full ~1600-entry FSA table (not a
+  major-metros-only subset, not a live geocoding API call) — built from GeoNames' CC-BY-licensed
+  `CA.zip` postal dataset, downloaded and reduced to one representative city per FSA.
+- **Built:**
+  - `src/constants/postalFsaCities.js` — FSA → city, 1651 entries, built from GeoNames' CC-BY `CA.zip`
+    postal dataset (a handful of source-data mojibake/region-not-city entries hand-corrected). Credit
+    + source in the file's header comment.
+  - `storageService.cityFromPostalCode()`. City is now computed client-side at signup from the postal
+    code and sent alongside `postalCode`/`province`/`consents` in `syncProfileToBackend` — no GPS
+    permission needed for it. The existing GPS-based `reverseGeocodeCity` path (in
+    `useWarehouseSelection`) is untouched and still runs later as a best-effort refinement.
+  - New `GET /api/admin/segments` (`adminConsoleRepo.segments()`) — counts by city, preferred
+    warehouse, most-recently-seen device OS, subscription tier; excludes pending deletions, each group
+    capped/ordered like the rest of the console. New `AdminSegmentsScreen`, linked from Admin home
+    under Dashboard as "User segments".
+  - `AdminAccountsScreen` row: credit balance moved off the top-right corner into the 2nd-line badge
+    row (`creditsBadge()`, its own amber/gold tone distinct from OS/status), with a small star icon
+    next to it when the account's subscription tier isn't free.
+  - Full test coverage added/updated for all three (frontend + a real-DB backend test for segments);
+    full frontend suite (6374 tests) and full backend suite (1871 tests) both green.
+- **Status:** done, PR #358 (`feat/admin-and-profile-updates` → `main`), not yet merged.
+
 ### 2026-09-25 — Re-engagement notifications + every notification in a switch-off-able category
 
 - **Asked (/goal):** *"on main branch, add these features : 1-New notifications for the users that
