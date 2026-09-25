@@ -12501,3 +12501,38 @@ the same run.
   line from a non-Canadian device is expected.
 - **Generalisable rule.** **Before fixing "no products", ask which storefront
   asked.** A Canada-only catalogue is correctly empty everywhere else.
+
+## 281. A merged PR's migration had not reached prod — every account read failed (2026-09-25, PR #356)
+
+- **Date:** 2026-09-25 · **Area:** backend/db, release process
+- **Symptom.** `GET /api/me/bootstrap` → **503** `bootstrap_threw` with
+  `db 42703 on insert into priceback.users: column "city" of relation "users" does not
+  exist`, then `column users.city does not exist` on every retry (31 failed statements
+  10:17:12–10:18:05Z; `auth_outcomes` shows one account). `/health` stayed green the
+  whole time — its `db` check is a ping, not a query against `users`.
+- **Root cause.** PR #356 added `users.city` + `devices.os/brand/model` to
+  `backend/db/schema.js` with migration `0011_admin_account_profile_fields`, which the
+  Task_Log correctly marked "owed on prod — hand-apply". The PR was merged to `main`
+  at 09:45:26Z and **Railway auto-deploys `main`** (prod `/health` uptime put the new
+  process at ~09:46Z). Drizzle's `select().from(users)` names every column declared in
+  `schema.js`, so from that deploy on, any request that read or wrote a user row
+  failed on production's older table. Nobody opened the app for ~30 min, which is the
+  only reason the window was one minute long.
+- **Fix.** `0011` hand-applied to prod (`xjfrlzwonyaorwktnkpj`) at 10:22:42Z in one
+  transaction with `lock_timeout = 5s`: the four idempotent `ADD COLUMN IF NOT
+  EXISTS` + the drizzle ledger row (id 22, hash `c91b5992…1c4b` — the file's LF
+  SHA-256, identical to dev's row 35, `created_at` = journal `when` 1790300000000).
+  Afterwards the prod schema fingerprint equals dev's: `f3d6721f34b2b63d4eaa67c69ffd7a5c`,
+  367 columns / 46 tables. No errors since.
+- **Detect next time.** Postgres logs: `select event_message, count(*) from logs where
+  source='postgres_logs' and event_message like '%does not exist%' group by 1` over the
+  window after a deploy. `auth_outcomes` rows with `reason = 'bootstrap_threw'` and a
+  `db 42703` detail. And before merging: the fingerprint query in
+  `Technical/Migration_Consolidation_2026-07.md` on both projects must match.
+- **Prevent.** Standing rule: **a PR that adds a column to a table the code reads
+  with `select()` is merged only after its DDL is on prod** — the order is DDL first,
+  merge second, because the merge IS the deploy. (0010's header already said "applied
+  by hand, BEFORE the code deploys"; 0011's did not repeat it.)
+- **Generalisable rule.** **When the merge is the deploy, "owed on prod" is an
+  outage waiting for the first user.** A green `/health` proves the pool connects, not
+  that the schema matches the code.
