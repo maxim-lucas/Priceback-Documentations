@@ -47,9 +47,14 @@
   stamped moments earlier by the DB clock — windows now end at the period end.
 - **Verified:** backend 1924/1926 (1 skipped; `sessionReplayGraceDb` concurrency red is unrelated,
   3/3 alone), coverage 94.52/80.42/94.71/94.52; mobile 262 suites / 6398 tests green; mutation-checked.
-- **Status:** PRs open — Priceback#361, Priceback-Website#15, social-media-manager#7, this docs PR.
-  **Owed before merging #361:** apply 0012 to **production** by hand + ledger row (hash
-  `30b6e9be…c53d7`, `created_at 1790400000000`); regenerate `backend/db/deploy/schema.sql`.
+- **Status: shipped 2026-09-26.** Maxim chose "migrate prod, merge both". Migration 0012 applied to
+  **production** by hand through the Supabase connector (both tables, RLS on, both FKs, ledger row
+  **id 23**, hash `30b6e9be…c53d7`), THEN merged: Priceback#361 → `a47e88d`, Priceback-Website#15 →
+  `41f6753`, social-media-manager#7 → `78328e7`, docs#82 → `72800f5`. The app screens reach
+  customers with the next store release (tag + GitHub release per CLAUDE.md).
+- **Still owed:** regenerate `backend/db/deploy/schema.sql` (`scripts/build-consolidated-schema.js`
+  — not run by this session); apply the store-listing lines (`REVIEWER_NOTES.md`) at that release;
+  back-merge `main` into `development` if that branch is still in use (not done — Maxim's call).
 
 ### 2026-09-25 — Cleanup rule for Apple's "John Apple" reviewer accounts
 
