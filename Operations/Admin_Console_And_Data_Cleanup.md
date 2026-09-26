@@ -126,7 +126,7 @@ nobody opens mid-purge.
 
 | Key | Default | What it does |
 |---|---|---|
-| `ADMIN_USER_SUBS` | `[]` | Who can open any of this. Also always protected from deletion. |
+| `ADMIN_USER_SUBS` | `[]` | Who can open any of this. Also always protected from deletion. Managed from Admin · Accounts → ⋯ → Grant/Revoke admin access (or the same button on `AdminAccountDetail`) since 2026-09-25 — no more hand-editing the `app_config` row. An admin cannot change their own admin access (locks out the one surface that could undo it), and the route refuses with `409 ADMIN_SUBS_ENV_OVERRIDE` if `ADMIN_USER_SUBS` is also set as an environment variable, since that always wins over this row — see `Operations/DEPLOYMENT.md`. |
 | `CLEANUP_PROTECTED_SUBS` | `[]` | Extra accounts no classifier may propose. Set it in `app_config` rather than in code — the list changes, and it holds real people's identifiers. |
 
 To pin an account, add its `sub` to the `CLEANUP_PROTECTED_SUBS` row in
