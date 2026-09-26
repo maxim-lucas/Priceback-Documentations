@@ -166,6 +166,13 @@ guarded), but the feature does nothing and the daily job fails until it is appli
    **still owed**: the session that built this could not run it.
 5. Dev (`gnedluuylimjwdmtvswl`) was migrated on 2026-09-25 (ledger id 36).
 
+**Done 2026-09-26:** production (`xjfrlzwonyaorwktnkpj`) migrated through the Supabase
+connector in one transaction — both tables, RLS on, both FKs, three indexes, ledger row
+**id 23** — before Priceback#361 merged (`a47e88d`). After the deploy booted: 10
+`guarantee_statuses`, `notifGuarantee`, `guarantee_grant` and the five `GUARANTEE_*`
+`app_config` rows were seeded, and the job's boot catch-up ran **ok** (01:27 UTC, 72 ms,
+nothing to judge yet).
+
 **Support — "why didn't I get my free year?"** Admin → Accounts → the account → *Purchases
 → Price-Drop Guarantee*: each covered year with its outcome in plain English, the date a
 drop was found, the receipts counted and the free-year dates.
