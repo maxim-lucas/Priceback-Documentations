@@ -342,6 +342,42 @@ The catalog above is the only place we publish it — the canonical
 definitions live in `shared/pricing.config.js` and every screen, gate,
 and legal disclosure reads from there.
 
+### Price-Drop Guarantee (Unlimited Annual) — not a free trial
+
+**For the reviewer:** Unlimited Annual includes the *Price-Drop Guarantee*: if
+PriceBack finds no price drop on the subscriber's receipts during a paid annual
+year (and they scanned at least 15 receipts, kept the plan and received no
+refund), **PriceBack's own server** adds one year of Unlimited to their account.
+
+- It is **not** an introductory offer, a free trial, a promotional offer or an
+  offer code. The annual subscription is purchased at its full price; no App
+  Store product carries a free period. The reward is a loyalty benefit granted
+  by our backend after a full paid year — nothing is sold outside In-App
+  Purchase and nothing unlocks paid content bought elsewhere (Guideline 3.1.1).
+- In-app copy never says "free" on the purchase surfaces. It reads *"we add
+  another year of Unlimited to your account"* (Guideline 3.1.2(c) — see
+  App_Store_Rejections.md, 2.8.20).
+- Because the year is ours and not the store's, the app tells the subscriber,
+  before their renewal date, to turn auto-renew off; the App Store subscription
+  is never modified by us. Full terms: https://priceback.ca/guarantee.
+- A reviewer's sandbox purchase never enrols in the guarantee (sandbox
+  transactions are excluded server-side).
+
+**Store listing lines (apply at the release that ships the guarantee):**
+
+> *EN —* Price-Drop Guarantee: subscribe to Unlimited Annual — if PriceBack finds
+> no price drop on your receipts in your first year, we add another year of
+> Unlimited to your account. Conditions: annual plan, at least 15 receipts
+> scanned in the year, no refund, auto-renew on until we confirm. One guarantee
+> year per account. Full terms at priceback.ca/guarantee.
+>
+> *FR —* Garantie baisse de prix : abonnez-vous à l’Illimité annuel — si PriceBack
+> ne trouve aucune baisse de prix sur vos reçus durant votre première année, nous
+> ajoutons une autre année d’Illimité à votre compte. Conditions : forfait
+> annuel, au moins 15 reçus numérisés dans l’année, aucun remboursement,
+> renouvellement automatique activé jusqu’à notre confirmation. Une année
+> garantie par compte. Modalités complètes : priceback.ca/guarantee-fr.
+
 ---
 
 ## Known testing notes

@@ -55,7 +55,14 @@ It is mirrored byte-for-byte into `backend/shared/` by
 | **`notifMonthlyRecap`** | on | explicitOnly | **monthly_recap** | Scans & updates |
 | **`notifScanResults`** | on | | tag_scans_ready, receipt_scans_ready, **scan_review_reminder** | Scans & updates |
 | `notifStoreLaunch` | on | | store_launch | Scans & updates |
+| **`notifGuarantee`** | on | explicitOnly | **guarantee_earned, guarantee_renewal_reminder, guarantee_ending** | Your plan |
 | `marketingPushConsent` | **off** | consent | **referral_nudge** | From PriceBack ("Tips & offers") |
+
+`notifGuarantee` (2026-09-25) carries the three Price-Drop Guarantee pushes sent by
+`backend/jobs/priceDropGuarantee.js` — service messages about the customer's own
+plan (not marketing, so not behind the consent switch), `explicitOnly` because they
+shipped after binaries without the switch were installed. All three route to the
+app's `Guarantee` screen. See `Technical/Price_Drop_Guarantee.md`.
 | **`notifAdminAlerts`** | on | adminOnly | tag_review | Admin (admins only) |
 
 The master switch is `notificationsEnabled`. **The one exempt type is `test`**,
