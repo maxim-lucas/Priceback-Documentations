@@ -29,6 +29,18 @@ system, and splitting them is how the two drift.
 `02-social-media-strategy.md` below is the strategy layer and stays here; the
 execution layer is over there.
 
+## Campaign: the Price-Drop Guarantee (2026-09-25)
+
+*Subscribe to Unlimited Annual — if PriceBack finds no price drop on your
+receipts in your first year, your next year of Unlimited is on us.* Maxim's
+"strongest marketing campaign". The backlog of materials to create — briefs,
+hooks, the mandatory conditions line, the pack's own claim rules and the gates
+before anything is published — is
+[`docs/material-ideas-to-be-created.md`](https://github.com/maxim-lucas/social-media-manager/blob/master/docs/material-ideas-to-be-created.md)
+in `social-media-manager`. How it works in the product:
+[`Technical/Price_Drop_Guarantee.md`](../Technical/Price_Drop_Guarantee.md).
+Official terms: priceback.ca/guarantee.
+
 ## Status
 
 🟡 In progress — first draft, 2026-07-24. Instagram handle `priceback.ca` already claimed and ready to use.

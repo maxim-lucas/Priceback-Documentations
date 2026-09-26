@@ -16,6 +16,41 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-25 — Price-Drop Guarantee: annual plan, no price drop in a year → a year of Unlimited added
+
+- **Asked (/goal):** *"Get a one year subscription and if you didnt get any price drops alert during
+  the subscription, you will get a free year subscription renewal for free (starting the next year on
+  renewal) — should be mentionned everywhere as a marketing, website, app on lauch … the account get
+  free annual subscription (cron script daily run, start schedule in 1 year)"*. Conditions: annual
+  subscription · ≥15 receipts scanned · no price drops · did not cancel / get a refund. Plus a
+  marketing doc named *"material ideas to be created"* in the marketing repo. Mid-task: *"it shouldnt be
+  on revenueCat, we dont refund, we renew the subscription localy in the database, this should avoid
+  any commission for apple or android platforms"*. Branch: **`main`** (Maxim) → `feat/price-drop-guarantee`.
+- **Decisions Maxim made:** (1) eligibility is judged **14 days before** the renewal; if earned, the
+  user is told to turn auto-renew off — if the store charges anyway the free year is **banked** and
+  starts when that paid year ends (never lost, never refunded); (2) only annual years that **start
+  after launch** (`GUARANTEE_START_DATE`) are covered; (3) **one free year per account**; (4) the
+  ideas doc lives in `social-media-manager/docs/`.
+- **Constraints kept:** in-app copy uses no free-period word (2.8.20's 3.1.2(c) rejection;
+  `noFreeTrialClaims` guard is extended to `guarantee.*`, not bypassed). "No drops" is judged from the
+  sweep's raw `findNotifiable` result, not the push ledger — muting alerts or denying notifications
+  must not qualify anyone.
+- **Built:** migration 0012 (`guarantee_statuses`, `price_drop_guarantees`, RLS; applied to **dev**,
+  ledger id 36), `lib/priceDropGuarantee.js` (rules), `repos/guaranteeRepo.js`, the floor in
+  `usersRepo.setSubscriptionState` (the local "renewal" — RC can't take a running year away; an
+  earned year starts when the paid plan ends), the sweep's drop stamp, `jobs/priceDropGuarantee.js`
+  (daily 17:30 UTC, 3 pushes under new `notifGuarantee`), webhook/sync hooks, `/api/me` `guarantee`;
+  app launch sheet, onboarding slide 4, Home card, Guarantee screen, paywall + Plan & credits
+  callouts, FAQ 15-16 (EN+FR). Website `/guarantee` + terms § 4.8. Marketing backlog
+  `social-media-manager/docs/material-ideas-to-be-created.md`. Design: `Technical/Price_Drop_Guarantee.md`.
+- **Found by the full suite:** counting windows bounded by the app clock ("now") dropped receipts
+  stamped moments earlier by the DB clock — windows now end at the period end.
+- **Verified:** backend 1924/1926 (1 skipped; `sessionReplayGraceDb` concurrency red is unrelated,
+  3/3 alone), coverage 94.52/80.42/94.71/94.52; mobile 262 suites / 6398 tests green; mutation-checked.
+- **Status:** PRs open — Priceback#361, Priceback-Website#15, social-media-manager#7, this docs PR.
+  **Owed before merging #361:** apply 0012 to **production** by hand + ledger row (hash
+  `30b6e9be…c53d7`, `created_at 1790400000000`); regenerate `backend/db/deploy/schema.sql`.
+
 ### 2026-09-25 — Cleanup rule for Apple's "John Apple" reviewer accounts
 
 - **Asked (/goal):** *"add the cleanup rule for John apple, i double checked John apple, it created 4
