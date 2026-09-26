@@ -12648,3 +12648,42 @@ the same run.
   identity, not as evidence of a bug in `displayName.js` or the client's join
   logic, until the numbers actually show a byte cut off somewhere in our own
   code.
+
+## 284. Closing the Google sheet said "Sign-in failed" — and a quick close re-opened it (2026-09-25, PRICEBACK-CANADA-H, PR #362)
+
+- **Date:** 2026-09-25 · **PR:** #362 (`45367e0`) · **Area:** mobile (`authService.signInWithGoogle`) · both platforms
+- **Symptom.** Sentry `PRICEBACK-CANADA-H`, *"Google Sign-In returned no ID token"*,
+  `signin_no_token`. The 2.9.0 events (iPhone13,3, iOS 27.0) show the Google
+  `SFSafariViewController` up for 8 s, dismissed, then an `RCTAlertController`
+  titled **"Sign-in failed"** — twice, 25 s apart. `attemptMs` 10579 / 14292: a
+  person, not a restricted device.
+- **Root cause.** Since `@react-native-google-signin` v13 (we run 16.1.2) a
+  dismissed sheet does **not** reject: `translateCancellationError` turns the
+  native `SIGN_IN_CANCELLED` rejection into a *resolved*
+  `{ type: "cancelled", data: null }`. `signInWithGoogle` only recognised the
+  rejected form, so a cancel fell through to the token check (Bugs #206) and
+  was thrown as a failed sign-in. Worse, under `GSI_UNATTENDED_ATTEMPT_MS`
+  (2 s) that check retries silently — **a quick dismissal re-opened the sheet
+  the user had just closed**, and a tap on the second one signed them in. The
+  re-auth path (`refreshGoogleSession`) was written assuming a dismissal
+  returns `null`; it was reporting `google_reauth_failed` instead of
+  `_declined`. `emailSyncService` already handled `type === "cancelled"`.
+- **Why tests missed it.** The "cancelled sheet" test mocked a *rejection* —
+  the pre-v13 contract — so it pinned a shape the library no longer produces.
+- **Fix.** `if (result?.type === "cancelled") return null;` right after
+  `signIn()` resolves, before the token check and the retry.
+- **Files.** `src/services/authService.js`, `__tests__/authServiceSignIn.test.js`
+  (resolved sentinel → null, nothing stored; fast dismissal → exactly one
+  `signIn` call), `__tests__/authServiceGoogleReauth.test.js` (sentinel →
+  `google_reauth_declined`, cooldown armed). All three fail without the fix.
+- **Detect next time.** `signin_no_token` with a **large** `attemptMs` and no
+  `priorCode` = the user sat through the sheet; check the breadcrumbs for an
+  `SFSafariViewController` / `SignInHubActivity` that closed just before.
+- **Generalisable rule.** **Mock a native library with what its CURRENT JS layer
+  returns, not what its native module throws.** A library that post-processes
+  native results in JS (here, rejection → resolved sentinel) makes a mock at
+  the native-rejection level test a contract that no longer exists.
+- **Same triage, not bugs:** `PRICEBACK-CANADA-K`/`-M` (2.9.1) are the `info`-level
+  `signin-device-refused` fingerprint added by #352 — App Review's restricted
+  iPhones (3–61 ms, US-Pacific hours), working as designed. The 2.9.0 events on
+  `-B`/`-C` predate #352. `-J` (watchdog) has no event on any 2.9.x build.

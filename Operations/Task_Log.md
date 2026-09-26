@@ -16,6 +16,22 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-25 — Fix Sentry errors since Android 2.9.1 / iOS 2.9.0
+
+- **Asked (/goal):** *"fix sentry errors since the last build 2.9.1 for android or 2.9.0 for ios"*.
+  Branch not named → asked; Maxim chose a fresh `fix/sentry-2.9.x` off `main` (`a47e88d`).
+- **Triage (all 30 events on 2.9.x are iOS; Android has none):**
+  `-H` *"Google Sign-In returned no ID token"* = **real bug** — the library's resolved cancel
+  sentinel read as a failed sign-in (Bugs #284). `-K`/`-M` (2.9.1) = `info`-level
+  `signin-device-refused`, App Review's restricted devices, as designed by #352. `-B`/`-C` 2.9.0
+  events predate #352. `-J` watchdog: 2.8.x only.
+- **Constraints kept:** no Sentry issue status changed by hand (B/C memory rule); the #206
+  "no token = no sign-in" contract and the 2 s unattended-retry gate unchanged — the cancel
+  check sits before both.
+- **Files:** `src/services/authService.js`, `__tests__/authServiceSignIn.test.js`,
+  `__tests__/authServiceGoogleReauth.test.js`.
+- **Status: merged 2026-09-25** — Priceback#362 → `45367e0`. Full mobile Jest 262 suites / 6401 tests green; 3 new tests fail without the fix. Reaches users with the next store build.
+
 ### 2026-09-25 — Price-Drop Guarantee: annual plan, no price drop in a year → a year of Unlimited added
 
 - **Asked (/goal):** *"Get a one year subscription and if you didnt get any price drops alert during
