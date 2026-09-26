@@ -125,6 +125,40 @@ Release notes should state, in this order: the version triad and commit; changes
 since the previous tag; **known defects shipping in this build**; anything on
 `main` that is *not* in it.
 
+### 4c. Store "What's New" text — every submit, both platforms
+
+**Standing rule: `eas submit` for either platform is never run without a
+freshly written What's New / release notes field for that store.** Generate it
+as part of cutting the release, not as a follow-up — the same "do it now, not
+later" discipline as the tag itself.
+
+- **Write it for shoppers, not for the GitHub release.** The GitHub release
+  notes (above) are for Maxim and are allowed to say "refactored
+  `usersRepo.listForAdmin`"; the store field is public-facing copy read by
+  everyone who taps "see more" on an update, in the same voice as the rest of
+  the app (see the labels rule in `CLAUDE.md` — friendly, not jargon).
+- **Never mention Admin console changes.** Anything that only an operator on
+  the allow-list can see or use — a new Admin · Accounts button, an admin
+  route, an internal report, a config knob — does not belong in a field the
+  public reads. Summarize the shopper-visible change instead, or omit the
+  release entirely from that bullet if there is genuinely nothing shopper-
+  facing in it (rare, but a release that is 100% admin tooling is real — see
+  the admin-access-toggle release, 2026-09-25/26).
+- **Derive it from the commits since the previous tag** (the same list the
+  GitHub release draws from), filtered down to what a shopper would notice:
+  new features, fixed bugs they might have hit, changed pricing/paywall
+  copy. Drop internal refactors, test coverage, CI changes, and — per the
+  bullet above — admin-only tooling.
+- **Write both platforms' fields, even when the content is identical.** Apple
+  and Google each have their own field (App Store Connect's "What's New in
+  This Version" per version/locale; Play Console's release notes per release
+  track/locale). One version submitted to both stores in the same release
+  needs both written, not one written and the other copy-pasted without
+  checking it reads naturally for that store's audience.
+- **Keep it in each language the app ships copy in** (`en` + `fr` today, per
+  the i18n rule) — a French shopper reading English release notes is the same
+  category of defect as an English-only button label.
+
 ## 5. Rolling back
 
 A tag is a rollback *reference*, not a rollback *mechanism* — neither store lets
