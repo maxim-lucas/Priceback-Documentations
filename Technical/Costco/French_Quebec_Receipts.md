@@ -21,7 +21,7 @@ text upload takes).
 | Fixture | Warehouse | Printed subtotal / total | Parse in prod (older builds) | Parse now |
 |---|---|---|---|---|
 | `costco-rimouski-1720-20260912.txt` | Rimouski #1720 | 182.68 / 202.74 | 7 lines, $4.80 deposit missing, $5 coupon not applied, total 202.94 | 8 lines, exact |
-| `costco-anjou-1446-20260903.txt` | Anjou #1446 | 309.32 / 313.06 | dated **9 March** (all 24 items unwatched), 5 comma prices dropped, stray "21.99" item, 1 TPD skipped | 28 lines, exact, 3 Sept |
+| `costco-anjou-1446-20260903.txt` | Anjou #1446 | 309.32 / 313.06 | dated **9 March** (all 24 items unwatched), 5 comma prices dropped, stray "21.99" item, 1 TPD skipped, warehouse "60651" | 28 lines, exact, 3 Sept, whse 1446, bananas 2 @ 1.99 (27 units = printed 27) |
 | `costco-laval-505-20260919-flat.txt` | Laval #505 | 200.89 / 220.50 | (fixed by #347) | 11 lines, exact |
 
 "Exact" = items sum to the printed subtotal and the total is the printed one,
@@ -73,6 +73,25 @@ no price points) — `isIgnoredItemName` matches `consigne` / `ecofrais`.
   flips** with the change.
 - Every rule is mutation-checked: disabling any one of the nine guarded
   branches fails at least one test in `costcoReceiptParser.prodtext.test.js`.
+
+## 4b. Checked against the photos (2026-09-27)
+
+The R2 originals settled two things the OCR alone could not:
+
+- **The "21.99" under FILET SAUMON is `2 @ 1,99`** — the bananas' quantity line,
+  its `@` dropped by Vision. It is NOT a per-kg price (the 2026-09-26 reading); the
+  printed article count (27) only adds up with bananas × 2.
+  `normalizeQuebecCostcoLayout` now rewrites a bare `Q`+`U.UU` line (Q = 2–9) to
+  `Q @ U.UU` — **only** when Q × U is exactly the price of the next item, read from
+  its own SKU+name line or from an amount line after its code/name line.
+- **The warehouse is printed `ANJOU #1446`**, but OCR lost the `#`, and the tax
+  footer `NL SSST #606515` then produced warehouse **60651**. `extractWarehouseId`
+  now reads the register's `Entr[:] NNNN` line (Quebec's "whse:") and no longer
+  accepts a `#NNNNN` that is the prefix of a longer number.
+- Rimouski's R2 object is **not** a photo: it is a picture an older build drew of
+  its own (wrong) parse (Bugs #285). Its fix rests on the OCR alone.
+
+Production data was repaired to match — `Operations/Receipt_Data_Verification_Ledger.md`.
 
 ## 5. Known limits
 

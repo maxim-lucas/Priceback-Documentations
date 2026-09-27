@@ -16,6 +16,30 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-27 — Repair production receipt data against the photos + the parser bugs behind it
+
+- **Asked (/goal):** *"fix all the data in the database that arent good, fix the data so the backend
+  track the prices and receipts correctly … make sure to fix it correctly. if you arent sure dont
+  fix"*; then *"you still have the OCR in the database or in R2 images so cross reference everything"*;
+  then *"fix everything even the costco parser for any of the bugged fields, check the real photos …
+  create your own branch"*; then *"flag this receipts … that they have been verified so next time … we
+  wont redo the same receipts"*. Branch not named → own branches: app
+  `fix/prod-receipt-repair-quebec-parser`, docs `docs/prod-receipt-repair-2026-09-27`, both off `main`.
+  The explicit ask is the Costco-parser confirmation.
+- **Prod data (Supabase MCP, one guarded transaction per step, each read back):** 4 of 7 receipts
+  repaired — Anjou (date, total, tax, warehouse, BOURSIN TPD, 4 missing lines, bananas 2 @ 1.99,
+  23 lines re-watched), Rimouski (total, coupon, deposit), Gloucester 2025-12-17 (BOUNTY TPD, second
+  BRONDELL TPD, tax), 3 product names. Phantom warehouse `60651` and 2 synthetic products deleted.
+  Before-state for every row is in the ledger + Bugs #287. Photos fetched from R2 via `railway run`.
+- **Verified-receipt ledger (new):** `Operations/Receipt_Data_Verification_Ledger.md` — the next audit
+  skips these 7 ids.
+- **Code:** `extractWarehouseId` (`Entr` line, `(?!\d)`), `normalizeQuebecCostcoLayout` (`2 @ 1,99`
+  read as `21.99`), `looksLikeName` (apostrophe), `syncService.mergeServerIntoLocal` (server date
+  correction reopens a locally expired receipt). Tests + mutation checks in the same commit.
+- **Not fixed (evidence insufficient):** `xwmjh`'s purchase date (no date in its OCR, no image);
+  Rimouski's R2 object is an old-build snapshot of the wrong parse — no original exists.
+- **Status:** data ✅ live · code PR open (see below).
+
 ### 2026-09-26 — Store the REAL receipt document in R2 + tune the French Costco parser on production OCR
 
 - **Asked (/goal):** *"(main branch) the priceback app now create a new receipt if the receipt was

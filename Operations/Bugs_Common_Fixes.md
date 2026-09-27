@@ -12758,3 +12758,37 @@ the same run.
   "Reconciled" meant nothing on a receipt whose subtotal label the parser could
   not read — replay REAL production OCR against the printed totals, not the
   parser's own opinion.
+
+## 287. Four production receipts stored wrong — and the "stray per-kg price" was really a quantity (2026-09-27, branch fix/prod-receipt-repair-quebec-parser)
+
+- **Date:** 2026-09-27 · **Area:** prod data (`receipts`, `receipt_items`, `price_points`, `products`, `warehouses`) + mobile parser + restore merge · Costco
+- **Symptom.** Checked all 7 production receipts against their R2 photos and stored OCR.
+  Anjou #1446 filed under a warehouse "60651" that does not exist, dated 9 March, 4 lines
+  missing, a phantom 21.99 line; Rimouski #1720 total 202.94 (printed 202.74), coupon
+  unapplied (PANTALON watched at 24.99 though 19.99 was paid → a false drop + commission
+  on any flyer under 24.99); Gloucester 2025-12-17 items 311.38 vs printed 284.38, tax 2.24
+  vs 29.24; product 1986269 named "Item #1986269" instead of "PJ'S".
+- **Root causes.**
+  1. `extractWarehouseId`'s ALL-CAPS `CITY #NNN` pattern had no right boundary: with
+     Anjou's header OCR'd as "ANJOU 1446" (no `#`), the tax footer "NL SSST #606515"
+     yielded "60651". The Quebec register prints its warehouse as `Entr[:] 1446`, which
+     nothing read.
+  2. The "21.99" under FILET SAUMON was not a per-kg price (the 2026-09-26 fix assumed so):
+     the photo prints **"2 @ 1,99"** over "BANANES 3,98" — Vision dropped the `@`.
+  3. `looksLikeName` required three consecutive letters; "PJ'S" has none, so on the
+     flat-text path (PDF/text uploads) the line never paired with its price.
+  4. The mobile restore merge keeps the LOCAL `status`, so a receipt the phone had expired
+     on a wrong date stayed "expired" after the server corrected the date.
+- **Fix.** Data: guarded single-transaction repairs, each re-read against the printed
+  figures (ledger: `Operations/Receipt_Data_Verification_Ledger.md`). Code: `Entr` line +
+  `(?!\d)` guard in `extractWarehouseId`; `normalizeQuebecCostcoLayout` rewrites a bare
+  `Q`+`U.UU` line to `Q @ U.UU` only when Q×U is exactly the next item's price (French
+  only); apostrophe-tolerant `looksLikeName`; `mergeServerIntoLocal` hands an expired
+  receipt back to `watching` when the server's purchase date differs.
+- **Evidence.** 115-parse corpus (geometry + flat + prod text) before/after: exactly the 3
+  intended diffs, 112 identical; golden snapshots unchanged. 11/11 mutations killed.
+- **Generalisable rules.** (1) **An explanation for a leftover number is a hypothesis until
+  the photo confirms it** — "stray per-kg price" was wrong, and the printed article count
+  (27 vs 26 lines) said so. (2) **A digit run must END where the pattern thinks it does**
+  — `(\d{3,5})` without `(?!\d)` silently truncates. (3) **A local field DERIVED from a
+  synced field is not local-only** — re-derive it when its source changes.
