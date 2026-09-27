@@ -12687,3 +12687,74 @@ the same run.
   `signin-device-refused` fingerprint added by #352 — App Review's restricted
   iPhones (3–61 ms, US-Pacific hours), working as designed. The 2.9.0 events on
   `-B`/`-C` predate #352. `-J` (watchdog) has no event on any 2.9.x build.
+
+## 285. A PDF receipt was replaced by a picture the app drew of its own summary (2026-09-26, branch feat/receipt-original-document)
+
+- **Date:** 2026-09-26 · **Branch:** `feat/receipt-original-document` · **Area:** mobile (`ScanScreen.doSave`, Receipt card, sync) + backend (receipt presign routes)
+- **Symptom.** Maxim, looking at a receipt uploaded to production that day
+  (`r_1790469584273_xstgw`, Rimouski): the app had *"created a new receipt"*
+  instead of storing the real document. Every PDF / text / HTML upload showed
+  a rendering of PriceBack's own parsed summary in the Receipt section, and
+  that rendering — not the customer's file — was what sat in R2.
+- **Root cause.** `doSave` captured an off-screen `ReceiptSnapshotView` with
+  `react-native-view-shot` for any non-image file (and any receipt with no file)
+  and stored THAT as `imageUri`. The real document survived only as
+  `originalFileUri`, a cache path never persisted. Sync uploaded `imageUri` as
+  `<id>.jpg` / `image/jpeg` (it was a PNG). Two older gaps compounded it: the
+  app never fetched a receipt's R2 copy back (`syncService` restored
+  `imageUri: null` with a comment claiming the Detail screen would — it never
+  did), and an upload that failed after the receipt POST was never retried.
+- **Why tests missed it.** The behaviour was the design, not a regression: the
+  snapshot was intentional ("so the Detail screen can display it"). No test
+  asked what the stored object actually WAS.
+- **Fix.** The original file is persisted under its real extension and becomes
+  the receipt's `imageUri` + `imageMimeType`; nothing is generated (a manual
+  entry gets no file). The client declares `imageContentType`; the server
+  (`backend/lib/receiptDocument.js`) keys, types and caps the presign by it —
+  undeclared = the legacy `.jpg` contract, unknown = refused, text-like stored
+  inert as `text/plain`. New `POST /api/receipts/:id/image-upload-url` re-mints
+  a URL; `documentPending` → `documentUploadPending` → a retry drain on every
+  `retryPendingReceiptSyncs`. A one-time migration swaps legacy snapshots for
+  the original wherever the phone still has it, and the confirm route deletes
+  the superseded R2 object. Receipt card + Claim Assistant render by kind and
+  fall back to the R2 copy through a presigned GET.
+- **Files.** see `Technical/Receipt_Original_Documents.md` §7.
+- **Detect next time.** `receipts.image_object_key` ending `.jpg` on a receipt
+  whose `raw_ocr` came from a PDF, or an R2 object whose bytes start `\x89PNG`
+  under a `.jpg` key.
+- **Generalisable rule.** **Never store a derived artifact in the slot that
+  promises the original.** If a preview is useful, keep it BESIDE the source,
+  never instead of it — and name the field for what it holds.
+- **Not fixed by this (needs a person):** the Play Data Safety "Photos" row
+  says receipt images are "not retained by us" — already untrue for photos
+  (90-day R2 retention), and now documents are retained too.
+  `Publishing-Compliance/Play_Data_Safety_Answers.md`; see
+  `Technical/Receipt_Original_Documents.md` §6.
+
+## 286. Three French Costco receipts in production, three silently wrong parses (2026-09-26, branch feat/receipt-original-document)
+
+- **Date:** 2026-09-26 · **Area:** mobile parser (`shared/receiptLocale.js`, `costcoReceiptParser.js`) · Costco only, French only
+- **Symptom.** Replaying every Quebec receipt production held through the
+  current parser: Anjou #1446 dated **9 March** instead of 3 September (every
+  item unwatched — the adjustment window "expired" months before the scan),
+  five comma-decimal lines dropped, a TPD skipped; Rimouski #1720 missing its
+  $4.80 bottle deposit and a $5 coupon. Every parse reported itself reconciled.
+- **Root cause.** A newer Quebec register layout (`Total Partiel`, `TAXE TOTAL`,
+  `NOMBRE TOTAL D'ARTICLES VENDUS`) carried one of the known French markers, so
+  Anjou was read as English and never normalised; its `DD/MM/YYYY` transaction
+  date fell to the generic month-first default; and four line shapes had never
+  been seen — a split `CONSIGNE` block, an eco-fee code printed above its line
+  (which then stole the next item's SKU), a TPD amount without its minus, and a
+  coupon naming the item instead of a SKU.
+- **Fix.** New French markers; `normalizeQuebecCostcoLayout` rewrites the four
+  shapes into forms the existing handlers read; `extractQuebecCostcoDate` reads
+  the transaction line day-first and the `P7` footer month-first. All of it runs
+  only on French-detected text.
+- **Evidence.** The three prod texts are fixtures
+  (`__tests__/fixtures/receipts-prod-text/`) pinned to the printed subtotal and
+  total. The existing corpus: 112 parses, **0 changed**. 9/9 guarded branches
+  mutation-killed. Detail: `Technical/Costco/French_Quebec_Receipts.md`.
+- **Generalisable rule.** **A self-check that a layout never prints cannot fail.**
+  "Reconciled" meant nothing on a receipt whose subtotal label the parser could
+  not read — replay REAL production OCR against the printed totals, not the
+  parser's own opinion.
