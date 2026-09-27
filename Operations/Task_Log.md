@@ -38,7 +38,7 @@
   correction reopens a locally expired receipt). Tests + mutation checks in the same commit.
 - **Not fixed (evidence insufficient):** `xwmjh`'s purchase date (no date in its OCR, no image);
   Rimouski's R2 object is an old-build snapshot of the wrong parse — no original exists.
-- **Status:** data ✅ live · code PR open (see below).
+- **Status:** data ✅ live · code PR #367 (app) · docs PR (this one).
 
 ### 2026-09-26 — Store the REAL receipt document in R2 + tune the French Costco parser on production OCR
 
