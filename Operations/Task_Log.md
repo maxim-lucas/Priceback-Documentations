@@ -43,7 +43,7 @@
   us" (already untrue; now documents too) — review with the App Store label + privacy policy. The
   receipt uploaded today keeps its snapshot in R2 until its owner runs an updated build with the PDF
   still in the phone's cache. Backend deploy + a store build are needed for users to get it.
-- **Status:** see PR.
+- **Status:** Priceback#365 (app + backend) + this docs PR.
 
 ### 2026-09-25 — Fix Sentry errors since Android 2.9.1 / iOS 2.9.0
 
