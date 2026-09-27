@@ -45,6 +45,47 @@
   still in the phone's cache. Backend deploy + a store build are needed for users to get it.
 - **Status:** Priceback#365 (app + backend) + this docs PR.
 
+### 2026-09-26 — Real Canadian maple leaf + remove watermarks, `social-media-manager/sm-content`
+
+- **Asked (/goal):** *"remove all watermark from the photos in the social media repos, also replace
+  the maple leaf with a real canadian maple leaf blended in the design … show me a prototype before
+  replacing it in all the photos"* — reference: businessnow.ca "Maple-Leaf-Made-in-Canada.png".
+- **Prototype shown first:** claude.ai artifact `VjAa2ZYhLLNi8keVzbjCFx`. Maxim chose **B · Canadian
+  red `#d52b1e`** (over brand brick `#c0392b`) and branch `feat/real-maple-leaf` → PR.
+- **Reverses a recorded design decision:** `brand/leaf.js` + `brand/palette.js` deliberately drew a
+  stylised leaf in muted brick to avoid an "official mark" reading. Maxim explicitly asked for the
+  real leaf and picked the flag red after seeing that trade-off stated on the prototype.
+- **Watermark** = the faint receipt-glyph mark (`brand/mark.js` `watermark()`) on the dark-green
+  text-only story frames (community, highlights, evergreen) — **removed**. Maxim, mid-task: *"dont
+  remove the watermark for the receipt stamp style, only on the green background it should be
+  removed"* — so the paper stamp on `glyph`-accent posts is **kept**. The bottom-left logo lockup is
+  kept too. Launch + teaser packs carry none.
+- **Status: done** — `social-media-manager` PR #8, squash-merged to `master` as `f78f0ea`. 82 PNGs
+  re-rendered (exactly the intended set: renders are byte-deterministic); all gates green; highlights
+  gate 9 flipped to assert a clean field and mutation-tested.
+
+### 2026-09-26 — Post Instagram Highlight stories via Composio, `social-media-manager/sm-content/05-highlights`
+
+- **Asked (/goal):** *"using composio, post on the instagram page the new stories to create the
+  highlights so i can market the page, the highlights that should be created now are in github
+  social-media-manager/sm-content/05-highlights"*.
+- **Hard platform limit (confirmed, not a workaround target):** Instagram Highlights cannot be
+  created via any API — mobile app only. `social-media-manager`'s own `HIGHLIGHTS.md` /
+  `AUTOMATION.md` already designed this pack around that fact (`"automate": false` on every slot).
+  So Composio posts the **Story frames**; assembling them into the 10 Highlight trays (order,
+  cover, title) is a manual phone step, per `HIGHLIGHTS.md` § "Putting them on the account".
+- **Asset hosting:** repo is private, so `raw.githubusercontent.com` 404s to Meta. User confirmed
+  pulling R2 creds from Railway (`Priceback-App` prod env) — uploaded the 50 non-sticker frames to
+  the `priceback-receipts` bucket under `marketing/priceback-highlights/<ts>/`, presigned GET URLs
+  (6h TTL), via `backend/storage/r2.js`'s S3 client pattern from a one-off scratchpad script.
+- **Skipped (by user's choice):** `hl-stores-03-en`/`-fr` — the only two frames with an interactive
+  sticker (`question`), which the Graph API cannot attach; posting them without it would leave an
+  empty band where the sticker's content is. Flagged for manual posting from the phone.
+- **Status: done** — all 50 non-sticker frames posted live to `@priceback.ca` via Composio
+  (verified via `INSTAGRAM_GET_IG_USER_STORIES`). See `Instagram_Highlights_Posting_2026-09-26.md`.
+  Remaining manual steps (2 sticker frames + building the 10 Highlight trays in-app) are Maxim's —
+  no API exists for either.
+
 ### 2026-09-25 — Fix Sentry errors since Android 2.9.1 / iOS 2.9.0
 
 - **Asked (/goal):** *"fix sentry errors since the last build 2.9.1 for android or 2.9.0 for ios"*.
@@ -10030,3 +10071,84 @@ would silently corrupt the live admin allow-list. No store parser touched.
   platforms per `Operations/Release_Tagging_And_Repo_Management.md`.
 - Add the always-generate-What's-New rule (both platforms, every submit, never
   mentioning admin-only changes) to that same document.
+
+---
+
+# 2026-09-26 — Production emergency recovery plan + DB backup/restore tooling
+
+**Asked:** make sure there's an emergency plan (md file) to recover production
+if a deployment breaks the backend or database, and make sure the database is
+actually configured for backup so accidentally-deleted users/data can be
+restored.
+
+**New doc: `Operations/Production_Emergency_Recovery.md`.** Covers three
+scenarios — a bad backend deploy (Railway Deployments → Redeploy the last
+healthy build), a bad migration (fix-forward preferred, restore as fallback),
+and accidental data loss (scoped restore, with a surgical dump-and-hand-insert
+path called out as the default over a blanket table restore, since the latter
+reverts *any* legitimate change to that table since the backup, not just the
+deleted rows). Distinct from `incident-response.md`, which is the
+security/privacy-breach runbook, not this one.
+
+**Checked Supabase's own backup posture first** (via the Supabase MCP tools):
+org `vrpoqvuksexuputrkrow` (Prosoft Inc.) is on the **Free** plan — confirmed
+2026-09-26 — so there is no Supabase-native nightly backup or PITR sitting
+behind prod (`xjfrlzwonyaorwktnkpj`) today; those are Pro-plan+ features. Noted
+as a real gap in the doc with a recommendation to upgrade (~US$25/mo,
+Maxim's billing call, not something the MCP tools can do) as a second,
+independent line of defense on top of what was actually built this session.
+
+**Built a working substitute since prod had zero backup coverage:**
+`backend/lib/dbBackup.js` — discovers every table in the `priceback` schema
+from `pg_tables` (so a new table is covered automatically, nothing to
+maintain), dumps each inside one `REPEATABLE READ READ ONLY` transaction
+(consistent snapshot across tables), gzips, uploads to the existing R2 bucket
+under `<env>/db-backups/<timestamp>/`, prunes to the newest 14
+(`DB_BACKUP_RETENTION`). Restore runs inside one transaction with
+`session_replication_role = replica` (Postgres implements FK enforcement as
+ORIGIN triggers, so this is what lets a scoped single-table restore skip
+without needing every table it references restored too), resets `id`
+sequences after reinsert. `backend/storage/r2.js` gained real
+`putObject`/`getObject`/`listObjects` (it only had presigned-URL helpers +
+delete before — nothing in the app uploaded server-side until now).
+CLI: `npm run db:backup`, `npm run db:restore -- --list/--dry-run/--yes/
+--tables=/--dump-table=`. Wired into `server.js`'s existing cron scheduler,
+daily at 04:10 UTC, gated on `USE_DB` + `R2_BUCKET`, tracked in `job_runs` via
+the existing `trackJob` wrapper (jobName `dbBackup`) — no new job-tracking
+mechanism invented.
+
+**A real bug caught by its own test, not by inspection:** the first cut
+uploaded each table to R2 as soon as it was read, inside the loop, before the
+read transaction committed. A failure on a later table rolled the DB
+transaction back but left earlier tables' `.json.gz` blobs already sitting in
+R2 with no `manifest.json` — an orphaned, half-written "backup" that looks
+real to `--list` until someone tries to restore it and it's missing files.
+Fixed by buffering every table's gzip body in memory and only uploading after
+`COMMIT` succeeds. Caught by
+`tests/dbBackup.test.js`'s "a failure mid-dump rolls back and uploads nothing"
+case failing on the first run (1 upload instead of 0) — the failure state
+itself, not a review pass, is what surfaced this design flaw.
+
+## Tests
+
+New `backend/tests/dbBackup.test.js` — 9 cases against an in-memory fake `pg`
+pool + fake R2 (same require.cache-swap mocking technique as
+`storageAdapters.test.js`), no live DB/R2 needed: full backup, rollback-loses-
+nothing, retention pruning, full restore, scoped-table restore, unknown-table
+rejection, unsafe-identifier rejection (SQL built from a validated table name,
+never raw user input), and a mid-restore failure rolling back rather than
+committing a partial restore. Extended `storageAdapters.test.js` with a
+stateful fake `S3Client` (the old one only had `async send() {}`, good enough
+for presigned-URL tests but not for round-tripping bytes) covering
+`putObject`/`getObject`/`listObjects`. Full backend suite (`npm test`, the c8
+gate): green, exit 0; `dbBackup.js` and `r2.js` both landed at 100% line
+coverage.
+
+## Regression risk
+
+The new 04:10 UTC cron only runs when `USE_DB` and `R2_BUCKET` are both set,
+so an environment without a real DB/object store is unaffected. `runDbRestore`
+has **no production guard** by design (see `purge-test-data.js`'s precedent) —
+it is a manual, deliberate CLI action gated on `--yes`, never called from any
+automated path. No store parser, no user-facing string, no mobile code
+touched.

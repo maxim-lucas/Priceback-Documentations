@@ -382,6 +382,7 @@ provider/cutover detail is in [`Supabase_Cutover.md`](./Supabase_Cutover.md).
 | `OBJECT_STORE` | Backend selector: `r2` (current) or `gcs`. |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | Cloudflare R2 — dash.cloudflare.com → R2 → bucket + "Object Read & Write" API token. |
 | `GCS_BUCKET` (+ `GOOGLE_APPLICATION_CREDENTIALS`) | Google Cloud Storage — dormant until `OBJECT_STORE=gcs`. |
+| `DB_BACKUP_RETENTION` (`14`) | How many nightly full-schema DB backups to keep in R2 before pruning the oldest. See `Production_Emergency_Recovery.md`. |
 
 ### Optional live-usage tokens for `/health` quotas
 
