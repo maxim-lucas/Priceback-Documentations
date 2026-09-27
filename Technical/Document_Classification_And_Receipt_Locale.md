@@ -167,6 +167,24 @@ Across all 45 committed captures: exactly **one** is French (9 markers, 0
 English), and the other **44 round-trip byte-for-byte** through the normaliser.
 Both are assertions in `__tests__/receiptLocale.test.js`, not claims in prose.
 
+### 2026-09-26 — markers for the newer Quebec register
+
+Production held a second French layout (Rimouski #1720, Anjou #1446) that
+prints almost none of the original markers: `Total Partiel`, `TAXE TOTAL`,
+`NOMBRE TOTAL D'ARTICLES VENDUS`, `À bientôt`. Anjou carried **one** marker,
+was read as English, and five comma prices vanished from a parse that still
+called itself reconciled. Added (all French-only): `TOTAL PARTIEL`,
+`NOMBRE TOTAL D'ART…`, `ARTICLES VENDUS`, `ÉCONOMIES INSTANTANÉES`, `PUCE LUE`,
+`CONSIGNE`, `ECOFRAIS`, `BIENTÔT` (also `BIENTOL`, a Vision misread). The
+two-marker threshold is unchanged, and no existing capture changed language.
+
+`\b` in front of `É` never matches without the `u` flag (É is not a JS word
+character), so that marker anchors on `(?:^|[^A-Z])` instead.
+
+The Costco-specific handling of that layout (deposits, eco-fees, minus-less
+TPDs, named coupons, day-first dates) lives in the Costco parser, not here —
+see `Costco/French_Quebec_Receipts.md`.
+
 It is deliberately **not** in `sync-shared.js`'s mirror list: receipt parsing is
 client-side, nothing on the server requires it at runtime, and that list means
 "modules the backend needs". A copy nothing reads is a copy nothing keeps in

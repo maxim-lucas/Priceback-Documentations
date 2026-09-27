@@ -16,6 +16,35 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-26 — Store the REAL receipt document in R2 + tune the French Costco parser on production OCR
+
+- **Asked (/goal):** *"(main branch) the priceback app now create a new receipt if the receipt was
+  uploaded via a document or online receipt (some paths) and that doesnt store the real receipt
+  document, i need the receipt (any format) to be stored in R2 and to be visible in the app (receipt
+  section) instead of the generated receipt the app create. a user has uploaded a receipt today and i
+  can see that in production now and i dont like it. also use the real ocr text that has been created
+  in the production these last days to optimize the french parser for costco"*. Branch named `main` →
+  `feat/receipt-original-document` off `main` @ `b072076`, PR into `main`. The goal's explicit ask is
+  the confirmation the Costco-parser rule requires.
+- **Worked in worktrees** (`Priceback-wt-receipt-doc`, `Priceback-Documentations-wt`): both main
+  checkouts hold another session's uncommitted work (DB-backup cron in `server.js`/`r2.js`; Instagram
+  Task Log lines) — untouched.
+- **Document:** the generated `view-shot` snapshot is gone; the original file (photo/PDF/text/HTML) is
+  stored + uploaded under its real type (`backend/lib/receiptDocument.js`; legacy `.jpg` contract kept
+  for shipped builds); new `POST /api/receipts/:id/image-upload-url`; failed uploads retried; legacy
+  snapshots swapped for the original where the phone still has it (server deletes the R2 snapshot);
+  Receipt card + Claim Assistant render by kind and fetch the R2 copy for restored receipts (the
+  promised-but-missing presigned GET). Design: `Technical/Receipt_Original_Documents.md`.
+- **Parser:** every Quebec receipt in prod (3) replayed read-only → pinned as fixtures; new FR markers,
+  `normalizeQuebecCostcoLayout` (deposit block, eco-fee code, minus-less TPD, named coupon),
+  day-first Quebec dates. French-only by construction; 112 existing parses unchanged. Detail:
+  `Technical/Costco/French_Quebec_Receipts.md`. Bugs #285, #286.
+- **Not done — Maxim's call:** Play Data Safety "Photos" row says receipt images are "not retained by
+  us" (already untrue; now documents too) — review with the App Store label + privacy policy. The
+  receipt uploaded today keeps its snapshot in R2 until its owner runs an updated build with the PDF
+  still in the phone's cache. Backend deploy + a store build are needed for users to get it.
+- **Status:** Priceback#365 (app + backend) + this docs PR.
+
 ### 2026-09-25 — Fix Sentry errors since Android 2.9.1 / iOS 2.9.0
 
 - **Asked (/goal):** *"fix sentry errors since the last build 2.9.1 for android or 2.9.0 for ios"*.
