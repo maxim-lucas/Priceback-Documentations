@@ -3,7 +3,10 @@
 **Written:** 2026-09-17, alongside the fix for Bugs #256.
 **Revised:** 2026-09-27 — a receipt's two dates are kept apart, and "today" is
 the shopper's **province** day on the phone *and* on the server (Bugs #288,
-#289; PR on `hotfix/receipt-dates-province-tracking`).
+#289; #370).
+**Revised:** 2026-09-28 — §5: the dates outside receipt tracking. A tag scan is
+dated on the scanner's province day, the savings report and Guarantee pushes on
+the shopper's clock (Bugs #292, #293; branch `hotfix/clock-skew-dates-main-ci`).
 **Audience:** anyone about to touch a receipt date, `daysRemaining`,
 `policy_status`, the price-drop sweep, the urgency tier, or a date on a screen.
 
@@ -49,8 +52,8 @@ province day — the same day on the phone and on the server.**
     i.e. exactly the pre-2026-09-27 behaviour.
   - **Server** — `backend/lib/trackingWindow.trackingTodayISO(province)`, from
     the account's `users.province_id` (set from the postal code at signup). No
-    province → **Eastern** (`America/Toronto`), the app's home market, the same
-    clock `pushI18n.formatDate` already used. Never the UTC day.
+    province → **Eastern** (`America/Toronto`), the app's home market — the
+    same fallback `pushI18n.formatDate` uses. Never the UTC day.
 
 ### The zone table
 
@@ -166,21 +169,28 @@ server and on the device's own zone by the app. They agree in Ontario and
 Quebec; elsewhere they can differ by the zone gap around midnight. Rare: a
 postal code is required at signup, and the province comes from it.
 
-## 5. What still reads a clock that is not the shopper's (known, out of scope)
+## 5. The dates outside receipt tracking, and the clock each one reads
 
-- **`priceDropRepo.findNotifiable`** dates a crowd observation by
-  `observed_at::date` — the UTC day of the scan. A tag scanned at 20:00 in
-  Vancouver is "tomorrow" for the "available strictly after the purchase date"
-  test. That is the date of a price *observation*, not receipt tracking, and it
-  sits on the money path (the commission is charged at detection), so it gets
-  its own change.
-- **`exportService`** renders claim dates on the UTC day.
-- **`pushI18n.formatDate`** reads dates in pushes on Eastern, not the
-  recipient's province.
-- **By design, device-local:** the purchase-date picker's upper bound and the
-  "can't be in the future" check (a receipt printed in local time must never be
-  refused because the home province is still on yesterday), and notification
-  fire times ("9 AM where the phone is").
+Until 2026-09-28 this section listed three dates still read on a clock that was
+not the shopper's. Maxim asked whether they "should be on the same user timezone
+also — i think they are relative to the receipt purchase date". Only the first
+is compared with the purchase date, but all three are the shopper's day now:
+
+| Date | What it is | Clock | Notes |
+|---|---|---|---|
+| A tag scan's observation day (`price_points.observed_at`, `price_tag_scan`) | the day a price was SEEN. `findNotifiable` compares it with the buyer's **printed purchase date** ("available strictly after it, within the window"); the tag route compares it with the tag's printed "valid until" | the **scanner's province day** — `trackingWindow.trackingTodayISO(province)` in `POST /api/observations/tag`; Eastern without one | Bugs #292. Was the server's UTC day: from 17:00 in Vancouver an evening sighting counted as "after" a same-day purchase, a last-evening sighting fell outside the window, and a tag valid until today was ruled **expired** (no credit). |
+| `findNotifiable`'s `observed_at::date` | the SQL that reads that day back | none — it DECODES | **Correct, keep it.** Every point source stores a DAY at UTC midnight (receipt rows the printed purchase date, `/api/watch` rows the purchase date the phone sends, tag rows the province day) and the session TimeZone is UTC, so `::date` returns it exactly. `AT TIME ZONE 'America/Toronto'` would move every such midnight to the day before — Bugs #288 again. |
+| A claim date in the savings report (`exportService`) | the INSTANT the shopper marked a refund claimed | the **tracking clock** — `trackingClock.trackingDateOfInstant` (province; device without one) | Bugs #293. Not relative to the purchase date. An old claim with no `claimedAt` is filed under its printed purchase date, literally (`parseISODateParts`). "Generated on" is `trackingTodayISO()`. |
+| Dates in Guarantee pushes (`pushI18n.formatDate`) | store renewal, "turn off auto-renew by", end of the free year — INSTANTS | the **recipient's province** — `sendUserPush` hands every `build(lang, { province, country })`; Eastern without one | Bugs #293. Not relative to the purchase date. Read on Eastern, a BC shopper was given an auto-renew deadline one day late. |
+
+Still UTC, known and harmless today: `crowdRepo.recordObservation`'s fallback
+when a caller passes no date (`dateStr(now)`) — no production caller relies on
+it (#292).
+
+**By design, device-local:** the purchase-date picker's upper bound and the
+"can't be in the future" check (a receipt printed in local time must never be
+refused because the home province is still on yesterday), and notification fire
+times ("9 AM where the phone is").
 
 ## 6. The testing rules this produced
 
@@ -199,9 +209,10 @@ half-hour `America/St_Johns`. It lives in a test rather than in the workflow
 because `__tests__/ciParity.test.js` forbids test parameters in
 `.github/workflows/test.yml` — so a plain `npm test` runs a real matrix,
 locally and in CI alike. Since 2026-09-27 it also runs `trackingTime`,
-`trackingClock`, `formatDateCalendar` and `receiptSpending`: with a province
-set, **the tracking day must be identical in all seven device zones** — that is
-the property a province clock exists for.
+`trackingClock`, `formatDateCalendar` and `receiptSpending`, and since
+2026-09-28 `exportServiceDates` (#293): with a province set, **the tracking day
+must be identical in all seven device zones** — that is the property a province
+clock exists for.
 
 Rules that fall out of it:
 

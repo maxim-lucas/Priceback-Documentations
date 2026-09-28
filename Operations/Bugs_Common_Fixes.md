@@ -12896,8 +12896,179 @@ the same run.
   database's `now()` (column default) and the conflict UPDATE with the app's `new Date()` —
   one column, two clocks — and that machine ran ~76 ms behind the database, so an edit right
   after the insert was stamped earlier. Both writes now take `now()` (commit `5064897`).
+  Full entry, audit of the same shape in other tables, and the deterministic guard: **#291**.
 - **Rules.** (1) **`virtual: true` is for modules that do not exist.** For anything that
   resolves it is not a harmless flag — it poisons other suites in the same worker.
   (2) **A test must not assert on which of two concurrent transactions won a lock** unless
   that order is the thing under test. (3) **"Passes alone" is a symptom, not an alibi** —
   replay the pair in one worker before calling it a flake.
+
+## 291. `app_config.updated_at` went BACKWARDS on an admin edit — one column, two clocks (2026-09-27, #370; guard 2026-09-28, branch hotfix/clock-skew-dates-main-ci)
+
+- **Date:** 2026-09-27 (fix, commit `5064897` in #370) · 2026-09-28 (guard test) ·
+  **Area:** backend (`repos/appConfigRepo.js`)
+- **Symptom.** `writePathEdgesDb` *"updated_at bumped on the admin edit"* failed **3 of
+  3** when run alone on the dev machine and never on CI. No user-visible symptom.
+- **Root cause.** `appConfigRepo.set` is an upsert. The INSERT left `updated_at` to the
+  column default `now()` — the **database's** clock. The conflict UPDATE stamped
+  `new Date()` — the **app server's** clock. One column, two clocks. The dev machine's
+  clock runs behind Supabase's (~76 ms measured by the session that found it; a
+  `SELECT now()` probe on 2026-09-28 read the app ~60 ms behind), so an edit made right
+  after the insert was stamped *earlier* than the insert. CI's NTP-synced runners were
+  close enough never to show it.
+- **Fix.** Both writes take the database clock: `set: { value, updatedAt: sql\`now()\` }`.
+- **Checked before calling it done.** Nothing in production compares
+  `app_config.updated_at` with the app's clock: `configService` reads values only
+  (`getAllMap`), `appConfigRepo.getAll()` has no production caller, and the test above is
+  the column's only reader.
+- **The same shape elsewhere — audited, deliberately left.** `users.updated_at` (5
+  writers, incl. `creditsRepo`) and `price_drop_guarantees.updated_at` (6 writers) also
+  insert on the DB default and update with `new Date()`. **Nothing reads their order**
+  (bookkeeping only), and converting them means touching the credit path in a hotfix for
+  no behaviour change. The rule if that ever changes: *anything that compares an
+  `updated_at` must first make every writer of that column stamp `now()`.* Already on one
+  clock: `kv_state`, `warehouses`, `user_notification_settings`, `user_preferences` (app
+  clock on both writes — `preferencesRepo`'s last-write-wins compares a DEVICE timestamp
+  with it, which is inherent to client LWW), and `stores.updated_at`, which a DB trigger
+  stamps and which IS read, as a monotonic revision token — correctly, on one clock.
+- **Detect / prevent.** `writePathEdgesDb` *"an edit is stamped on the database clock, even
+  when the app server's clock is an hour behind"* holds the app's `Date` an hour back
+  (`t.mock.timers`) across the edit. **Mutation-tested:** restoring `new Date()` fails it on
+  any machine — *"the edit was stamped 02:25Z, BEFORE the insert it follows (03:25Z)"* —
+  where the original test could only fail on a machine that happened to run behind.
+- **Rule.** **A column gets one clock.** A test that can only fail on a skewed machine is
+  not a guard: skew the clock inside the test.
+
+## 292. An evening price-tag scan was dated tomorrow — a tag still valid that day was ruled expired (2026-09-28, branch hotfix/clock-skew-dates-main-ci)
+
+- **Date:** 2026-09-28 · **Area:** backend (`POST /api/observations/tag`, which feeds
+  `priceDropRepo.findNotifiable`)
+- **Symptom.** None reported. From 17:00 in Vancouver / 20:00 in Toronto, a shopper
+  scanning a tag printed "valid until" today got `status: "expired"` and no credit
+  (rule 2), and the observation was filed under tomorrow's date.
+- **Root cause.** The route pinned the observation day as
+  `new Date().toISOString().slice(0, 10)`, the server's UTC day. Everything that day is
+  compared with is printed on the store's own calendar: the tag's "valid until", and every
+  buyer's purchase date when `findNotifiable` asks whether the price became available
+  *strictly after* the purchase and *within* the window. So an evening sighting counted as
+  "after" a purchase made that same day, and a sighting on the window's last evening fell
+  outside it.
+- **Asked, answered.** Maxim asked whether `findNotifiable`'s dates should be on the user's
+  timezone, since they are "relative to the receipt purchase date". Yes, and the fix is at
+  the WRITE, not in the SQL. `observed_at::date` is correct: every point source stores a
+  DAY at UTC midnight (receipt rows the printed purchase date, `/api/watch` rows the
+  purchase date the phone sends, tag rows now the province day), and the session TimeZone
+  is UTC (probed), so `::date` returns that day exactly. Re-zoning the read
+  (`AT TIME ZONE 'America/Toronto'`) would move every such midnight to the day before —
+  Bugs #288 again. A comment in the SQL now says so.
+- **Fix.** `observedAt = trackingWindow.trackingTodayISO(provinceCode || null)` — the
+  scanner's province day, Eastern when none is sent, never UTC. The same pinned value still
+  feeds the `source_ref` and the credit-ledger `ref`, so they match byte for byte. Existing
+  rows are not rewritten: they are history, and the sweep's 120-day lookback ages them out.
+- **Evidence.** `crowdsourceDb` *"an evening tag scan is dated on the shopper's province
+  day…"*: at 01:30 UTC (the previous day in every province, Newfoundland included) a BC tag
+  valid until that day is `pending`, not `expired`, and its row reads that day. Red on the
+  old code (`status: 'expired'`). Three suites had baked the UTC day into their
+  expectations and became time-of-day bombs once the route was right: two `crowdsourceDb`
+  and two `tagCreditsEngineDb` tests rebuilt the `source_ref` with the UTC day, and
+  `priceDropPipelineE2E` built purchase dates on UTC against Saskatchewan-dated tags. All
+  now read the province day; all green at 03:33 UTC, an hour when the two calendars differ.
+- **Still UTC, known:** `crowdRepo.recordObservation`'s fallback when a caller passes no
+  date (`dateStr(now)`). No production caller relies on it — the tag route passes the
+  province day and `/api/watch` the item's purchase date.
+- **Rule.** **A date compared with a printed date must be on the calendar it was printed
+  on** — the shopper's local day, never the server's.
+
+## 293. Dates shown to the shopper on someone else's clock — the savings report on UTC, Guarantee pushes on Toronto (2026-09-28, branch hotfix/clock-skew-dates-main-ci)
+
+- **Date:** 2026-09-28 · **Area:** mobile (`services/exportService.js`) + backend
+  (`lib/pushI18n.formatDate`, `lib/priceDropGuarantee`, `jobs/priceDropGuarantee`,
+  `server.sendUserPush`)
+- **Symptom.** (1) The savings PDF printed every claim made after 20:00 Toronto / 17:00
+  Vancouver under the NEXT day, and "Generated on" likewise; an old claim with no
+  `claimedAt` on a January 1 purchase landed in the previous year's report and year picker.
+  (2) A Guarantee push told a BC shopper to *"turn off auto-renew by September 30"* for a
+  store renewal at 22:30 on September 30 their time — a deadline one day late, and missing
+  it costs another year's charge.
+- **Neither is relative to the purchase date** (Maxim's question). A claim date is the
+  instant the shopper marked a claim; a renewal is a store instant. Both are INSTANTS,
+  shown as the day they fall on **for that shopper** — the rule the receipt screen's
+  "Scanned on" already follows (#289).
+- **Root cause.** (1) `exportService`'s `formatDate` was
+  `new Date(iso).toISOString().slice(0, 10)` — the UTC day — and its range/year buckets read
+  `new Date(purchaseDate)` with local getters, the #288 trap. (2) `pushI18n.formatDate`
+  hard-coded `America/Toronto`, and `sendUserPush`, with the user row already loaded, handed
+  `build` only the language.
+- **Fix.** (1) Claim instants go through `trackingClock.trackingDateOfInstant` (province;
+  the device's zone without one); the purchase-date fallback through `parseISODateParts`
+  (the printed Y-M-D, literally); "Generated on" is `trackingTodayISO()`.
+  (2) `sendUserPush` calls `build(lang, { province, country })`, the Guarantee job forwards
+  it into the copy, and `pushI18n.formatDate(instant, lang, { province, country })` reads
+  that province's zone from `shared/trackingTime.js` — Eastern without one, so every other
+  caller is unchanged.
+- **Evidence.** `__tests__/exportServiceDates.test.js` (11 tests) joins the seven-zone
+  matrix (`adjustmentWindowTimezone.matrix.test.js`); 10 were red on the old code. Backend:
+  a renewal at 05:30Z on October 1 reads September 30 for BC/AB and October 1 for
+  ON/NL/no province; the earned, reminder and ending copy, the job's forwarding and
+  `sendUserPush`'s `where` (on the dev DB) are each pinned — all four new tests red on the
+  old code.
+- **Rule.** **An instant has no date until a zone is chosen — choose the shopper's.** A
+  hard-coded "home market" zone is a UTC bug with a smaller blast radius.
+
+## 294. `main` CI red with every test green — work that outlived its test file (2026-09-28, run 36364315206, branch hotfix/clock-skew-dates-main-ci)
+
+- **Date:** 2026-09-28 · **Area:** CI / mobile Jest (`guarantee.test.js`,
+  `screensSmoke.test.js` → `SplashScreen`)
+- **Symptom.** Run 36364315206 on `main` (`85dfbe7`, the #370 merge): Security and Backend
+  green; Mobile red — `Test Suites: 278 passed`, `Tests: 6620 passed`, coverage above
+  every floor, then "Jest did not exit one second after the test run has completed", about
+  four minutes of silence, and `Process completed with exit code 1`.
+- **Misdiagnosis to avoid.** GitHub's **"Explain error"** (Copilot) blamed the open-handle
+  message ("Jest's lingering process eventually timed out") and proposed
+  `detectOpenHandles: true` in `jest.config.js`, with `forceExit` as a last resort. The
+  evidence says otherwise: the GREEN run 35436001721 (2026-09-19) printed the identical
+  message and idled the identical four minutes (09:58:50 → 10:02:52), then exited 0 — and
+  Bugs #232 had already recorded that message as benign. `detectOpenHandles` only forces a
+  serial run; `forceExit` would `exit(0)` and hide the real error.
+  **Read the mechanism, not the loudest line.**
+- **Root cause.** jest-runtime 29.7 answers any `require` made after a file's environment
+  has been torn down with *"You are trying to `import` a file after the Jest environment
+  has been torn down. From <file>"* **and `process.exitCode = 1`**
+  (`jest-runtime/build/index.js:563-565`). The log had five:
+  1. `guarantee.test.js` (four) — none of its rendered trees was ever unmounted, so the
+     file's `afterEach` `setLanguage("en")`, and the last test's `saveGuaranteeStatus`,
+     re-rendered them outside `act()` on React's scheduler; the render's lazy
+     `require("react-native").ScrollView` ran after teardown. The suite came with #361 and
+     had never run on CI before.
+  2. `screensSmoke.test.js` (one) — `SplashScreen`'s boot chain kept going after the smoke
+     test unmounted it and, ~2.6 s later, called `navigation.replace()` and
+     `import("../services/pendingDeepLink")`. Present since the 2026-09-25 run, where two
+     real failures hid it.
+- **Why nobody saw it locally — the real gap.** CI's 2-core runner gives Jest one worker,
+  so the suite runs **in band**, in the main process, and that `exitCode` becomes the run's.
+  On a 12-core laptop the same line runs inside a worker, whose exit code Jest discards.
+  Measured: without a guard, `guarantee.test.js` run in a worker **exits 0** with all four
+  ReferenceErrors on screen. #370's "verified locally" was that green.
+- **Fix.** (1) `guarantee.test.js` renders through a `mount()` helper and unmounts every
+  tree inside `act()` BEFORE the `afterEach` changes shared state; the status save that
+  re-renders a live tree now runs inside `act()` (its "not wrapped in act" warnings are
+  gone too). (2) `SplashScreen`'s `navigate()` refuses to START a navigation once the screen
+  has unmounted. Boot still runs, and a navigation it already started still delivers its
+  parked deep link after the replace — both pinned by `splashScreenNavigation.test.js`
+  (the unmounted case red on the old code).
+- **Prevent — a guard with local/CI parity.** `jest.environment.js` (jest-expo's own
+  environment plus ~20 lines, wired as `testEnvironment`): before the real teardown it lets
+  whatever the file already queued run for a few event-loop turns, and if that work set the
+  exit code it **fails the file by name** — in a worker and in band alike. Measured on the
+  unfixed suite: `FAIL __tests__/guarantee.test.js — Code from … was still running after
+  its last test finished` in both modes (control, a worker without the guard: exit 0). It
+  cannot catch a TIMER that fires seconds later, like the splash's 2.6 s — in band that
+  still exits 1 — which is why:
+- **Detect next time — the verification standard.** Before calling a mobile change green,
+  run it the way CI runs it and read the **exit code**, not the summary:
+  `npx jest --ci --watchAll=false --coverage --runInBand; echo $?`. A "passed" summary with
+  exit 1 means something ran after a file had finished: grep the log for `torn down` and
+  `Cannot log after tests are done` — the `From …` names the file.
+- **Rules.** (1) **Unmount every tree you render, before an `afterEach` touches shared
+  state.** (2) **A screen that is gone must not start a navigation.** (3) **Local green is
+  not CI green until it ran the way CI runs** — in band, read by its exit code.

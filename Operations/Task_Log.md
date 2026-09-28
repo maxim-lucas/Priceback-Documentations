@@ -16,6 +16,45 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-28 — `app_config` clock skew documented + guarded, the three "other clock" dates, and `main` CI red again (hotfix)
+
+- **Asked (/goal):** (1) the `app_config.updated_at` clock-skew failure *"should be fixed and
+  documented correctly"*; (2) *"findNotifiable observation dates …, exportService claim dates …,
+  and pushI18n.formatDate … Should these dates be on the same user timezone also? i think they are
+  relative to the receipt purchase date"*; (3) *"i ran the github workflow on main and it failed,
+  fix it after the previous 2 points"* — plus GitHub's "Explain error" output on that job. Base:
+  `main` (the failing run is on `main`; the work continues hotfix #370). Branch
+  `hotfix/clock-skew-dates-main-ci` off `origin/main` (`85dfbe7`); docs
+  `docs/clock-skew-dates-main-ci`. Docs PR #91 (#370's docs), left open, merged first.
+- **(1)** The fix (`now()` on both writes) was already in #370. Verified nothing reads
+  `app_config.updated_at` against the app clock; audited the same insert/update clock mix in
+  `users` and `price_drop_guarantees` (nothing reads their order — left, rule recorded); added a
+  test that holds the app clock an hour back, mutation-tested. **Bugs #291.**
+- **(2)** Only `findNotifiable` is relative to the purchase date — and its `observed_at::date`
+  READ is right (a day stored at UTC midnight, UTC session). The bug was the WRITE: tag scans were
+  dated on the server's UTC day, which also ruled an evening tag "valid until today" expired (no
+  credit). Now the scanner's province day. Money path: an evening sighting no longer counts as
+  "after" a same-day purchase; a last-evening sighting now counts inside the window. **Bugs #292.**
+  Claim dates (savings PDF) and Guarantee push dates are INSTANTS, not relative to the purchase
+  date — both now on the shopper's clock (a BC auto-renew deadline read a day late on Eastern).
+  **Bugs #293.** `Technical/Adjustment_Window_Time_Model.md` §5 rewritten.
+- **(3)** Run 36364315206: every test green, exit 1. Not "Jest did not exit" (Copilot's reading —
+  the green 2026-09-19 run printed the same line): jest-runtime's post-teardown `require` guard.
+  `guarantee.test.js` never unmounted its trees; `SplashScreen` navigated after unmount. Local runs
+  hid it because a worker's exit code is discarded (CI's 2 cores run in band). Fixed both, plus
+  `jest.environment.js`, a guard that fails the leaking FILE by name in every mode. **Bugs #294.**
+  New verification standard: an in-band run read by its exit code.
+- **Does not reverse anything recorded here.** Closes the three items #370's entry flagged as
+  "not done".
+- **Found, not fixed:** `SplashScreen`'s slogans and tagline are hardcoded English (the
+  localized-labels rule); `development` is still behind `main` (no hotfix merged down since
+  2026-09-17) — both Maxim's call.
+- **Status:** app PR **#371** (hotfix → `main`, 3 commits, one per ask), open. Merging deploys the
+  backend, so the merge and the `main` CI dispatch are Maxim's. Verified locally: mobile **in band
+  with coverage (CI's mode) exit 0**, 280 suites / 6634 tests, 0 teardown errors; `npm test`
+  (workers) exit 0; 7-zone matrix green; i18n 1594 × 2; backend `npm test` exit 0 — 2000 tests,
+  1999 pass, 1 intentional skip, coverage 94.67/80.78/94.82/94.67. Docs PR alongside; #91 merged.
+
 ### 2026-09-27 — Receipt dates: purchase vs scan kept apart, tracking on the shopper's PROVINCE day + `main` CI green (hotfix)
 
 - **Asked (/goal):** after the #369 recap flagged the shopper screen's one-day-early purchase date —
