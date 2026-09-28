@@ -16,6 +16,61 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-27 — Receipt dates: purchase vs scan kept apart, tracking on the shopper's PROVINCE day + `main` CI green (hotfix)
+
+- **Asked (/goal):** after the #369 recap flagged the shopper screen's one-day-early purchase date —
+  *"the receipts should have a creation date (date of scan), the receipt or purchase date (as shown in
+  the receipt ocr), the date in the receipts db table is based on the OCR but the tracking should
+  respect every user in the country (canada has few timezones so every tracking should never calculate
+  the date but the date is scanned and the tracking should be based on the timezone of the user based on
+  the province)"*, then *"merge the new PR into main (this is a hotfix wofklow) then run CI and make sure
+  the workflows are green again on main"*. Hotfix → `hotfix/receipt-dates-province-tracking` off `main`,
+  PR into `main`; docs `docs/receipt-dates-province-tracking`.
+- **🔁 Reverses a recorded decision, on Maxim's explicit instruction:** `Technical/Adjustment_Window_Time_Model.md`
+  (2026-09-17) said a province lookup "is not needed". Tracking now counts on the shopper's PROVINCE day on
+  the app AND the server (the server had been on UTC — a day ahead of Canada every evening).
+- **Shape — no migration:** `purchase_date` is the printed date, `created_at` the scan instant (stays
+  server-stamped: it gates the Guarantee receipt count). New `shared/trackingTime.js` (13 provinces → IANA
+  zones, mirrored to `backend/shared/`), `backend/lib/trackingWindow.js`, `src/utils/trackingClock.js`.
+  Server: policy status (single + batch), verified-drop + legacy-sweep urgency/window on the owner's /
+  buyer's / item's province day (no province → Eastern, never UTC). App: window defaults to the province
+  day (device-local fallback); `formatDate` renders a bare date as that day (receipt header, claim
+  email/phone script, barcode history); new "Scanned on"/"Imported on" row (`detail.scannedOn`,
+  `detail.importedOn`, en + fr); Jan 1 "spent this year" fix. Admin desk: `scannedOn` / `ownerProvince`,
+  both dates on list rows, countdown on the owner's clock.
+- **CI (`main` red since 2026-09-25, run 36178009831):** 29 `virtual: true` mocks of installed modules
+  removed + `jestMockHygiene` guard (a virtual mock poisons Jest's per-worker resolver cache for other
+  suites); `sessionReplayGraceDb` presents replay tokens in issuance order + a reverse-order theft test.
+  Bugs #288, #289, #290.
+- **Flagged, not done:** `development` is 33 behind `main` (no hotfix merged down since 2026-09-17) —
+  Maxim's call. `findNotifiable`'s `observed_at::date`, `exportService` claim dates and
+  `pushI18n.formatDate` still read UTC / Eastern (outside receipt tracking; money path).
+- **Status:** app PR **#370** (hotfix → `main`); docs PR alongside. Verified locally: mobile 278 suites /
+  6621 tests (also at `TZ=UTC` and `--runInBand`), 7-zone matrix, i18n 1594 keys × 2; backend targeted
+  suites green on the dev DB. CI on `main` dispatched after the merge (Maxim asked for it).
+
+### 2026-09-27 — Admin receipt review rebuilt: list → full receipt view, + per-user receipts in the report
+
+- **Asked (/goal):** the Receipt review desk "is not what i asked for" — wanted a LIST (like Accounts)
+  showing only *Store, warehouse, total, status, date, user*, and a deeper full-screen view per receipt
+  showing what the user sees (items, SKU, prices, total…) while keeping OCR, image, header OCR, Costco
+  warehouse. Plus the same list → detail inside the user's full report: a counter on the button, then
+  the same screens filtered to that user. Branch asked for (rule): **`feat/admin-receipt-review-v2` off `main`**.
+- **Shape:** `AdminReceiptsReviewScreen` is now the slim list (search by email; `sub` param = one
+  account, deleted receipts included and badged). New `AdminReceiptDetailScreen`: top half mirrors the
+  shopper's `DetailScreen` (header card, subtotal/tax/total/window rows, items with SKU/claimed/TPD) via
+  the same `mapServerReceiptToLocal` the device restore uses; bottom half = receipt file, scan facts,
+  header OCR, raw OCR. Report's Receipts accordion → `ReceiptsEntry` row with an exact counter.
+- **Backend:** `GET /api/admin/receipts` now returns slim rows + accepts `sub`; new
+  `GET /api/admin/receipts/:id` (full receipt, presigned file, readable when soft-deleted); report gains
+  uncapped `receiptCount` / `receiptDeletedCount`. No migration.
+- **Does not reverse anything recorded here.** Extends PR #356's desk; the all-accounts list still hides
+  soft-deleted receipts (that decision stands), only the per-account view shows them — as the report did.
+- **Found, not fixed here (shopper screen):** `DetailScreen` rendered `formatDate(new Date("YYYY-MM-DD"))`,
+  the PREVIOUS day west of UTC — fixed by the hotfix entry above (Bugs #288).
+- **Status:** merged as **#369** (`eb6e7a8`). (Recorded here by the follow-up session; the original entry
+  was written but left uncommitted because the file held other sessions' changes.)
+
 ### 2026-09-27 — Repair production receipt data against the photos + the parser bugs behind it
 
 - **Asked (/goal):** *"fix all the data in the database that arent good, fix the data so the backend
