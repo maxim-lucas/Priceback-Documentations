@@ -16,6 +16,17 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-28 — Splash tagline + slogans localized (EN/FR by the saved language, next cold start)
+
+- **Asked (/goal):** "last session failed, so fix this" — the splash's tagline and slogans were
+  hardcoded English, breaking the translated-labels rule; a user who switches to French must see a
+  French splash on the next startup; instant language switching everywhere else must not change.
+- **Branch:** not named; the /goal said proceed without pausing, so a fresh **`fix/splash-i18n` off
+  `main`** (the checked-out `hotfix/clock-skew-dates-main-ci` was unrelated and already merged as #371).
+- **Shape:** keys `splash.brandTagline` + 15 × `splash.slogan.*` in en + fr; the splash reads the saved
+  language itself before showing text (boot restores it too late for the splash). See Bugs #295.
+- **Status:** done — full mobile Jest 281 suites / 6644 tests green, `i18n:check` in sync (1610 = 1610).
+
 ### 2026-09-28 — `app_config` clock skew documented + guarded, the three "other clock" dates, and `main` CI red again (hotfix)
 
 - **Asked (/goal):** (1) the `app_config.updated_at` clock-skew failure *"should be fixed and

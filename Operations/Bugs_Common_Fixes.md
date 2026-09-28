@@ -13072,3 +13072,35 @@ the same run.
 - **Rules.** (1) **Unmount every tree you render, before an `afterEach` touches shared
   state.** (2) **A screen that is gone must not start a navigation.** (3) **Local green is
   not CI green until it ran the way CI runs** — in band, read by its exit code.
+
+## 295. The splash spoke English to French users — literals, and a screen drawn before the saved language was read (2026-09-28, branch fix/splash-i18n)
+
+- **Date:** 2026-09-28 · **Area:** mobile · `src/screens/SplashScreen.js`, `src/services/i18n.js`
+- **Symptom.** A shopper who picked French in the app still got an English brand line
+  ("Get money back when prices drop.") and an English random slogan on every cold start.
+  Everything after the splash was French.
+- **Root cause — two layers.** (1) The brand line and the 15-slogan pool were string
+  literals in `SplashScreen.js` (`BRAND_TAGLINE`, `TAGLINES`), never routed through `t()`,
+  so `npm run i18n:check` had nothing to see — it only checks keys, and there were no keys.
+  (2) Translating them alone would NOT have fixed it: the saved language is restored by
+  `loadLanguage()` inside `startBootTasks()`, and the splash **awaits** boot — so the splash
+  is the one screen that renders while `t()` is still on English. The old unused
+  `splash.tagline` / `splash.taglineSub` keys had French copy all along; nobody rendered them.
+- **Fix.** Copy moved to `splash.brandTagline` + `splash.slogan.*` in every language block
+  (`SLOGAN_KEYS` in the screen; the referral count is interpolated as `{credits}`). The
+  splash calls `loadLanguage()` itself on mount and keeps its two text lines at
+  `opacity: 0` until it resolves — no English flash — with a 500 ms cap and a sync-throw
+  guard so a storage layer that never answers still shows English, never blank.
+  `loadLanguage()` fires no listeners, so live language switching is unchanged.
+- **Tests.** `__tests__/splashScreenI18n.test.js` (10): saved `fr` → French on the first
+  visible frame; nothing saved → English; hidden-until-known; never-answering storage →
+  English after the cap; rejecting storage; sync throw; no listener fired; every slogan a
+  real, interpolated, non-English-copy label in every shipped language. Mutation: replacing
+  the splash's `loadLanguage()` read with an immediate "ready" turns 4 of them red.
+  `splashScreenNavigation.test.js` and the `screensSmoke` i18n mock gained the AsyncStorage /
+  `loadLanguage` they now need.
+- **Rules.** (1) **A screen that renders before boot finishes cannot rely on boot's state** —
+  read what it needs itself. (2) **`i18n:check` cannot see a literal** — grep a screen for
+  quoted prose, not just for missing keys.
+
+---
