@@ -13104,3 +13104,106 @@ the same run.
   quoted prose, not just for missing keys.
 
 ---
+
+## 296. A price-drop sweep scoped to one province reached another province's buyers — through a NATIONAL row (2026-09-28, branch merge/main-and-development)
+
+- **Date:** 2026-09-28 · **Area:** backend · `backend/repos/priceDropRepo.js` › `findNotifiable`
+- **Symptom.** A sweep scoped to NB returned — and would have pushed and billed — a drop for
+  a buyer in MB. No user saw it: found by `costcoNationalOfferDb.test.js`, the first test to
+  scope a sweep with a national price and buyers in two provinces.
+- **Root cause.** The region scope had two halves and the second was missing. The price
+  rows were scoped to `(province OR NATIONAL)`, and the buyer's province was checked — but
+  only in the `watched` CTE, which narrows **products**. The `candidates` join then matched
+  every receipt line of those products whose buyer satisfied `u.province_id = v.province_id
+  OR v.province_id = NATIONAL` — any province, for a national row. With provincial rows the
+  price row's own province pinned the buyer, so the gap could not show until national rows
+  existed (Best Buy on `development`, Costco's national coupon book from 2026-09-28). The
+  function's own comment promised the opposite: *"scoping the sweep to a region means the
+  SHOPPERS in that region."*
+- **Fix.** `buyerProvinceFilter` (`AND u.province_id = <region>`) applied to the candidate
+  lines when a region is given. Unscoped and single-user sweeps are unchanged; for a
+  provincial row the new filter is redundant by construction.
+- **Why nobody was double-charged.** The dedupe row + per-item advisory lock elect one
+  charger whatever the scope ([[commission-charged-once]]). The defect was scope, not money.
+- **Detect next time.** A region-scoped sweep's candidates including a buyer whose profile
+  province is not the region.
+- **Prevent.** `costcoNationalOfferDb.test.js` › *a region-scoped detection sees the
+  national row, but only for that region's buyers* — red before the fix.
+
+---
+
+## 297. The "official" fresh-deploy schema was missing two migrations — on both branches (2026-09-28, branch merge/main-and-development)
+
+- **Date:** 2026-09-28 · **Area:** backend · `backend/db/deploy/schema.sql`, `backend/scripts/build-consolidated-schema.js`
+- **Symptom.** `db/deploy/schema.sql` — what a brand-new environment is provisioned from —
+  had no `0012_price_drop_guarantee` on `main` and no national-province migration on
+  `development`. A database built from it would start without the guarantee tables and
+  without the NATIONAL province.
+- **Root cause.** The file is generated, and nothing checked that anyone re-ran the
+  generator. Each branch added a migration and forgot; the per-migration tests
+  (`functionSearchPath`, `rowLevelSecurityDb`) each grep for their OWN marker only.
+- **Fix.** Regenerated (the refactored generator's output is byte-identical to the old
+  script's). `renderConsolidatedSchema()` is now exported.
+- **Prevent.** `backend/tests/consolidatedSchemaFresh.test.js` (no DB): the committed file
+  must equal a fresh render; every journal entry must be in it; every `.sql` file must be
+  journaled; the journal must increase by `idx` AND by `when` (drizzle skips a migration
+  whose `when` is older than the newest applied). Mutation-tested both ways.
+- **Related.** The merge renumbered `development`'s `0007_national_province` to `0013`: left
+  at 0007 its `when` sorted before `main`'s 0012 and drizzle would have skipped it silently.
+
+---
+
+## 298. A privacy assertion passed vacuously after the test-email domain moved (2026-09-28, branch merge/main-and-development)
+
+- **Date:** 2026-09-28 · **Area:** backend tests · `backend/tests/tagReviewsDb.test.js`
+- **Symptom.** After merging, *"the admin queue names the account behind a claimed device"*
+  failed — and, silently, *"uploader identity is admin-only"* kept passing while testing
+  nothing.
+- **Root cause.** `development`'s #315 moved the suite's auth stub to the reserved
+  `@priceback.test.ca` domain; `main`'s #347 had asserted `@example.com` — once positively
+  (so it failed) and once NEGATIVELY: the response must not include `"@example.com"`. With
+  no `@example.com` address left anywhere, the leak check could never fail.
+- **Fix.** One `STUB_EMAIL_DOMAIN` constant; the stub and both assertions derive from it.
+- **Rule.** **A negative assertion over a literal is only as good as the literal still
+  existing.** When a fixture value changes, grep for it in `not` / `=== false` checks, not
+  just in positive ones — those are the ones that go quiet instead of red.
+
+---
+
+## 299. A paid-for "Price held" lock expired on the database's UTC day (2026-09-28, branch merge/main-and-development)
+
+- **Date:** 2026-09-28 · **Area:** backend · `backend/repos/receiptsRepo.js` › `lockedDropsForUser`
+- **Symptom (latent).** On the evening of a window's last day — from 17:00 in Vancouver,
+  20:00 in Toronto — the server stopped returning the lock for a drop the shopper had
+  already been charged for, while the receipt still read "watching".
+- **Root cause.** `development`'s query compared the purchase date with `CURRENT_DATE`, the
+  database session's UTC day. `main` had meanwhile moved every window onto the shopper's
+  province day (Bugs #289); the lock query was written before that fix and never saw it.
+- **Fix.** `rc.purchase_date >= <owner's day> - adjustment_days`, using `main`'s
+  `_ownerTodaySql` — the same expression `recomputeOverduePolicyStatuses` uses. Inclusive of
+  the last day, like `isPastWindow`. Injectable `now`.
+- **Prevent.** `lockedDropsDb.test.js` › *the window is counted on the OWNER's calendar day*:
+  both sides of PE's midnight; mutation back to `CURRENT_DATE` turns the evening case red.
+- **Rule.** After a merge, grep the incoming side for the pattern the other side just fixed
+  (`CURRENT_DATE`, `toISOString().slice(0, 10)`) — a fix only lands on the code that existed.
+
+---
+
+## 300. A flyer import sat half-persisted — one failing row dropped every row after it (live 2026-09-27; fixed 2026-09-28, branch merge/main-and-development)
+
+- **Date:** 2026-09-28 · **Area:** backend · `backend/repos/pricesRepo.js` › `recordPricePointsBulk`, `backend/server.js` › `commitFlyerImport`
+- **Symptom.** Importing `ALL-2026-09-14` to production (2026-09-27) needed three identical
+  re-runs before all 13 provinces had 119/119 rows; in between, e.g. `AB: 8/119`, silently.
+- **Root cause.** The bulk writer awaited each row in a plain loop — the first throw
+  aborted the rest of that batch, and the rows before it stayed committed. The log printed
+  `e.message`, which for a drizzle error is just "Failed query: …"; the Postgres cause is on
+  `e.cause`. Pool contention (max 5, ~6 round trips a row, 1,547 rows) made throws likely.
+- **Fix.** Each row is its own unit: logged with `describeError` (prints the cause) and
+  skipped; the rest are written; the count written is returned. A national batch is now
+  also stored once (119 rows, not 1,547), so the contention itself is 13× smaller.
+- **Still open.** Surfacing a partial persist to the operator — see
+  `Roadmap/Costco_Coupons_Ingestion_Roadmap.md` §2. Re-importing is safe (idempotent upserts).
+- **Prevent.** `costcoNationalOfferDb.test.js` › *one bad row in a bulk flyer write does not
+  drop the rows after it*.
+
+---

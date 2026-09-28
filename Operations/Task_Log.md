@@ -16,6 +16,39 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-28 — `development` merged into `main` on a new branch (main wins), national offers stored once (Costco too), `(province OR NATIONAL)` detection, every store but Costco stays "Coming soon"
+
+- **Asked (/goal):** *"merge main and dev in a new branch, main always wins if there is conflict,
+  any modification done in main should never be lost, also add this rule all national offers should
+  be stored as national not duplicated even for costco, add this filter also in the price drop
+  detection (province || national) for costco stores, all stores in prod should remain coming soon
+  except costco"*. Follows the previous session's NATIONAL look-up and
+  `Roadmap/Costco_Coupons_Ingestion_Roadmap.md` (§1 is what this implements).
+- **Branch:** the ask named it — a NEW branch holding both: **`merge/main-and-development`** off
+  `origin/main` `63c9dc2`, in a separate worktree because the main checkout held an uncommitted
+  `CLAUDE.md` edit that `development` also changes (left untouched, as was the untracked
+  `costco-coupons-2026-09-14-ALL.json`). Docs: `docs/merge-main-development-national`.
+- **Merge:** contradictions → `main`; both-only-added → both kept. Migration `0007_national_province`
+  renumbered **0013**. Proof per file for all 346 files `main` changed (307 identical / 27 patch
+  reverse-applies / 12 line-checked). Six semantic conflicts fixed separately — Bugs #297–#299 and
+  `Operations/Merge_Main_Development_2026-09-28.md` §2.
+- **Stores:** prod (queried) = Costco only. Best Buy's #320 promotion moved back to the lab lane — five
+  declarations + regenerated sync SQL; `main`'s posture exactly. **Reverses #320 on `development`'s
+  side, by Maxim's instruction.** Dev DB keeps Best Buy enabled (lab lane) — unchanged, as the
+  2026-09-19 entry requires. 🛑 `store-content-sync.sql` would hide 7 grocery stores prod shows as
+  "Coming soon" — not applied anywhere.
+- **National:** an `"ALL"` import is stored once (`NATIONAL`, overlay + `price_points`), readers are
+  `(province OR NATIONAL)` with the cheaper offer winning, a national re-import collapses an old
+  fan-out (only next to its replacement). Found + fixed Bugs #296 (region sweep reached other
+  provinces' buyers via a national row). Bulk writes isolate each row (Bugs #300). Applies to every
+  `"ALL"` import, not only `costco-coupons` as the roadmap had proposed — Maxim's rule is broader.
+- **Prod facts (read-only, 2026-09-28):** NATIONAL province already present (id 49640);
+  `BESTBUY_SCAN_ENABLED` = false; `ALL-2026-09-14` = 1,547 rows (collapses to 119 on re-import).
+- **Verified locally (no Actions):** backend 2,414 tests / 0 fail / 1 skipped, coverage
+  95.24/81.52/95.67/95.24; mobile 303/303 suites, 7,251 pass; `i18n:check` in sync (1,612).
+- **Status:** app PR **#373** → `main`, **open — not merged**: merging deploys the backend to production
+  and puts all of `development` on `main`, which is Maxim's release decision. Docs PR alongside.
+
 ### 2026-09-28 — Splash tagline + slogans localized (EN/FR by the saved language, next cold start)
 
 - **Asked (/goal):** "last session failed, so fix this" — the splash's tagline and slogans were
@@ -120,6 +153,60 @@
   the PREVIOUS day west of UTC — fixed by the hotfix entry above (Bugs #288).
 - **Status:** merged as **#369** (`eb6e7a8`). (Recorded here by the follow-up session; the original entry
   was written but left uncommitted because the file held other sessions' changes.)
+
+### 2026-09-27 — Extract Ontario Costco flyer coupons for review before import
+
+- **Asked (/goal):** *"use Firecrawl to parse all the ontario flyer content
+  https://www.costco.ca/o/-/coupons and extract all necessary details to import them to the app as
+  price points. i need to double check them before you submit them into the production table"*.
+- **Firecrawl MCP was down** (`CONNECTION_CLOSED`); `Technical/Flyer-ingestion.md` already documents that
+  `costco.ca/coupons.html` is Akamai-protected and blocks server-side scraping anyway, so used a live
+  Claude-in-Chrome browse instead (the documented method for this exact page) — page confirmed "offers
+  available in Ontario" for the loaded delivery location.
+- **Output only — NOT imported.** Draft JSON in [[import-flyer.mjs]] shape at
+  `backend/data/flyer-imports/costco-coupons-2026-09-14.DRAFT.json` (region ON, batchKey
+  `ON-2026-09-14`, 78 priced items across the 2-week + 4-week sections). 5 items excluded (missing
+  price breakdown on page — Duracell batteries, 3 "Costco.ca only" tiles, the Bridgestone tire rebate)
+  and 1 anomaly flagged (Kirkland facial towel showed `validUntil` year 2027, treated as a site typo →
+  set to 2026). Awaiting Maxim's review before running `import-flyer.mjs` / `POST /api/flyer/import`.
+- **Status:** draft ready for review, nothing pushed to prod.
+
+### 2026-09-27 — Same flyer extraction for Quebec
+
+- **Asked:** *"can you do the same for quebec also?"* — same source URL, region switched via delivery
+  location (auto-resolved to warehouse **Boisbriand**).
+- **Output only — NOT imported.** `backend/data/flyer-imports/costco-coupons-2026-09-14-QC.DRAFT.json`
+  (region QC, batchKey `QC-2026-09-14`), same 78-item catalog and prices as the Ontario batch, with two
+  QC-specific deltas: Champion dual fuel generator carries a $0.35 eco-fee (price $800.34 vs $799.99 in
+  ON); several grocery items show a "Taxable Food" tag (QST display only, not a price difference).
+  Same 5 exclusions + Kirkland-towel 2027 typo as the ON batch.
+- **Status:** draft ready for review, nothing pushed to prod.
+
+### 2026-09-27 — Corrected national (ALL-province) flyer price points + crawl rules
+
+- **Asked:** after reviewing the ON/QC drafts, Maxim gave detailed corrections (see message log) —
+  Duracell has 4 SKUs (log all, 3 resolve online at $19.99/$25.99, warehouse likely cheaper), the 3
+  `COSTCO.CA ONLY` tiles under-report their savings (Samsung 77" TV is actually -$700 not -$500 per
+  its product page), eco-fees/taxes are never part of product price in any province, Hot Buy tiles
+  are not price drops, never merge multiple SKUs into one entry (golden rule, always), and asked to
+  find the cross-province pattern before building per-province files.
+- **Verified BC too** (in addition to ON/QC): identical catalog/regular-price/savings nationwide,
+  only eco-fee amount and QC's "Taxable Food" tag vary — both excluded from price. This makes the
+  flyer genuinely national, so replaced the separate ON/QC drafts with one
+  `backend/data/flyer-imports/costco-coupons-2026-09-14-ALL.json` (region ALL, 119 line items after
+  SKU-level splitting, validated: no duplicate SKUs, only 1 item — the unresolved Duracell SKU
+  1625149 — has no promoPrice).
+- **Docs:** new `Technical/Costco_Flyer_Province_Comparison.md` (province diff findings, golden rule,
+  Hot Buy rule, online-tile-price-discrepancy rule, Duracell findings, priceSource flag, Bridgestone
+  rebate roadmap ask, desired crawl cadence); cross-referenced from `Flyer-ingestion.md`.
+- **Not done — Maxim's call:** recurring automated crawl (first-hour-of-new-cycle) not yet scheduled;
+  Treasure Hunt / Offers Ending Sunday / Online deals / Executive-only deals not covered by any crawl
+  yet. Bridgestone-style rebate offers need a new "special offers" table — not built, flagged only.
+- **Status:** `costco-coupons-2026-09-14-ALL.json` ready for review, nothing imported to prod yet.
+  **Update 2026-09-28:** it WAS imported to production later on 2026-09-27 — 1,547 `price_points`
+  rows (119 offers × 13 provinces), confirmed by query; it needed three re-runs (Bugs #300). The
+  local JSON's `_note` still says "pending review". The follow-ups are
+  `Roadmap/Costco_Coupons_Ingestion_Roadmap.md`, written the same day.
 
 ### 2026-09-27 — Repair production receipt data against the photos + the parser bugs behind it
 

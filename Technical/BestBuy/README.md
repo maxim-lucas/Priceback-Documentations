@@ -4,9 +4,21 @@ Everything specific to Best Buy Canada as a PriceBack store. Per the standing
 rule — **one store = one parser file and one documentation folder** — nothing
 here describes another retailer, and no other store's folder describes Best Buy.
 
-**Status (2026-09-10):** store #2. Parser promoted off the lab lane on
-`development` (PR #320); price feed built and tested; **live in the dev
-environment only**. Prod is deliberately still off — see the audit.
+**Status (2026-09-28): launch held — "Coming soon" in production, lab lane
+only.** When `development` was merged into `main` (branch
+`merge/main-and-development`), Maxim's standing call was that every store
+except Costco stays "Coming soon" in production. So the promotion's five
+declarations moved back together — the parser into `LAB_STORE_PARSERS`,
+`bestbuy` into `LAB_ONLY_STORES`, `enabled: false` in the bundle and in
+`policies.json`, the store-content sync SQL regenerated, and
+`BESTBUY_SCAN_ENABLED` defaulting to `false`. That is exactly the posture `main`
+always shipped; none of the parser, adapter or job work was removed, and lab
+builds (dev backend) still accept Best Buy with its dedicated parser.
+Re-promoting is the documented one-line move plus the flags and the sync — the
+agreement is pinned by `__tests__/bestBuyStorePromotion.test.js`.
+
+*Earlier (2026-09-10):* store #2 on `development` (PR #320), price feed built
+and tested, live in the dev environment only — see the audit.
 
 ## Files
 
