@@ -6,7 +6,7 @@ Central documentation hub for all PriceBack projects (app, backend, website, mar
 
 - **`Marketing-Plan/`** — go-to-market strategy, social media, Claude/MCP automation, growth tactics, launch calendar.
 - **`Technical/`** — architecture, database design/schema, environment config, build guides, ingestion pipelines, sign-in/paywall configs.
-- **`Roadmap/`** — future roadmap, price-drop roadmap, dual-capture plan, Plan A+B rollout.
+- **`Roadmap/`** — future roadmap, price-drop roadmap, dual-capture plan, Plan A+B rollout, Costco-coupons ingestion roadmap.
 - **`Security/`** — security policy and recommendations.
 - **`Publishing-Compliance/`** — app store publish checklist/requirements, Play Data Safety answers, reviewer notes.
 - **`Operations/`** — task log, common bug fixes, incident response, deployment, audits (credit/performance/subscription-money), technical debt.
