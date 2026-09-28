@@ -12792,3 +12792,112 @@ the same run.
   (27 vs 26 lines) said so. (2) **A digit run must END where the pattern thinks it does**
   — `(\d{3,5})` without `(?!\d)` silently truncates. (3) **A local field DERIVED from a
   synced field is not local-only** — re-derive it when its source changes.
+
+## 288. Every purchase date printed one day early in Canada — including in the claim email to the store (2026-09-27, branch hotfix/receipt-dates-province-tracking)
+
+- **Date:** 2026-09-27 · **Area:** mobile (receipt screen, claim assistant, barcode history, Home) + i18n
+- **Symptom.** A receipt dated June 30 showed "June 29" in the receipt screen's header,
+  its "paid" card and its chart axis; the claim assistant's email and phone script told
+  the store the purchase was made the day before the receipt says; a product's purchase
+  history showed the same shift; and on Home, every January 1st receipt counted in the
+  PREVIOUS year's "spent this year". Found while building the admin receipt desk (#369),
+  whose own header already used `parseISODate`.
+- **Root cause.** One conversion, in four places: `new Date("YYYY-MM-DD")` is **UTC
+  midnight**, the evening before anywhere west of Greenwich. `DetailScreen` called
+  `formatDate(new Date(receipt.purchaseDate))`; `ClaimAssistantScreen` and
+  `BarcodeScanScreen` passed the string to `i18n.formatDate`, which did the same
+  `new Date(value)` inside; `HomeScreen` read `new Date(purchaseDate).getFullYear()`.
+  The adjustment-window module had warned "do NOT hand formatDate the ISO string" — a
+  comment, and three call sites walked past it.
+- **Fix.** At the root: `i18n.formatDate` now reads a bare `"YYYY-MM-DD"` as that
+  calendar day (local midnight via `localInstantAt`); every other input is unchanged.
+  `DetailScreen` passes the string; "spent this year" moved into a pure
+  `utils/receiptSpending.spentInYear` that reads the printed year's own digits. The
+  receipt screen now shows the receipt's TWO dates apart — **Purchase date** (printed)
+  and **Scanned on** / **Imported on** (the `createdAt` instant on the shopper's province
+  day, #289) — with `detail.scannedOn` / `detail.importedOn` in `en` + `fr`.
+- **Evidence.** `formatDateCalendar` and `receiptSpending` run in the seven-zone matrix;
+  a claim-assistant test with the REAL i18n asserts the draft says "June 1, 2026".
+  Reverting `formatDate` fails the matrix in all 7 zones and the claim test in Toronto.
+- **Rules.** (1) **A date-only value is a DAY, never an instant — no `new Date("YYYY-MM-DD")`
+  on its way to a screen, a sum or a message.** (2) **Fix the formatter, not the callers**:
+  a warning comment next to a trap protects exactly the callers who read it.
+
+## 289. The server counted every adjustment window on the UTC day — a day ahead of Canada every evening (2026-09-27, branch hotfix/receipt-dates-province-tracking)
+
+- **Date:** 2026-09-27 · **Area:** backend (`receiptsRepo` policy status, verified-drop +
+  legacy sweeps) + mobile tracking clock
+- **Symptom.** None reported — which is the pattern (#256 was the same shape on the
+  client). From 17:00 in Vancouver / 20:00 in Toronto, the server's "today" was already
+  tomorrow: `recomputePolicyStatus` / the batch heal flipped receipts `watching → expired`
+  while the app still showed a day left, the legacy flyer/scrape sweeps stopped pushing on
+  the window's last evening, and push emoji were picked on a different day than the in-app
+  chip (the open "disagreement #2" of `Technical/Adjustment_Window_Time_Model.md`).
+- **Root cause.** Four clocks on the server, all UTC: `new Date().toISOString()`
+  (`recomputePolicyStatus`), Postgres `CURRENT_DATE` (`recomputeOverduePolicyStatuses`),
+  milliseconds since UTC midnight (`priceDropNotifier.urgencyTier`), and a UTC parse plus
+  `setDate` (`server.isWithinAdjustmentWindow`). The 2026-09-17 fix (#256) moved the APP to
+  the device's local day and recorded "no province lookup needed" — true on a phone,
+  impossible on a server with no phone clock.
+- **Fix.** Maxim, 2026-09-27: *"the tracking should be based on the timezone of the user
+  based on the province"*. `shared/trackingTime.js` (mirrored to `backend/shared/`) maps
+  the 13 provinces/territories to IANA zones. The server counts on the OWNER's /
+  BUYER's / watch item's province day (`backend/lib/trackingWindow.js`, the app's own
+  formulas; no province → Eastern, never UTC); the batch heal binds one date per province
+  into a `CASE`. The app counts on the same province day (`utils/trackingClock.js`, fed
+  from `prefs.province`; device-local when there is none). The admin desk shows the scan
+  day and the countdown on the OWNER's clock (`scannedOn`, `ownerProvince`).
+  **No migration:** `purchase_date` was already the printed date and `created_at` already
+  the scan instant.
+- **Evidence.** `__tests__/trackingParity.test.js` requires the backend module and the
+  app to give the same day for every province at every seventh hour of 2026, the same
+  days-remaining and the same tier. `policyStatusProvinceDb.test.js`: at 2026-06-15T05:30Z
+  a BC receipt stays `watching` while an ON one expires. Making the server day UTC again
+  fails all three DB tests; `CURRENT_DATE` back in the batch fails exactly the two batch
+  tests.
+- **Rules.** (1) **"Today" belongs to the shopper, not to the machine asking** — a server
+  has no local day worth using. (2) **When two sides must agree on a date, give them one
+  table and a parity test**, not two implementations that "mirror" each other in a comment.
+
+## 290. `main` CI red on two tests that were right on their own and wrong together (2026-09-27, branch hotfix/receipt-dates-province-tracking)
+
+- **Date:** 2026-09-27 · **Area:** CI (mobile Jest isolation, backend session-replay test)
+- **Symptom.** Run 36178009831 on `main` (`c060bcf`): Mobile red on
+  `purchaseServiceDeviceCredit.test.js` (2 device-fingerprint tests, `digestStringAsync`
+  never called) plus the `purchaseService.js` branch floor missed as a consequence; Backend
+  red on `sessionReplayGraceDb.test.js` *"every token handed out inside the window still
+  works"*. Both passed alone, both passed on a developer laptop.
+- **Root causes.**
+  1. **Jest's resolver is per WORKER, not per file.** `purchaseService.test.js` mocked
+     `expo-device` with `{ virtual: true }`, which caches "purchaseService.js requires
+     expo-device" as the bare-name id. `purchaseServiceDeviceCredit.test.js`, drawn later
+     by the same worker, registered its `doMock` under the real path — so the cached id
+     missed, the mock was bypassed, and the real native module loaded. Reproduced with
+     `jest --runInBand purchaseService.test.js purchaseServiceDeviceCredit.test.js`. A scan
+     found the same virtual/non-virtual mix latent for `react-native`,
+     `expo-file-system/legacy`, `expo-image-manipulator`, `expo-web-browser` and
+     `react-native-purchases` — two earlier sessions had met it and worked around it
+     locally (one by making more suites virtual).
+  2. **The replay test asserted on lock order.** Two concurrent replays of token A return
+     C (issued first, then superseded) and D (live); the test then presented both in
+     `Promise.all` order. When D went first — an ordinary refresh that stamps
+     `last_used_at` — presenting C afterwards is "a descendant was presented", which the
+     theft rule correctly burns. Green or red on which transaction took the lock first.
+- **Fix.** All 29 `{ virtual: true }` mocks of modules that exist removed;
+  `__tests__/jestMockHygiene.test.js` fails on any new one and replays the exact pair in
+  one worker in pinned order (`__tests__/fixtures/orderedTestSequencer.js`). The replay test
+  presents tokens in issuance order (`sessionId`), and a sibling test pins the reverse
+  order as `reuse`. No shipped code changed for either.
+- **Evidence.** Restoring the one virtual mock fails both guard tests (the replay shows
+  "2 failed, 163 passed" — the CI failure exactly); sorting newest-first fails the replay
+  test deterministically.
+- **Also found while verifying (not on CI):** `writePathEdgesDb` *"updated_at bumped on the
+  admin edit"* failed 3/3 on the dev machine. `appConfigRepo.set` stamped the INSERT with the
+  database's `now()` (column default) and the conflict UPDATE with the app's `new Date()` —
+  one column, two clocks — and that machine ran ~76 ms behind the database, so an edit right
+  after the insert was stamped earlier. Both writes now take `now()` (commit `5064897`).
+- **Rules.** (1) **`virtual: true` is for modules that do not exist.** For anything that
+  resolves it is not a harmless flag — it poisons other suites in the same worker.
+  (2) **A test must not assert on which of two concurrent transactions won a lock** unless
+  that order is the thing under test. (3) **"Passes alone" is a symptom, not an alibi** —
+  replay the pair in one worker before calling it a flake.
