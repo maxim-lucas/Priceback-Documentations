@@ -16,6 +16,29 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-29 — Hotfix: production receipt misparses (names, lost lines, app tab bar)
+
+- **Asked (/goal):** *"i scanned few receipts today in production and some items was misparsed, the
+  name was incorrect or incomplete, some keywords should have been excluded and didnt. this is a hotfix
+  on main branch. check the uploaded receipts by maxim today and make sure all products are parsed
+  correctly, fix the names if needed and optimize the list of excluded keywords or optimize the parser
+  to support the receipts. Dont take any risk of regression"*. Branch named: `main` → per the
+  feature-branch rule, `hotfix/receipt-parse-2026-09-29` off `main`, PR into `main`.
+- **Costco-parser confirmation:** the /goal itself asks for parser changes; kept to
+  `costcoReceiptParser.js` only — `receiptParsingShared.js`, `receiptGeometry.js`, `ocrCleanup.js`
+  and the Best Buy parser are untouched.
+- **Shape:** 8 receipts audited (all Costco Gloucester). Four rules added — TPD-led column-split
+  block, wrapped-name tail rejoin, post-parse name tidy (` / `, trailing `$`), Costco-app tab-bar strip.
+  Prod data repaired for 3 receipts in one guarded transaction. Detail: Bugs_Common_Fixes #296,
+  Receipt_Data_Verification_Ledger.
+- **Prod images:** downloaded read-only via `railway run` for audit; re-OCR through the dev backend
+  was declined by the permission layer, so the geometry of today's photos is NOT captured as fixtures —
+  flat prod text is (`__tests__/fixtures/receipts-prod-text/`).
+- **Does not reverse anything recorded here.** The golden snapshot's `B / S THIGHS`-style names were a
+  pinned artefact, not a decision.
+- **Status:** app PR **#375** open (`5ecd07b`); prod data already repaired (3 receipts, guarded tx).
+  Merge is Maxim's; the parser fix reaches users with the next store build.
+
 ### 2026-09-28 — Splash tagline + slogans localized (EN/FR by the saved language, next cold start)
 
 - **Asked (/goal):** "last session failed, so fix this" — the splash's tagline and slogans were
