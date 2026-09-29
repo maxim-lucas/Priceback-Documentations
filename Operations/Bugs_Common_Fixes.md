@@ -13103,4 +13103,49 @@ the same run.
   read what it needs itself. (2) **`i18n:check` cannot see a literal** — grep a screen for
   quoted prose, not just for missing keys.
 
+## 296. Eight Ontario receipts scanned in production: two lines lost, a SKU-less "TACO", and "CKN / VEG DUMP $" (2026-09-29, branch hotfix/receipt-parse-2026-09-29)
+
+- **Date:** 2026-09-29 · **Area:** mobile parser (`src/services/costcoReceiptParser.js` only) +
+  prod data · Costco warehouse receipts
+- **Symptom.** Maxim scanned 8 receipts in production. Stored vs printed:
+  Gloucester #1362 2026-01-28 missing `DEMPS.STAYSF` and `MILK 2%`, CHICK BREAST at full price
+  (TPD unapplied) — items 293.06 vs printed 298.94, and the stored tax absorbed the gap
+  (29.01 vs 23.13); 2026-06-28 shipped a product `TACO` with no SKU (`ln:` placeholder);
+  2026-02-07 product `CKN / VEG DUMP $`. On the flat path an app screenshot's cropped tab
+  label `xplore` became a product that took the shrimp's $18.99.
+- **Root causes.**
+  1. The column-split reshape only opened a block on a **non-TPD** SKU+name line. Here the
+     first priced item's own TPD intro was the first row of the name column
+     (`TPD/3661730, DEMPS, TPD/774939, MILK` then `5.00-, 6.99, 2.00-, 5.89`), so nothing
+     zipped: the DEMPS row found a discount below it, MILK found nothing.
+  2. Flat OCR split one printed row, `24930 CHICK TACO 18.17`, into `24930 CHICK` / `TACO` /
+     `18.17`. The head had no price and the next line wasn't one, so it was dropped; the tail
+     paired with the price.
+  3. Vision returns `/` as its own word and the geometry row join puts spaces around every
+     word — the same artefact was already pinned in the golden snapshot as `B / S THIGHS`,
+     `TIDE W / DOWNY`, `COLLAGEN / CER`. `$14.99` split into `$` + `14.99`, and the item
+     pattern's `\$?` only strips an ADJACENT `$`.
+  4. No rule knew the Costco app's tab bar (`Explore · Shop · Warehouse · Cart`).
+- **Fix (Costco parser only — the shared engine, geometry, and Best Buy are byte-identical).**
+  (1) A block may start on a TPD intro when the next line is another name-column row; the
+  exact count + kind alignment gate is unchanged. (2) SKU+name with no price → 1–3 word
+  letters-only tail (≤ 16 chars, not register vocabulary) → price: rejoin. (3)
+  `tidyCostcoItemName` after parsing: ` / ` → `/`, drop a trailing lone `$`. (4)
+  `stripCostcoAppNavBar` in the warehouse preprocess — only when ≥ 2 distinct tab labels
+  appear as bare lines, and only lines made of nothing but tab labels.
+  **Data:** guarded single transaction on prod (ledger:
+  `Operations/Receipt_Data_Verification_Ledger.md`); all three receipts re-read to a 0.00 gap.
+- **Evidence.** Golden corpus (56 receipts): exactly 6 intended diffs (5 slash names + `TACO` →
+  `CHICK TACO` / SKU 24930), 51 byte-identical. Prod replay of all 8: every item = printed
+  subtotal. Full mobile suite 281 suites / 6689 tests green. 5/5 mutations (one per rule) turn
+  the new tests red.
+- **Not fixed (flagged).** (a) Screenshots/photos without a printed date are stored with the
+  scan date — `r_…_1gall` is an April receipt dated today. (b) The flat path reads no tax/total
+  on `yb0uh` (values printed above their labels); production used geometry and stored them
+  correctly — a shared `extractTotal` change, deliberately not made in a hotfix.
+- **Rules.** (1) **A golden snapshot can pin a bug** — `B / S THIGHS` was "expected" for months;
+  read a snapshot diff as a claim about the receipt, not about the parser. (2) **When the
+  reshape refuses a block, ask what the block's FIRST row is** — the gate was right, the start
+  condition was too narrow.
+
 ---
