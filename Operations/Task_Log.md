@@ -16,6 +16,27 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-29 — Hotfix: only SAVINGS price tags earn credit; tag-parser + review-photo fixes
+
+- **Asked (/goal):** merge the previous work (price-drop review queue → **PR #376**, merged), then a new
+  hotfix branch off `main` (`hotfix/price-tag-savings-only`). A new user submitted **6 tags, none a
+  savings tag** (regular prices). (1) **Tighten the price-tag screen** so the shopper sees that **only savings
+  tags give credit**; no validity date ⇒ usually not savings; no price-before + discounted price / discount
+  amount ⇒ not savings; **non-savings tags are still read and reach the review — they just earn nothing.**
+  (2) Fix the review photo sometimes showing "Couldn't load the image". (3) Treat tags **waiting for review as
+  price points** (keep SKU/product/price reference) **without the free credit**; **draft a feedback
+  notification for the user — Maxim reviews the wording BEFORE anything is pushed.** (4) Optimise the price-tag
+  **OCR parser** (many problems).
+- **Shape:** one shared predicate `shared/tagSavings.js` (discount AND end date) mirrored to
+  `backend/shared/`; server `hasSavings` + both settlement SQL queries now require `valid_until`; `TagCard`
+  live badge + intro notice + reworded no-credit copy (en/fr); `ZoomableImage` auto-retry ×2 + fresh signed URL
+  (`GET /api/admin/price-tag-reviews/:id/image-url`) + "Try again"; parser learns French ÉCOFRAIS/TOTAL, `FXP`
+  for `EXP`, French savings words, cluttered-read confidence. Details: `Technical/Price_Tag_Savings_Only_Credit.md`.
+- **Pending tags:** they were already price points (`price_points`, unverified, source `tag`) — nothing new
+  needed; the credit path is what closed. The 3 of the 6 with `regular > current` but no date can no longer pay.
+- **Notification:** DRAFT ONLY in `Operations/Price_Tag_Feedback_Notification_Draft.md` — NOT sent.
+- **Status:** code + tests done; PR pending. Bug entry #297.
+
 ### 2026-09-29 — Hotfix: production receipt misparses (names, lost lines, app tab bar)
 
 - **Asked (/goal):** *"i scanned few receipts today in production and some items was misparsed, the
