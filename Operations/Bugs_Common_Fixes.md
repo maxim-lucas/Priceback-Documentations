@@ -13177,3 +13177,30 @@ to pair them, not adjacency. (3) **Never make a network failure terminal on the 
 
 ---
 
+---
+
+## 298. Play rejected 3.0.2: "Login credentials are missing" — on sign-in code nobody touched (2026-09-30, branch fix/play-reviewer-access-android)
+
+**Symptom.** Play Policy status: *Play Console Requirements — login credentials are missing*. Evidence
+screenshots end on "Create your account" after the Google picker. The sign-in code had not changed since
+launch, so the rejection looked arbitrary.
+
+**Root cause.** (1) The Sign in details declaration said "N/A – Google Sign-In only" since launch. Play's
+form states reviewers may not create accounts or use their own — earlier reviews passed only because
+reviewers used their own Google accounts anyway. (2) #374 (2026-09-29 04:30 UTC) gated Price Check and
+Email Sync behind Unlimited; Play's fleet signed in 38 minutes later and could not reach them without a
+purchase it may not make. (3) The reviewer access code (PR #299) that answers exactly this was iOS-only.
+Found alongside: `reviewer:appstore` (`app-review@priceback.ca`) matched the data-cleanup
+"company accounts" classifier (`%@priceback.ca`) and was absent from production.
+
+**Fix.** Android reviewer access: `_sessionsActive()` uses the first-party session on Android only while
+the stored user is exactly `reviewer:appstore`/`reviewer`; the link renders on both platforms; copy is
+store-neutral (EN/FR). Server: `lib/reviewerAccount.js` overlays a complimentary, non-expiring Unlimited
+tier (read-side, never stored) and exempts the account from the single-device claim so parallel reviewers
+cannot auto-flag it. `dataCleanup.protectedSubs()` and the `staleSignups` fingerprint always exclude it.
+
+**Lessons.** (1) **A store's reviewer must reach every feature with credentials WE supply, on THAT
+platform, without paying.** "They can use their own account" passed by luck, not by policy. (2) **A new
+paywall gate is a review-access change** — check it against the reviewer account before shipping.
+(3) **A cleanup that matches by domain will eventually match your own service accounts** — protect them in
+code, not in config.

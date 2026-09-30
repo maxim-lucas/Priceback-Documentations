@@ -10325,3 +10325,35 @@ has **no production guard** by design (see `purge-test-data.js`'s precedent) —
 it is a manual, deliberate CLI action gated on `--yes`, never called from any
 automated path. No store parser, no user-facing string, no mobile code
 touched.
+
+# 2026-09-30 — Play rejected 3.0.2 ("Login credentials are missing") → Android reviewer access
+
+**Branch:** `fix/play-reviewer-access-android` (off `main`), docs `docs/play-reviewer-access-android`.
+
+Read the rejection in Play Console via Chrome: Sign in details held only "N/A – Google Sign-In only".
+Production showed Play's reviewers had signed in with their own Google accounts minutes after #374
+gated Price Check + Email Sync. Maxim chose to extend the reviewer access code to Android (not a Google
+test account) and asked that reviewer accounts never be caught by data cleanup.
+
+## Changes
+- `src/services/authService.js` — `_sessionsActive()`; reviewer sign-in allowed on Android;
+  `isSignedIn`/`authedFetch`/`revokeFirstPartySession` honour a reviewer session on Android only.
+- `src/screens/OnboardingScreen.js` — "Have an access code?" on both platforms.
+- `src/services/i18n.js` — reviewer copy store-neutral, EN + FR.
+- `backend/lib/reviewerAccount.js` (new) — identity + complimentary Unlimited overlay.
+- `backend/server.js` — uses it in `_dbProfileFor`; `/api/me` skips the device claim for the reviewer; the three scan-charge sites read the same overlay so the reviewer is not charged credits it is shown as not needing.
+- `backend/lib/dataCleanup.js`, `backend/lib/staleSignups.js` — always exclude the reviewer account.
+
+## Tests
+Mobile: 9 new Android cases in `authServiceReviewerCode.test.js` (incl. Google-user containment and a
+spoofed-provider case); mutation-checked. Backend: `reviewerAccount.test.js` (new), 2 DB cases in
+`reviewerAccessDb.test.js`, registry + fingerprint cases.
+
+## Regression risk
+Android Google users: one extra keychain read per authed request; request shape unchanged (tested).
+iOS: `_sessionsActive()` returns true exactly as `_sessionsSupported()` did. Backend overlay is keyed on
+the exact synthetic sub. No parser, no pricing, no Costco code touched.
+
+## Still owed
+3.0.3 bump → tag → EAS build (Maxim's go) → upload → paste Play Sign in details block from
+`REVIEWER_NOTES.md` with the code → resubmit.
