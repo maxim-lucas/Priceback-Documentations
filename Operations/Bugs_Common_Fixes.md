@@ -13149,3 +13149,31 @@ the same run.
   condition was too narrow.
 
 ---
+
+## 297. Six regular-price tags reached the review queue; a photo that "couldn't load" (2026-09-29, branch hotfix/price-tag-savings-only)
+
+**Symptom.** A new shopper's first six tag scans all landed in the admin review queue as pending, none a
+savings tag. Separately, opening a review photo sometimes showed "Couldn't load the image."
+
+**Root cause.** (1) The credit gate was `regular > price OR instantSavings > 0`, both taken from the
+client's parse. On a cluttered French tag OCR hands back a second number (eco-fee lines, a neighbouring
+tag's price) and `regular > price` is true with **no end date** — three of the six were in that state. A
+real promo always prints `EXP <date>`. (2) The parser had no notion of the French "ÉCOFRAIS … TOTAL"
+layout: the fee-inclusive TOTAL is what's paid, but the label sits away from its amount in OCR order.
+`EXP` misread as `FXP` lost the date on the one genuine savings tag. (3) The full-screen viewer treated the
+first failed download as terminal — a dropped connection, or a signed URL that expired while the list sat
+open, both read as a broken image.
+
+**Fix.** `shared/tagSavings.js` — savings = discount **and** an ISO end date — is the one predicate for the
+review-screen badge, the server's `hasSavings`, and (as `valid_until >= today`, no `IS NULL` escape) both
+settlement queries. Parser: eco-fee `base + fee = total` pair picks the TOTAL; `[EF]X[PR]` date variants;
+French "rabais instantané / économisez"; a label-free read with 3+ amounts is no longer "high" confidence.
+Viewer: two silent retries (re-signing the URL each time), then a "Try again" button.
+
+**Lessons.** (1) **A credit gate must not trust a client-derived comparison on its own** — require the
+independent printed fact (the end date) that a real savings tag always carries. (2) **In OCR text, order is not
+layout**: when a label and its value can be separated, use an arithmetic relationship (`base + fee = total`)
+to pair them, not adjacency. (3) **Never make a network failure terminal on the first try** for a signed URL.
+
+---
+
