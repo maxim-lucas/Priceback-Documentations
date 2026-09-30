@@ -2,7 +2,9 @@
 
 Copy-paste this into:
 - **App Store Connect → App version → App Review Information → Notes**
-- **Google Play Console → App content → Testing instructions** (under App access)
+- **Google Play Console → Policy and programs → App content → Sign in details**
+  (formerly "App access") — use the dedicated Play block in the Android section
+  below, NOT the short version: Play's field is 500 characters.
 
 Both stores have a free-text field for reviewer notes. Apple's is 4000 chars;
 Play's is shorter. The "Short version" at the bottom of this file fits both.
@@ -11,7 +13,10 @@ Play's is shorter. The "Short version" at the bottom of this file fits both.
 
 ## Sign-in — how the reviewer gets in
 
-### iOS: use the access code in App Review Information
+### Both stores: use the access code
+
+(iOS: the code goes in App Review Information. Play: the code goes in Sign in
+details — see the Android section below for the exact text.)
 
 **On the sign-in screen, tap "Have an access code?" (the small underlined link
 below the sign-in buttons), enter the code from the App Review Information
@@ -53,9 +58,19 @@ exactly one synthetic account (`reviewer:appstore`) that holds no real user data
 and has no admin access, so the worst case if the code leaks is that a stranger
 looks at a demo account.
 
-**iOS only.** `authedFetch` consults the first-party session on iOS only, so on
-Android the code is not offered and the link is not rendered — see the Play
-section below.
+**Both platforms since 3.0.3.** Until 3.0.2 the link was iOS-only; on Android
+the session is now used only while the stored user is this reviewer account, so
+no Google user's credential path changed.
+
+**The reviewer account holds PriceBack Unlimited, complimentary.** Both stores'
+declarations promise the credentials unlock everything, and a reviewer cannot
+buy a subscription — so `/api/me` reports an active, non-expiring `unlimited`
+tier for `reviewer:appstore` (read-side only, nothing is stored as paid). Price
+Check and Email Sync, gated on a subscription since #374, are therefore
+reachable. The account is also permanently excluded from every data-cleanup path
+(`backend/lib/reviewerAccount.js`) — the company-accounts classifier used to
+match its `@priceback.ca` address.
+
 ### Onboarding after sign-in asks for a region — use these values
 
 The app serves Canadian retailer price-adjustment policies only, so the setup
@@ -70,12 +85,31 @@ Then tick the two required agreement checkboxes (Terms of Service, Privacy
 Policy — both open the live public documents) and tap Finish. The optional
 referral-code field can be left empty.
 
-### Android / Play: same flow, Google Sign-In
+### Android / Play: the same access code — never "use your Google account"
 
-Android offers Google Sign-In only (Sign in with Apple is iOS-only). If the
-Play reviewer prefers not to use their own Google account, contact
-maxim.lucas@viacesi.fr and a dedicated test account will be provisioned within
-one business day.
+**3.0.2 was REJECTED on Play (2026-09-30) for "Login credentials are missing".**
+The Sign in details declaration had no username or password, only
+"N/A – Google Sign-In only". Play's form is explicit: reviewers "are unable to
+create accounts, use their own existing accounts". Earlier builds passed only
+because reviewers happened to sign in with their own Google accounts (the
+`<name>.<5 digits>@gmail.com` rows); 3.0.2 put Price Check and Email Sync behind
+a subscription they could not buy, and the review stopped there. "Contact us for
+a test account" is not an answer either: Play reviewers cannot contact you.
+
+Paste this into **Play Console → App content → Sign in details → Add details**
+(Name: `Reviewer access code`; leave username/password empty; tick "full access"):
+
+> PriceBack only offers Google Sign-In, so instead of a password we provide an
+> access code. On the sign-in screen tap the link "Have an access code?" below
+> "Continue with Google", enter: <ACCESS CODE>, and tap Sign in. This opens a
+> demo account with PriceBack Unlimited active (all premium features). Setup:
+> postal code M5V 3L9, province Ontario, tick both agreements, Finish.
+
+That is under the 500-character limit with a code of up to ~40 characters. The
+code is `REVIEWER_ACCESS_CODE` on the production Railway service — the same one
+App Review uses. **Only declare this on a build that has the Android link
+(3.0.3+).** A declaration pointing at a link the binary does not render is its
+own rejection.
 
 ---
 
@@ -407,9 +441,9 @@ We respond within 1 business day to reviewer questions.
 > policies. Scan a receipt, we track current prices, alert you when an
 > item drops, hand you a one-tap claim flow.
 >
-> **Signing in (iOS):** on the sign-in screen tap **"Have an access code?"**
+> **Signing in (iOS and Android):** on the sign-in screen tap **"Have an access code?"**
 > (small underlined link below the buttons), enter the code from the App Review
-> Information field above, and tap Sign in. That opens a normal account with
+> Information / Sign in details field, and tap Sign in. That opens a normal account with
 > credits already on it — no Apple ID, no Google account, no browser needed.
 > Sign in with Apple and Google also work and are there for real users, but
 > both need something a review device typically lacks (an Apple ID signed into
