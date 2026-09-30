@@ -16,6 +16,25 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-30 — Fix every finding of the code review of #376 + #377
+
+- **Asked:** ran `/code-review xhigh #376 #377` (15 findings), then *"Go ahead create a new branch and fix
+  everything."* Both PRs merged to `main` → new branch **`fix/review-376-377-findings` off `main`**, PR into
+  `main` (worked in a separate worktree: the main checkout holds another session's uncommitted
+  `fix/play-reviewer-access-android` work, untouched). "Fix everything" included the Costco TAG parser finding
+  (explicit go-ahead; the receipt parser is untouched).
+- **Shape:** all 15 fixed; table in `Technical/Code_Review_2026-09-30_PR376_PR377.md`, bugs #298 (queue billing),
+  #299 (profile-sync wedge on postal code / CASL), #300 (tag credits). No migration.
+- **Decisions / constraints:** ⚠️ a drop the shopper **claimed while it was held for review is now BILLED when
+  an admin approves it** (no drop alert, charge notice sent) — #376's test pinned "superseded, never charged";
+  the reason is that the app shows verified drops independently of the queue, so review-on would otherwise let
+  most drops escape the commission. **Maxim's call to reverse.** Held/rejected drops still cost nothing, and
+  commission-charged-once is strengthened, not changed. The drain's re-check uses exactly the sweep's window
+  rule (no new "today inside the window" gate — that would be a product change to both).
+- **Also fixed:** two backend tests #377 left red on `main` (`flaggedEarningGuardsDb`, `sybilVerificationDb` —
+  their tag fixtures had no end date). Confirmed failing on untouched `main` first.
+- **Status:** implemented + tested locally (see the PR for numbers).
+
 ### 2026-09-29 — Hotfix: only SAVINGS price tags earn credit; tag-parser + review-photo fixes
 
 - **Asked (/goal):** merge the previous work (price-drop review queue → **PR #376**, merged), then a new

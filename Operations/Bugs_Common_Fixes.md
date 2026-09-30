@@ -13177,3 +13177,98 @@ to pair them, not adjacency. (3) **Never make a network failure terminal on the 
 
 ---
 
+## 298. A drop held for review could be billed twice, billed stale, billed silently — or not billed at all (2026-09-30, branch fix/review-376-377-findings)
+
+**Symptom.** Found by the code review of #376 before any shopper reported it; each path is reachable in
+production with `PRICE_DROP_REVIEW_REQUIRED` on (the launch default):
+- a line with two queued rows (a $40 drop staged by one sweep, a deeper $35 by the next, both approved) was
+  **charged for the overlap twice** and pushed twice;
+- a $40 row approved after the $35 one went out pushed a **stale "dropped to $40"**;
+- a drop that stopped holding while it waited (price point marked misleading, higher flyer price, floor
+  raised) was **still charged** on approval;
+- a drop the shopper **claimed in-app while it was held** was closed as superseded — **never charged**;
+- a queue write failing after the charge committed released the batch → **charged, never told**.
+
+**Root cause.** The queue turned "detect → charge" (one sweep, one `findNotifiable` row per line, seconds
+apart) into "stage → wait → drain", and the drain inherited assumptions only the old shape made true:
+`findNotifiable`'s `DISTINCT ON (ri.id)` and its `pdn.price <= new_price` guard were what kept ONE row per line
+and never re-notified a shallower price — the queue can hand `recordNotified` several rows for a line, and
+its unique index only stops the EXACT same price. The only drain-time re-check was `unitPaid > newPrice`.
+`live = false` covered "the shopper claimed it" as well as "the line is gone". And the queue bookkeeping sat
+between the committed charge and the Expo send.
+
+**Fix.** Drain: re-ask `findNotifiable` scoped to the claimed lines (`receiptItemIds`, `includeClaimed`),
+keep one row per line (the deepest), bill a line claimed after its row was staged (`claimedWhileQueued`) with
+no drop alert, make post-charge bookkeeping non-fatal. `recordNotified`: one drop per line per call, and
+(charge path) nothing at or above the lowest price already notified. Also: the pause switch is re-read from
+`app_config` before every pass, a superseded row is revived when the sweep finds the drop again, the back-off
+doubles (cap 24 h), a shopper's refresh drains only their own rows, and the Guarantee stamp waits for an
+admin's approval when review is on.
+
+**Files.** `backend/priceDropNotifier.js` (`_revalidate`, `_deliver`, `drainQueue`, `_stampGuarantee`),
+`backend/repos/priceDropQueueRepo.js` (`stage`, `claimBatch`, `release`, `rejectedKeys`),
+`backend/repos/priceDropRepo.js` (`findNotifiable`, `recordNotified`), `backend/config/configService.js`
+(`readOpsFlagFresh`, warm race), `src/screens/AdminPriceDropQueueScreen.js`. Full table:
+`Technical/Code_Review_2026-09-30_PR376_PR377.md`.
+
+**Detect next time.** Two ledger debits for one line:
+`select split_part(ref, ':', 2) as item, array_agg(ref order by created_at) as refs from priceback.credit_ledger where ref like 'drop:%' group by 1 having count(*) > 1`
+— legitimate only when each later ref is a DEEPER price (its cents part lower). A `sent` queue row with no `price_drop_notifications` row
+for its (line, price) means the push went out unbilled.
+
+**Lessons.** (1) **When you put a queue between a check and an action, re-run the check at the action.**
+Everything the check guaranteed by being *adjacent* to the action (one row per line, no stale price,
+the world unchanged) is now false. (2) **A uniqueness guard on (key, value) is not "once per key"** — it
+stops a repeat, not a second value. (3) **After money moves, bookkeeping must never be able to stop the
+notification that explains it.**
+
+---
+
+## 299. A returning shopper's profile sync wedged on "postal code required" — CASL withdrawals never landed (2026-09-30, branch fix/review-376-377-findings)
+
+**Symptom.** Any account with no valid postal code on file (the accounts #376 set out to fix) got
+`400 postal_code_required` on every `PUT /api/me/profile` the app's durable sync queue sent after sign-in.
+The queue retries the WHOLE merged payload, so notification toggles and marketing-push withdrawals stayed
+local forever while the app showed them as saved.
+
+**Root cause.** #376 treated any write that grants the Terms of Service as "completes signup". The app
+re-affirms the Terms on EVERY returning sign-in (OnboardingScreen, `route === "main"`), through
+`profileSyncQueue`, with no postal code in the payload.
+
+**Fix.** "Completes signup" = the account's FIRST Terms grant (`consentRepo.hasGranted`, read only when a Terms
+grant arrives and no valid code is on file). New accounts are still refused without a code.
+
+**Files.** `backend/lib/postalCode.js` (`checkProfilePostalCode`, `grantsTermsOfService`),
+`backend/repos/consentRepo.js` (`hasGranted`), `backend/server.js` (`PUT /api/me/profile`).
+
+**Detect next time.** Server logs: repeated 400 `postal_code_required` for the SAME sub. Any 4xx the durable
+queue can receive is a wedge unless the request is fixable by the user.
+
+**Lesson.** **A durable client queue turns a validation rule into a permanent outage for every field merged
+with it.** Before refusing a write, ask which clients retry it automatically and with what payload.
+
+---
+
+## 300. Tag credits: a dateless tag paid through another shopper's date; a last-day tag never paid in the evening (2026-09-30, branch fix/review-376-377-findings)
+
+**Symptom.** (a) A shopper told "no credit" for a tag with no end date was paid anyway the moment anyone else
+scanned the same SKU with a dated tag. (b) A savings tag scanned on its last valid day after ~20:00 Toronto
+(17:00 Vancouver) was told "pending" and never settled.
+
+**Root cause.** (a) Rule 8 (`pricesRepo.applyTagExpiry`) stamps one shopper's EXP on EVERY price point for
+the product, and settlement read `valid_until` — which cannot tell whether a row's OWN tag carried a date.
+(b) Settlement compared `valid_until` with the UTC day (`toISOString`), the route with the province day — the
+Bugs #292 class; #377 made every creditable row pass through that comparison.
+
+**Fix.** Tag price points carry `flags.printedExpiry`; both settlement queries require it (older rows without
+the key keep the old rule and age out). `settleVerifiedTagCredits` reads expiry on
+`trackingTodayISO(province)`; `settleAllVerified` enumerates on UTC − 1 day and lets each pool decide.
+
+**Files.** `backend/repos/crowdRepo.js`, `backend/repos/tagCreditsRepo.js`.
+
+**Lessons.** (1) **A column that another process copies onto your row cannot carry a per-row fact.** Record
+the fact where it is observed. (2) **Every date comparison names its clock** — "today" on a server is a UTC
+day unless someone chose otherwise.
+
+---
+
