@@ -33,7 +33,10 @@
   rule (no new "today inside the window" gate — that would be a product change to both).
 - **Also fixed:** two backend tests #377 left red on `main` (`flaggedEarningGuardsDb`, `sybilVerificationDb` —
   their tag fixtures had no end date). Confirmed failing on untouched `main` first.
-- **Status:** implemented + tested locally (see the PR for numbers).
+- **Status:** PR **#379** open (`d18bd6b`), docs PR **#99**. Verified locally: full backend suite 2081/2082
+  (0 fail, 1 long-standing skip), coverage 94.68/80.74/94.96/94.68; full mobile Jest 284 suites / 6733 pass;
+  i18n in sync. **Not merged** — merging deploys the backend, and the claimed-while-held billing change needs
+  Maxim's yes. Hotfix to `main` → merge back into `development` the same day.
 
 ### 2026-09-29 — Hotfix: only SAVINGS price tags earn credit; tag-parser + review-photo fixes
 
