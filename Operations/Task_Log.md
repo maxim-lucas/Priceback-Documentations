@@ -16,6 +16,12 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-01 — Weekly Costco coupons: extract, import to prod, special-offers table
+
+- **Asked:** extract this week's coupons with Claude in Chrome (a cloud routine cannot reach costco.ca — egress-blocked), save a JSON under `Stores/Costco/Coupons/Canada/<Warehouse|Online> offers/<year>/coupons_<date>.json` (national, stored once, ON/QC/BC verified identical); then *"import the prices in production, the special offers should be imported in a new table"* and flag in the roadmap that special offers feed a manual price-drop check with no commission. Branch → `main` ("main (Recommended)", asked first).
+- **Done:** files merged (docs #103). Prices imported to prod: batch `costco-coupons-2026-09-28-ALL` (127 items) + `…-ALL-online` (1). Prod still runs the OLD per-province fan-out (127 rows × 13) because the NATIONAL change is on `merge/main-and-development`, not `main`. Hot Buy SKUs (4) and the unpriced pork loin (2) were NOT imported (flags unenforced server-side, see Flyer-ingestion §5).
+- **New table (app PR, branch `feat/special-offers-table` off `main`):** migration 0015 `special_offers` + lookup `special_offer_types`, `specialOffersRepo`, `POST /api/special-offers/import` + `GET /api/admin/special-offers` (shared `_adminTokenOk`), `scripts/import-special-offers.mjs`, tests. DDL applied to dev AND prod BEFORE merge (hard rule), ledger row inserted (hash 850ffdc4…, when 1790700000000); the 4 Costco offers inserted in prod (batch `…-ALL-special`).
+- **Still owed:** Maxim merges the app PR (Railway deploys main); the manual-check flagging + admin surface are roadmap only (docs #104). Regression risk: new tables/routes only; no price path, parser or Costco code touched.
 ### 2026-10-01 — Notification fixes, the price-drop lock (paywall), admin review desk
 
 - **Asked (/goal):** disable "price-drop credits used" and "flyer deal on product"; the verified-drop push

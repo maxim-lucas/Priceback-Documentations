@@ -155,9 +155,9 @@
     {"sku":"1901877","name":"Sand & Fog candle","size":"1.7 kg (60 oz) available in 3 scents","regularPrice":29.99,"instantSavings":0,"promoPrice":29.99,"validFrom":"2026-09-28","validUntil":"2026-10-25","flags":{"priceSource":"warehouse","hotBuy":true,"noPriceDrop":true}}
   ],
   "specialOffers": [
-    {"name":"Receive a Costco Shop Card valued at 15% of your qualifying Lennox Home Comfort Systems purchase.*","searchTerm":"lennoxP2","validFrom":"2026-09-28","validUntil":"2026-10-25","type":"conditionalRebate","channel":"warehouse+online"},
-    {"name":"Receive $100 instantly on the purchase of 4 or more new Michelin Passenger or Light Truck tires.*","note":"Installation package is included","searchTerm":"Tires","validFrom":"2026-09-28","validUntil":"2026-10-25","type":"conditionalRebate","channel":"warehouse+online"},
-    {"name":"Receive a free Softouch Motorization upgrade when you purchase a qualifying Hunter Douglas Window Fashions product.*","searchTerm":"HunterDouglas0926","validFrom":"2026-09-28","validUntil":"2026-10-25","type":"conditionalRebate","channel":"warehouse+online"},
-    {"name":"SAVE $100 on each additional pair when you purchase a complete pair of glasses with progressive lenses* or $50 on each additional pair when you purchase any other complete pair of glasses.","searchTerm":"Optical","validFrom":"2026-09-28","validUntil":"2026-10-25","type":"conditionalRebate","channel":"warehouse+online"}
+    {"name":"Receive a Costco Shop Card valued at 15% of your qualifying Lennox Home Comfort Systems purchase.*","searchTerm":"lennoxP2","validFrom":"2026-09-28","validUntil":"2026-10-25","type":"shop_card_percent","channel":"warehouse+online"},
+    {"name":"Receive $100 instantly on the purchase of 4 or more new Michelin Passenger or Light Truck tires.*","note":"Installation package is included","searchTerm":"Tires","validFrom":"2026-09-28","validUntil":"2026-10-25","type":"instant_rebate","channel":"warehouse+online"},
+    {"name":"Receive a free Softouch Motorization upgrade when you purchase a qualifying Hunter Douglas Window Fashions product.*","searchTerm":"HunterDouglas0926","validFrom":"2026-09-28","validUntil":"2026-10-25","type":"free_upgrade","channel":"warehouse+online"},
+    {"name":"SAVE $100 on each additional pair when you purchase a complete pair of glasses with progressive lenses* or $50 on each additional pair when you purchase any other complete pair of glasses.","searchTerm":"Optical","validFrom":"2026-09-28","validUntil":"2026-10-25","type":"additional_item_discount","channel":"warehouse+online"}
   ]
 }
