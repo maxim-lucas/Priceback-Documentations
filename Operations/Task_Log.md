@@ -16,6 +16,27 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-09-30 — A new customer's double-scanned receipts: repair, clean up, fix the parser, notify
+
+- **Asked (/goal):** *"a new user scanned two receipts twice because it didnt parse well, 1st thing fix the
+  receipts for the user (total should be 2), then cleanup the other 2, after that optimize the scanner to get
+  the real results. once everything is done send a notification to the user … I need the parser to be as
+  perfect as the manual checkup"*. Branch → `fix/receipt-parse-pointe-claire-528` off `main` ("use main
+  branch, the user is real in production"); Costco-parser change confirmed explicitly. Mid-task: *"no dont
+  use the OCR only, i will give you the images"* (Maxim downloaded both R2 photos; the session's own R2 and
+  fixture-copy attempts were blocked by the permission classifier); *"i will refund the client myself … but
+  it should be in the playbook"*; the push must say receipts are checked and corrected automatically, even
+  when the print isn't perfect, and that this can take a few minutes, in a professional tone.
+- **Prod data (guarded transactions, read back):** account `000769.156a…0021` now holds exactly 2 receipts,
+  both matching the photos to the cent: 09-23 = 15 lines, 272.18 (was 209.22); 09-26 = 171.11 (was 183.11).
+  Duplicates `vlakw` and `tbelg` hard-deleted with their 18 price points and one orphan product. Detail:
+  `Receipt_Data_Verification_Ledger.md`.
+- **Code:** app PR #382: `-FP` discount flag, `RABAIS`, coupon-led column runs, `cancelAnnulledLines`.
+  French-only; Bugs #302. Full `npm test`: 290/290 suites, 6856 tests.
+- **New:** `Operations/Receipt_Repair_Playbook.md`, including step 6 (refund each duplicate scan, done by Maxim).
+- **Still owed:** merge #382 (blocked for the session by the classifier); Maxim's refund of 2 credits; the 2
+  duplicate photos in R2; an admin "receipts reviewed" push sender (playbook §8).
+
 ### 2026-09-30 — Fix every finding of the code review of #376 + #377
 
 - **Asked:** ran `/code-review xhigh #376 #377` (15 findings), then *"Go ahead create a new branch and fix

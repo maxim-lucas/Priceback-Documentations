@@ -93,9 +93,33 @@ The R2 originals settled two things the OCR alone could not:
 
 Production data was repaired to match — `Operations/Receipt_Data_Verification_Ledger.md`.
 
+## 4c. Pointe Claire #528 — four more shapes (2026-09-30, app PR #382)
+
+A new customer scanned two receipts twice each because the first parse was
+visibly wrong. Both photos were read line by line; the OCR replayed through the
+parser reproduced production's parse exactly. Fixtures:
+`__tests__/fixtures/receipts-prod-text/costco-pointe-claire-528-2026092{3,6}.txt`.
+
+| Printed | Problem | Fix |
+|---|---|---|
+| `0000392415/1323118` / `6.00-FP` | The `FP → F` collapse required the flag right after the amount; on a discount it follows the **minus**. The two-letter flag matched no discount pattern — both $6.00 savings vanished. | `QC_BOTH_TAXES_FLAG` accepts an optional `-` (`shared/receiptLocale.js`). |
+| `1806358 DURACELL AA` / `25.99 F` / `2106265 RABAIS` / `6.00-FP` | A generic rebate names neither a SKU nor the item, so the handler skipped it. | Rewritten `2106265 TPD/<nearest item above>`; guard: the item costs more than the rebate. |
+| `0000391998/2652709` (DAWN's coupon) / `2507482 TIDE` / `1335500 ENSEMBLE` / `3.00-FP` / `24.99 F` / `19.99 F` | A run of labels prints before its amounts. `reshapeColumnSplitTpdBlocks` re-zips that, but only recognized a discount label spelled `TPD/`, so the run broke. TIDE, ENSEMBLE and the PLAQUE vanished, and SUCRE BIO took a PLAQUE price. | Coupon ref → `<barcode> TPD/<sku>` when the SKU is an item above **and** the amount is NOT on the next line. The next-line shape already worked (Laval #505), and it stays byte-identical. |
+| `ANNUL` / `1925368 PLAQUE` / `19.99-FP`, then `ANNUL` / `0000389094/1925368` / `5.00 F` | A void reprints the line sign-flipped (the coupon comes back **positive**). The English VOID handler would remove the whole merged qty-2 PLAQUE line, and nothing read the coupon reversal. | `cancelAnnulledLines` (after the re-zip) removes exactly the most recent line with the same SKU **and** amount, item or coupon. A void with no matching original is left as printed. |
+
+Result: 09-23 → 15 lines = 257.94 / 272.18 (was 11 lines, 206.97); 09-26 → 7
+lines = 161.02 / 171.11 (was both discounts lost, total overwritten to
+183.11). Both close on the printed TOTAL RABAIS ($12.00) and article count.
+Eight mutations (each fix and each guard), all killed.
+
 ## 5. Known limits
 
-- Only three French receipts exist to learn from. The `ÉCONOMIES INSTANTANÉES`
+- **The word geometry of the Pointe Claire photos was never captured** (copying a
+  customer photo into the fixture folder needs Maxim's hands). The fixes live on
+  the flat-text candidate, which `chooseBetterParse` already scores against the
+  printed self-checks. On device that candidate wins whenever it closes on the
+  printed total. A geometry capture would confirm it rather than change it.
+- Only a handful of French receipts exist to learn from. The `ÉCONOMIES INSTANTANÉES`
   line is deliberately **not** used as a discount self-check: Anjou prints
   6.00 $ against 8.00 $ of TPDs that the printed subtotal proves were applied.
 - A French receipt whose transaction line is cut off and which prints only a
