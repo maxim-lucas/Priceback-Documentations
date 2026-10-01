@@ -36,7 +36,7 @@
   `FLYER_DEAL_PUSH_ENABLED=false`; charge push removed (type out of registry + router); admin
   `POST /api/admin/price-drop-queue/bulk`, balances on the list, `price_drop_review` admin alert
   (coalesced 60 s). No migration. Detail: `Technical/Price_Drop_Lock_And_Notifications_2026-10-01.md`.
-- **Status:** code + tests done on `ea51f95`, PR open, **not merged** (merging deploys the backend; Maxim's
+- **Status:** code + tests done on `ea51f95`, app PR **#385** + docs PR **#106** open, **not merged** (merging deploys the backend; Maxim's
   call). Verified locally: backend `npm test` 2140 tests, 2138 pass / 1 fail / 1 skip — the fail is
   `dataCleanupRegistry` "coverage map matches the live schema" (`notification_history` on `main` +
   `special_offers*` in the shared dev DB have no dataCleanup classifier — pre-existing, not this branch);
