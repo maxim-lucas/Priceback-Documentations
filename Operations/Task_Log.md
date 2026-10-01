@@ -36,6 +36,15 @@
 - **New:** `Operations/Receipt_Repair_Playbook.md`, including step 6 (refund each duplicate scan, done by Maxim).
 - **Still owed:** merge #382 (blocked for the session by the classifier); Maxim's refund of 2 credits; the 2
   duplicate photos in R2; an admin "receipts reviewed" push sender (playbook §8).
+### 2026-09-30 — Profile-completion notifications, postal → province at signup, admin notification history
+
+- **Asked (/goal):** hotfix on `main`: (1) a notification asking users — mainly **legacy accounts created
+  without a province** — to complete their profile, opening a **full screen to pick province + postal
+  code**; (2) a notification to complete the **Costco profile** (preferred warehouse + membership type);
+  (3) at **signup, typing the postal code auto-selects the province**. Mid-task addition: (4) the admin
+  console's account page shows the **notification history the user got on their phone** (title + text).
+- **Branch:** `hotfix/profile-completion-notifications` off `main` (Maxim named `main` as a hotfix).
+- **Status:** in progress.
 
 ### 2026-09-30 — Fix every finding of the code review of #376 + #377
 
