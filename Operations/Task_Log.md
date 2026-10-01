@@ -10457,3 +10457,29 @@ the exact synthetic sub. No parser, no pricing, no Costco code touched.
 ## 2026-09-30 — ASO "costco" listing copy + YouTube tutorials on the website
 
 Website PR #17 (`/blog/tutorials` EN/FR, Worker `/api/tutorials` from the @priceback RSS feed, YouTube footer links, sitemap) and app PR #381 (Play/Apple listing copy only). Plan + honest ranking limits: `Marketing-Plan/08-aso-costco-search.md`. Regression risk: website deploy config changed (`wrangler.jsonc` now has `main` + ASSETS binding, `run_worker_first: ["/api/*"]`); verify priceback.ca still serves after merge. No app code touched.
+
+---
+
+## 2026-10-01 — Admin dashboard: drops, subscribers, credit buyers, Total gain, tag + checker scans
+
+**Branch:** `feat/admin-dashboard-business-metrics` (off `main`), docs `docs/admin-dashboard-business-metrics`.
+
+Maxim's ask (/goal): add Price drop notifications, Price drops amount, User subscribed, User bought
+credits, Total gain (CAD, official prices), Price tag scanned, Price checker scanned to the admin
+dashboard, for every window filter. Reference: `Operations/Admin_Dashboard_Metrics.md`.
+
+## Changes
+- `backend/repos/adminConsoleRepo.js` — `businessCounters()` merged into `overview()`.
+- `backend/db/migrations/0016_price_checker_scans.sql` (new table, anonymous) + schema.js + journal + regenerated `deploy/schema.sql`.
+- `backend/repos/priceCheckerScansRepo.js` (new); `/api/barcode/resolve` records each lookup, not awaited.
+- `backend/lib/dataCleanup.js` — `price_checker_scans` → KEEP; also classified `notification_history` (0014) → CASCADE, which had left `dataCleanupRegistry` red on `main`.
+- `src/screens/AdminDashboardScreen.js` — seven new rows + `formatCad`. Admin-only → exempt from i18n.
+
+## Tests
+`backend/tests/adminDashboardMetricsDb.test.js` (new, exact deltas on all three windows; mutation-checked
+on the charge dedupe). `__tests__/adminDashboardScreen.test.js` +7 cases.
+
+## Regression risk
+`/api/barcode/resolve` gains one un-awaited insert whose repo never rejects — the response is unchanged.
+Overview adds one aggregate statement plus a guarded read; existing counters untouched. Migration 0016 is additive.
+Pre-existing, not touched: `notificationServiceProfileNudges.test.js` fails on `main` too (time-of-day dependent).
