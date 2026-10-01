@@ -16,6 +16,35 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-01 — Notification fixes, the price-drop lock (paywall), admin review desk
+
+- **Asked (/goal):** disable "price-drop credits used" and "flyer deal on product"; the verified-drop push
+  hides the new price, shows only the saving, severity by days left to claim; a "balance low — buy credits
+  or subscribe" nudge; *"the user doesn't know what product or price dropped before he subscribes or has
+  sufficient credit … he should hit a paywall"*; admin: a notification when drops await review, select +
+  accept/reject several at once, a button to open the full receipt, the balance before deduction.
+  Mid-task: the locked subscription buttons must open the subscription paywall, and *"make sure the user
+  understands what happens (icon, tip, …)"*.
+- **Branch:** asked first → new **`fix/notifications-paywall-admin-review` off `main`**.
+- **Decisions Maxim made:** "disable" = stop sending entirely; the low-balance nudge = when a found drop
+  can't be covered; an unaffordable drop is **still charged into debt** (unchanged) but its item and new
+  price are **hidden** until credits/subscription — the saving and days left stay visible; **free accounts
+  only**, subscribers never locked. ⚠️ Changes only the DISPLAY side of the recorded "commission debt is
+  intentional" decision; billing untouched.
+- **Shape:** `src/services/dropLock.js` (rule + display-only mask), `LockedDropCard`, Paywall `reason`
+  (`drop_locked`/`price_check`/`email_sync`) via `paywallNav.openPaywall`; notifier copy/severity/lock;
+  `FLYER_DEAL_PUSH_ENABLED=false`; charge push removed (type out of registry + router); admin
+  `POST /api/admin/price-drop-queue/bulk`, balances on the list, `price_drop_review` admin alert
+  (coalesced 60 s). No migration. Detail: `Technical/Price_Drop_Lock_And_Notifications_2026-10-01.md`.
+- **Status:** code + tests done on `ea51f95`, PR open, **not merged** (merging deploys the backend; Maxim's
+  call). Verified locally: backend `npm test` 2140 tests, 2138 pass / 1 fail / 1 skip — the fail is
+  `dataCleanupRegistry` "coverage map matches the live schema" (`notification_history` on `main` +
+  `special_offers*` in the shared dev DB have no dataCleanup classifier — pre-existing, not this branch);
+  c8 94.8 / 81.35 / 94.9 / 94.8. Mobile Jest 295 suites / 6914 tests, 1 fail = the pre-existing
+  `notificationServiceProfileNudges` ledger test (fails on a clean tree too — its NOW is today's date);
+  coverage 84.91 / 78.03 / 74.43 / 87.38. `i18n:check` 1650 keys en = fr. One mutation probe (masking off
+  in Detail) turned the locked test red. No CI dispatched, no device test, no build.
+
 ### 2026-09-30 — A new customer's double-scanned receipts: repair, clean up, fix the parser, notify
 
 - **Asked (/goal):** *"a new user scanned two receipts twice because it didnt parse well, 1st thing fix the
