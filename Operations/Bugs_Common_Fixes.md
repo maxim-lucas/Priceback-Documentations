@@ -13299,3 +13299,34 @@ platform, without paying.** "They can use their own account" passed by luck, not
 paywall gate is a review-access change** — check it against the reviewer account before shipping.
 (3) **A cleanup that matches by domain will eventually match your own service accounts** — protect them in
 code, not in config.
+
+
+## 302. A new customer scanned two Quebec receipts twice — 4 lines, 2 TPDs, 2 rebates and a void lost (2026-09-30, branch fix/receipt-parse-pointe-claire-528)
+
+**Symptom.** A customer's first two Pointe Claire #528 receipts came out visibly wrong, so they scanned each
+again. The 2026-09-23 receipt read 11 of 15 lines (TIDE PA 89, ENSEMBLE 2PC and a PLAQUE missing; SUCRE BIO
+19.99 instead of 13.99; DAWN at full price): 209.22 stored against a printed **272.18**. On 2026-09-26 both
+$6.00 discounts were missing and the printed 171.11 was overwritten with **183.11**. The re-scans changed
+nothing: the OCR was byte-identical.
+
+**Root cause.** Four Quebec register shapes the flat-text parser could not read:
+(1) `6.00-FP`: the FP→F flag collapse required the flag directly after the amount, and on a discount it
+follows the minus. The two-letter flag then matched no discount pattern.
+(2) `2106265 RABAIS` / `6.00-FP`: a generic rebate that names neither a SKU nor the item.
+(3) A label run printed before its amounts and led by a keyword-less coupon ref (`0000391998/2652709`). The
+column re-zip only knew discount labels spelled `TPD/`, so the run broke and its items fell out.
+(4) `ANNUL` voids: an item reprinted negative and its coupon reprinted POSITIVE. The English VOID handler
+would drop the whole merged qty-2 line.
+
+**Fix (app PR #382).** `shared/receiptLocale.js` collapses `-FP` too; `normalizeQuebecCostcoLayout` rewrites
+RABAIS and column-leading coupon refs into numeric `TPD/<sku>` (each guarded); the new `cancelAnnulledLines`
+(after the re-zip) removes exactly the most recent line with the same SKU and amount. All French-only; Laval
+#505 and every English receipt are byte-identical (golden snapshots unchanged). Both receipts pinned line by
+line from the photo; 8 mutations killed. Customer data repaired and the duplicates deleted — see
+`Receipt_Data_Verification_Ledger.md` and `Receipt_Repair_Playbook.md`.
+
+**Lessons.** (1) **A customer re-scanning the same receipt is a parser bug report.** The OCR was identical
+both times, so only the parser could have been wrong. (2) **The user deletes a copy, not necessarily the wrong
+one.** Here the deleted copy of 09-23 was closer to the truth than the kept one. Repair from the photo, never
+by picking between copies. (3) **Pin every line, not the total.** A printed total can be right on a parse
+missing four items.

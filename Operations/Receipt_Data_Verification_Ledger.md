@@ -46,3 +46,21 @@ Every repair ran as one guarded transaction (it aborted unless every touched
 row still matched the pre-repair snapshot); none of the touched rows had a
 price-drop notification, a claim or a commission against it. Detail and the
 before-state: `Operations/Task_Log.md` entry of 2026-09-27.
+
+### 2026-09-30 — a new customer's double-scanned receipts (Pointe Claire #528)
+
+Account `000769.156a…0021` (Apple, created 2026-10-01 00:21 UTC) scanned two
+receipts twice each because the first parse was visibly wrong. Photos read by eye,
+OCR replayed through the parser; both receipts now close on every printed check.
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1790814834185_cx5ml` | Costco Pointe Claire #528 · 2026-09-23 | photo ✅ + OCR | 2026-09-30 | **Repaired.** Rebuilt from the photo: 11 → 15 lines. Added TIDE PA 89 24.99 and ENSEMBLE 2PC 19.99 (new products), KIWIDORE3LB 11.99 (orig 15.99), PLAQUE 14.99 (orig 19.99; second scan and its coupon ANNULled). DAWN 14.99 → 11.99 (orig 14.99), SUCRE BIO 19.99 → 13.99. 15 price points rewritten. Total 209.22 → **272.18** (257.94 + 14.24); TOTAL RABAIS 12.00. TPD lines unwatched; the rest watched. |
+| `r_1790815006777_2ab87` | Costco Pointe Claire #528 · 2026-09-26 | photo ✅ + OCR | 2026-09-30 | **Repaired.** KS PARCHEMIN 19.99 → 13.99 (orig 19.99, TPD) and DURACELL AA 25.99 → 19.99 (orig 25.99, `2106265 RABAIS`); both price points marked on sale; both lines unwatched. Total 183.11 → **171.11** (161.02 + 10.09); TOTAL RABAIS 12.00. |
+| `r_1790815048675_vlakw` | duplicate of `cx5ml` (same OCR) | — | 2026-09-30 | **Deleted** (was soft-deleted by the user): row, 12 items and 12 price points. Its R2 photo remains. |
+| `r_1790814438798_tbelg` | duplicate of `2ab87` (byte-identical OCR) | — | 2026-09-30 | **Deleted** (was soft-deleted by the user): row, 7 items, 6 price points and the orphan synthetic product 24851 (`*ÉCOFRAIS`). Its R2 photo remains. |
+
+Two guarded transactions (abort unless total, item count, no claim, no
+drop-notification and no review-queue row matched the audit), each read back. The
+four `scan_consume` ledger rows (75 → 71 credits) are kept as history. Maxim
+refunds the two duplicate scans himself.
