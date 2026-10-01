@@ -10379,3 +10379,9 @@ the exact synthetic sub. No parser, no pricing, no Costco code touched.
 ## Still owed
 3.0.3 bump → tag → EAS build (Maxim's go) → upload → paste Play Sign in details block from
 `REVIEWER_NOTES.md` with the code → resubmit.
+
+---
+
+## 2026-09-30 — ASO "costco" listing copy + YouTube tutorials on the website
+
+Website PR #17 (`/blog/tutorials` EN/FR, Worker `/api/tutorials` from the @priceback RSS feed, YouTube footer links, sitemap) and app PR #381 (Play/Apple listing copy only). Plan + honest ranking limits: `Marketing-Plan/08-aso-costco-search.md`. Regression risk: website deploy config changed (`wrangler.jsonc` now has `main` + ASSETS binding, `run_worker_first: ["/api/*"]`); verify priceback.ca still serves after merge. No app code touched.
