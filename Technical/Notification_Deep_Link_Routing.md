@@ -54,6 +54,8 @@ routeForNotification(data) -> { route, params } | null
 | `first_receipt`, `scan_reminder` *(2026-09-25)* | `Scan` (the root-stack scanner modal, not the `ScanTab` placeholder) | — |
 | `monthly_recap` *(2026-09-25)* | `Main` → `Receipts` | — |
 | `referral_nudge` *(2026-09-25)* | `InviteFriend` | — |
+| `profile_location` *(2026-09-30)* | `CompleteProfile` (postal code + province) | — |
+| `profile_costco` *(2026-09-30)* | `CostcoProfile` (warehouse + membership tier) | — |
 | `tag_review` (admin) | `AdminTagReview` | `reviewId` |
 | `test` | *nowhere, deliberately* | — |
 

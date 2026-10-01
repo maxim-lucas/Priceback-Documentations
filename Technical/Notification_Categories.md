@@ -55,6 +55,7 @@ It is mirrored byte-for-byte into `backend/shared/` by
 | **`notifMonthlyRecap`** | on | explicitOnly | **monthly_recap** | Scans & updates |
 | **`notifScanResults`** | on | | tag_scans_ready, receipt_scans_ready, **scan_review_reminder** | Scans & updates |
 | `notifStoreLaunch` | on | | store_launch | Scans & updates |
+| **`notifProfileSetup`** *(2026-09-30)* | on | | **profile_location, profile_costco** (local) | Scans & updates — see `Technical/Profile_Completion_Reminders_And_Notification_History.md` |
 | **`notifGuarantee`** | on | explicitOnly | **guarantee_earned, guarantee_renewal_reminder, guarantee_ending** | Your plan |
 | `marketingPushConsent` | **off** | consent | **referral_nudge** | From PriceBack ("Tips & offers") |
 
