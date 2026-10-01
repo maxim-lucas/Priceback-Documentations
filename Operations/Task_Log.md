@@ -16,6 +16,13 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-01 — Rate / Instagram / Facebook as community asks (NOT rewarded)
+
+- **Asked (/goal):** reward *Rate PriceBack*, *Follow on Instagram*, *Follow on Facebook* with 5 credits each — *"but is it possible to validate this actions? … i dont want to give free credits without getting the required action"*; surface them in *Grow your balance* and on Buy credits. Branch → new branch off `main` (asked first); *"merge it before"* → PR #384 squash-merged first.
+- **Finding:** none of the three is verifiable (no store/Meta API reports a rating or a follow) and rewarding them breaks App Review 3.2.2, Play's ratings policy and Meta's like-gating ban. Maxim: keep the design, add them **without credits**, framed as helping grow the community. Rationale + donation/tip notes: `Publishing-Compliance/Rewarded_Actions_Policy.md`.
+- **Done (app branch `feat/community-actions`):** `CommunityStrip` in `ProfileKit.js` under the two earn tiles (Rate us · Instagram · Facebook, no badge); Buy credits gains a *Help the community grow* group after *Or earn them free*. Existing Help & community rows untouched. 6 new keys EN + FR. Tests: `__tests__/communityActions.test.js` (11), mutation-checked.
+- **Regression risk:** additive UI only; reuses `openRateApp`/`openSocial` unchanged. No credit, pricing, backend or parser code touched.
+
 ### 2026-10-01 — Weekly Costco coupons: extract, import to prod, special-offers table
 
 - **Asked:** extract this week's coupons with Claude in Chrome (a cloud routine cannot reach costco.ca — egress-blocked), save a JSON under `Stores/Costco/Coupons/Canada/<Warehouse|Online> offers/<year>/coupons_<date>.json` (national, stored once, ON/QC/BC verified identical); then *"import the prices in production, the special offers should be imported in a new table"* and flag in the roadmap that special offers feed a manual price-drop check with no commission. Branch → `main` ("main (Recommended)", asked first).
