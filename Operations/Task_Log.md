@@ -22,6 +22,34 @@
 - **Done:** files merged (docs #103). Prices imported to prod: batch `costco-coupons-2026-09-28-ALL` (127 items) + `…-ALL-online` (1). Prod still runs the OLD per-province fan-out (127 rows × 13) because the NATIONAL change is on `merge/main-and-development`, not `main`. Hot Buy SKUs (4) and the unpriced pork loin (2) were NOT imported (flags unenforced server-side, see Flyer-ingestion §5).
 - **New table (app PR, branch `feat/special-offers-table` off `main`):** migration 0015 `special_offers` + lookup `special_offer_types`, `specialOffersRepo`, `POST /api/special-offers/import` + `GET /api/admin/special-offers` (shared `_adminTokenOk`), `scripts/import-special-offers.mjs`, tests. DDL applied to dev AND prod BEFORE merge (hard rule), ledger row inserted (hash 850ffdc4…, when 1790700000000); the 4 Costco offers inserted in prod (batch `…-ALL-special`).
 - **Still owed:** Maxim merges the app PR (Railway deploys main); the manual-check flagging + admin surface are roadmap only (docs #104). Regression risk: new tables/routes only; no price path, parser or Costco code touched.
+### 2026-10-01 — Notification fixes, the price-drop lock (paywall), admin review desk
+
+- **Asked (/goal):** disable "price-drop credits used" and "flyer deal on product"; the verified-drop push
+  hides the new price, shows only the saving, severity by days left to claim; a "balance low — buy credits
+  or subscribe" nudge; *"the user doesn't know what product or price dropped before he subscribes or has
+  sufficient credit … he should hit a paywall"*; admin: a notification when drops await review, select +
+  accept/reject several at once, a button to open the full receipt, the balance before deduction.
+  Mid-task: the locked subscription buttons must open the subscription paywall, and *"make sure the user
+  understands what happens (icon, tip, …)"*.
+- **Branch:** asked first → new **`fix/notifications-paywall-admin-review` off `main`**.
+- **Decisions Maxim made:** "disable" = stop sending entirely; the low-balance nudge = when a found drop
+  can't be covered; an unaffordable drop is **still charged into debt** (unchanged) but its item and new
+  price are **hidden** until credits/subscription — the saving and days left stay visible; **free accounts
+  only**, subscribers never locked. ⚠️ Changes only the DISPLAY side of the recorded "commission debt is
+  intentional" decision; billing untouched.
+- **Shape:** `src/services/dropLock.js` (rule + display-only mask), `LockedDropCard`, Paywall `reason`
+  (`drop_locked`/`price_check`/`email_sync`) via `paywallNav.openPaywall`; notifier copy/severity/lock;
+  `FLYER_DEAL_PUSH_ENABLED=false`; charge push removed (type out of registry + router); admin
+  `POST /api/admin/price-drop-queue/bulk`, balances on the list, `price_drop_review` admin alert
+  (coalesced 60 s). No migration. Detail: `Technical/Price_Drop_Lock_And_Notifications_2026-10-01.md`.
+- **Status:** code + tests done on `ea51f95`, app PR **#385** + docs PR **#106** open, **not merged** (merging deploys the backend; Maxim's
+  call). Verified locally: backend `npm test` 2140 tests, 2138 pass / 1 fail / 1 skip — the fail is
+  `dataCleanupRegistry` "coverage map matches the live schema" (`notification_history` on `main` +
+  `special_offers*` in the shared dev DB have no dataCleanup classifier — pre-existing, not this branch);
+  c8 94.8 / 81.35 / 94.9 / 94.8. Mobile Jest 295 suites / 6914 tests, 1 fail = the pre-existing
+  `notificationServiceProfileNudges` ledger test (fails on a clean tree too — its NOW is today's date);
+  coverage 84.91 / 78.03 / 74.43 / 87.38. `i18n:check` 1650 keys en = fr. One mutation probe (masking off
+  in Detail) turned the locked test red. No CI dispatched, no device test, no build.
 
 ### 2026-09-30 — A new customer's double-scanned receipts: repair, clean up, fix the parser, notify
 
