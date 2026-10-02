@@ -10493,3 +10493,13 @@ Ask (/goal): expired tag savings earn no credit (like a regular price); present 
 price-tag translator (price endings + Death Star, which OCR misses); poor warehouse connectivity.
 Reference: `Technical/Price_Tag_Translator.md`.
 Regression risk: submission path unchanged (server predicate called without `today`); only `hasAsterisk` detection widened.
+
+---
+
+## 2026-10-02 — Costco "Offers Ending Sunday": extract to JSON (no import)
+
+**Ask:** use the same strategy as the weekly Costco coupons (extract with Claude in Chrome → JSON in this repo) for `https://www.costco.ca/offers-ending.html`. Branch → new branch off `main` (asked first). Scope → **extract to JSON only**, no import, no app code (asked).
+**Done:** `Stores/Costco/Offers-ending/Canada/2026/offers-ending_2026-10-02.json` — 258 tiles over 11 pages; checksummed against the in-browser copy (count, price/was/savings sums, id and name-length sums all equal).
+**What the page is:** 81 tiles carry a discount (was-price and/or "After $X OFF"), 168 list a current price only, 12 show no price (members-only / sign-in, or eco-fee-only battery tiles); 135 are Online Only. Tiles have no per-item end date: `validUntil` 2026-10-04 is inferred from the title.
+**Differs from the coupons batch — read before importing:** (1) `productId` is Costco's catalog id (`100…`/`4000…`/`4101…`/`4201…`), NOT the 7-digit warehouse item number, so it does not match a receipt SKU without a lookup; (2) one warehouse view only (Gloucester ON) — NOT verified national like the ON/QC/BC coupons; (3) price-only tiles are not deals; (4) the count moved 259 → 258 within the hour.
+**Regression risk:** none — one data file, no code, no import, nothing in prod touched.

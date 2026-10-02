@@ -1,0 +1,795 @@
+{
+  "_note": "Costco Canada 'Offers Ending Sunday' (costco.ca/offers-ending.html), extracted with Claude in Chrome on 2026-10-02. PENDING Maxim's validation before any import. Single warehouse/region view (page header: 'Compare region updated', stock shown for Gloucester ON) - NOT verified national, unlike the coupons batch. The page shows 258 tiles at extraction (259 earlier the same hour). `productId` is Costco's catalog id from the tile (100…/4000…/4101…/4201…), NOT the 7-digit warehouse item number, so it cannot be matched to a receipt SKU without a lookup. Only tiles that show a 'was' price or 'After $X OFF' carry a discount; the rest list a current price only (no saving known). `url` is a canonical product link built from productId (the live slug was not stored).",
+  "region": "unverified-single-view",
+  "batchKey": "costco-offers-ending-2026-10-04",
+  "source": "costco-offers-ending",
+  "country": "Canada",
+  "extractedAt": "2026-10-02",
+  "extractedFrom": "https://www.costco.ca/offers-ending.html",
+  "validUntil": "2026-10-04",
+  "validUntilNote": "Inferred from the page title 'Offers Ending Sunday' (2026-10-02 is a Friday); the tiles carry no per-item end date.",
+  "count": 258,
+  "stats": {
+    "withDiscount": 81,
+    "priceOnly": 168,
+    "noPriceShown": 12,
+    "onlineOnly": 135,
+    "membersOnly": 7
+  },
+  "items": [
+    { "productId": "100122566", "name": "Café William La Crema Whole Bean Organic Fair Trade Coffee, 2 x 908 g", "color": null, "price": 47.99, "regularPrice": 59.99, "instantSavings": 12, "ecoFee": null, "url": "https://www.costco.ca/.product.100122566.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100122581", "name": "Café William Naturally Decaffeinated Medium Roast Fair Trade and Organic Whole Bean Coffee, 2 x 750 g", "color": null, "price": 47.99, "regularPrice": 59.99, "instantSavings": 12, "ecoFee": null, "url": "https://www.costco.ca/.product.100122581.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100122582", "name": "Café William Corposo Dark Roast Fair Trade and Organic Whole Bean Coffee, 2 x 908 g", "color": null, "price": 47.99, "regularPrice": 59.99, "instantSavings": 12, "ecoFee": null, "url": "https://www.costco.ca/.product.100122582.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100416007", "name": "Fiji Natural Spring Water, 24 × 500 mL", "color": null, "price": 32.99, "regularPrice": 38.99, "instantSavings": 6, "ecoFee": null, "url": "https://www.costco.ca/.product.100416007.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100417656", "name": "Kraft Smooth Peanut Butter, 2 kg", "color": null, "price": 10.99, "regularPrice": 12.99, "instantSavings": 2, "ecoFee": null, "url": "https://www.costco.ca/.product.100417656.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100473789", "name": "RestoraLAX Laxative, 2 x 36 doses", "color": null, "price": 40.99, "regularPrice": 48.99, "instantSavings": 8, "ecoFee": null, "url": "https://www.costco.ca/.product.100473789.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100506986", "name": "Café William Colombian Light Roast Fairtrade and Organic Whole Bean Coffee, 2-pack", "color": null, "price": 47.99, "regularPrice": 59.99, "instantSavings": 12, "ecoFee": null, "url": "https://www.costco.ca/.product.100506986.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100530127", "name": "Doi Chaang Hardwired Dark Roast Whole Bean Coffee, 2 × 908 g", "color": null, "price": 44.99, "regularPrice": 59.99, "instantSavings": 15, "ecoFee": null, "url": "https://www.costco.ca/.product.100530127.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100553537", "name": "Glaxal Base Moisturizing Cream, 450 g + 50 g Travel Size", "color": null, "price": 15.99, "regularPrice": 19.99, "instantSavings": 4, "ecoFee": null, "url": "https://www.costco.ca/.product.100553537.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100691416", "name": "TygerClaw Executive “Racing Design” Inspired Gaming Style Chair", "color": null, "price": 174.99, "regularPrice": 219.99, "instantSavings": 45, "ecoFee": null, "url": "https://www.costco.ca/.product.100691416.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100692077", "name": "Westex 850 Loft Hutterite White Goose Down Duvet", "color": null, "price": 379.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.100692077.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100693536", "name": "Love Good Fats Chewy Nutty, Nut Bars, 24 × 40 g", "color": null, "price": 39.99, "regularPrice": 49.99, "instantSavings": 10, "ecoFee": null, "url": "https://www.costco.ca/.product.100693536.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100767644", "name": "That's it. Mini Fruit Bars Variety Pack, 24 × 20 g", "color": null, "price": 21.99, "regularPrice": 26.99, "instantSavings": 5, "ecoFee": null, "url": "https://www.costco.ca/.product.100767644.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100786124", "name": "Fruit by the Foot, Fruit Flavoured Snacks, 44 × 21 g", "color": null, "price": 21.49, "regularPrice": 24.99, "instantSavings": 3.5, "ecoFee": null, "url": "https://www.costco.ca/.product.100786124.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100815125", "name": "Pistì Spreadable Pistachio Cream, 600 g", "color": null, "price": 13.99, "regularPrice": 16.99, "instantSavings": 3, "ecoFee": null, "url": "https://www.costco.ca/.product.100815125.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100829856", "name": "TygerClaw Mid Back Mesh Chair", "color": null, "price": 219.99, "regularPrice": 279.99, "instantSavings": 60, "ecoFee": null, "url": "https://www.costco.ca/.product.100829856.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100830026", "name": "TygerClaw Ergonomic High Back Mesh Chair", "color": null, "price": 359.99, "regularPrice": 449.99, "instantSavings": 90, "ecoFee": null, "url": "https://www.costco.ca/.product.100830026.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100840271", "name": "Northern Shelters Peak 12 ft. x 20 ft. x 8 ft. White Garage", "color": null, "price": 349.99, "regularPrice": 499.99, "instantSavings": 150, "ecoFee": null, "url": "https://www.costco.ca/.product.100840271.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100982618", "name": "Purenat All -Purpose Cleaner Bulk Refill 10 L", "color": null, "price": 39.99, "regularPrice": 49.99, "instantSavings": 10, "ecoFee": null, "url": "https://www.costco.ca/.product.100982618.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "100982628", "name": "Purenat Bathroom Cleaner Bulk Refill 10L", "color": null, "price": 39.99, "regularPrice": 49.99, "instantSavings": 10, "ecoFee": null, "url": "https://www.costco.ca/.product.100982628.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000022399", "name": "WaySpa 4 x $50 Spa E-Gift Cards", "color": null, "price": null, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000022399.html", "flags": { "onlineOnly": true, "membersOnly": true, "limitedTime": true, "signInForPrice": true
+      }
+    },
+    { "productId": "4000040532", "name": "Level Ground Ethiopia Dark Roast Organic Whole Bean Coffee, 2 × 907g", "color": null, "price": 48.99, "regularPrice": 63.99, "instantSavings": 15, "ecoFee": null, "url": "https://www.costco.ca/.product.4000040532.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000040569", "name": "Level Ground East Africa Dark Roast Organic Whole Bean Coffee, 2 x 907g", "color": null, "price": 48.99, "regularPrice": 63.99, "instantSavings": 15, "ecoFee": null, "url": "https://www.costco.ca/.product.4000040569.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000041768", "name": "Folgers Classic Roast Ground Coffee, 1.21kg", "color": null, "price": 21.99, "regularPrice": 26.99, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000041768.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000042188", "name": "Dermal Therapy Heel Care, 300 g", "color": null, "price": 20.99, "regularPrice": 24.99, "instantSavings": 4, "ecoFee": null, "url": "https://www.costco.ca/.product.4000042188.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000181459", "name": "Love Good Fats Snack Bars, Variety Pack, 24 × 40 g", "color": null, "price": 39.99, "regularPrice": 49.99, "instantSavings": 10, "ecoFee": null, "url": "https://www.costco.ca/.product.4000181459.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000183583", "name": "Henckels Aragon Stainless Steel Cookware Set, 6-pieces", "color": null, "price": 109.99, "regularPrice": 139.99, "instantSavings": 30, "ecoFee": null, "url": "https://www.costco.ca/.product.4000183583.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000227061", "name": "Philips Sonicare Premium All-In-One (A3), 6-pack", "color": "White", "price": 67.99, "regularPrice": 84.99, "instantSavings": 17, "ecoFee": null, "url": "https://www.costco.ca/.product.4000227061.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000230558", "name": "Cascade Platinum Plus ActionPacs, 81-count", "color": null, "price": 28.99, "regularPrice": 34.99, "instantSavings": 6, "ecoFee": null, "url": "https://www.costco.ca/.product.4000230558.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000235732", "name": "Matteo's Sugar-Free Coffee Syrup Variety Pack, 6 × 750 mL + 1 pump", "color": null, "price": 29.99, "regularPrice": 39.99, "instantSavings": 10, "ecoFee": null, "url": "https://www.costco.ca/.product.4000235732.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000237721", "name": "Level Ground Peru Medium Roast Organic Whole Bean Coffee, 2 × 907 g", "color": null, "price": 48.99, "regularPrice": 63.99, "instantSavings": 15, "ecoFee": null, "url": "https://www.costco.ca/.product.4000237721.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000237794", "name": "Level Ground Andes Mountains Medium Roast Organic Whole Bean Coffee, 2 × 907 g", "color": null, "price": 48.99, "regularPrice": 63.99, "instantSavings": 15, "ecoFee": null, "url": "https://www.costco.ca/.product.4000237794.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000241623", "name": "Joe Boxer Men's Organic Cotton Boxer Briefs, 4-pack", "color": "Black", "price": 14.99, "regularPrice": 19.99, "instantSavings": 5, "ecoFee": null, "url": "https://www.costco.ca/.product.4000241623.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000244901", "name": "Mysa Smart Thermostat LITE for Electric Baseboard Heaters - 4 Pack", "color": null, "price": 269.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000244901.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000260402", "name": "Nestlé Assorted Mini Bars and Candies, 1.3 kg", "color": null, "price": 25.49, "regularPrice": 32.99, "instantSavings": 7.5, "ecoFee": null, "url": "https://www.costco.ca/.product.4000260402.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000261835", "name": "Caprina Goat Milk Soap, 16 x 110 g", "color": null, "price": 25.99, "regularPrice": 29.99, "instantSavings": 4, "ecoFee": null, "url": "https://www.costco.ca/.product.4000261835.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000269062", "name": "Lagostina Emozione Risottiera Risotto Pot", "color": null, "price": 119.99, "regularPrice": 149.99, "instantSavings": 30, "ecoFee": null, "url": "https://www.costco.ca/.product.4000269062.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000273699", "name": "Lagostina Bronze Elegance Stainless Steel Knife Set, 6-piece", "color": null, "price": 99.99, "regularPrice": 119.99, "instantSavings": 20, "ecoFee": null, "url": "https://www.costco.ca/.product.4000273699.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000279719", "name": "Maynards Sour Patch Kids, Assorted Candy Fun Treats, 1.9 kg", "color": null, "price": 22.99, "regularPrice": 27.99, "instantSavings": 5, "ecoFee": null, "url": "https://www.costco.ca/.product.4000279719.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000280728", "name": "Lorex 2K Battery Video Doorbell with Wi-Fi Chimebox", "color": null, "price": 199.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000280728.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000289202", "name": "La-Z-Boy Office Manager Chair with Flip-Up Arms", "color": "Beige", "price": 189.99, "regularPrice": 239.99, "instantSavings": 50, "ecoFee": null, "url": "https://www.costco.ca/.product.4000289202.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000315106", "name": "Samyang Carbonara Buldak Spicy Ramen, 6 × 105 g", "color": null, "price": 14.49, "regularPrice": 17.99, "instantSavings": 3.5, "ecoFee": null, "url": "https://www.costco.ca/.product.4000315106.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000321283", "name": "AVF 32\" - 70\" Full Motion TV Wall Mount", "color": null, "price": 79.99, "regularPrice": 99.99, "instantSavings": 20, "ecoFee": null, "url": "https://www.costco.ca/.product.4000321283.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000322349", "name": "Vellum Wellness Natural Hair and Scalp Treatment", "color": null, "price": 43.99, "regularPrice": 54.99, "instantSavings": 11, "ecoFee": null, "url": "https://www.costco.ca/.product.4000322349.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000322407", "name": "Vellum Wellness Natural Sleep Kit with Essential Oils and Facial Roller", "color": null, "price": 59.99, "regularPrice": 74.99, "instantSavings": 15, "ecoFee": null, "url": "https://www.costco.ca/.product.4000322407.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000322426", "name": "Vellum Wellness Mature Skin Kit with Essential Oils and Facial Roller", "color": null, "price": 47.99, "regularPrice": 59.99, "instantSavings": 12, "ecoFee": null, "url": "https://www.costco.ca/.product.4000322426.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000325694", "name": "Reactine Allergy Extra Strength, 190 tablets", "color": null, "price": 57.99, "regularPrice": 69.99, "instantSavings": 12, "ecoFee": null, "url": "https://www.costco.ca/.product.4000325694.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000332343", "name": "Rowan Park Platform Bed", "color": null, "price": 1049.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000332343.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000332385", "name": "Glendale Heights Platform Bed", "color": null, "price": 999.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000332385.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000332397", "name": "Glendale Heights 2-drawer Nightstand", "color": null, "price": 379.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000332397.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000333907", "name": "City Brook 5-drawer Dresser", "color": null, "price": 1099.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000333907.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000333974", "name": "City Brook Platform Bed", "color": null, "price": 1099.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000333974.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000333995", "name": "City Brook Nightstand", "color": null, "price": 349.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000333995.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000334016", "name": "Rowan Park 5-drawer Chest", "color": null, "price": 1149.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000334016.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000343215", "name": "Tide High Efficiency Turbo Powder Laundry Detergent with Acti-Life, Original,166 Loads, 5.2 kg", "color": null, "price": 34.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000343215.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000343584", "name": "Miu Rotary Food Grater", "color": null, "price": 39.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000343584.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000345652", "name": "TOTO WASHLET Electronic Elongated Bidet Toilet Seat", "color": null, "price": 579.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000345652.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000346697", "name": "Flexsteel Newell 9-piece Dining Set", "color": null, "price": 2299.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000346697.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000347417", "name": "Aiden & Ivy Fabric Dining Chair", "color": "Beige", "price": 289.99, "regularPrice": 369.99, "instantSavings": 80, "ecoFee": null, "url": "https://www.costco.ca/.product.4000347417.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000349604", "name": "Baker's Secret Non-Stick Baking Sheets, 3-pieces", "color": null, "price": 29.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000349604.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000352004", "name": "Sage Women's Long Sleeve Ribbed Hoodie", "color": "Black", "price": 21.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000352004.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000352119", "name": "Novaform Pillow Top Plus Gel Memory Foam 4-inch Mattress Topper", "color": null, "price": 159.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000352119.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000354972", "name": "Farm Girl Cereal, 6 × 280 g", "color": null, "price": 49.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000354972.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000355003", "name": "ASUS Zenbook A14 OLED Copilot+ PC 14-in Laptop, Qualcomm Snapdragon X X1-26-100 – 16GB RAM, 512GB SSD, Qualcomm Adreno", "color": null, "price": 1439.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000355003.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000358671", "name": "Bestar Oasis Premium Horizontal Queen Wall Bed with Overhead Storage", "color": "White", "price": 1699.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000358671.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000358672", "name": "Bestar Oasis Premium Horizontal Double Wall Bed with Overhead Storage", "color": "White", "price": 1599.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000358672.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000358691", "name": "Bestar Oasis Premium Horizontal Queen Wall Bed", "color": "White", "price": 1349.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000358691.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000358755", "name": "Bestar Oasis Premium Horizontal Double Wall Bed", "color": "White", "price": 1299.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000358755.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000359466", "name": "Osaki Grand Duo 4D+4D Massage Chair", "color": "Black", "price": 6799.99, "regularPrice": 8499.99, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000359466.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000366207", "name": "Westinghouse 2-person Infrared Sauna", "color": null, "price": 2499.99, "regularPrice": 2899.99, "instantSavings": 400, "ecoFee": null, "url": "https://www.costco.ca/.product.4000366207.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000367162", "name": "HENCKELS Paradigm Hybrid Ceramic Non-Stick Tri-ply Clad Cookware Set, 11-piece", "color": null, "price": 249.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000367162.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000368213", "name": "Dove Advanced Care Cool Essentials Dry Spray Antiperspirant 3 x 107g", "color": null, "price": 26.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000368213.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000368245", "name": "Dellamore 5-piece Fabric Sectional with Storage Ottoman", "color": null, "price": 2699.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000368245.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000368629", "name": "Mars Assorted Fun Sized Chocolate Candy, 1.48 kg", "color": null, "price": 22.99, "regularPrice": 27.99, "instantSavings": 5, "ecoFee": null, "url": "https://www.costco.ca/.product.4000368629.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000369734", "name": "True Innovations Paxley II Grey Fabric Swivel Glider Recliner", "color": null, "price": 599.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000369734.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000370636", "name": "True Innovations – Paxley Fabric Swivel Glider Recliner", "color": "Dark Grey", "price": 599.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000370636.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000372166", "name": "ASUS ROG Strix G16 16-in Gaming Laptop, AMD Ryzen 9 8940HX – 32GB RAM, 1TB SSD, 8GB NVIDIA GeForce RTX 5060", "color": null, "price": 2949.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000372166.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000372194", "name": "ASUS Mini-Desktop, Intel Core i5-13420H – 8GB RAM, 512GB SSD", "color": null, "price": 598.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000372194.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4000372472", "name": "Duracell CopperTop 9V Batteries, 8-count", "color": null, "price": null, "regularPrice": null, "instantSavings": 3, "ecoFee": 0.56, "url": "https://www.costco.ca/.product.4000372472.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000372547", "name": "Duracell CopperTop D Batteries, 14-count", "color": null, "price": null, "regularPrice": null, "instantSavings": 3, "ecoFee": 1.12, "url": "https://www.costco.ca/.product.4000372547.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000372589", "name": "Duracell CopperTop C Batteries, 14-count", "color": null, "price": null, "regularPrice": null, "instantSavings": 3, "ecoFee": 0.98, "url": "https://www.costco.ca/.product.4000372589.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000375510", "name": "Champion 8,000W Running / 10,000W Peak Dual Fuel Generator with CO Shield", "color": null, "price": 899.99, "regularPrice": 1099.99, "instantSavings": 200, "ecoFee": null, "url": "https://www.costco.ca/.product.4000375510.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000375999", "name": "Shark NeverChange Air Purifier PET PRO, 1450 ft.² and Bonus Odour Cartridge", "color": null, "price": null, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000375999.html", "flags": { "onlineOnly": true, "membersOnly": true, "limitedTime": false, "signInForPrice": true
+      }
+    },
+    { "productId": "4000376464", "name": "Scotties Premium Facial Tissue, 21-pack", "color": null, "price": 35.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000376464.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000377894", "name": "Hisense 22 in. 10.2 cu ft. Stainless Look Convertible Upright Freezer or Refrigerator with Reversible Door", "color": null, "price": 599.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000377894.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000378317", "name": "Pedigree Dentastix Medium Dog Original Treats, 70-count", "color": null, "price": 28.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000378317.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000378828", "name": "GhostBed Hybrid II 33 cm (13 in.) Gel Memory Foam Mattress with Adjustable Base", "color": null, "price": 2799.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000378828.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000378851", "name": "GhostBed Hybrid II 33 cm (13 in.) Gel Memory Foam Mattress", "color": null, "price": 1299.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000378851.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000379154", "name": "Rice Krispies Squares Bars Party Pack, 1.1 kg", "color": null, "price": 19.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000379154.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000379998", "name": "Epson EcoTank ET-3958 Wireless All-in-One Colour Supertank Printer with Two Bonus Black Ink Bottles", "color": null, "price": 449.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000379998.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000380852", "name": "Pirouline Chocolate Hazelnut Filled Rolled Wafers, 1 kg", "color": null, "price": 17.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000380852.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000381531", "name": "Nature's Way Less Stress Gummy, Ashwagandha 150 Gummies", "color": null, "price": 32.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000381531.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000381647", "name": "Nice Link – Lulla Fabric Rocker Recliner", "color": "Beige", "price": 729.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000381647.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000382816", "name": "Gushers Tropical and Strawberry Fruit Flavoured Snacks, 42 × 22 g", "color": null, "price": 14.99, "regularPrice": 17.99, "instantSavings": 3, "ecoFee": null, "url": "https://www.costco.ca/.product.4000382816.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000383986", "name": "Always Ultra Thin Regular Pads, 96-count", "color": null, "price": 22.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000383986.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000384025", "name": "Always Ultra Thin Long Super Pads, 88-count", "color": null, "price": 22.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000384025.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000385507", "name": "Zevia Zero Sugar Soda Variety Pack, 355 mL 30-pack", "color": null, "price": 34.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000385507.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000387070", "name": "Dreame GoVac 200 Robotic Vacuum and Mop with Auto Empty Station", "color": null, "price": 399.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000387070.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000390245", "name": "Garner 7-piece Dining Room Set", "color": null, "price": 1499.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000390245.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000390399", "name": "Gogo Squeez Organic Fruit Sauce Variety Pack, 28 × 90 g", "color": null, "price": 21.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000390399.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000390772", "name": "ASUS TUF Gaming A16 16-in Gaming Laptop, AMD Ryzen 7 260 - 16GB RAM, 1TB SSD, 8GB NVIDIA GeForce RTX 5050", "color": null, "price": 1698.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000390772.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4000391502", "name": "All-Clad D3 Stainless 3-Ply Bonded Cookware, 13-pieces", "color": null, "price": null, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000391502.html", "flags": { "onlineOnly": true, "membersOnly": true, "limitedTime": false, "signInForPrice": true
+      }
+    },
+    { "productId": "4000393786", "name": "HP OmniBook 5 16-in OLED Copilot+ Laptop, Snapdragon X X1-26-100, 16 GB RAM, 512 GB SSD, Qualcomm Adreno Graphics", "color": null, "price": 1599.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000393786.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4000394168", "name": "Dickies Men's Dri-Tech Crew Socks, 10-pair", "color": null, "price": 24.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000394168.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000395982", "name": "AQUAVIT DISCOVERY Elongated Smart Toilet", "color": null, "price": 549.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000395982.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000399507", "name": "MSI MAG 27 in. WQHD Gaming Monitor (2560 x 1440)", "color": null, "price": 229.97, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000399507.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000399694", "name": "Charmin Ultra Soft Toilet Paper Jumbo Rolls, 30 × 200 Sheets", "color": null, "price": 39.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000399694.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000399955", "name": "Chef Robert Irvine's Fit Crunch Chocolate Confetti Dipped Brownies, 18 × 40 g", "color": null, "price": 29.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000399955.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000401056", "name": "Xterra STS 100 Smith Machine Combo", "color": null, "price": 649.99, "regularPrice": null, "instantSavings": 200, "ecoFee": null, "url": "https://www.costco.ca/.product.4000401056.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000401699", "name": "Leclerc Celebration Trio Variety Pack, 920 g", "color": null, "price": 15.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000401699.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000402153", "name": "Bayside Furnishings Brinley 7-piece Dining Set", "color": null, "price": 1599.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000402153.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000402237", "name": "Bayside Furnishings Whitlee Lift-top Coffee Table", "color": null, "price": 339.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000402237.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000403484", "name": "NiceLink Marlowe Top Grain Leather Power Sofa with Lumbar Support", "color": "Dark Brown", "price": 2299.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000403484.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000403712", "name": "Henredon 7-piece Dining Room Set", "color": null, "price": 1599.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000403712.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000403815", "name": "Bayside Furnishings 5-piece Dining Room Set", "color": "Light Brown", "price": 1399.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000403815.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000404239", "name": "Finish Quantum Everyday Dishwasher Detergent, 176 Tablets", "color": null, "price": 30.99, "regularPrice": 36.99, "instantSavings": 6, "ecoFee": null, "url": "https://www.costco.ca/.product.4000404239.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000404946", "name": "Café Express Single Wall 8-oz Hot Cups, 5 Packs of 100", "color": null, "price": 37.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000404946.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000405996", "name": "Roborock QX Revo Plus Robot Vacuum and Mop with 10,000 Pa Suction Power", "color": "White", "price": 639.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000405996.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000407313", "name": "Youtheory K2D3 Zero Sugar Gummies - 120 Gummies", "color": null, "price": 32.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000407313.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000407595", "name": "Splendid Women's Wide Leg Crop Pant", "color": "Green", "price": 12.99, "regularPrice": 19.99, "instantSavings": 7, "ecoFee": null, "url": "https://www.costco.ca/.product.4000407595.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000410798", "name": "Tide PODS Spring Meadow, 152-count", "color": null, "price": 43.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000410798.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000410799", "name": "Tide PODS Liquid Laundry Detergent Pacs, Free & Gentle, 152-count", "color": null, "price": 43.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000410799.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000411314", "name": "Finn Drum Side Tables 2-pack", "color": null, "price": 449.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000411314.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000411570", "name": "soundcore Q11i Bluetooth Headphones", "color": "Dark Grey", "price": 39.99, "regularPrice": 49.99, "instantSavings": 10, "ecoFee": null, "url": "https://www.costco.ca/.product.4000411570.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000411603", "name": "soundcore C40i Bluetooth Earbuds", "color": "Graphite", "price": 74.99, "regularPrice": 98.99, "instantSavings": 24, "ecoFee": null, "url": "https://www.costco.ca/.product.4000411603.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000411989", "name": "Claritin Allergy 10 mg, 148 tablets", "color": null, "price": 49.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000411989.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000412911", "name": "Broil King Signet 320 PRO 3 Dual - Tube Burner Propane BBQ with Cover", "color": null, "price": 679.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000412911.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000412936", "name": "Haven Point 5-piece Dining Room Set", "color": null, "price": 1399.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000412936.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000413041", "name": "T-fal Ultraglide Plus Enhanced Steam Iron with Calc-Collector", "color": null, "price": 49.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000413041.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000414335", "name": "Acer Nitro XZ340CUR 34.0 in. UWQHD Curved Gaming Monitor (3440 x 1440)", "color": null, "price": 399.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000414335.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000415129", "name": "DPS Centurion Pedestal Swivel Gaming Chair", "color": "Gold", "price": 299.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000415129.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000415440", "name": "Broyhill 7-piece Dining Room Set", "color": "Light Brown", "price": 1799.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000415440.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000416158", "name": "Skechers Women’s Arch Comfy 2.0", "color": "Black", "price": 66.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000416158.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000416906", "name": "WakeWater Electrolytes Rapid Rehydration Variety Pack, 30 x 6 g", "color": null, "price": 17.97, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000416906.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000417378", "name": "Level Ground Organic Espresso Whole Bean Coffee, 2 × 907g", "color": null, "price": 48.99, "regularPrice": 63.99, "instantSavings": 15, "ecoFee": null, "url": "https://www.costco.ca/.product.4000417378.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000417639", "name": "Hotel Signature Cotton Sateen Sheet Set, 6-piece", "color": "White", "price": 57.99, "regularPrice": null, "instantSavings": 15, "ecoFee": null, "url": "https://www.costco.ca/.product.4000417639.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000418109", "name": "Pike and Main Fabric Dining Chair, 2-pack", "color": null, "price": 449.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000418109.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000420612", "name": "Di Martino Organic Pasta Variety Pack, 6 × 500 g", "color": null, "price": 18.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000420612.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000420659", "name": "Acer Nitro KG271 27.0 in. Full HD Gaming Monitor (1920 x 1080)", "color": null, "price": 149.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000420659.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4000421555", "name": "Ecoflow Trail Plus 300 DC", "color": null, "price": null, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000421555.html", "flags": { "onlineOnly": false, "membersOnly": true, "limitedTime": false, "signInForPrice": true
+      }
+    },
+    { "productId": "4000422851", "name": "Drizzle Hot Raw Honey, 4 × 330 g", "color": null, "price": 34.99, "regularPrice": 44.99, "instantSavings": 10, "ecoFee": null, "url": "https://www.costco.ca/.product.4000422851.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000422918", "name": "Tresanti Tessa 119.4 cm (47 in.) Adjustable Height Desk with LED Lighting, Black", "color": null, "price": 349.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000422918.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000423760", "name": "Dawn Platinum Advanced Power, Dishwashing Liquid 2.66 L", "color": null, "price": 19.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000423760.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000424630", "name": "Dreame GoVac 510 Robot Vacuum and Mop, Auto-Empty and Mop Self-Cleaning with Bundle and 19,000 Pa Suction Power", "color": null, "price": 999.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000424630.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000425835", "name": "Golden Select Amaretto 18.2 cm (7.17 in.) Rigid Core SPC Vinyl Flooring", "color": null, "price": 42.99, "regularPrice": 49.99, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000425835.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000427302", "name": "InfinitiPro by Conair Frizz Free Flex Hair Dryer", "color": null, "price": 29.99, "regularPrice": 38.99, "instantSavings": 9, "ecoFee": null, "url": "https://www.costco.ca/.product.4000427302.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000427438", "name": "Olay Regenerist Advanced + Niacinamide, 2 x 50 mL", "color": null, "price": 64.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000427438.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000427476", "name": "Olay Retinol24 MAX Night Moisturizer, 2 x 50 mL", "color": null, "price": 69.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000427476.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000427902", "name": "Henredon Fabric Sofa with Wood Base", "color": null, "price": 799.99, "regularPrice": 1099.99, "instantSavings": 300, "ecoFee": null, "url": "https://www.costco.ca/.product.4000427902.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000430707", "name": "Mr. Clean Magic Eraser Extra Durable, 18-count", "color": null, "price": 23.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000430707.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000430998", "name": "Essence Dante Top Grain Leather Sofa, Made in Italy", "color": "Tan", "price": 2499.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000430998.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000432820", "name": "Martha Stewart Memory Foam Pillow", "color": null, "price": 42.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000432820.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000433198", "name": "DeWALT Quilted Seat Adjustable Shop Stool with Casters", "color": null, "price": 99.99, "regularPrice": 119.99, "instantSavings": 20, "ecoFee": null, "url": "https://www.costco.ca/.product.4000433198.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000433698", "name": "Febreze Air Refresher, Variety Pack, 4-count", "color": null, "price": 16.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000433698.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000434364", "name": "Dormeo Essentials 2 in. Mattress Topper", "color": null, "price": 169.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000434364.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000435463", "name": "GlucksteinStudio Berkeley Sheet Set, 6-piece", "color": "Blue", "price": 64.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000435463.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000435489", "name": "Vileda Flex & Catch Heavy Duty Dusting Kit with 17 Refills", "color": null, "price": 24.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000435489.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000436180", "name": "Berkshire Blanket & Home Chenille Knit Throw", "color": "Blue", "price": 39.99, "regularPrice": 45.99, "instantSavings": 6, "ecoFee": null, "url": "https://www.costco.ca/.product.4000436180.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000436211", "name": "Elizabeth Arden Visible Difference Refining Moisture Cream Complex, 2 x 75 mL", "color": null, "price": 59.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000436211.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000436599", "name": "Bayside Furnishings Portalis 7-piece Dining Room Set", "color": null, "price": 1799.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000436599.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000436737", "name": "Duracell CopperTop AAA Batteries with Power Boost Ingredients, 40 count", "color": null, "price": null, "regularPrice": null, "instantSavings": null, "ecoFee": 2.8, "url": "https://www.costco.ca/.product.4000436737.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000436754", "name": "Duracell CopperTop AA Batteries with Power Boost Ingredients, 40 count", "color": null, "price": null, "regularPrice": null, "instantSavings": null, "ecoFee": 2.8, "url": "https://www.costco.ca/.product.4000436754.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000437393", "name": "Halloween Wooden Light Up Letters", "color": null, "price": 59.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000437393.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000437804", "name": "Kitchen Aid Hard Anodized Ceramic Cookware Set, 11-pieces", "color": null, "price": 379.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000437804.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000439133", "name": "Nautica Men's Full Zip Pique Sweater", "color": "Grey", "price": 28.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000439133.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000439447", "name": "Pike & Main Brooklyn 5-piece Dining Room Set", "color": null, "price": 999.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000439447.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000439448", "name": "Bayside Furnishings Augusta 7-piece Dining Room Set", "color": null, "price": 1499.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000439448.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000439516", "name": "Bayside Furnishings Lathan 5-piece Dining Room Set", "color": null, "price": 999.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000439516.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000439544", "name": "Infinity X1 2000 Lumen Rechargeable Flashlight, Pack of 3", "color": null, "price": 39.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000439544.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000440400", "name": "Bayside Furnishings Rayven 5-piece Dining Room Set", "color": null, "price": 999.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000440400.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000440414", "name": "Pike & Main Florence 5-piece Dining Room Set", "color": null, "price": 1299.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000440414.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000440661", "name": "Purex After The Rain Ultra Concentrated Laundry Detergent, 250 Wash Loads", "color": null, "price": 26.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000440661.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000440718", "name": "Purex Cold Water Ultra Concentrated Laundry Detergent, 250 Wash Loads", "color": null, "price": 26.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000440718.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000441003", "name": "Lazypants Men's 1/4 Zip Pullover", "color": "Navy", "price": 24.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000441003.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000443677", "name": "MassaMAX A675 4D Flexible Track Massage Chair, Black", "color": null, "price": 3999.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000443677.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000443754", "name": "KitchenAid Full Size Stainless Steel Dish Rack", "color": null, "price": 49.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000443754.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000444867", "name": "AVF 42\" - 90\" Ergo Premium Dual Arm Full Motion TV Wall Mount", "color": null, "price": 299.99, "regularPrice": 349.99, "instantSavings": 50, "ecoFee": null, "url": "https://www.costco.ca/.product.4000444867.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000448950", "name": "Studio Bathe Katie II Vanity in Weathered Oak Finish with Engineered Stone Countertop", "color": null, "price": 1599.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000448950.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000448951", "name": "Studio Bathe Katie II Vanity in White Finish with Engineered Stone Countertop", "color": null, "price": 1599.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000448951.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4000449723", "name": "Nature's Way Calm-Aid, 90 Softgels", "color": null, "price": 38.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4000449723.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4101000160", "name": "Kirkland Signature by Stearns & Foster Lakeridge Luxury Medium-Firm Pillowtop Mattress", "color": null, "price": 1249.99, "regularPrice": null, "instantSavings": 250, "ecoFee": null, "url": "https://www.costco.ca/.product.4101000160.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4101000163", "name": "Sealy Posturepedic Lincoln Heights 35.6 cm (14 in.) Mattress", "color": null, "price": 1199.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4101000163.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4101000372", "name": "Made in Portugal - Pack of 6 Kitchen Towels", "color": "Orange", "price": 29.99, "regularPrice": 34.99, "instantSavings": 5, "ecoFee": null, "url": "https://www.costco.ca/.product.4101000372.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4101000377", "name": "Sand + Fog Room Spray - 1 L (33.8 fl. oz.)", "color": null, "price": 29.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4101000377.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4101000436", "name": "Unique Appliances Classic Retro 16\" Portable Outdoor Propane Pizza Oven", "color": null, "price": 539.99, "regularPrice": 679.99, "instantSavings": 140, "ecoFee": null, "url": "https://www.costco.ca/.product.4101000436.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4101000484", "name": "Bed & Room Porter Queen Wall Bed with Desk", "color": null, "price": 2999.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4101000484.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4101000524", "name": "Evergreen LED Porcelain Lantern, 2-piece", "color": "White", "price": 59.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4101000524.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4101000526", "name": "Simmons Atlas 24.1 cm (9.5 in.) Mattress or Set", "color": null, "price": 539.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4101000526.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4101000534", "name": "Simmons Bowman 27.9 cm (11 in.) Mattress or Set", "color": null, "price": 629.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4101000534.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201000121", "name": "Organika Total Body Magnesium Boost Mix - 30 Sachets", "color": null, "price": 34.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201000121.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201000432", "name": "Youtheory Shilajit 2 x 60 Vegeterian Capsules", "color": null, "price": 34.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201000432.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201000543", "name": "Govee Outdoor Strip Light Evo", "color": null, "price": 109.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201000543.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201000814", "name": "Henredon Murphy Office Chair", "color": "Grey", "price": 199.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201000814.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201001416", "name": "Promise Gluten Free Rustic Sourdough Loaf, 3 × 400 g", "color": null, "price": 23.99, "regularPrice": 29.99, "instantSavings": 6, "ecoFee": null, "url": "https://www.costco.ca/.product.4201001416.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201001418", "name": "Promise Gluten Free Soft White Loaf, 4 × 480 g", "color": null, "price": 28.99, "regularPrice": 36.99, "instantSavings": 8, "ecoFee": null, "url": "https://www.costco.ca/.product.4201001418.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201001455", "name": "Promise Gluten Free Brioche Burger Buns, 4 × 260 g", "color": null, "price": 27.99, "regularPrice": 34.99, "instantSavings": 7, "ecoFee": null, "url": "https://www.costco.ca/.product.4201001455.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201001491", "name": "Promise Gluten Free Multigrain Loaf, 4 × 480 g", "color": null, "price": 28.99, "regularPrice": 36.99, "instantSavings": 8, "ecoFee": null, "url": "https://www.costco.ca/.product.4201001491.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201001509", "name": "Promise Gluten Free Brioche Loaf, 4 × 400 g", "color": null, "price": 28.99, "regularPrice": 36.99, "instantSavings": 8, "ecoFee": null, "url": "https://www.costco.ca/.product.4201001509.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201001753", "name": "Rviita Energy Tea Multi-Pack, 355 mL 18-pack", "color": null, "price": 54.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201001753.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201002587", "name": "Acer Nitro 85 Gaming Desktop, AMD Ryzen 7 8700F - 16GB RAM, 1 TB SSD, NVIDIA GeForce RTX 5060", "color": null, "price": 1799.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201002587.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201003942", "name": "Acer Aspire 16 AI Copilot+ PC, 16.0-in Touchcreen laptop, Intel Core Ultra 7 258V – 32GB RAM, 1TB SSD", "color": null, "price": 1699.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201003942.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201005301", "name": "Aneto Natural Broth, 6 × 1 L", "color": null, "price": 69.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201005301.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201005393", "name": "Milton's Protein Zesty Ranch Crackers, 340 g", "color": null, "price": 19.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201005393.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201005772", "name": "Red Bull The Summer Edition, 250 mL 24-pack", "color": null, "price": 54.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201005772.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201006012", "name": "Nice Link Whitley 4-piece Fabric Sectional with Ottoman", "color": "Cream", "price": 3699.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201006012.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201006881", "name": "Halloween Candy Variety Pack, 100 Mini Pouches", "color": null, "price": 24.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201006881.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201007617", "name": "Casio CT-S1 76-Key Touch Response Keyboard", "color": null, "price": 369.99, "regularPrice": 399.99, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201007617.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201007678", "name": "Buffalo Men's Sam Twill Pant – Slim Straight Leg Stretch Denim Cotton Casual Five-Pocket", "color": "Dark Grey", "price": 19.99, "regularPrice": 24.99, "instantSavings": 5, "ecoFee": null, "url": "https://www.costco.ca/.product.4201007678.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201008341", "name": "GoPro MAX2 8K 360 Action Camera Bundle", "color": null, "price": 469.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201008341.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4201009422", "name": "adidas 12lb (5.4kg) Weighted Vest", "color": null, "price": 44.99, "regularPrice": 54.99, "instantSavings": 10, "ecoFee": null, "url": "https://www.costco.ca/.product.4201009422.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201010217", "name": "Flora Nikrooz Women's Pajama Set, 2-piece", "color": "Black", "price": 22.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201010217.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201010291", "name": "Mondetta Women’s Peached Interlock Yoga Jacket", "color": "Black", "price": 21.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201010291.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201010292", "name": "Mondetta Women’s Peached Interlock Legging", "color": "Brown", "price": 19.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201010292.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201010704", "name": "Broil King Signet 320 PRO 3 Dual - Tube Burner Natural Gas BBQ with Cover", "color": null, "price": 679.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201010704.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201010852", "name": "Infiniti PRO by Conair High-Speed Digital Hair Dryer", "color": null, "price": 49.99, "regularPrice": 69.99, "instantSavings": 20, "ecoFee": null, "url": "https://www.costco.ca/.product.4201010852.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201010872", "name": "Cascade Power Clean Shine Boost, 115-count", "color": null, "price": 28.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201010872.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201011356", "name": "Acer Aspire 27-in All-in-One Desktop, AMD Ryzen 5 40 – 16GB RAM, 1TB SSD", "color": null, "price": 1099.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201011356.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201011525", "name": "M&M's Peanut, 1.37 Kg", "color": null, "price": 18.99, "regularPrice": 22.99, "instantSavings": 4, "ecoFee": null, "url": "https://www.costco.ca/.product.4201011525.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201012076", "name": "Tommy Hilfiger Men's Combed Cotton Crew Socks with Arch Support, 8-Pack", "color": null, "price": null, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201012076.html", "flags": { "onlineOnly": false, "membersOnly": true, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201012859", "name": "HP OmniBook 3 16-in Laptop, AMD Ryzen 3 30 - 8GB RAM, 256GB SSD", "color": null, "price": 849.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201012859.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4201013192", "name": "Studio Bathe Calais III Vanity in Mink Grey Finish with Engineered Stone Countertop", "color": null, "price": 1499.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201013192.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201015603", "name": "HP OmniBook 5 Next Gen AI OLED Copilot+ PC 16-in Laptop, Intel Core Ultra 7 355 - 16GB RAM, 512GB SSD", "color": null, "price": 1349.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201015603.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4201015911", "name": "Bed & Room Porter Wall Bed, Queen", "color": null, "price": 2599.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201015911.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201015972", "name": "Bed & Room Porter Portrait Wall Bed with Internal Storage, Queen", "color": null, "price": 3299.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201015972.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201015993", "name": "Bed & Room Porter Portrait Wall Bed with Desk and Two Side Towers, Double", "color": null, "price": 4699.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201015993.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201016008", "name": "Bed & Room Porter Double Wall Bed with Desk", "color": null, "price": 2899.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201016008.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201016027", "name": "Bed & Room Porter Queen Wall Bed with 2 Side Towers", "color": null, "price": 4399.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201016027.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201017130", "name": "All-Clad Ceramic Non-Stick Cookware Set, 12-pieces", "color": null, "price": 549.99, "regularPrice": 699.99, "instantSavings": 150, "ecoFee": null, "url": "https://www.costco.ca/.product.4201017130.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201017579", "name": "Scotch & Soda Kids 2-piece Jacquard Set", "color": "Blue", "price": 24.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201017579.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201017704", "name": "Puma Kids 6-piece Set", "color": "Blue", "price": 49.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201017704.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201017845", "name": "Tostitos Tortilla Chips, Salsa and Dip, 26 units, 1.74 kg", "color": null, "price": 31.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201017845.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201020540", "name": "Studio Bathe Thomson II Vanity in Grey Finish with Engineered Stone Countertop", "color": null, "price": 1499.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201020540.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201021028", "name": "Rao's Marinara Sauce, 2 × 872 mL", "color": null, "price": 20.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201021028.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201023761", "name": "Ecovacs T50S PRO OMNI CARE Robot Vacuum & Mop with Auto-Cleaning Station and 25,000 Pa Suction Power", "color": null, "price": 699.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201023761.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201023792", "name": "Ecovacs T90 PRO OMNI CARE Robot Vacuum & Roller Mop with PowerBoost Charging and 30,000 Pa Suction Power", "color": null, "price": 799.99, "regularPrice": 899.99, "instantSavings": 100, "ecoFee": null, "url": "https://www.costco.ca/.product.4201023792.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201025870", "name": "MSI Modern 15 15.6-in Laptop, Intel Core 5 120U - 16GB RAM, 512GB SSD", "color": null, "price": 899.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201025870.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4201025888", "name": "MSI Modern A15 AI+ Copilot+ PC 15.6-in Laptop, AMD Ryzen AI 5 330 - 16GB RAM, 512GB SSD", "color": null, "price": 899.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201025888.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4201027153", "name": "Acer SA243Y M1bi 23.8 in. FHD Monitor (1920 x 1080)", "color": null, "price": 99.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201027153.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4201027514", "name": "ASUS V600 27-in Copilot PC Touchscreen All-in-One Desktop, AMD Ryzen AI 7 350 - 16GB RAM, 2 TB SSD", "color": null, "price": 2799.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201027514.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201027671", "name": "Acer Nitro MGA270U X2BIIPX 27.0 in, WQHD Gaming Monitor (2560 x 1440)", "color": null, "price": 188.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201027671.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4201028085", "name": "Simmons Carlisle 26.7 cm (10.5 in.) Mattress or Set", "color": null, "price": 719.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201028085.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201028400", "name": "XTEND BCAA, 90 x 14.6 g", "color": null, "price": 89.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201028400.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201028999", "name": "ASUS 27-in Copilot+ PC All-in-One Desktop, AMD Ryzen AI 5 330 – 16GB RAM, 512GB SSD", "color": null, "price": 1598.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201028999.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201030060", "name": "Ninja BlendBOSS Tumbler Blender with Two Tumblers (26 oz.) & Two Removable Straws, Sand", "color": null, "price": null, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201030060.html", "flags": { "onlineOnly": false, "membersOnly": true, "limitedTime": false, "signInForPrice": true
+      }
+    },
+    { "productId": "4201030360", "name": "The Unscented Company Bar Soap, 15 x 120 g", "color": null, "price": 49.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201030360.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201030904", "name": "C4 Energy Drink Jolly Rancher Variety Pack, 473 mL, 18-pack", "color": null, "price": 39.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201030904.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201031461", "name": "HP OmniBook 3 16-in Laptop, AMD Ryzen 5 40 - 8GB RAM, 512GB SSD", "color": null, "price": 949.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201031461.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4201031822", "name": "Acer Aspire Go 15.6-in Laptop, AMD Ryzen 7 7730U – 32GB RAM, 1TB SSD", "color": null, "price": 1099.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201031822.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4201032726", "name": "Dog Delights Chewy Beef Sticks, 1.36 kg", "color": null, "price": 25.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201032726.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201034162", "name": "Red Bull The Apple Edition, 250 mL 24-pack", "color": null, "price": 54.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201034162.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201035586", "name": "Caledon Farms Better Breath Dental Chews, 1.36kg", "color": null, "price": 27.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201035586.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201035845", "name": "Head - Men's Touchscreen Gloves", "color": null, "price": 28.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201035845.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201035863", "name": "Head - Women's Touchscreen Gloves", "color": null, "price": 28.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201035863.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201038350", "name": "Calvin Klein Women's Cotton Shorts, 2-pack", "color": "Pink", "price": null, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201038350.html", "flags": { "onlineOnly": false, "membersOnly": true, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201038388", "name": "Banana Republic Women's Ribbed Long Sleeve T-Shirt, 2-pack", "color": "White", "price": 24.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201038388.html", "flags": { "onlineOnly": false, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201040385", "name": "Freedom 5 ft. × 10 ft. Foldable Utility Trailer", "color": null, "price": 1349.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201040385.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    },
+    { "productId": "4201046553", "name": "ASUS TUF A18 18-in Gaming Laptop, AMD Ryzen 7 260 – 32GB RAM, 1TB SSD, 8GB NVIDIA GeForce RTX 5060", "color": null, "price": 2698.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201046553.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": true, "signInForPrice": false
+      }
+    },
+    { "productId": "4201046583", "name": "ASUS TUF A16 16-in Gaming Laptop, AMD Ryzen 7 260 – 32GB RAM, 1TB SSD, 8GB NVIDIA GeForce RTX 5060", "color": null, "price": 2789.99, "regularPrice": null, "instantSavings": null, "ecoFee": null, "url": "https://www.costco.ca/.product.4201046583.html", "flags": { "onlineOnly": true, "membersOnly": false, "limitedTime": false, "signInForPrice": false
+      }
+    }
+  ]
+}
