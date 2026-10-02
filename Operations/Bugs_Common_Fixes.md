@@ -13330,3 +13330,31 @@ both times, so only the parser could have been wrong. (2) **The user deletes a c
 one.** Here the deleted copy of 09-23 was closer to the truth than the kept one. Repair from the photo, never
 by picking between copies. (3) **Pin every line, not the total.** A printed total can be right on a parse
 missing four items.
+
+---
+
+## 303. A deleted-then-restored account showed up as a credit drift (2026-10-02, branch fix/account-deletion-credit-forfeit)
+
+- **Area:** backend · **Symptom:** prod account restored after deletion, back at **0 credits** (correct), yet
+  the reconciliation sweep opened a pending case: `balance 0 / ledger 75 / drift −75`, breakdown
+  `signup_grant +75`. "Apply" would have handed the forfeited 75 credits back.
+- **Root cause:** `requestDeletion` zeroed `users.scan_credits` **without a ledger row**. The tombstone
+  therefore broke `balance == SUM(delta)` by design (PR #260 kept the ledger for the 2 h restore window and
+  hid tombstones from the sweep instead). Two revival paths clean that up — `upsertFromOAuth` replays the
+  ledger in-window or erases it after — but the **admin restore** (`setAccountActive(sub, true)`) does
+  neither. An account restored from the admin desk before the hourly purge reached it came back live with
+  the full history against a zero balance → permanent drift.
+- **Fix:** the deletion is now a ledger movement: `requestDeletion` writes an **`account_deletion`** row of
+  `−balance` (written even at 0) in the same transaction, after locking the row. Every state of the
+  lifecycle now reconciles, whatever path revives it. The in-window restore reverses the **latest**
+  forfeit (`deletion_restore` = `+forfeit`, no longer delta-0); legacy tombstones with no forfeit row keep
+  the old replay. The always-write-at-0 rule is load-bearing: without it, delete → restore → spend to 0 →
+  delete → restore paid the first forfeit twice (mutation-tested).
+- **Files:** `backend/repos/usersRepo.js` (`requestDeletion`, `upsertFromOAuth`), `backend/db/seed.js`
+  (new `account_deletion` event type), `src/services/creditLedger.js` + `i18n.js` (en/fr label + note),
+  `backend/tests/creditRestoreWindowDb.test.js` (+5, incl. the prod repro through `setAccountActive`).
+- **Detect next time:** a pending `credit_reconciliations` row whose breakdown has **no** `account_deletion`
+  entry for a user with a past deletion. Query the user's ledger before applying any reconciliation.
+- **Lesson:** a balance write that bypasses the ledger is drift by construction, even when it is the
+  intended value. Hiding the resulting state from the sweep (`status = true` filter) only moves the
+  failure to whichever path un-hides it.

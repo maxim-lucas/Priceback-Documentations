@@ -10503,3 +10503,14 @@ Regression risk: submission path unchanged (server predicate called without `tod
 **What the page is:** 81 tiles carry a discount (was-price and/or "After $X OFF"), 168 list a current price only, 12 show no price (members-only / sign-in, or eco-fee-only battery tiles); 135 are Online Only. Tiles have no per-item end date: `validUntil` 2026-10-04 is inferred from the title.
 **Differs from the coupons batch — read before importing:** (1) `productId` is Costco's catalog id (`100…`/`4000…`/`4101…`/`4201…`), NOT the 7-digit warehouse item number, so it does not match a receipt SKU without a lookup; (2) one warehouse view only (Gloucester ON) — NOT verified national like the ON/QC/BC coupons; (3) price-only tiles are not deals; (4) the count moved 259 → 258 within the hour.
 **Regression risk:** none — one data file, no code, no import, nothing in prod touched.
+
+---
+
+## 2026-10-02 — Credit drift on a deleted-then-restored account
+
+**Branch:** `fix/account-deletion-credit-forfeit` (off `main`), docs `docs/account-deletion-credit-forfeit`.
+Ask: prod account deleted then restored shows a credit drift (balance 0 vs ledger 75); deletion must forfeit
+credits and never be reported as drift. Root cause + fix: `Operations/Bugs_Common_Fixes.md` #303.
+Regression risk: `requestDeletion` gains a row lock + one insert; in-window restore now reverses the
+latest forfeit (same balance as before; restore row delta is +forfeit instead of 0). Legacy tombstones keep
+the replay. Prod case #2 needs a manual dismissal + forfeit row (not applied by this PR).
