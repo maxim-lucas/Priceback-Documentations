@@ -10514,3 +10514,15 @@ credits and never be reported as drift. Root cause + fix: `Operations/Bugs_Commo
 Regression risk: `requestDeletion` gains a row lock + one insert; in-window restore now reverses the
 latest forfeit (same balance as before; restore row delta is +forfeit instead of 0). Legacy tombstones keep
 the replay. Prod case #2 needs a manual dismissal + forfeit row (not applied by this PR).
+
+---
+
+## 2026-10-02 — Price tag scan: layout + merged notice
+
+**Branch:** `feat/price-tag-scan-layout-merge-notice` (off `main`) — merged as Priceback #390.
+Ask: keep the scan-mode toggle at the same height on all three scanners → move the translator
+(`QuickPriceCheck`) and the savings notice BELOW the camera; drop the redundant reward line in the
+warehouse selector; merge into one notice: "Only SAVINGS tags earn credit · Capped weekly · Regular-price tags are welcome too and help everyone".
+Changes: `PriceTagScanScreen.js` (order + `adWrap`), `WarehousePicker.js` (`creditLine` prop removed), `i18n.js`
+(`priceTag.creditPerTag` deleted en+fr; `priceTag.savingsOnlyNotice` rewritten en+fr). Test: `priceTagScreen.smoke.test.js` (+1, order + no credit line).
+Regression risk: layout only, no logic. The "N tags waiting for review" banner still renders ABOVE the mode switcher when shown (not moved).
