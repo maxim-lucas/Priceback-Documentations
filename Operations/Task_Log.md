@@ -10483,3 +10483,13 @@ on the charge dedupe). `__tests__/adminDashboardScreen.test.js` +7 cases.
 `/api/barcode/resolve` gains one un-awaited insert whose repo never rejects — the response is unchanged.
 Overview adds one aggregate statement plus a guarded read; existing counters untouched. Migration 0016 is additive.
 Pre-existing, not touched: `notificationServiceProfileNudges.test.js` fails on `main` too (time-of-day dependent).
+
+---
+
+## 2026-10-02 — Price tag translator + expired savings never credited
+
+**Branch:** `feat/price-tag-translator` (off `main`), docs `docs/price-tag-translator`.
+Ask (/goal): expired tag savings earn no credit (like a regular price); present the scanner as a
+price-tag translator (price endings + Death Star, which OCR misses); poor warehouse connectivity.
+Reference: `Technical/Price_Tag_Translator.md`.
+Regression risk: submission path unchanged (server predicate called without `today`); only `hasAsterisk` detection widened.
