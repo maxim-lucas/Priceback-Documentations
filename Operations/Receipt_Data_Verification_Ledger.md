@@ -89,3 +89,22 @@ Customer told by push (EN, `notification_history` #29, Expo receipt `ok`):
 *"About your US receipt — Price-drop tracking isn't available yet for US Costco
 stores. It's coming soon, and we'll notify you as soon as it's live."*
 ⚠️ **Owed:** notify this account when US receipts go live.
+
+### 2026-10-03 — two Quebec warehouse receipts with SKU-less lines (Gatineau #542, Pointe Claire #528)
+
+Two customers, one receipt each, scanned 2026-10-03. Every line read off the R2 photo (zoomed crops),
+OCR used only to cross-check. Before-state of every touched row saved before the repair. Both
+repairs ran as guarded transactions (abort unless total, item count, no claim and no drop
+notification matched the audit) and were read back. Parser bug: `Bugs_Common_Fixes.md` #306.
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1791049142108_a1ngm` | Costco Gatineau #542 · 2026-09-20 | photo ✅ + OCR | 2026-10-03 | **Repaired.** The ANNUL'd COUSSIN FETE 14.99 removed (line + price point; positions 35–38 shifted down); `/TAPIS NORDIC` re-pointed from synthetic `ln:…:33` to product **8721334** (orphan deleted); tax 30.06 → **45.05** (TVQ 30.01 + TPS 15.04). 38 lines = **668.44**, **39 articles = printed 39** (BEURRE is 2 @ 5.79), 17.00 rabais = printed. Total 713.49 unchanged. |
+| `r_1791050619590_6wd4e` | Costco Pointe Claire #528 · 2026-09-26 | photo ✅ (top band faded) + OCR | 2026-10-03 | **Repaired, with a known gap.** Rebuilt 20 → 23 lines, all with SKUs: quantities restored (KS DE SOYA 6, KS AMANDE 3, POIS CHICHE 7, RAISIN BRAN 6, KS AMANDES 2); WRAP TORT 18 3.99 (orig 5.99); CREST 3D 14.49 (orig 18.99) and PLMLIVE 9.99 added; POULET BUFFA back to 24.99; 5 new products; WRAP's product name `WRAP/1322067 TORT 18 2.00-` → `WRAP TORT 18`; 5 synthetic products deleted. Warehouse → **528**, channel → warehouse, total 502.51 → **639.41**, tax 22.15. ⚠️ **8 of the printed 50 articles (~$109.92 net, $96.92 of it FP-taxed, 9.00 of the 15.50 rabais) are not legible** — the paper above "Bas du panier" is faded blank in the photo. Lines sum to 507.34 of the printed 617.26. A clearer photo of the top would complete it. |
+
+Also fixed: admin review-queue row #5 (RAISIN BRAN, coupon price 7.99) **kept** — it is a REAL
+drop (9.99 → 7.99 × 6 = $12.00), shown as ~87% only because the line was one $59.94 unit; row 383
+now carries quantity 6 and the queue joins quantity live. Crowd copies (`source_type 4`) from the
+same scan: RAISIN BRAN 59.94 → 9.99 (6824), the 36.98 KS AMANDES copy deleted (6832, the 18.49 copy
+exists), warehouse 528 stamped on 13 rows. Gatineau's crowd copies were all true shelf prices — kept.
+No duplicate scans → no credit refund owed.

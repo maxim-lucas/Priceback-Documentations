@@ -13450,3 +13450,54 @@ missing four items.
 - **Lesson:** a run of shape-specific fixes is a sign the model is wrong, not that one more shape is
   missing. The receipt's own arithmetic (counts + subtotal) is the constraint; pairing is an assignment
   problem.
+
+## 306. Two Quebec warehouse receipts stored SKU-less lines, a billed void, a $617 "tax" — and an 87% fake drop (2026-10-03, branch fix/quebec-warehouse-sku)
+
+- **Area:** mobile parser (Costco, FR + shared warehouse-id/channel) + item-count display · **Symptom:**
+  two receipts scanned 2026-10-03 by two customers. **Gatineau #542** (`r_1791049142108_a1ngm`): `/TAPIS NORDIC`
+  with a synthetic `ln:` product, a voided COUSSIN FETE still billed (+14.99), tax 30.06 (printed 45.05).
+  **Pointe Claire #528** (`r_1791050619590_6wd4e`): 6 SKU-less lines, every `N @ unit` multi-buy stored as ONE unit
+  (`6 @ 9.99 RAISIN BRAN` = one $59.94 box), `WRAP/1322067 TORT 18 2.00-` as a product name, CREST 3D's TPD
+  applied to POULET BUFFA, CREST and PLMLIVE missing, **no warehouse, channel "unknown"**, total 502.51
+  (printed 639.41). Downstream: the coupon import's real $7.99 Raisin Bran price showed in admin review as a
+  ~87% drop (59.94 → 7.99) — Maxim: *"prices never drops 70 percent"*. It was a real 20% drop on 6 boxes.
+  Maxim also saw "50 vs 23" and "39 vs 38": the screens counted **lines**, the paper counts **articles**.
+- **Root causes:** (1) Vision read the column gap as `/` → `8721334/TAPIS` matched no item pattern.
+  (2) `cancelAnnulledLines` only found a SINGLE-line original; a two-line item (`<sku> NAME` / `<amt> F`) was
+  never cancelled — and its +14.99 made the CORRECT column-split re-zip score worse than a wrong parse, so three
+  more items vanished on the flat path. (3) The totals block streamed labels first (`SOUS-TOTAL / TAXE / 18.29 /
+  617.26 / 22.15`) → the eggs' price read as the subtotal, the subtotal as tax, `CC Reward 639.41` as a product.
+  (4) The header had faded; the only warehouse number left was the register footer
+  (`… 14:37:55 528 7 329 69`), which nothing read, so `detectPurchaseType` said "unknown". (5) Production took
+  the **geometry** path, whose rows welded the `N @` headers into item rows and lost SKUs; nothing checked the
+  winner against the flat text, which still held every `<sku> NAME`.
+- **Fix (`costcoReceiptParser.js`):** `unweldSkuSlashName` (preprocess, both paths); two-line originals in
+  `cancelAnnulledLines`; `reorderQuebecTotalsBlock` (FR only) — picks the one (subtotal, tax, total) triple with
+  `s + t = T` to the cent and hands earlier amounts back to the item above; `restoreMultiBuyOrder` (a `N @ U`
+  streamed between item and amount, only when `N × U` = the amount); and **`auditCostcoItemsAgainstText`**, run
+  last on both warehouse paths: a SKU-less item takes the SKU printed on its name's line (ties broken by price,
+  never guessed), a one-unit line takes `N` from an adjacent `N @ U` only when `N × U` is exactly its amount, a
+  name carrying a coupon ref is reset. **It never changes a price**, so totals and scores cannot move.
+  `receiptParsingShared.js`: `extractWarehouseId` reads the register footer (tried LAST — every receipt with a
+  header or `whse` keeps its answer); `detectPurchaseType` (costco) treats the register counters
+  (`Nombre d'art`, `articles vendus`, `items sold`, `bas du panier`, `bottom of basket`) as warehouse.
+- **Display:** `countUnits(items)` (`src/utils/receiptMath.js`) — sum of quantities, fee lines excluded, the
+  register's own rule — on the scan review card, the pending-scan summary and the admin receipt detail.
+- **Verified:** both prod OCRs replay to the photo line for line (Gatineau 38 lines = 668.44, 39 articles,
+  17.00 rabais; Pointe Claire 25 visible lines = 507.34, 42 articles, total 639.41, `reconciled: false` because
+  the paper's first 8 articles are faded — a visible gap, not an invented one). All receipt/parser suites green,
+  golden snapshots byte-identical. 21 parser mutations + 6 display mutations, each confirmed applied, all red.
+- **Data repair (prod, 2026-10-03):** both receipts rebuilt from the photos (ledger), the review-queue row kept
+  alive with the right quantity, the crowd copies fixed (Raisin Bran 59.94 → 9.99, the 36.98 almonds copy
+  deleted, warehouse 528 stamped on 13 rows).
+- **Files:** `costcoReceiptParser.js`, `receiptParsingShared.js`, `receiptMath.js`, `ScanScreen.js`,
+  `PendingReceiptScanScreen.js`, `AdminReceiptDetailScreen.js`; tests `costcoQuebecWarehouseSku.test.js` (new),
+  `costcoReceiptParser.prodtext.test.js`, `receiptMath.test.js`, `adminReceiptDetailScreen.test.js`,
+  `pendingReceiptScanScreen.smoke.test.js`, `scanScreenOfflineQueue.test.js`; fixtures
+  `receipts-prod-text/costco-gatineau-542-20260920.txt`, `…/costco-pointe-claire-528-20260926-c.txt`,
+  `receipts-synthetic/` (new).
+- **Detect next time:** a stored line whose product SKU starts `ln:` on a Costco WAREHOUSE receipt is always a
+  parse defect. `select … from receipt_items i join products p … where p.sku like 'ln:%'` per day.
+- **Lesson:** the photo prints the answer three times — the line, the `N @` row and the receipt's arithmetic.
+  A parse should be audited against its own text before it is trusted, not just scored. And count what the
+  paper counts: articles, not lines.
