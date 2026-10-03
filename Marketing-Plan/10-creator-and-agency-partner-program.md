@@ -51,6 +51,8 @@ Give the comp to the **creator's own account**, **with an end date** (12 months,
 ### "Give me credits per user" (small creators who use the app)
 Set **Partner credits** on the code (e.g. 45) and choose when they pay: *after the first receipt scan* or *after the first purchase*. This requires linking the creator's own PriceBack account. Credits are never paid at bare sign-up, because that would pay for installs nobody uses.
 
+⚠️ **Prefer "after the first purchase" for anyone you don't know yet.** A receipt scan is reported by the phone. The app pays a scan reward only once per phone per creator, but someone set on farming credits can still fake scans. A purchase is real money, so it can't be faked.
+
 ## 4. Rules that protect the money
 
 - **One code per user, at sign-up only.** A friend's PB- code and a creator code are mutually exclusive. A code can't be used after onboarding, or by the partner on their own code.

@@ -38,6 +38,9 @@
   - the first-scan reward fired on an empty `items: []` receipt → now **only a real receipt** (at least one item, positive total);
   - throwaway accounts on one phone (or a purged account signing up again) could each earn first_scan rewards → now **once per device per partner** (`first_scan_device_hash`, advisory-locked).
   Each guard was mutation-checked.
+- **Second review pass:**
+  - **race:** the device check compared `first_scan_at` stamps taken *before* the lock, so an earlier-stamped, later-locking scan also paid. The timestamp clause was removed; the regression test reproduces the ordering.
+  - **bypass:** the device id is client-reported. That is acknowledged as friction, not proof, in the code, the admin form (warning under the partner-credit trigger) and the playbook: pay untrusted partners on first purchase.
 
 ### 2026-10-01 — Rate / Instagram / Facebook as community asks (NOT rewarded)
 
