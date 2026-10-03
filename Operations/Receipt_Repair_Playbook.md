@@ -29,6 +29,18 @@ copy of 09-23 was closer to the truth than the one kept.
 
 Skip any id already in the verification ledger unless its row has changed since.
 
+## 1b. Is it a receipt we track at all?
+
+Read the header first. A receipt printed **outside Canada** (a US `City, ST 12345`
+address line, no Canadian postal code — `shared/receiptCountry.js`) is not repaired:
+it is flagged and its prices taken out of the pool. Since 2026-10-02 the app refuses
+such a scan and the server stores an older build's upload as `unsupported_country`
+with no price points; a receipt from before that needs the manual version — see the
+Bayonne, NJ entry in the verification ledger for what to change (status, watch off,
+printed totals, delete its `source_ref <id>:%` points, its device's
+`<deviceHash>:<date>:%` crowd copies and the auto-registered warehouse stub). Tell the
+customer the store isn't supported **yet**, not that the scan failed.
+
 ## 2. Establish the truth from the PHOTO
 
 - Get the R2 original (`receipts.image_object_key`). Maxim downloads it when the
@@ -120,8 +132,9 @@ Maxim's explicit confirmation.
 
 ## 8. Tell the customer
 
-One push, in their language (`user_preferences.language`). With no saved
-preference on a Quebec account, send it bilingual. Professional and calm: the
+One push, in their language (`user_preferences.language`). **With no saved
+preference, send it in English only** — never bilingual, never guessed from the
+province (Maxim, 2026-10-02). Professional and calm: the
 receipt was checked and corrected automatically, even though the print wasn't
 perfect, and every item is now tracked. No apology for a "bug"; never say how
 long it took.

@@ -13358,3 +13358,49 @@ missing four items.
 - **Lesson:** a balance write that bypasses the ledger is drift by construction, even when it is the
   intended value. Hiding the resulting state from the sweep (`status = true` filter) only moves the
   failure to whichever path un-hides it.
+
+---
+
+## 304. A US receipt became Quebec prices — and its payment lines became items (2026-10-02, branch fix/receipt-scan-new-user)
+
+- **Area:** receipts (app dispatcher + backend) · **Symptom:** a new Quebec customer scanned one receipt
+  twice; "most of the prices are gone". Copy 1 stored 2 lines and total 87.44; copy 2 stored 24 lines
+  including `MOUNT: $523.14` and `PerCard 523.14` as items, total 1377.68, against a printed **523.14**.
+- **Root cause.** The receipt was from **Costco Bayonne, NJ #1334** — a US store, in USD. Nothing anywhere
+  asked which country a receipt came from: (1) the parser read it like a Canadian one (its US payment block
+  — `AMOUNT` OCR-truncated to `MOUNT:`, `MasterCard` garbled to `PerCard`/`NaterCard` — slipped the
+  compliance scrub, which matches those words exactly); (2) `POST /api/receipts` filed every line as a price
+  point under the shopper's **own province** (QC) and registered `1334` as a **Quebec warehouse**; (3) the
+  app's `/api/watch` registration added 20 more crowd observations — it carries no OCR, so it could not
+  have known; (4) every line was watched against Canadian prices, so any "drop" would have been false and
+  billable.
+- **Fix (app branch `fix/receipt-scan-new-user`).** One predicate, both sides, `shared/receiptCountry.js`
+  (mirrored to `backend/shared`): **US** = a whole line `City, ST 12345[-6789]` with a real USPS code, and no
+  Canadian postal code anywhere (a CA postal code vetoes). Validated on every prod receipt (26 → only the
+  two Bayonne copies), all 33 dev receipts (0) and every committed fixture (0).
+  App: `parseReceiptText` refuses a US receipt **before** detectStore's parser runs (Vision, PDF, text file)
+  and `scanReceipt` applies the same gate to Veryfi; result `receiptKind: "unsupported_country"`, reject card
+  "US receipt" (EN+FR). Server (protects every build already in the field — no OTA): the upload stores it
+  as `unsupported_country` (new `receipt_statuses` row, seeded by `ensureSeeded`) with its lines but **no
+  price points, no warehouse, nothing watched**; then takes back the device's crowd copies for that date
+  and warehouse, and the auto-registered warehouse stub (only unnamed, unreferenced) — now and again 60 s
+  later, because the registration races the upload. `/api/watch` skips a flagged receipt's lines; the line
+  watch toggle cannot turn one back on. The Costco parser itself was **not** touched.
+  **Security follow-up (same PR, from the commit review):** the purge deletes BY DEVICE and `deviceId` is a
+  request-body field, so as first written any account could post a "US" receipt naming someone else's
+  device and erase its observations for a day (IDOR). It now runs only when `devices.owner_sub` is already
+  the caller (no trust-on-first-use claim — a deletion must never take a device over), only over rows
+  created since `owner_claimed_at`, and deletes the stub only when it found that device's own rows there.
+- **Not changed, on purpose:** the payment-line scrub. The truncated/garbled forms occurred on no Canadian
+  receipt in prod or dev (the two dev `MasterCard` lines are the exact form the scrub already removes), and
+  US receipts no longer reach the parser. Widening shared Costco-path code for a shape no Canadian receipt
+  has shown is risk without evidence — revisit if a Canadian `MOUNT:` ever appears.
+- **Detect next time:** `select id from priceback.receipts where coalesce(header_ocr,'')||raw_ocr ~
+  '(?n)^\s*[A-Za-z][A-Za-z .''-]{1,40},?\s+(AL|AK|…|WY)\s+\d{5}(-\d{4})?\s*$'` — or simply any
+  `unsupported_country` status. A warehouses row with no name and a code nobody's receipts print is the
+  other tell.
+- **Lessons.** (1) **"Where is this from?" is a precondition, not a parse detail.** A perfect parse of a
+  US receipt is still wrong data in a Canadian pool. (2) **A side door has no context.** `/api/watch` writes
+  prices without seeing the receipt, so the gate had to live where the OCR is and reach back. (3) **A
+  scrub keyed on exact words fails on OCR damage** — that is fine only while the damaged shape has never
+  been seen on the data we keep.

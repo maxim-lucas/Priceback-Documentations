@@ -64,3 +64,28 @@ Two guarded transactions (abort unless total, item count, no claim, no
 drop-notification and no review-queue row matched the audit), each read back. The
 four `scan_consume` ledger rows (75 → 71 credits) are kept as history. Maxim
 refunds the two duplicate scans himself.
+
+### 2026-10-02 — a US receipt (Costco Bayonne, NJ #1334) — UNSUPPORTED, do not re-analyse
+
+Account `002010.0696…0013` (Apple, created 2026-10-03 00:13 UTC, Quebec profile)
+scanned one receipt twice. It is from **Costco Bayonne, NJ #1334**, priced in USD
+(subtotal 516.16 · tax 6.98 · total 523.14 · 34 items · 2026-09-19 14:35). PriceBack
+tracks Canadian stores only, so the receipt is **flagged, not repaired** — Maxim's
+call: *"flag the receipt as a US store that is not supported so we wont redo the
+analyze later"*. **Skip both ids in any future verification pass.**
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1790986971714_tl5wo` | Costco Bayonne, NJ #1334 (US) · 2026-09-19 | OCR only (photo not read) | 2026-10-02 | **Flagged unsupported (US store).** Status `rejected` (pre-dates the `unsupported_country` code), total 1377.68 → **523.14**, tax 6.98, warehouse → none. Payment lines saved as items (`MOUNT: $523.14`, `PerCard 523.14`) deleted with their synthetic products. 22 lines kept, **none watched**. Its 24 receipt price points (USD, filed as QC) deleted. |
+| `r_1790986803639_sgftf` | same receipt, first scan | OCR only | 2026-10-02 | **Flagged unsupported (US store).** Status `rejected`, total 87.44 → **523.14**, 2 lines kept, none watched, its 1 price point deleted. |
+
+Also removed: the **20 crowd copies** the app's `/api/watch` registration wrote
+(source `flyer_user_scan`, `source_ref 45ec3bdbe781d4d5:2026-09-19:*`, all filed as
+Quebec, USD), and the fake Quebec warehouse **`1334`** (id 531943, auto-registered by
+the scan). 45 price points in all. Rows kept rather than deleted: the app re-uploads
+a receipt missing on the server. Maxim ran the guarded block himself and the read-back
+matched. The duplicate scan's refund (1 credit, playbook §6) is Maxim's.
+Customer told by push (EN, `notification_history` #29, Expo receipt `ok`):
+*"About your US receipt — Price-drop tracking isn't available yet for US Costco
+stores. It's coming soon, and we'll notify you as soon as it's live."*
+⚠️ **Owed:** notify this account when US receipts go live.
