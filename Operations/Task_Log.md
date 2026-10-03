@@ -16,6 +16,13 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-03 — Two Quebec warehouse receipts missing SKUs; the item count must match the paper
+
+- **Asked (/goal):** two receipts scanned today in Quebec both wrong, both warehouse (*"this paper format is always warehouse format"*), SKUs missing (*"every item have always an SKU"*). Fix the customers' receipts first, then make the parser recover the way the manual repair did. Mid-task: a review-queue drop showed ~70% (*"prices never drops 70 percent"*); *"check always the receipt photo not the OCR"*; *"costco may count the total items summing the quantities"* — align the count. Branch → new `fix/quebec-warehouse-sku` off `main` (asked first). Maxim's request = the confirmation the Costco-parser rule needs.
+- **Prod:** both receipts rebuilt from the photos (ledger 2026-10-03); the drop is REAL (9.99 → 7.99 × 6) and was kept with the right quantity; crowd copies corrected. Pointe Claire's top 8 articles are faded on the paper — gap documented, not invented.
+- **Code:** un-weld `SKU/NAME`, two-line ANNUL voids, FR labels-first totals solved by `s + t = T`, multi-buy order restore, a final SKU/quantity audit against the receipt's own text (never changes a price), warehouse from the register footer, register counters ⇒ warehouse; `countUnits` on scan / pending / admin receipt screens. Bugs #306. Regression risk: golden snapshots byte-identical; every rule fires only on an exact-arithmetic or exact-name proof.
+- **Status:** branch pushed, PR open — not merged (Maxim's call; ships in the next build).
+
 ### 2026-10-02 — A new customer's US (Bayonne, NJ) receipt: flag, clean prod, refuse US receipts
 
 - **Asked (/goal):** a new user scanned one receipt twice and most prices were gone — fix her scan, fix prod, fix the bugs. Branch → new **`fix/receipt-scan-new-user` off `main`** (asked first); Costco-parser change allowed *"only with zero regression risk"*. Mid-task, once the receipt proved to be **Costco Bayonne, NJ #1334 (USD)**: *"flag the receipt as a US store that is not supported so we wont redo the analyze later"*; Maxim ran the prod SQL himself (*"give me the queries i will run it myself"*); then *"send a notification … price drops in USA are not available yet, but it will be available soon and she will be notified once it is live"*; and *"if no saved language preference send always in english"* (memory + playbook §8 updated).
