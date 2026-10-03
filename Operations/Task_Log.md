@@ -10562,6 +10562,16 @@ Regression risk: layout only, no logic. The "N tags waiting for review" banner s
 
 ---
 
+## 2026-10-03 — Offers Ending Sunday: item numbers resolved, import file ready, matching findings
+
+**Ask:** import the 81 discounted tiles as flyer deals; document findings so the concept can be optimised toward a flexible system matching online deals (different item numbers) to warehouse items and barcodes. Branch → docs-only branch off `main`; no app code.
+**Done:** looked up the real item number of all 81 tiles from their product pages (page `sku` == printed "Item", 81/81). Built `flyer-import_2026-10-02.json` (78 items, region `ON`, batch `costco-offers-ending-2026-10-04-ON`); all 78 pass the real `flyerPricing.normalizeOffer` offline. 3 Duracell tiles skipped (savings but no price). Findings + proposed design: `Technical/Online_Offers_And_Item_Matching.md`.
+**NOT done:** the prod import itself — it needs `FLYER_ADMIN_TOKEN`, which this session could not read (permission denied on credential access). Maxim runs it (command in the PR/handoff).
+**Key findings:** catalog id ≠ item number (raw ids would all be rejected by the 4–8 digit rule); barcodes are NOT on the page (0/81); `normalizeOffer` silently drops provenance flags and `price_points` has no channel, so an online price becomes indistinguishable from a warehouse price and can raise a warehouse price-drop push for the 36 items sold in both channels.
+**Regression risk:** none from this change (data + docs). The import itself writes `price_points` and triggers the drop sweep for ON — see the doc §3.2.
+
+---
+
 ## 2026-10-03 — Laval receipt mis-parsed + missing photo (hotfix on main)
 
 **Branch:** `hotfix/laval-receipt-parser` (off `main`) — Priceback #395; docs `docs/laval-receipt-column-solver`.
