@@ -13404,3 +13404,44 @@ missing four items.
   prices without seeing the receipt, so the gate had to live where the OCR is and reach back. (3) **A
   scrub keyed on exact words fails on OCR damage** — that is fine only while the damaged shape has never
   been seen on the data we keep.
+
+## 305. A new customer's first Laval receipt lost $45 to a scramble no reshape knew — and has no photo (2026-10-03, branch hotfix/laval-receipt-parser)
+
+- **Area:** mobile parser (Costco) + receipt photo upload · **Symptom:** receipt `r_1790993308570_0l4w3`
+  (Laval #505, 2026-09-13, a Google account created 3 minutes earlier) stored **17 lines worth $192.31**
+  against a printed SOUS-TOTAL **237.78**: CREST 3D and EXCEL 27 missing, FUDGE 11.99 (12.99), a phantom
+  FROMAGE 12.99, RITZ as 2 × 4.99, PANINI and SUISSE POULE without their discounts. Receipt total
+  202.09 (printed 247.56). `image_object_key` NULL — Maxim could not open the photo.
+- **Root cause (parser):** Vision read the label column and the amount column in **different orders** —
+  PANINI's and SUISSE POULE's discounts before their items, three FROMAGE scans before their prices, CREST
+  and EXCEL interleaved with their TPDs. Every earlier fix (#302, #347…) taught the parser *one*
+  interleaving; this was a new one. The parse called itself `reconciled: false` and was saved anyway.
+- **Fix:** `src/services/costcoColumnSolver.js` — stop recognising shapes; **solve** the pairing. When the
+  item region's counts close (one positive amount per item label, one negative per discount label) and the
+  amounts sum to the printed subtotal, every receipt-level number is already fixed; the solver only picks
+  which amount goes with which label, minimising reading distance + same-SKU-same-price (soft) +
+  discount < its item (hard) + discount carries its item's tax flag (soft). Hungarian start,
+  best-improvement swaps. Returns null on anything it cannot account for. Added as one more
+  **score-gated** candidate in `reworkAgainstSelfChecks` — adopted only when the existing parse fails the
+  printed self-checks. Across all 72 real fixtures it is adopted on exactly one (this receipt); golden
+  snapshots byte-identical.
+- **Also fixed:** `extractPrintedTotal` read the Quebec subtotal label **"Total Partiel"** as the grand
+  total → `validateReceipt` set **tax 0, total = subtotal** (Anjou #1446 / Rimouski #1720 layout, flat
+  path). Prod's two such receipts were already correct (geometry path).
+- **Data repair (prod, 2026-10-03):** the receipt, its items and its crowd price points were corrected in
+  one transaction to the printed figures (247.56 / 9.78 / 20 units / 18.50 savings); CREST re-pointed to
+  existing product 20432, EXCEL 27 created. The **customer's phone** still holds the old local parse.
+- **Photo — NOT fixed, root cause open:** the server DID presign the upload
+  (`object_retention` row at 02:08:29, one second after the receipt), so the PUT or the
+  `/image-uploaded` confirm failed on the device and `retryPendingDocumentUploads` never completed it.
+  Same pattern on `r_1790696866883_wtm8l` (2026-09-29, presigned, no key). `r_1790035456737_lav05`
+  (2026-09-21) was never presigned at all. Next step: check R2 for the two presigned keys (if the object
+  exists, only the confirm failed and the key can be recorded), then read `src/utils/imageUpload.js`.
+- **Files:** `src/services/costcoColumnSolver.js` (new), `costcoReceiptParser.js`,
+  `receiptParsingShared.js`, `__tests__/costcoColumnSolver.test.js` (new, 25),
+  `costcoReceiptParser.prodtext.test.js` (+5), fixture `costco-laval-505-20260913.txt`. PR Priceback #395.
+- **Detect next time:** `reconciled = false` on a stored receipt is the parser admitting it is wrong —
+  `raw_ocr` replayed through the prod-text harness reproduces it exactly (no geometry needed).
+- **Lesson:** a run of shape-specific fixes is a sign the model is wrong, not that one more shape is
+  missing. The receipt's own arithmetic (counts + subtotal) is the constraint; pairing is an assignment
+  problem.
