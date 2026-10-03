@@ -10536,3 +10536,17 @@ warehouse selector; merge into one notice: "Only SAVINGS tags earn credit · Cap
 Changes: `PriceTagScanScreen.js` (order + `adWrap`), `WarehousePicker.js` (`creditLine` prop removed), `i18n.js`
 (`priceTag.creditPerTag` deleted en+fr; `priceTag.savingsOnlyNotice` rewritten en+fr). Test: `priceTagScreen.smoke.test.js` (+1, order + no credit line).
 Regression risk: layout only, no logic. The "N tags waiting for review" banner still renders ABOVE the mode switcher when shown (not moved).
+
+---
+
+## 2026-10-03 — Laval receipt mis-parsed + missing photo (hotfix on main)
+
+**Branch:** `hotfix/laval-receipt-parser` (off `main`) — Priceback #395; docs `docs/laval-receipt-column-solver`.
+Ask (/goal): a new user's Laval scan was parsed wrong and its photo is missing — (1) fix the customer's receipt,
+(2) fix the photo bug, (3) make the parser always get it right.
+Done: (1) prod receipt `r_1790993308570_0l4w3` repaired to the printed figures (items, totals, crowd price points).
+(3) `costcoColumnSolver` — score-gated constraint solver for scrambled item tables; "Total Partiel" no longer read
+as the grand total. Bugs_Common_Fixes #305.
+Open: (2) photo — server presigned, device upload/confirm failed; the R2 check and the `src/utils/imageUpload.js`
+review were blocked by the session's permission classifier and are owed. PR #395 merge also owed (blocked).
+Regression risk: solver only replaces a parse already failing the printed checks; adopted on 1 of 72 fixtures; goldens unchanged.
