@@ -13386,6 +13386,11 @@ missing four items.
   and warehouse, and the auto-registered warehouse stub (only unnamed, unreferenced) — now and again 60 s
   later, because the registration races the upload. `/api/watch` skips a flagged receipt's lines; the line
   watch toggle cannot turn one back on. The Costco parser itself was **not** touched.
+  **Security follow-up (same PR, from the commit review):** the purge deletes BY DEVICE and `deviceId` is a
+  request-body field, so as first written any account could post a "US" receipt naming someone else's
+  device and erase its observations for a day (IDOR). It now runs only when `devices.owner_sub` is already
+  the caller (no trust-on-first-use claim — a deletion must never take a device over), only over rows
+  created since `owner_claimed_at`, and deletes the stub only when it found that device's own rows there.
 - **Not changed, on purpose:** the payment-line scrub. The truncated/garbled forms occurred on no Canadian
   receipt in prod or dev (the two dev `MasterCard` lines are the exact form the scrub already removes), and
   US receipts no longer reach the parser. Widening shared Costco-path code for a shape no Canadian receipt
