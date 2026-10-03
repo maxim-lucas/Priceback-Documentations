@@ -362,8 +362,8 @@ deal. Mutually exclusive with a friend code. Full reference:
 | `partner_types` / `partner_triggers` | Lookups: `influencer, agency` / `signup, first_scan, first_purchase`. |
 | `partners` | The creator or agency. `user_sub` → `users` (set null) = their own account (credit payee, self-redeem guard). `comped_until` records a RevenueCat comp. |
 | `partner_codes` | `code` UNIQUE + the deal: welcome credits + trigger, partner credits + trigger, `cpa_amount`, `min_spend`, `commission_pct`, `window_months`, `hold_days`, dates, `max_redemptions`, `active`. Deal frozen after first use. |
-| `partner_attributions` | One per user (`user_sub` UNIQUE, set null). `attributed_at` (DB clock), `first_scan_at`, once-only stamps `referee_credited_at` / `partner_credited_at`. |
-| `partner_conversions` | Paid, non-sandbox charges since attribution, CAD catalog price; `source_ref` UNIQUE. Kept forever (sources are pruned). |
+| `partner_attributions` | One per user (`user_sub` UNIQUE, set null). `attributed_at` (DB clock), `first_scan_at` + `first_scan_device_hash` (first-scan rewards pay once per device per partner), once-only stamps `referee_credited_at` / `partner_credited_at`. |
+| `partner_conversions` | Paid, non-sandbox charges since attribution, CAD catalog price, one per product per billing period; `source_ref` UNIQUE. Kept forever (sources are pruned). |
 | `partner_payouts` | Cash actually sent; owed = payable − Σ payouts. |
 
 ---

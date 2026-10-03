@@ -63,7 +63,8 @@ Friend redemption (`referralsRepo.redeem`) now also refuses a user who has a par
 
 ## Triggers and once-only payment
 
-- `onFirstScan(sub)` is called (fire-and-forget) after `POST /api/receipts` **creates** a receipt that is neither a refund nor a refused US receipt.
+- `onFirstScan(sub, {deviceId})` is called (fire-and-forget) after `POST /api/receipts` **creates** a real purchase receipt. A refund, a refused US receipt, or an empty / zero-total shell doesn't count; the route accepts `items: []`, which would otherwise let a throwaway account farm a reward with no receipt at all.
+- **first_scan rewards pay once per device per partner.** The first scan stores `first_scan_device_hash` (`warehousePricing.hashDeviceId`, the same hash `price_points` uses). A first_scan reward pays only if no other attribution of the **same partner** already scanned from that device. The check is serialised by an advisory lock per (partner, device), so two throwaway accounts on one phone, even scanning at the same instant, earn one reward. This also stops a **replay after an account purge**: the purge nulls `user_sub`, so the identity can redeem again, but its phone has already been used. No device on record → no first_scan reward. first_purchase rewards need real money and aren't device-gated.
 - `onPurchase(sub)` is called from `settleReferralAfterFirstPurchase`. That function is already invoked by all four non-sandbox purchase paths (RC webhook top-up, RC webhook subscription incl. renewals, `/subscription/sync`, `/credits/topup`), so no new call sites were added.
 - Both lock the attribution `FOR UPDATE`, capture conversions, and pay every reward whose trigger has fired and whose stamp (`referee_credited_at` / `partner_credited_at`) is empty. The stamp is set in the same transaction as the ledger row and never clears. A partner reward with no linked or live partner account is left **unpaid and unstamped**.
 - Ledger types: `partner_referee_bonus` (note `partner code welcome bonus`) and `partner_referral_bonus` (note `partner referral reward`). The ledger `ref` is `partner-att:<id>`. Notes never name the referred user.
@@ -73,9 +74,11 @@ Friend redemption (`referralsRepo.redeem`) now also refuses a user who has a par
 
 These are copied out of `subscription_events` (types `INITIAL_PURCHASE`, `RENEWAL`; `is_sandbox = false`) and `topup_refs` (no sandbox ledger row with the same ref) **since `attributed_at`**. They are priced from the CAD catalog (`subscription_plans` / `credit_packs`), the same source as the dashboard's "Total gain". A product with no CAD catalog row is skipped, not guessed.
 
+**One subscription charge per product per billing period.** The webhook and the client's `/subscription/sync` both record a renewal, under different event ids and often on different days (the sync lands when the app is next opened). A paid event is accepted only if no accepted charge of the same product lies within 25 days (monthly) or 330 days (annual) of it. Otherwise one renewal would pay the commission twice. The capture runs under an advisory lock per attribution.
+
 The idempotency key is `source_ref`:
-- `sub:<user>:<product>:<UTC day>` (one plan charge per day; a webhook and a client sync of the same charge count once);
-- `topup:<store ref>`.
+- `sub:<rc_event_id>` for subscriptions;
+- `topup:<store ref>` for packs (one row per store transaction).
 
 Rows are kept forever and cascade only with their attribution. `subscription_events` is pruned at 1 year and cascades with the account; partner earnings must outlive both.
 
@@ -126,7 +129,7 @@ App: `AdminPartnersScreen` / `AdminPartnerDetailScreen` (admin console → Dashb
 Migration 0017 is applied **by hand before the code merges** (prod's drizzle ledger is hand-maintained):
 
 1. Run `backend/db/migrations/0017_partner_program.sql` against prod.
-2. Insert the ledger row with the file's LF sha256 and `created_at = 1790900000000`.
+2. Insert the ledger row with the file's LF sha256 (`2ff0987f4b5b1fbc4f6ef15b2e624e25a6e2ee01831dc681a152930968fc9aac`) and `created_at = 1790900000000`.
 3. Boot seeds `partner_types`, `partner_triggers` and the two credit event types.
 
 Until it is applied: partner codes answer `not_found`, the desk answers 503, and friend referrals and every purchase path are unaffected.
