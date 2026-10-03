@@ -13358,3 +13358,146 @@ missing four items.
 - **Lesson:** a balance write that bypasses the ledger is drift by construction, even when it is the
   intended value. Hiding the resulting state from the sweep (`status = true` filter) only moves the
   failure to whichever path un-hides it.
+
+---
+
+## 304. A US receipt became Quebec prices — and its payment lines became items (2026-10-02, branch fix/receipt-scan-new-user)
+
+- **Area:** receipts (app dispatcher + backend) · **Symptom:** a new Quebec customer scanned one receipt
+  twice; "most of the prices are gone". Copy 1 stored 2 lines and total 87.44; copy 2 stored 24 lines
+  including `MOUNT: $523.14` and `PerCard 523.14` as items, total 1377.68, against a printed **523.14**.
+- **Root cause.** The receipt was from **Costco Bayonne, NJ #1334** — a US store, in USD. Nothing anywhere
+  asked which country a receipt came from: (1) the parser read it like a Canadian one (its US payment block
+  — `AMOUNT` OCR-truncated to `MOUNT:`, `MasterCard` garbled to `PerCard`/`NaterCard` — slipped the
+  compliance scrub, which matches those words exactly); (2) `POST /api/receipts` filed every line as a price
+  point under the shopper's **own province** (QC) and registered `1334` as a **Quebec warehouse**; (3) the
+  app's `/api/watch` registration added 20 more crowd observations — it carries no OCR, so it could not
+  have known; (4) every line was watched against Canadian prices, so any "drop" would have been false and
+  billable.
+- **Fix (app branch `fix/receipt-scan-new-user`).** One predicate, both sides, `shared/receiptCountry.js`
+  (mirrored to `backend/shared`): **US** = a whole line `City, ST 12345[-6789]` with a real USPS code, and no
+  Canadian postal code anywhere (a CA postal code vetoes). Validated on every prod receipt (26 → only the
+  two Bayonne copies), all 33 dev receipts (0) and every committed fixture (0).
+  App: `parseReceiptText` refuses a US receipt **before** detectStore's parser runs (Vision, PDF, text file)
+  and `scanReceipt` applies the same gate to Veryfi; result `receiptKind: "unsupported_country"`, reject card
+  "US receipt" (EN+FR). Server (protects every build already in the field — no OTA): the upload stores it
+  as `unsupported_country` (new `receipt_statuses` row, seeded by `ensureSeeded`) with its lines but **no
+  price points, no warehouse, nothing watched**; then takes back the device's crowd copies for that date
+  and warehouse, and the auto-registered warehouse stub (only unnamed, unreferenced) — now and again 60 s
+  later, because the registration races the upload. `/api/watch` skips a flagged receipt's lines; the line
+  watch toggle cannot turn one back on. The Costco parser itself was **not** touched.
+  **Security follow-up (same PR, from the commit review):** the purge deletes BY DEVICE and `deviceId` is a
+  request-body field, so as first written any account could post a "US" receipt naming someone else's
+  device and erase its observations for a day (IDOR). It now runs only when `devices.owner_sub` is already
+  the caller (no trust-on-first-use claim — a deletion must never take a device over), only over rows
+  created since `owner_claimed_at`, and deletes the stub only when it found that device's own rows there.
+- **Not changed, on purpose:** the payment-line scrub. The truncated/garbled forms occurred on no Canadian
+  receipt in prod or dev (the two dev `MasterCard` lines are the exact form the scrub already removes), and
+  US receipts no longer reach the parser. Widening shared Costco-path code for a shape no Canadian receipt
+  has shown is risk without evidence — revisit if a Canadian `MOUNT:` ever appears.
+- **Detect next time:** `select id from priceback.receipts where coalesce(header_ocr,'')||raw_ocr ~
+  '(?n)^\s*[A-Za-z][A-Za-z .''-]{1,40},?\s+(AL|AK|…|WY)\s+\d{5}(-\d{4})?\s*$'` — or simply any
+  `unsupported_country` status. A warehouses row with no name and a code nobody's receipts print is the
+  other tell.
+- **Lessons.** (1) **"Where is this from?" is a precondition, not a parse detail.** A perfect parse of a
+  US receipt is still wrong data in a Canadian pool. (2) **A side door has no context.** `/api/watch` writes
+  prices without seeing the receipt, so the gate had to live where the OCR is and reach back. (3) **A
+  scrub keyed on exact words fails on OCR damage** — that is fine only while the damaged shape has never
+  been seen on the data we keep.
+
+## 305. A new customer's first Laval receipt lost $45 to a scramble no reshape knew — and has no photo (2026-10-03, branch hotfix/laval-receipt-parser)
+
+- **Area:** mobile parser (Costco) + receipt photo upload · **Symptom:** receipt `r_1790993308570_0l4w3`
+  (Laval #505, 2026-09-13, a Google account created 3 minutes earlier) stored **17 lines worth $192.31**
+  against a printed SOUS-TOTAL **237.78**: CREST 3D and EXCEL 27 missing, FUDGE 11.99 (12.99), a phantom
+  FROMAGE 12.99, RITZ as 2 × 4.99, PANINI and SUISSE POULE without their discounts. Receipt total
+  202.09 (printed 247.56). `image_object_key` NULL — Maxim could not open the photo.
+- **Root cause (parser):** Vision read the label column and the amount column in **different orders** —
+  PANINI's and SUISSE POULE's discounts before their items, three FROMAGE scans before their prices, CREST
+  and EXCEL interleaved with their TPDs. Every earlier fix (#302, #347…) taught the parser *one*
+  interleaving; this was a new one. The parse called itself `reconciled: false` and was saved anyway.
+- **Fix:** `src/services/costcoColumnSolver.js` — stop recognising shapes; **solve** the pairing. When the
+  item region's counts close (one positive amount per item label, one negative per discount label) and the
+  amounts sum to the printed subtotal, every receipt-level number is already fixed; the solver only picks
+  which amount goes with which label, minimising reading distance + same-SKU-same-price (soft) +
+  discount < its item (hard) + discount carries its item's tax flag (soft). Hungarian start,
+  best-improvement swaps. Returns null on anything it cannot account for. Added as one more
+  **score-gated** candidate in `reworkAgainstSelfChecks` — adopted only when the existing parse fails the
+  printed self-checks. Across all 72 real fixtures it is adopted on exactly one (this receipt); golden
+  snapshots byte-identical.
+- **Also fixed:** `extractPrintedTotal` read the Quebec subtotal label **"Total Partiel"** as the grand
+  total → `validateReceipt` set **tax 0, total = subtotal** (Anjou #1446 / Rimouski #1720 layout, flat
+  path). Prod's two such receipts were already correct (geometry path).
+- **Data repair (prod, 2026-10-03):** the receipt, its items and its crowd price points were corrected in
+  one transaction to the printed figures (247.56 / 9.78 / 20 units / 18.50 savings); CREST re-pointed to
+  existing product 20432, EXCEL 27 created. The **customer's phone** still holds the old local parse.
+- **Photo — NOT fixed, root cause open:** the server DID presign the upload
+  (`object_retention` row at 02:08:29, one second after the receipt), so the PUT or the
+  `/image-uploaded` confirm failed on the device and `retryPendingDocumentUploads` never completed it.
+  Same pattern on `r_1790696866883_wtm8l` (2026-09-29, presigned, no key). `r_1790035456737_lav05`
+  (2026-09-21) was never presigned at all. **Why it never healed:** `retryPendingDocumentUploads` only
+  ran on cold boot / sign-in / onboarding — never on foreground (the comment claimed it did) and never
+  in-session, so a shopper who scans once and leaves is never retried. **Fixed in PR #396:** bounded
+  in-session retry (30 s / 2 min / 10 min), an AppState-active drain, one drain at a time, and a PII-free
+  `receipt_document_upload_failed {stage, status, attempt}` event (stage = presign / put / confirm /
+  network / file_missing). Still owed: check R2 for the two presigned keys (if the object exists, only the
+  confirm failed and the key can be recorded server-side).
+- **Files:** `src/services/costcoColumnSolver.js` (new), `costcoReceiptParser.js`,
+  `receiptParsingShared.js`, `__tests__/costcoColumnSolver.test.js` (new, 25),
+  `costcoReceiptParser.prodtext.test.js` (+5), fixture `costco-laval-505-20260913.txt`. PR Priceback #395.
+- **Detect next time:** `reconciled = false` on a stored receipt is the parser admitting it is wrong —
+  `raw_ocr` replayed through the prod-text harness reproduces it exactly (no geometry needed).
+- **Lesson:** a run of shape-specific fixes is a sign the model is wrong, not that one more shape is
+  missing. The receipt's own arithmetic (counts + subtotal) is the constraint; pairing is an assignment
+  problem.
+
+## 306. Two Quebec warehouse receipts stored SKU-less lines, a billed void, a $617 "tax" — and an 87% fake drop (2026-10-03, branch fix/quebec-warehouse-sku)
+
+- **Area:** mobile parser (Costco, FR + shared warehouse-id/channel) + item-count display · **Symptom:**
+  two receipts scanned 2026-10-03 by two customers. **Gatineau #542** (`r_1791049142108_a1ngm`): `/TAPIS NORDIC`
+  with a synthetic `ln:` product, a voided COUSSIN FETE still billed (+14.99), tax 30.06 (printed 45.05).
+  **Pointe Claire #528** (`r_1791050619590_6wd4e`): 6 SKU-less lines, every `N @ unit` multi-buy stored as ONE unit
+  (`6 @ 9.99 RAISIN BRAN` = one $59.94 box), `WRAP/1322067 TORT 18 2.00-` as a product name, CREST 3D's TPD
+  applied to POULET BUFFA, CREST and PLMLIVE missing, **no warehouse, channel "unknown"**, total 502.51
+  (printed 639.41). Downstream: the coupon import's real $7.99 Raisin Bran price showed in admin review as a
+  ~87% drop (59.94 → 7.99) — Maxim: *"prices never drops 70 percent"*. It was a real 20% drop on 6 boxes.
+  Maxim also saw "50 vs 23" and "39 vs 38": the screens counted **lines**, the paper counts **articles**.
+- **Root causes:** (1) Vision read the column gap as `/` → `8721334/TAPIS` matched no item pattern.
+  (2) `cancelAnnulledLines` only found a SINGLE-line original; a two-line item (`<sku> NAME` / `<amt> F`) was
+  never cancelled — and its +14.99 made the CORRECT column-split re-zip score worse than a wrong parse, so three
+  more items vanished on the flat path. (3) The totals block streamed labels first (`SOUS-TOTAL / TAXE / 18.29 /
+  617.26 / 22.15`) → the eggs' price read as the subtotal, the subtotal as tax, `CC Reward 639.41` as a product.
+  (4) The header had faded; the only warehouse number left was the register footer
+  (`… 14:37:55 528 7 329 69`), which nothing read, so `detectPurchaseType` said "unknown". (5) Production took
+  the **geometry** path, whose rows welded the `N @` headers into item rows and lost SKUs; nothing checked the
+  winner against the flat text, which still held every `<sku> NAME`.
+- **Fix (`costcoReceiptParser.js`):** `unweldSkuSlashName` (preprocess, both paths); two-line originals in
+  `cancelAnnulledLines`; `reorderQuebecTotalsBlock` (FR only) — picks the one (subtotal, tax, total) triple with
+  `s + t = T` to the cent and hands earlier amounts back to the item above; `restoreMultiBuyOrder` (a `N @ U`
+  streamed between item and amount, only when `N × U` = the amount); and **`auditCostcoItemsAgainstText`**, run
+  last on both warehouse paths: a SKU-less item takes the SKU printed on its name's line (ties broken by price,
+  never guessed), a one-unit line takes `N` from an adjacent `N @ U` only when `N × U` is exactly its amount, a
+  name carrying a coupon ref is reset. **It never changes a price**, so totals and scores cannot move.
+  `receiptParsingShared.js`: `extractWarehouseId` reads the register footer (tried LAST — every receipt with a
+  header or `whse` keeps its answer); `detectPurchaseType` (costco) treats the register counters
+  (`Nombre d'art`, `articles vendus`, `items sold`, `bas du panier`, `bottom of basket`) as warehouse.
+- **Display:** `countUnits(items)` (`src/utils/receiptMath.js`) — sum of quantities, fee lines excluded, the
+  register's own rule — on the scan review card, the pending-scan summary and the admin receipt detail.
+- **Verified:** both prod OCRs replay to the photo line for line (Gatineau 38 lines = 668.44, 39 articles,
+  17.00 rabais; Pointe Claire 25 visible lines = 507.34, 42 articles, total 639.41, `reconciled: false` because
+  the paper's first 8 articles are faded — a visible gap, not an invented one). All receipt/parser suites green,
+  golden snapshots byte-identical. 21 parser mutations + 6 display mutations, each confirmed applied, all red.
+- **Data repair (prod, 2026-10-03):** both receipts rebuilt from the photos (ledger), the review-queue row kept
+  alive with the right quantity, the crowd copies fixed (Raisin Bran 59.94 → 9.99, the 36.98 almonds copy
+  deleted, warehouse 528 stamped on 13 rows).
+- **Files:** `costcoReceiptParser.js`, `receiptParsingShared.js`, `receiptMath.js`, `ScanScreen.js`,
+  `PendingReceiptScanScreen.js`, `AdminReceiptDetailScreen.js`; tests `costcoQuebecWarehouseSku.test.js` (new),
+  `costcoReceiptParser.prodtext.test.js`, `receiptMath.test.js`, `adminReceiptDetailScreen.test.js`,
+  `pendingReceiptScanScreen.smoke.test.js`, `scanScreenOfflineQueue.test.js`; fixtures
+  `receipts-prod-text/costco-gatineau-542-20260920.txt`, `…/costco-pointe-claire-528-20260926-c.txt`,
+  `receipts-synthetic/` (new).
+- **Detect next time:** a stored line whose product SKU starts `ln:` on a Costco WAREHOUSE receipt is always a
+  parse defect. `select … from receipt_items i join products p … where p.sku like 'ln:%'` per day.
+- **Lesson:** the photo prints the answer three times — the line, the `N @` row and the receipt's arithmetic.
+  A parse should be audited against its own text before it is trusted, not just scored. And count what the
+  paper counts: articles, not lines.

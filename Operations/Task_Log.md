@@ -16,6 +16,39 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-03 — Two Quebec warehouse receipts missing SKUs; the item count must match the paper
+
+- **Asked (/goal):** two receipts scanned today in Quebec both wrong, both warehouse (*"this paper format is always warehouse format"*), SKUs missing (*"every item have always an SKU"*). Fix the customers' receipts first, then make the parser recover the way the manual repair did. Mid-task: a review-queue drop showed ~70% (*"prices never drops 70 percent"*); *"check always the receipt photo not the OCR"*; *"costco may count the total items summing the quantities"* — align the count. Branch → new `fix/quebec-warehouse-sku` off `main` (asked first). Maxim's request = the confirmation the Costco-parser rule needs.
+- **Prod:** both receipts rebuilt from the photos (ledger 2026-10-03); the drop is REAL (9.99 → 7.99 × 6) and was kept with the right quantity; crowd copies corrected. Pointe Claire's top 8 articles are faded on the paper — gap documented, not invented.
+- **Code:** un-weld `SKU/NAME`, two-line ANNUL voids, FR labels-first totals solved by `s + t = T`, multi-buy order restore, a final SKU/quantity audit against the receipt's own text (never changes a price), warehouse from the register footer, register counters ⇒ warehouse; `countUnits` on scan / pending / admin receipt screens. Bugs #306. Regression risk: golden snapshots byte-identical; every rule fires only on an exact-arithmetic or exact-name proof.
+- **Status:** branch pushed, PR open — not merged (Maxim's call; ships in the next build).
+
+### 2026-10-02 — A new customer's US (Bayonne, NJ) receipt: flag, clean prod, refuse US receipts
+
+- **Asked (/goal):** a new user scanned one receipt twice and most prices were gone — fix her scan, fix prod, fix the bugs. Branch → new **`fix/receipt-scan-new-user` off `main`** (asked first); Costco-parser change allowed *"only with zero regression risk"*. Mid-task, once the receipt proved to be **Costco Bayonne, NJ #1334 (USD)**: *"flag the receipt as a US store that is not supported so we wont redo the analyze later"*; Maxim ran the prod SQL himself (*"give me the queries i will run it myself"*); then *"send a notification … price drops in USA are not available yet, but it will be available soon and she will be notified once it is live"*; and *"if no saved language preference send always in english"* (memory + playbook §8 updated).
+- **Prod (Maxim ran the guarded block; read back):** both copies (`r_1790986971714_tl5wo`, `r_1790986803639_sgftf`) → status `rejected`, total 523.14 / tax 6.98, watch off on every line, 45 USD price points removed from the QC pool (25 receipt + 20 crowd copies), fake QC warehouse "1334" deleted, the two payment lines saved as items ("MOUNT: $523.14", "PerCard 523.14") deleted. Rows kept: the phone re-uploads a receipt missing on the server.
+- **Push sent** (EN, `notifScanResults`, Expo ticket `01a0ff81…`, `notification_history` #29). ⚠️ **Promise owed:** notify this account when US receipts go live.
+- **Code (app PR #394, `fix/receipt-scan-new-user` off `main`):** `shared/receiptCountry.js` (US = whole `City, ST 12345` line, a CA postal code vetoes; prod 26 receipts → only the 2 Bayonne copies, dev 33 → 0, every fixture → 0). App dispatcher refuses US before any store parser (Costco parser untouched) + Veryfi gate, reject card EN/FR. Server: upload stores `unsupported_country` (seeded) unpriced/unwatched/no warehouse, purges the device's crowd copies + stub warehouse (now + 60 s); `/api/watch` skips flagged lines; watch toggle pinned off. Payment-line scrub deliberately NOT widened (no Canadian occurrence). Bugs #304, ledger, playbook §1b + §8, roadmap "US receipts".
+- **Verified locally:** 12 mutations all red; mobile 7103/7105 (`dropLock` + `notificationServiceProfileNudges` date-dependent, red on a clean tree too), golden 56/56; backend 2167/2168 pass, 0 fail, c8 94.84/81.46/94.97/94.84; i18n 1679 = 1679. No CI dispatched, no build.
+- **Regression risk:** low — every gate fires only on a positive US read; Canadian receipts take a byte-identical path.
+- ⚠️ **Shared checkout:** another session switched `C:\Workspace\Priceback` to `fix/dashboard-subscribers-paid-only` mid-task, so my commit first landed there; refs restored (theirs back to `d7a6ae2`, merged as #393). Security review of the first push found an IDOR in the crowd purge (device id from the body) — fixed in the same PR (`748fcc4`): owner-only, `owner_claimed_at`-bounded, stub only on evidence; +2 tests, 3 mutations red. Status: PRs open → merging.
+
+### 2026-10-03 — Creator & agency partner program (influencer / agency codes)
+
+- **Asked (/goal):** act as a marketing strategist, then build it: partner with Instagram influencers and marketing agencies. Some will ask for a sales share, some for a free plan for years or for life, and agencies want paying per traffic with no data to price it. Idea: reuse the referral field as an influencer code that can expire, with e.g. 45 credits per user. *"What is actually known as a system in these situations in Canada/USA?"* Branch → asked first → **new `feat/partner-codes` off `main`**.
+- **Decisions Maxim made:** payout is **per deal** (credits, cash CPA, revenue share, comped plan, in any combination). The new user's welcome bonus defaults to on and can be **0 per deal**. Triggers are **per deal**: credit rewards on first scan *or* first purchase; agency cash mostly on **paid users**, with an optional **minimum spend** and a **commission rate on actual spend**.
+- **Shape:** migration **0017** (5 tables + 2 lookups); `partnerCode.js` (vanity codes, never friend-shaped, PB prefix reserved); `partnerEarnings.js` (pure money math: CPA / min spend / commission / window / hold, computed on read); `partnersRepo` (redeem, once-only rewards under row locks, catalog-priced conversion capture); the same `/api/me/referral/redeem` and onboarding field; hooks in `settleReferralAfterFirstPurchase` + receipt create; 7 admin routes; `AdminPartnersScreen` / `AdminPartnerDetailScreen`; EN + FR. Playbook: `Marketing-Plan/10-creator-and-agency-partner-program.md`. Reference: `Technical/Partner_Program.md`.
+- **Regression risk:** the shared redeem route (friend codes still take the unchanged path, and the new mutual-exclusion probe fails open without 0017), the purchase-settle function (partner hook is non-fatal and runs first), and the receipt-create route (fire-and-forget). Existing referral suites ran unchanged and green.
+- **Status:** code + tests done on `9cb97e6`, app PR **#397** open, **not merged**. Merging deploys the backend, and **prod DDL 0017 must be applied first** (LF sha256 `2ff0987f…9aac`, when `1790900000000`). Dev has it. Verified locally: backend `npm test` 2204/2205 pass, 0 fail, 1 skip, c8 94.9 / 81.47 / 94.85 / 94.9. Mobile Jest 7183/7184; the 1 fail is the pre-existing `notificationServiceProfileNudges`, which fails identically on clean `origin/main`. i18n 1692 en = fr. Two mutation probes (refund hold, once-only partner stamp) each went red. No CI dispatched, no build, no prod write.
+- **Security review follow-up (same day):** a background review flagged payout inflation, reward farming and reward replay. Fixed on the same PR:
+  - a renewal recorded by both the webhook and a next-day client sync was counted twice → now **one charge per product per billing period**;
+  - the first-scan reward fired on an empty `items: []` receipt → now **only a real receipt** (at least one item, positive total);
+  - throwaway accounts on one phone (or a purged account signing up again) could each earn first_scan rewards → now **once per device per partner** (`first_scan_device_hash`, advisory-locked).
+  Each guard was mutation-checked.
+- **Second review pass:**
+  - **race:** the device check compared `first_scan_at` stamps taken *before* the lock, so an earlier-stamped, later-locking scan also paid. The timestamp clause was removed; the regression test reproduces the ordering.
+  - **bypass:** the device id is client-reported. That is acknowledged as friction, not proof, in the code, the admin form (warning under the partner-credit trigger) and the playbook: pay untrusted partners on first purchase.
+
 ### 2026-10-01 — Rate / Instagram / Facebook as community asks (NOT rewarded)
 
 - **Asked (/goal):** reward *Rate PriceBack*, *Follow on Instagram*, *Follow on Facebook* with 5 credits each — *"but is it possible to validate this actions? … i dont want to give free credits without getting the required action"*; surface them in *Grow your balance* and on Buy credits. Branch → new branch off `main` (asked first); *"merge it before"* → PR #384 squash-merged first.
@@ -10536,3 +10569,17 @@ Regression risk: layout only, no logic. The "N tags waiting for review" banner s
 **NOT done:** the prod import itself — it needs `FLYER_ADMIN_TOKEN`, which this session could not read (permission denied on credential access). Maxim runs it (command in the PR/handoff).
 **Key findings:** catalog id ≠ item number (raw ids would all be rejected by the 4–8 digit rule); barcodes are NOT on the page (0/81); `normalizeOffer` silently drops provenance flags and `price_points` has no channel, so an online price becomes indistinguishable from a warehouse price and can raise a warehouse price-drop push for the 36 items sold in both channels.
 **Regression risk:** none from this change (data + docs). The import itself writes `price_points` and triggers the drop sweep for ON — see the doc §3.2.
+
+---
+
+## 2026-10-03 — Laval receipt mis-parsed + missing photo (hotfix on main)
+
+**Branch:** `hotfix/laval-receipt-parser` (off `main`) — Priceback #395; docs `docs/laval-receipt-column-solver`.
+Ask (/goal): a new user's Laval scan was parsed wrong and its photo is missing — (1) fix the customer's receipt,
+(2) fix the photo bug, (3) make the parser always get it right.
+Done: (1) prod receipt `r_1790993308570_0l4w3` repaired to the printed figures (items, totals, crowd price points).
+(3) `costcoColumnSolver` — score-gated constraint solver for scrambled item tables; "Total Partiel" no longer read
+as the grand total. Bugs_Common_Fixes #305.
+Open: (2) photo — server presigned, device upload/confirm failed; the R2 check and the `src/utils/imageUpload.js`
+review were blocked by the session's permission classifier and are owed. PR #395 merge also owed (blocked).
+Regression risk: solver only replaces a parse already failing the printed checks; adopted on 1 of 72 fixtures; goldens unchanged.
