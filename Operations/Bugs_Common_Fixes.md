@@ -13435,8 +13435,13 @@ missing four items.
   (`object_retention` row at 02:08:29, one second after the receipt), so the PUT or the
   `/image-uploaded` confirm failed on the device and `retryPendingDocumentUploads` never completed it.
   Same pattern on `r_1790696866883_wtm8l` (2026-09-29, presigned, no key). `r_1790035456737_lav05`
-  (2026-09-21) was never presigned at all. Next step: check R2 for the two presigned keys (if the object
-  exists, only the confirm failed and the key can be recorded), then read `src/utils/imageUpload.js`.
+  (2026-09-21) was never presigned at all. **Why it never healed:** `retryPendingDocumentUploads` only
+  ran on cold boot / sign-in / onboarding — never on foreground (the comment claimed it did) and never
+  in-session, so a shopper who scans once and leaves is never retried. **Fixed in PR #396:** bounded
+  in-session retry (30 s / 2 min / 10 min), an AppState-active drain, one drain at a time, and a PII-free
+  `receipt_document_upload_failed {stage, status, attempt}` event (stage = presign / put / confirm /
+  network / file_missing). Still owed: check R2 for the two presigned keys (if the object exists, only the
+  confirm failed and the key can be recorded server-side).
 - **Files:** `src/services/costcoColumnSolver.js` (new), `costcoReceiptParser.js`,
   `receiptParsingShared.js`, `__tests__/costcoColumnSolver.test.js` (new, 25),
   `costcoReceiptParser.prodtext.test.js` (+5), fixture `costco-laval-505-20260913.txt`. PR Priceback #395.
