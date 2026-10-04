@@ -10583,3 +10583,20 @@ as the grand total. Bugs_Common_Fixes #305.
 Open: (2) photo — server presigned, device upload/confirm failed; the R2 check and the `src/utils/imageUpload.js`
 review were blocked by the session's permission classifier and are owed. PR #395 merge also owed (blocked).
 Regression risk: solver only replaces a parse already failing the printed checks; adopted on 1 of 72 fixtures; goldens unchanged.
+
+---
+
+## 2026-10-03 — Receipt header = the printed block or null; 24-receipt prod corpus; parser fixes
+
+**Branch:** `hotfix/header-ocr-no-item-fallback` (stacked on `fix/quebec-warehouse-sku` / #398) + `docs/parser-prod-corpus-2026-10-03`.
+**Ask (Maxim):** header_ocr "6 @ 10.99" on r_1791050619590_6wd4e; the header must be warehouse/title/address or null; the
+member line is the last header line, else a basket / "début" marker; then *"pull all receipts from production, use them as
+fixtures, then run all patterns until the parser is perfect … for both languages"*, plus a new memory rule (always pull the
+new prod receipts as fixtures for a receipt-parser problem).
+**Done:** header cascade (`receiptHeader.js`); 23 prod captures as fixtures with paper-verified ground truth
+(`receiptProdCaptures.test.js`); 14 parser shape fixes (Bugs #307); OCR-misread member/cashier labels in cleanup + scrub.
+Every `ok` capture reconciles to the cent; the faded / unreadable / re-OCR-damaged ones are flagged.
+**NOT done / owed:** prod data cleanup (1 member number, 9 cashier names in `raw_ocr`) — Maxim's call; Best Buy in-store
+header (`BEST` / `BUY` on two lines) left null (lab lane).
+**Regression risk:** low-moderate — shared Costco parsing code (confirmed by the ask). Existing fixtures: no item / total /
+date change; header + raw-text digests moved as intended; full mobile suite 7702/7704 (2 pre-existing).

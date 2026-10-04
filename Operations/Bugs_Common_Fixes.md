@@ -13501,3 +13501,51 @@ missing four items.
 - **Lesson:** the photo prints the answer three times — the line, the `N @` row and the receipt's arithmetic.
   A parse should be audited against its own text before it is trusted, not just scored. And count what the
   paper counts: articles, not lines.
+
+---
+
+## 307. A receipt's header was "6 @ 10.99" — and 24 prod receipts showed the geometry path losing lines on half of them (2026-10-03, branch hotfix/header-ocr-no-item-fallback)
+
+- **Area:** mobile parser (Costco EN+FR, shared cleanup, header extraction) + fixture PII scrub · **Symptom:**
+  prod receipt `r_1791050619590_6wd4e` (Pointe Claire #528) stored `header_ocr = "6 @ 10.99"` — its first
+  multi-buy line. Maxim: *"header should always be warehouse, title, address … worst case it should be null"*.
+- **Root cause (header):** the paper above `Bas du panier` printed **white** (faded thermal; 8 articles, $109.92
+  and the header gone). With no header in the OCR, `extractHeaderOcr`'s fallback — *"the first non-empty line"* —
+  stored the first ITEM line. The receipt's imbalance is the faded paper, not the parser: the 23 visible lines
+  are exactly $507.34.
+- **Fix (header):** `src/services/receiptHeader.js` — the header is the block ABOVE a boundary, patterns in
+  order: **member line** (incl. OCR misreads) → **item-table marker** (Bas du panier / Bottom of Basket / DÉBUT
+  PRÉ-LECTURE / START OF PRE-SCANNED / SELF-CHECKOUT) → **first item line** (price on it or under it — an address
+  never has one) → **identifying lines above the totals** → **null**. Filtered: no priced/item/noise/URL/delivery
+  line, stops at a Shipping/Billing block, trimmed to the span of store-identifying lines. Read from the
+  PRE-cleanup OCR (cleanup deletes the member line). The sync fallback's first-line fallback is gone.
+  Write-up: `Technical/Receipt_Header_And_Prod_Corpus.md`.
+- **Corpus run (new standing rule):** all 24 prod photos pulled from R2, re-OCR'd, checked against the paper.
+  Defects found and fixed — every `ok` receipt reconciles to the cent now:
+  the `FP` flag survived on GEOMETRY rows (Vision returns it as its own word) → every both-taxes line lost
+  (`collapseBothTaxesFlag` in preprocess); keyword-less coupon rows `0000389094/1925368 5.00 - F`, `/ 2652709`,
+  `// 1925368`, their `ANNUL` voids, and an item row welded to the coupon above (`splitWeldedCouponRows`); a
+  coupon label read ABOVE its item on a tilted photo (`restoreLeadingDiscountOrder`, guarded against
+  column-split blocks); `TOTAL DISCOUNT(S) $ 24.50` read as the grand total; deposit/eco-fee labels breaking a
+  column-split zip; item labels streamed INTO the totals block (`reorderInterleavedTotalsBlock`,
+  arithmetic-gated); prices streamed above their labels (`restoreInvertedPriceRuns`, score-gated candidate
+  only); a coupon naming the item (`0000389137 / PUREX`); a trailing `/` or `,` after a coupon SKU;
+  `SOUS-TOTOY` (pen stroke) billed as a $406 item; the printed total taken from whichever source the parse's own
+  arithmetic confirms; the `Nombre d'art. N` footer read; fee lines no longer counted as articles in the
+  over-count walk-back.
+- **Privacy (found on the way):** OCR misreads `Member` → `Hember` and `Caissier` → `Cassier`/`Calssier`;
+  neither cleanup nor the fixture scrub knew it, so **1 prod receipt stores a member number and 9 store a
+  cashier's name in `receipts.raw_ocr`**, and 7 new fixtures nearly got committed with names. Both rules are
+  now OCR-tolerant (guarded by the 10+ digit shape / the `ss` + `:` label). Prod rows **not** yet cleaned —
+  Maxim's call.
+- **Not a parser bug:** `r_1790469584273_xstgw`'s stored "photo" is a PriceBack-generated document, not the
+  shopper's receipt (dropped from fixtures). `r_1787042691897_vdxrw` parsed correctly in prod; only the re-OCR of
+  its stored (cropped, re-compressed) photo is damaged — the reason OCR capture (PR #399) keeps the exact input.
+- **Tests:** `receiptProdCaptures.test.js` (every prod capture pinned to its paper; a capture without ground
+  truth fails), `costcoReceiptProdShapes.test.js` (each shape + its look-alikes), `receiptHeader.test.js`,
+  cleanup/scrub cases. The new suites go red against the old sources (68 failures). Full mobile suite
+  7702/7704 (the 2 are pre-existing on `main`). Golden: only header/raw-text digests moved on existing fixtures,
+  plus one printed total now read.
+- **Lesson:** a fixture must be what the shopper's parse read. Hand-corrected text passed where the real OCR
+  failed, and a flat-text twin hid that production takes the geometry path. Exact captures (PR #399) + this
+  suite.
