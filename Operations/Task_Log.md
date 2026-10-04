@@ -10583,3 +10583,21 @@ as the grand total. Bugs_Common_Fixes #305.
 Open: (2) photo — server presigned, device upload/confirm failed; the R2 check and the `src/utils/imageUpload.js`
 review were blocked by the session's permission classifier and are owed. PR #395 merge also owed (blocked).
 Regression risk: solver only replaces a parse already failing the printed checks; adopted on 1 of 72 fixtures; goldens unchanged.
+
+---
+
+## 2026-10-03 — OCR capture: keep every live scan's exact Vision input + response
+
+**Branch:** `feat/ocr-capture` (off `main`, app repo) + `docs/ocr-capture` (this repo).
+**Ask (Maxim):** prod receipt `r_1791050619590_6wd4e` stored header_ocr "6 @ 10.99"; build fixtures from
+ALL prod receipts and make the parser right first time in both languages; then *"keep the Vision response
+in prod … we have to save the exact and same conditions as real live scan from users."*
+**Done:** `ocr_captures` table (migration 0017) + `lib/ocrCapture` — `/api/ocr` stores the exact image bytes
+Vision received and Vision's verbatim response (gzipped envelope + request/client context) AFTER answering;
+`/api/receipts` links new receipts to their capture by item-line overlap (same receipt 0.76–1.00, others ≤ 0.33,
+measured); 90-day age sweep via `object_retention`; admin receipt detail lists captures; app sends `scanContext`;
+`scripts/exportOcrCaptures.js` turns captures into fixtures. Full write-up: `Technical/OCR_Capture.md`.
+**NOT done:** migration 0017 applied to dev or prod (the session's permission guard blocked `drizzle-kit migrate`);
+`ocrCapturesDb.test.js` runs once it is applied. Privacy/Data Safety wording for the verbatim member number — decision owed.
+**Regression risk:** low — capture and link run after the response, best-effort, behind `OCR_CAPTURE_ENABLED`;
+a missing table only logs. The app adds one optional body field older backends ignore.
