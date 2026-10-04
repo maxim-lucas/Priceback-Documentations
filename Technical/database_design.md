@@ -313,6 +313,26 @@ One row per accepted redemption; enables the "friends you invited" list and ties
 
 > **Dropped** `name`/`sku`/`barcode` (→ products; reads join products), `refund_received_at`.
 
+#### `ocr_captures`  *(NEW 2026-10-03, migration 0017 — exact input/output of every live OCR call)*
+| column | type | notes |
+|---|---|---|
+| id | bigserial PK | |
+| user_sub | text → users.sub (set null) | the signed-in caller; NULL for an anonymous (older-build) call |
+| receipt_id | text → receipts.id (set null) | linked AFTER the receipt arrives, by matching its raw_ocr item lines; NULL for abandoned scans |
+| image_object_key | text NOT NULL UNIQUE | the exact bytes Google Vision received |
+| response_object_key | text NOT NULL UNIQUE | gzipped envelope: Vision's verbatim response + request params, client scan context, timing |
+| created_at | timestamptz NOT NULL default now() | |
+| | index(user_sub, created_at) · index(receipt_id) | |
+
+> Writer: `POST /api/ocr` → `lib/ocrCapture.captureInBackground` (after the response is sent, best-effort,
+> kill switch `OCR_CAPTURE_ENABLED`). Linker: `POST /api/receipts` → `linkReceiptInBackground`.
+> Readers: `GET /api/admin/receipts/:id` (`ocrCaptures` with presigned URLs) and
+> `scripts/exportOcrCaptures.js` (turns captures into parser fixtures). Both objects are recorded in
+> `object_retention` as `ocr_capture` before they are written and expire by age
+> (`RETENTION_OCR_CAPTURES_DAYS`, 90) via `jobs/pruneOcrCaptures`, which also deletes the index row.
+> Why the objects are not columns: the response is hundreds of KB of JSON per scan — object-store
+> material, not row material. Full rationale: `Technical/OCR_Capture.md`.
+
 #### `price_drop_notifications`  *(NEW — verified price-drop dedupe ledger)*
 | column | type | notes |
 |---|---|---|
