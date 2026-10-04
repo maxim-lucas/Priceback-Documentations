@@ -10583,3 +10583,16 @@ as the grand total. Bugs_Common_Fixes #305.
 Open: (2) photo — server presigned, device upload/confirm failed; the R2 check and the `src/utils/imageUpload.js`
 review were blocked by the session's permission classifier and are owed. PR #395 merge also owed (blocked).
 Regression risk: solver only replaces a parse already failing the printed checks; adopted on 1 of 72 fixtures; goldens unchanged.
+
+---
+
+## 2026-10-04 — Bad-angle receipt fixed by hand; receipt review flags; admin-approved shopper notices
+
+**Branch:** `fix/bad-angle-receipt-review` (off `main`, asked first); docs `docs/bad-scan-receipt-runbook`.
+**Ask (/goal):** a shopper scanned a receipt at a very bad angle — fix the receipt's items, price points etc. for this time **without touching the parser**, and write a runbook for these cases. Add two receipt columns: *skip optimisation* and *reviewed by admin*; set both on this receipt, only *reviewed* on all others. The runbook also sends the shopper a "photo quality was bad, we did it this time, use the framing tips next time" notice — **every such notice must wait on the admin console for Maxim's approval**.
+**Done:**
+- Migration 0019: `receipts.admin_reviewed_at`, `receipts.skip_parser_optimization`; `notification_approvals` + lookups `notification_approval_kinds` / `_statuses`. Applied to dev AND prod (hand-applied + ledger row `2c6814a3…`, when 1791100000000) BEFORE merge. ⚠️ 0018 (`ocr_captures`, #399) is on NEITHER dev nor prod — prod runs an older build.
+- `lib/badScanRepair.js` + `scripts/repairBadScanReceipt.js` (dry run by default; refuses claimed/notified lines, non-reconciling specs, other devices' price points). Admin: *Notifications to approve* screen (approve/reject, EN+FR preview), receipt detail flag toggles. Push `receipt_quality_notice` under *Scan results*, opens the receipt. `exportOcrCaptures.js` never exports a skip-flagged receipt.
+- **Prod data fix applied** (Maxim granted it): `r_1791145910170_14lyb` (Vaudreuil #1213) rebuilt 12 junk lines → 18 real, 534,01/0,00 → 224,55/6,14; 19 bad price points removed, 18 written; 5 junk products deleted, 3 renamed products restored; notice #2 **pending approval**. All 33 prod receipts stamped `admin_reviewed_at`; only this one `skip_parser_optimization`.
+- Runbook: `Operations/Bad_Scan_Receipt_Repair_Runbook.md`.
+**Regression risk:** additive. Shopper receipt reads strip the two flags (pinned by test). Parser untouched. The approval desk/push only work once this PR's backend + app are deployed; until then notice #2 just waits.
