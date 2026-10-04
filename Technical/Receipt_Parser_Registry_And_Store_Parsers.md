@@ -9,6 +9,9 @@
 
 ## 1. How a receipt gets parsed
 
+> The receipt **header** (`header_ocr`) and the **production-corpus** test method (every parser problem starts by
+> turning new prod receipts into paper-verified fixtures) are in `Receipt_Header_And_Prod_Corpus.md`.
+
 ```
 OCR text ──► detectStore() ──► resolveStoreParser(storeId) ──► the store's parser
              (pre-parser)       (the registry)                  (or the generic engine)
