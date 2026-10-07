@@ -10586,6 +10586,20 @@ Regression risk: solver only replaces a parse already failing the printed checks
 
 ---
 
+## 2026-10-03 — Receipt header = the printed block or null; 24-receipt prod corpus; parser fixes
+
+**Branch:** `hotfix/header-ocr-no-item-fallback` (stacked on `fix/quebec-warehouse-sku` / #398) + `docs/parser-prod-corpus-2026-10-03`.
+**Ask (Maxim):** header_ocr "6 @ 10.99" on r_1791050619590_6wd4e; the header must be warehouse/title/address or null; the
+member line is the last header line, else a basket / "début" marker; then *"pull all receipts from production, use them as
+fixtures, then run all patterns until the parser is perfect … for both languages"*, plus a new memory rule (always pull the
+new prod receipts as fixtures for a receipt-parser problem).
+**Done:** header cascade (`receiptHeader.js`); 23 prod captures as fixtures with paper-verified ground truth
+(`receiptProdCaptures.test.js`); 14 parser shape fixes (Bugs #307); OCR-misread member/cashier labels in cleanup + scrub.
+Every `ok` capture reconciles to the cent; the faded / unreadable / re-OCR-damaged ones are flagged.
+**NOT done / owed:** prod data cleanup (1 member number, 9 cashier names in `raw_ocr`) — Maxim's call; Best Buy in-store
+header (`BEST` / `BUY` on two lines) left null (lab lane).
+**Regression risk:** low-moderate — shared Costco parsing code (confirmed by the ask). Existing fixtures: no item / total /
+date change; header + raw-text digests moved as intended; full mobile suite 7702/7704 (2 pre-existing).
 ## 2026-10-04 — Bad-angle receipt fixed by hand; receipt review flags; admin-approved shopper notices
 
 **Branch:** `fix/bad-angle-receipt-review` (off `main`, asked first); docs `docs/bad-scan-receipt-runbook`.
@@ -10649,7 +10663,7 @@ Prod free-tier row lists `barcode_scan` in `feature_keys`. Harmless today (gate 
 console; (3) edit receipts (date, warehouse, taxes…); (4) same for notifications; (5) a receipt with no
 detected or selected warehouse → "Your Costco warehouse", else the nearest one.
 **Done:**
-- Tag photo proxied through `GET /api/admin/price-tag-reviews/:id/image` (Bugs_Common_Fixes #307).
+- Tag photo proxied through `GET /api/admin/price-tag-reviews/:id/image` (Bugs_Common_Fixes #308).
 - Tag review: full selectable OCR text; `POST …/:id/edit` corrects SKU/brand/product/prices/expiry on the
   review AND its price point (pending only; product re-pointed on a SKU change; `printedExpiry` kept in step).
 - Receipt desk: `POST /api/admin/receipts/:id/edit` (date, warehouse, total, tax, purchase type — the
