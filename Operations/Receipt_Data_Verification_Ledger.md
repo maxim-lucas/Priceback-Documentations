@@ -155,3 +155,25 @@ counts matched the audit and no claim/notification/review row existed), committe
 back. **No customer notification sent** (Maxim's instruction). Parser bugs noted, not
 fixed: eco-fee description lines can swallow the next item's amount; English-layout
 `NNNNNN/SKU` coupons without a `TPD` prefix are dropped.
+### 2026-10-04 — three Quebec receipts (Drummondville #1127, Gatineau #542, Quebec #503)
+
+Three customers, one receipt each — two scanned the morning of 2026-10-04 (EDT), one at 23:37 on
+2026-10-03. Every line read off the R2 photo (zoomed crops); the stored OCR — right on all three —
+only cross-checked it. Each repair ran as one guarded `DO` block (abort unless total, tax, item count,
+no claim, no drop notification, no review-queue row and no referenced price point matched the audit;
+the receipt's own arithmetic asserted before commit) and was read back. Parser: Bugs #309.
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1791118577679_bq42g` | Costco Drummondville #1127 · 2026-09-24 (self-checkout) | photo ✅ + OCR | 2026-10-04 | **Repaired.** `4160015 GRENADE SC` 29.99 FP added at position 3 (new product, with its price point); MADEGOOD and MAYO moved to 4–5. Total 61.44 → **91.43**. 6 lines = **86.24**, tax 5.19 (TPS 2.20 + TVQ 2.99), **6 articles = printed 6**. |
+| `r_1791125306407_zm6h2` | Costco Gatineau #542 · 2026-09-21 (self-checkout) | photo ✅ + OCR | 2026-10-04 | **Repaired.** Rebuilt 12 → 13 lines: BULDAK **11.49** (orig 14.99, `/1875629 3.50-`), VECTOR GEANT **8.49** (orig 10.99, `/ 128888 2.50-`), LP SANDALE **9.99** (orig 14.99, `/ MULTIPLE 5.00-FP`), ACTIVIA 10.99 added (new product 144480), BATON MOZZA 10.99 → **16.99**, FILET SAUMON 16.99 → **35.56**. Product names restored (a receipt upsert overwrites them for every shopper): `LIBRE - SÉRVICE BULDAK` → `BULDAK`, `KS/1875629 40X500ML 3.50-` → `KS 40X500ML`, `FILET SAUMON 35.56` → `FILET SAUMON`, `LP SANDALE/MULTIPLE` → `LP SANDALE`. 11 price points rewritten; the four discounted lines unwatched. Total 136.92 → **161.48** (155.14 + 6.34); **13 articles = printed 13**; discounts 15.00 = TOTAL RABAIS. |
+| `r_1791085073654_z6hct` | Costco Quebec #503 · 2026-10-03 | photo ✅ + OCR | 2026-10-04 | **Repaired.** Lines were right; tax 0.01 → **16.32** (TPS 5.45 + TVQ 10.87 on 108.96 of FP lines), total 250.45 → **266.75**; `*ECOFRAIS` 0.09 → **0.08** — a pen stroke crosses the digit, and 0.08 is the only value that closes on SOUS-TOTAL 250.43. 15 articles (the photo stops above the printed count). |
+
+Crowd copies (`source_type 4`, written by the app's `/api/watch` from the same parse): Gatineau's
+BATON MOZZA **10.99** (7929) and FILET SAUMON **16.99** (7930) deleted — wrong prices that told drop
+detection those items sell for $6.00 and $18.57 less than they do. Its other 7 are true shelf prices
+(BULDAK, VECTOR and LP SANDALE at their pre-coupon price) — kept; Drummondville's and Quebec #503's
+are all true — kept. Each phone re-registers its corrected lines after its next hydrate, which records
+the missing observations (ACTIVIA, GRENADE SC, BATON 16.99, SAUMON 35.56) through production code. No
+credit-ledger row referenced the deleted copies. No duplicate scans → no refund owed. No customer push
+sent.

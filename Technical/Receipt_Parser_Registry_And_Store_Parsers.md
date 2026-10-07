@@ -58,8 +58,13 @@ items; the scan pipeline decides what an empty parse means.
 
 1. Confirm `STORE_DETECTION_PATTERNS` matches the store.
 2. Write `src/services/<store>ReceiptParser.js` against the contract, reusing
-   `parseReceiptEngine` and its `reshapeLines` / `handleDiscountLine` hooks
-   rather than re-implementing item extraction.
+   `parseReceiptEngine` and its `reshapeLines` / `handleDiscountLine` /
+   `isItemNameLine` hooks rather than re-implementing item extraction.
+   `isItemNameLine` (2026-10-04) is additive: it admits a store's own price-less
+   item row the generic three-letter name test refuses (Costco's `KS 40X500ML`),
+   never refuses one it admits. Pass a store's hooks as ONE shared object to
+   every engine call (Costco: `COSTCO_WAREHOUSE_HOOKS`) — a hook missing from one
+   candidate is masked by the second-pass candidates that still have it.
 3. Add one line to `STORE_PARSERS` — or `LAB_STORE_PARSERS` while it is being
    built.
 4. **Capture real receipts.** `npm run capture:receipts`, then a
