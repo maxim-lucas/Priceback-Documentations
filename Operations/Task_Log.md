@@ -10586,7 +10586,6 @@ Regression risk: solver only replaces a parse already failing the printed checks
 
 ---
 
-<<<<<<< HEAD
 ## 2026-10-04 — Bad-angle receipt fixed by hand; receipt review flags; admin-approved shopper notices
 
 **Branch:** `fix/bad-angle-receipt-review` (off `main`, asked first); docs `docs/bad-scan-receipt-runbook`.
@@ -10597,7 +10596,9 @@ Regression risk: solver only replaces a parse already failing the printed checks
 - **Prod data fix applied** (Maxim granted it): `r_1791145910170_14lyb` (Vaudreuil #1213) rebuilt 12 junk lines → 18 real, 534,01/0,00 → 224,55/6,14; 19 bad price points removed, 18 written; 5 junk products deleted, 3 renamed products restored; notice #2 **pending approval**. All 33 prod receipts stamped `admin_reviewed_at`; only this one `skip_parser_optimization`.
 - Runbook: `Operations/Bad_Scan_Receipt_Repair_Runbook.md`.
 **Regression risk:** additive. Shopper receipt reads strip the two flags (pinned by test). Parser untouched. The approval desk/push only work once this PR's backend + app are deployed; until then notice #2 just waits.
-=======
+
+---
+
 ## 2026-10-03 — OCR capture: keep every live scan's exact Vision input + response
 
 **Branch:** `feat/ocr-capture` (off `main`, app repo) + `docs/ocr-capture` (this repo).
@@ -10666,4 +10667,3 @@ detected or selected warehouse → "Your Costco warehouse", else the nearest one
 **Regression risk:** server list/verify/reject routes unchanged; approve now builds its push through
 `_approvalCopy` (stock copy when no override — identical output). ScanScreen: a receipt that USED to save with
 no warehouse now gets the favourite/nearest one — intended, but it does attribute its prices to that club.
->>>>>>> origin/main
