@@ -13549,3 +13549,31 @@ missing four items.
 - **Lesson:** a fixture must be what the shopper's parse read. Hand-corrected text passed where the real OCR
   failed, and a flat-text twin hid that production takes the geometry path. Exact captures (PR #399) + this
   suite.
+
+---
+
+## 308. Every price-tag photo on the admin desk read "Couldn't load the image" (2026-10-07, branch hotfix/admin-review-editing)
+
+- **Area:** admin desk (tag reviews) · **Symptom:** Maxim: "Price tag review screen, I can't load the images
+  properly — I always have the failed-to-load-image error." Prod `tag_scan_reviews` had an
+  `image_object_key` on every recent row (ids 15–29), so the uploads had been confirmed.
+- **Root cause — NOT proven.** The desk loaded each photo straight from a presigned R2 GET URL minted by the
+  list call. The session could not probe the bucket (no R2 credentials locally; a `railway run` probe was
+  blocked by the permission guard), so which of the candidate failures it is stays open: a signature the
+  phone's image loader rejects, an object missing behind a confirmed key, or bytes stored under `.jpg` that
+  are not a JPEG. All three look identical on the phone — one generic error, no status, no log — and that
+  opacity is the defect the fix removes.
+- **Fix:** `GET /api/admin/price-tag-reviews/:id/image` — the SERVER reads the object with its own storage
+  credentials (`storage.getObject`) and returns `{contentType, bytes, dataBase64}`; the content type is
+  SNIFFED from the first bytes (jpeg/png/webp/heic/avif/gif), not taken from the key. The desk renders it as a
+  data URL. Failures are now words, server-logged: `NO_IMAGE` (never uploaded), `IMAGE_MISSING` (gone from
+  storage or empty — `[admin] tag image #N MISSING from storage (key=…)`), 500 (storage unreachable). A failed
+  load is a "Tap to retry" tile; a missing photo is not retryable.
+- **Files:** `backend/server.js` (`_sniffImageType`, `_isMissingObject`, the route),
+  `src/screens/AdminTagReviewScreen.js` (`fetchTagPhoto`, `TagPhoto`); tests
+  `backend/tests/adminReviewEditingDb.test.js`, `__tests__/adminReviewEditing.test.js`.
+- **Detect next time:** grep the Railway logs for `[admin] tag image #` — `MISSING` or `not a recognised
+  image` names the real cause the first time an admin opens the desk after deploy. **Read it once and
+  record the answer here.**
+- **Lesson:** a client that can only say "failed" about a resource it cannot diagnose should not be the one
+  fetching it. Move the fetch to where the error has a name.
