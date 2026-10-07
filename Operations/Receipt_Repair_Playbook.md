@@ -53,6 +53,14 @@ customer the store isn't supported **yet**, not that the scan failed.
   any check doesn't close, you've misread something. Stop.
 - Watch for: discounts with a tax flag after the minus (`6.00-FP`), `RABAIS`
   lines, label runs printed before their amounts, `ANNUL`/`VOID` blocks.
+- **Stored OCR right, stored lines wrong ⇒ the GEOMETRY path broke** (a photo's
+  path). `raw_ocr` is flat text and cannot replay it. Until OCR capture (PR #399)
+  is live, re-OCR the R2 photo with production's exact request —
+  `backend/lib/visionOcr.js#callVisionOcr` under `railway run -e production`,
+  straight to Vision (through `/api/ocr`, OCR capture would file a copy of the
+  customer's photo in that environment) — and replay `{ text, words }` through
+  `parseReceiptText` + the scan's own steps. The stored photo is a derivative:
+  pen strokes and re-compression can read differently than the live scan did.
 
 ## 3. Check what the repair could disturb
 
@@ -65,6 +73,17 @@ select * from receipt_items where receipt_id in (…) and claimed_at is not null
 
 FKs onto `receipt_items` cascade (notifications, review queue), so deleting a
 line that has one silently deletes a charge record. Check first.
+
+The same parse also reached two shared places:
+
+- **Crowd copies.** The app's `/api/watch` registration files every non-discounted
+  line as a crowd observation: `price_points` with `source_type_id = 4`,
+  `source_ref = <deviceHash16>:<purchaseDate>:<priceCents>` (the device hash is the
+  prefix of the receipt points' `device_hash`). A wrong price there feeds every
+  shopper's drop detection. The credit ledger uses the same string as `ref`.
+- **Product names.** Every receipt upsert sets `products.display_name` to that
+  receipt's parsed name (`recordReceiptPricePointsBulk`), so a garbled parse
+  renames the product for every shopper.
 
 ## 4. Repair — one guarded transaction per step, then read back
 
@@ -86,6 +105,11 @@ audit** (total, item count, no claims, no notifications). Match what
   and re-insert all lines, rather than patching them.
 - Update `receipts.total` / `tax` to the printed values.
 - Assert inside the block that the lines sum to the printed subtotal.
+- Crowd copies: delete the ones carrying a WRONG price (check the ledger `ref`
+  first); keep true shelf prices — a couponed line's pre-coupon price is one. Don't
+  hand-insert the missing ones: the phone re-registers its corrected lines after
+  its next hydrate and production code records them.
+- Restore a garbled product name to the printed one (guard on the garbled value).
 
 **The phone picks it up by itself.** Hydrate runs on every app launch
 (`bootService`), and `mergeServerIntoLocal` makes the server authoritative for

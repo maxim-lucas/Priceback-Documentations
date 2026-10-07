@@ -13577,3 +13577,45 @@ missing four items.
   record the answer here.**
 - **Lesson:** a client that can only say "failed" about a resource it cannot diagnose should not be the one
   fetching it. Move the fetch to where the error has a name.
+## 309. Three Quebec receipts the day after the corpus run — two flat-text gaps, a coupon form, and a scoring trap that made `main` worse than prod (2026-10-04, branch fix/costco-receipts-2026-10-04)
+
+- **Area:** mobile parser (Costco FR; one additive shared-engine hook) · **Symptom:** three receipts stored
+  wrong (ledger 2026-10-04): Drummondville #1127 lost `GRENADE SC 29,99 FP` (61.44 for 91.43); Gatineau #542
+  lost KS 40X500ML, ACTIVIA and three coupons, priced BATON MOZZA 10.99 and FILET SAUMON 16.99 (136.92 for
+  161.48); Quebec #503 kept every line but stored **tax 0.01** (250.45 for 266.75). Maxim: *"the ocr stored
+  in production seems to see the good text, i think it may be a geometry problem"* — right: the stored flat
+  OCR was correct on all three; the photo path went wrong.
+- **Checked first:** each photo re-OCR'd with production's exact Vision request and replayed through `main`'s
+  scan steps (standard pass, high-res retry rule, validator). `main` (#398 + #400 + #399) fixed Drummondville
+  only — the FP-on-geometry fix. **PR #400's head and its squash commit are byte-identical and parse all
+  three exactly like `main`: the merge lost nothing.**
+- **Root causes:**
+  1. **Totals printed amount-first.** `SOUS-TOTAL / 250,43 / 16,32 / 266,75 / TAXE / **** TOTAL` (Quebec #503,
+     Drummondville) and `SOUS-TOTAL / 155,14 / TAXE / 6,34 / 161,48 / **** TOTAL` (Gatineau: the total above
+     its label). `reorderQuebecTotalsBlock` took only the labels-first form, so the flat-text candidate read
+     no tax. `scoreParse` measures items + tax against the printed TOTAL: on Quebec #503 the flat parse —
+     every line right, no tax — scored 16.40; the geometry parse — HEINZ and BEURRE ARACH lost to coupon rows
+     welded INTO their item rows, tax read — scored 16.06 and won. That is why `main` was *worse* than
+     production there.
+  2. **`500666 KS 40X500ML`.** The engine's `looksLikeName` wants three letters in a row; Kirkland's `KS` + a
+     pack size has none, so the row and its 5,49 were dropped. Every `KS <size>` name had this.
+  3. **`0000392598 / MULTIPLE` over `5,00-FP`.** A multi-item coupon names no SKU and no item; the
+     named-coupon rule (#307) found no item called MULTIPLE and the $5.00 vanished.
+  4. **`Nombre d'art . 6`.** Geometry detaches the period, so the footer count went unread (self-check only).
+- **Fix:** (1) an amount-first block is reordered unless it is the normal layout (every label directly over its
+  amount — byte-identical as before), still only when s + t = T to the cent and the first amount is the
+  subtotal. (2) New engine hook `isItemNameLine`, additive — it can only admit a row `looksLikeName` refused;
+  Costco declares `isCostcoSkuNameLine` (item number + a lone two-letter word + a pack size). Every warehouse
+  pass now shares ONE frozen `COSTCO_WAREHOUSE_HOOKS`: wired per call site, a hook missing from one candidate
+  was masked by the rework pass and two mutations survived. (3) `/ MULTIPLE` (barcode optional — geometry
+  drops 10+ digit words) applies to the item just above it, only when that item is priced above the
+  discount. (4) `\s*` before the footer's period.
+- **OCR, not parser:** pen strokes cross `#542` (re-OCR of the stored photo: 3542; the live scan read 542) and
+  `*ECOFRAIS 0,08` (re-OCR: 0.09). Pinned with explicit `ocrWarehouseId` / `ocrSubtotal` ground-truth fields;
+  every other figure stays pinned to the paper.
+- **Tests:** 3 prod captures (`prod-2026-10-04/`, 7 failures before the fix); 15 new shape tests in
+  `costcoReceiptProdShapes.test.js`. 11 mutations, each applied exactly once over a green baseline, all red.
+  All 59 receipt suites green; golden snapshots: 3 added, **0 existing moved**.
+- **Lesson:** a candidate race is only as good as its score. A candidate that misreads the TAX loses to one
+  that drops ITEMS, because the score sees only items + tax against TOTAL. Fixed here by making the flat
+  candidate read the totals; also scoring items against the printed SUBTOTAL is the open follow-up.
