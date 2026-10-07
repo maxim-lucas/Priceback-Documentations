@@ -10586,6 +10586,7 @@ Regression risk: solver only replaces a parse already failing the printed checks
 
 ---
 
+<<<<<<< HEAD
 ## 2026-10-04 — Bad-angle receipt fixed by hand; receipt review flags; admin-approved shopper notices
 
 **Branch:** `fix/bad-angle-receipt-review` (off `main`, asked first); docs `docs/bad-scan-receipt-runbook`.
@@ -10596,3 +10597,73 @@ Regression risk: solver only replaces a parse already failing the printed checks
 - **Prod data fix applied** (Maxim granted it): `r_1791145910170_14lyb` (Vaudreuil #1213) rebuilt 12 junk lines → 18 real, 534,01/0,00 → 224,55/6,14; 19 bad price points removed, 18 written; 5 junk products deleted, 3 renamed products restored; notice #2 **pending approval**. All 33 prod receipts stamped `admin_reviewed_at`; only this one `skip_parser_optimization`.
 - Runbook: `Operations/Bad_Scan_Receipt_Repair_Runbook.md`.
 **Regression risk:** additive. Shopper receipt reads strip the two flags (pinned by test). Parser untouched. The approval desk/push only work once this PR's backend + app are deployed; until then notice #2 just waits.
+=======
+## 2026-10-03 — OCR capture: keep every live scan's exact Vision input + response
+
+**Branch:** `feat/ocr-capture` (off `main`, app repo) + `docs/ocr-capture` (this repo).
+**Ask (Maxim):** prod receipt `r_1791050619590_6wd4e` stored header_ocr "6 @ 10.99"; build fixtures from
+ALL prod receipts and make the parser right first time in both languages; then *"keep the Vision response
+in prod … we have to save the exact and same conditions as real live scan from users."*
+**Done:** `ocr_captures` table (migration 0017) + `lib/ocrCapture` — `/api/ocr` stores the exact image bytes
+Vision received and Vision's verbatim response (gzipped envelope + request/client context) AFTER answering;
+`/api/receipts` links new receipts to their capture by item-line overlap (same receipt 0.76–1.00, others ≤ 0.33,
+measured); 90-day age sweep via `object_retention`; admin receipt detail lists captures; app sends `scanContext`;
+`scripts/exportOcrCaptures.js` turns captures into fixtures. Full write-up: `Technical/OCR_Capture.md`.
+**NOT done:** migration 0017 applied to dev or prod (the session's permission guard blocked `drizzle-kit migrate`);
+`ocrCapturesDb.test.js` runs once it is applied. Privacy/Data Safety wording for the verbatim member number — decision owed.
+**Regression risk:** low — capture and link run after the response, best-effort, behind `OCR_CAPTURE_ENABLED`;
+a missing table only logs. The app adds one optional body field older backends ignore.
+
+---
+
+## 2026-10-07 — Unlimited plan: drop PDF export + family sharing, add unlimited claims + Price Checker
+
+**Branch:** `feat/unlimited-plan-features` (off `main`); docs `docs/unlimited-plan-features`.
+**Ask (/goal):** remove PDF export and family sharing from Unlimited; add unlimited price drop claims and access to Price Checker.
+**Found:** the bundled catalog had already lost family sharing, but the live paywall reads the DB row, and **both** DBs still
+listed "PDF export of claims" + "Family sharing (up to 6 users)" with keys `pdf_export`/`family_sharing` and **no** `barcode_scan`.
+The seed COALESCEs `features`/`feature_keys`, so only a migration can fix an existing row. The French overlay was also
+already misaligned: config had 6 bullets, `catalog.tier.unlimited.features.*` had 5, keyed by position.
+**Done:** `shared/pricing.config.js` (+ backend mirror) gets the new bullets and drops `PDF_EXPORT` from Unlimited. New
+`PARKED_FEATURE_KEYS = [pdf_export]`. i18n en+fr re-keyed 0–5. Migration `0020_unlimited_plan_features.sql`
+was applied by hand to dev + prod, with ledger rows. PDF export is parked: `Technical/Parked_Features.md`.
+Tests: `backend/tests/unlimitedPlanFeaturesMigration.test.js` (SQL ↔ config), `__tests__/unlimitedPlanCatalog.test.js`
+(position keys ↔ config, every language), `sharedPricing` parked-key invariant, `purchaseService` gate.
+**Rollback values (prod row before):** features `["Unlimited receipt scans","No per-drop charge","Email sync (Gmail & Outlook)","Priority price checking (every 2 h)","PDF export of claims","Family sharing (up to 6 users)"]`;
+feature_keys `["email_sync","priority_price_check","pdf_export","claim_assistant","family_sharing","advanced_analytics","early_access"]`.
+**Regression risk:** low. Price Checker access is still gated on `premium.active` (`ScanModeSwitcher.js`) and is unchanged. PDF
+export was already unreachable. The one behavioural change is that `canUseFeature("pdf_export")` is now false for Unlimited.
+**Not verified:** whether the prod backend caches the catalog (a read of `configService.js` was blocked by the session guard).
+The paywall may show the old list until the next refresh or restart.
+**Pre-existing, not mine:** `__tests__/tagCardSavingsBadge.test.js` fails on `main` too. It hardcodes a savings end date of 2026-10-05, now past.
+Prod free-tier row lists `barcode_scan` in `feature_keys`. Harmless today (gate reads premium status), left as is.
+
+
+---
+
+## 2026-10-07 — Hotfix: admin desk editing + tag photos + receipt warehouse default
+
+**Branch:** `hotfix/admin-review-editing` (off `main`) → Priceback #405, docs `docs/admin-review-editing`.
+**Ask (/goal):** (1) tag review photos always "failed to load"; (2) full OCR text + edit the tag on the admin
+console; (3) edit receipts (date, warehouse, taxes…); (4) same for notifications; (5) a receipt with no
+detected or selected warehouse → "Your Costco warehouse", else the nearest one.
+**Done:**
+- Tag photo proxied through `GET /api/admin/price-tag-reviews/:id/image` (Bugs_Common_Fixes #307).
+- Tag review: full selectable OCR text; `POST …/:id/edit` corrects SKU/brand/product/prices/expiry on the
+  review AND its price point (pending only; product re-pointed on a SKU change; `printedExpiry` kept in step).
+- Receipt desk: `POST /api/admin/receipts/:id/edit` (date, warehouse, total, tax, purchase type — the
+  receipt's own `receipt_ocr` price points follow a new date/club; unknown club refused) and
+  `POST …/:id/lines` (the bad-scan repair engine, no shopper notice, parser flag untouched).
+- Notices: `POST /api/admin/notification-approvals/:id/copy` — per-language title/body override, used by
+  the preview AND the push; `null` resets. **Migration 0021** (`notification_approvals.custom_copy jsonb`):
+  applied to DEV; **prod is applied by hand** (run the file + ledger row). Until then the desk lists fine
+  (`to_jsonb(row)` read) and only Save answers 503.
+- Receipt scan: review screen gets a warehouse row (pick = this receipt only, never the favourite); Save
+  files the receipt under pick → scan reading → favourite → nearest (location already granted, never
+  prompted; only a club with a KNOWN distance — the bundled list has no coords) → account province's first
+  club → none. Online orders: none. New i18n keys en+fr.
+- Test fix: `tagCardSavingsBadge.test.js` date bomb (hardcoded 2026-10-05) → relative date.
+**Regression risk:** server list/verify/reject routes unchanged; approve now builds its push through
+`_approvalCopy` (stock copy when no override — identical output). ScanScreen: a receipt that USED to save with
+no warehouse now gets the favourite/nearest one — intended, but it does attribute its prices to that club.
+>>>>>>> origin/main
