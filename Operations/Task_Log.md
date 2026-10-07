@@ -10601,3 +10601,27 @@ measured); 90-day age sweep via `object_retention`; admin receipt detail lists c
 `ocrCapturesDb.test.js` runs once it is applied. Privacy/Data Safety wording for the verbatim member number — decision owed.
 **Regression risk:** low — capture and link run after the response, best-effort, behind `OCR_CAPTURE_ENABLED`;
 a missing table only logs. The app adds one optional body field older backends ignore.
+
+---
+
+## 2026-10-07 — Unlimited plan: drop PDF export + family sharing, add unlimited claims + Price Checker
+
+**Branch:** `feat/unlimited-plan-features` (off `main`); docs `docs/unlimited-plan-features`.
+**Ask (/goal):** remove PDF export and family sharing from Unlimited; add unlimited price drop claims and access to Price Checker.
+**Found:** the bundled catalog had already lost family sharing, but the live paywall reads the DB row, and **both** DBs still
+listed "PDF export of claims" + "Family sharing (up to 6 users)" with keys `pdf_export`/`family_sharing` and **no** `barcode_scan`.
+The seed COALESCEs `features`/`feature_keys`, so only a migration can fix an existing row. The French overlay was also
+already misaligned: config had 6 bullets, `catalog.tier.unlimited.features.*` had 5, keyed by position.
+**Done:** `shared/pricing.config.js` (+ backend mirror) gets the new bullets and drops `PDF_EXPORT` from Unlimited. New
+`PARKED_FEATURE_KEYS = [pdf_export]`. i18n en+fr re-keyed 0–5. Migration `0020_unlimited_plan_features.sql`
+was applied by hand to dev + prod, with ledger rows. PDF export is parked: `Technical/Parked_Features.md`.
+Tests: `backend/tests/unlimitedPlanFeaturesMigration.test.js` (SQL ↔ config), `__tests__/unlimitedPlanCatalog.test.js`
+(position keys ↔ config, every language), `sharedPricing` parked-key invariant, `purchaseService` gate.
+**Rollback values (prod row before):** features `["Unlimited receipt scans","No per-drop charge","Email sync (Gmail & Outlook)","Priority price checking (every 2 h)","PDF export of claims","Family sharing (up to 6 users)"]`;
+feature_keys `["email_sync","priority_price_check","pdf_export","claim_assistant","family_sharing","advanced_analytics","early_access"]`.
+**Regression risk:** low. Price Checker access is still gated on `premium.active` (`ScanModeSwitcher.js`) and is unchanged. PDF
+export was already unreachable. The one behavioural change is that `canUseFeature("pdf_export")` is now false for Unlimited.
+**Not verified:** whether the prod backend caches the catalog (a read of `configService.js` was blocked by the session guard).
+The paywall may show the old list until the next refresh or restart.
+**Pre-existing, not mine:** `__tests__/tagCardSavingsBadge.test.js` fails on `main` too. It hardcodes a savings end date of 2026-10-05, now past.
+Prod free-tier row lists `barcode_scan` in `feature_keys`. Harmless today (gate reads premium status), left as is.
