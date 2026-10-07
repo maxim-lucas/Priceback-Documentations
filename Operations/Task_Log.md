@@ -10625,3 +10625,32 @@ export was already unreachable. The one behavioural change is that `canUseFeatur
 The paywall may show the old list until the next refresh or restart.
 **Pre-existing, not mine:** `__tests__/tagCardSavingsBadge.test.js` fails on `main` too. It hardcodes a savings end date of 2026-10-05, now past.
 Prod free-tier row lists `barcode_scan` in `feature_keys`. Harmless today (gate reads premium status), left as is.
+
+
+---
+
+## 2026-10-07 — Hotfix: admin desk editing + tag photos + receipt warehouse default
+
+**Branch:** `hotfix/admin-review-editing` (off `main`) → Priceback #405, docs `docs/admin-review-editing`.
+**Ask (/goal):** (1) tag review photos always "failed to load"; (2) full OCR text + edit the tag on the admin
+console; (3) edit receipts (date, warehouse, taxes…); (4) same for notifications; (5) a receipt with no
+detected or selected warehouse → "Your Costco warehouse", else the nearest one.
+**Done:**
+- Tag photo proxied through `GET /api/admin/price-tag-reviews/:id/image` (Bugs_Common_Fixes #307).
+- Tag review: full selectable OCR text; `POST …/:id/edit` corrects SKU/brand/product/prices/expiry on the
+  review AND its price point (pending only; product re-pointed on a SKU change; `printedExpiry` kept in step).
+- Receipt desk: `POST /api/admin/receipts/:id/edit` (date, warehouse, total, tax, purchase type — the
+  receipt's own `receipt_ocr` price points follow a new date/club; unknown club refused) and
+  `POST …/:id/lines` (the bad-scan repair engine, no shopper notice, parser flag untouched).
+- Notices: `POST /api/admin/notification-approvals/:id/copy` — per-language title/body override, used by
+  the preview AND the push; `null` resets. **Migration 0021** (`notification_approvals.custom_copy jsonb`):
+  applied to DEV; **prod is applied by hand** (run the file + ledger row). Until then the desk lists fine
+  (`to_jsonb(row)` read) and only Save answers 503.
+- Receipt scan: review screen gets a warehouse row (pick = this receipt only, never the favourite); Save
+  files the receipt under pick → scan reading → favourite → nearest (location already granted, never
+  prompted; only a club with a KNOWN distance — the bundled list has no coords) → account province's first
+  club → none. Online orders: none. New i18n keys en+fr.
+- Test fix: `tagCardSavingsBadge.test.js` date bomb (hardcoded 2026-10-05) → relative date.
+**Regression risk:** server list/verify/reject routes unchanged; approve now builds its push through
+`_approvalCopy` (stock copy when no override — identical output). ScanScreen: a receipt that USED to save with
+no warehouse now gets the favourite/nearest one — intended, but it does attribute its prices to that club.
