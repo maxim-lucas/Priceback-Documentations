@@ -108,3 +108,50 @@ now carries quantity 6 and the queue joins quantity live. Crowd copies (`source_
 same scan: RAISIN BRAN 59.94 → 9.99 (6824), the 36.98 KS AMANDES copy deleted (6832, the 18.49 copy
 exists), warehouse 528 stamped on 13 rows. Gatineau's crowd copies were all true shelf prices — kept.
 No duplicate scans → no credit refund owed.
+
+### 2026-10-04 — Vaudreuil #1213, double-scanned (datafix only, no code change)
+
+Account `103854215126202403292` (Google) scanned the same receipt twice, 3 minutes
+apart, and soft-deleted the first copy. Both parses were wrong in different ways.
+The photo was read by eye and every printed check closes to the cent: lines 381.74 =
+SOUS-TOTAL; TPS 13.37 + TVQ 26.67 = TAXE 40.04 on taxable 267.39; TOTAL RABAIS 62.00;
+29 units = NOMBRE D'ARTICLES VENDUS 29.
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1791167425155_vu6b9` | Costco Vaudreuil #1213 · 2026-10-03 | photo ✅ + OCR | 2026-10-04 | **Repaired.** Rebuilt from the photo: 20 → 26 lines. Total 287.49 → **421.78** (381.74 + 40.04). Added the missing LISTERINE UC 628368 ×4 (47.96, orig 63.96), KS 40X500ML 500566 ×2 (10.98), LAIT CHOCO, LAIT 2% 4L, CAD LAIT MIN (15.99, orig 19.99), CONSIGNE 2.40. Fixed HEATED SOCK SKU (`:21` garbage → 1985321), DOWNY 1833038 → **1833033** (its coupon reads `/1833033`), JAMBON `364`/`87 …` → **364687** (new product), PISTOLET COL 39.00/49.00 → 39.99/49.99, FRAISES qty 2 = 15.98 (was 7.99), CEINTURE 9.97 → 29.91 (×3), BAGUETTE 5.99 → 11.98 (×2), POULET ROTI 5.99 → 15.98 (×2). 19 receipt price points rewritten; fee lines ignored; TPD lines unwatched. |
+| `r_1791167228403_zv3yj` | duplicate of `vu6b9` (soft-deleted by the user) | — | 2026-10-04 | **Deleted**: row, 21 items, 15 price points. Its R2 photo remains. |
+
+Crowd observations (`source_type_id = 4`, device `547dace02cc36455`, 2026-10-03) that
+the two misparses had posted were brought in line with what a correct parse posts (one
+per watched line, paid unit price): 9 deleted (junk SKUs `628`/`1706`/`364`, misread
+`500666`, BAGUETTE 3.00, and the discounted lines posted at full price), 2 corrected
+(CEINTURE 3.32 → 9.97, POULET ROTI 5.99 → 7.99), 8 kept. Junk products deleted once
+unreferenced: `628`, `1706`, `364`, `1833038` and the stale `ln:` fee rows. Product
+`500666 KS 40X500ML` (id 27875) was left alone because it predates this receipt and belongs to `r_1791125306407_zm6h2`.
+
+One guarded transaction (abort unless total, item count, no claim, no drop
+notification, no review-queue row, no OCR capture matched the audit), read back.
+Both `scan_consume` rows (74 → 73) kept; the duplicate scan is Maxim's to refund.
+
+### 2026-10-04 — Vaudreuil #1213, two more receipts (datafix only, no code change, no notification)
+
+Same account `103854215126202403292` (Google) scanned two older digital receipts. Photos
+read by eye; every printed check closes to the cent. No claim, drop notification or
+review-queue row existed on either receipt.
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1791168728568_er1cc` | Costco Vaudreuil #1213 · 2026-09-24 | photo ✅ + OCR | 2026-10-04 | **Repaired.** 7 → 8 lines. The 89.99 line was stored as synthetic `ln:…:3` "BAT/2702338" (the eco-fee label) → **EXT CORD 1734187** (new product); added **ECO FEE 6377 0.50** (ignored fee). LAUNDRY 2787084 printed at **0.00** left out (zero-value lines are rejected by the repair path; "ITEMS SOLD = 9" closes without it). Tax 73.33 → **72.83** (QST 48.51 + GST 24.32 on 486.36); lines 513.33 = SUBTOTAL; total 586.16 unchanged; INSTANT SAVINGS 7.00. Synthetic product 28144 deleted. |
+| `r_1791168705517_41ub6` | Costco Vaudreuil #1213 · 2026-09-10 | photo ✅ + OCR | 2026-10-04 | **Repaired.** 60 → 61 lines. Six `NNNNNN/SKU` coupons the parser dropped applied: ORIGL TORTIL 5.99 → 3.99, CHICKN STICK 19.99 → 15.99, HAM/SWISS CK 13.99 → 10.99, OKA ARTISAN 26.98 → 19.98, GEN TAO CHKN 17.99 → 13.99, SRDGH BAGUET 11.98 → 8.98 (all unwatched now). Added missing **VEL BAR 21CT 3306245** 9.99 (orig 12.99, new product). Lines 938.87 = SUBTOTAL; tax 58.53 → **71.54** (QST 47.32 on B + enviro fees; GST 24.22 also on VEL BAR); 63 units = ITEMS SOLD; total 1010.41 unchanged. 3-digit SKU `462 6% MILK` is genuine. **Inference:** each Dole bag prints two `TPD/DOLE 3.00-` lines, but SUBTOTAL only closes with one per bag (9.29 each, as stored); the printed INSTANT SAVINGS 83.15 counts the duplicate. |
+
+Crowd observations (`source_type_id = 4`, device `547dace02cc36455`, observed 2026-09-10):
+6 deleted — the coupon lines above posted at full price (ids 8137, 8139, 8143, 8144, 8156,
+8165); a correct parse posts nothing for a discounted line. The rest kept. No crowd post
+was added for EXT CORD.
+
+One guarded transaction (abort unless totals, tax, item counts, line sums and price-point
+counts matched the audit and no claim/notification/review row existed), committed and read
+back. **No customer notification sent** (Maxim's instruction). Parser bugs noted, not
+fixed: eco-fee description lines can swallow the next item's amount; English-layout
+`NNNNNN/SKU` coupons without a `TPD` prefix are dropped.
