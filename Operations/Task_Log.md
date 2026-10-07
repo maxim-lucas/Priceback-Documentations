@@ -10691,3 +10691,26 @@ detected or selected warehouse → "Your Costco warehouse", else the nearest one
 **Regression risk:** server list/verify/reject routes unchanged; approve now builds its push through
 `_approvalCopy` (stock copy when no override — identical output). ScanScreen: a receipt that USED to save with
 no warehouse now gets the favourite/nearest one — intended, but it does attribute its prices to that club.
+
+
+---
+
+## 2026-10-07 — Hotfix: potential (unverified) price drops for the admin
+
+**Branch:** `hotfix/admin-potential-price-drops` (off `main`), docs `docs/admin-potential-price-drops`.
+**Ask (/goal):** list potential price drops (no verified price yet, but another receipt from the same warehouse
+or province shows a lower price) so the admin can judge whether to send them. Mid-task: keep them APART from the
+verified queue; even with N = 1 a single shopper is potential, never verified.
+**Done:**
+- `potentialDropRepo` (read-only list; `verifyGroup` stamps the group's crowd rows `verified=true`, `excludeGroup`
+  excludes them). Nothing is ever written to `price_drop_review_queue` by this path. Verify runs a province sweep,
+  so the drops land in the verified queue as `pending`.
+- `GET /api/admin/potential-drops`, `POST …/verify`, `POST …/reject` (admin-only, desk rate limit).
+- `AdminPotentialDropsScreen` (amber, "UNVERIFIED PRICE"), with a tile on admin home and a link on the queue screen.
+  Each line is marked SAME WAREHOUSE / SAME PROVINCE ONLY, with days left to claim and the evidence receipt.
+- Floor: `priceDropRepo.effectiveMinUsers = max(2, PRICE_VERIFY_MIN_USERS)`, used by findNotifiable,
+  getLatestVerifiedPrice and markNewlyVerified.
+Doc: `Technical/Potential_Price_Drops_2026-10-07.md`. No migration.
+**Regression risk:** low. The floor is a no-op at N = 3 (dev + prod, checked). The 15 single-shopper `verified`
+rows in prod are all tag-review admin verifications and stay verified. The verified queue code paths are unchanged.
+The queue screen only gains a link.

@@ -179,7 +179,10 @@ Runs on a cron and immediately after each flyer import.
    price* per (product, province) from `price_points`, applying the **rule-of-3** (≥
    `PRICE_VERIFY_MIN_USERS` distinct users at the same price/province, **or** an
    admin/flyer row, **or** a contributor in `ADMIN_USER_SUBS`). Excludes admin-flagged and
-   stale rows.
+   stale rows. **Floor (2026-10-07):** the crowd threshold is never below 2
+   (`priceDropRepo.MIN_CROWD_CONTRIBUTORS`), whatever the setting says. A price only ONE
+   shopper saw is a **potential** drop on the admin's separate list, never a verified one.
+   See [Potential_Price_Drops_2026-10-07.md](Potential_Price_Drops_2026-10-07.md).
 2. **Match receipt lines** — a line qualifies if: unclaimed, `watch_enabled`, paid strictly
    more per unit than the verified price, buyer's province matches, buyer has a push token,
    and no prior notification at the same-or-lower price (dedup ledger).
