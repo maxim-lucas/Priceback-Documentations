@@ -132,14 +132,24 @@ Maxim's explicit confirmation.
 
 ## 8. Tell the customer
 
-One push, in their language (`user_preferences.language`). **With no saved
-preference, send it in English only** — never bilingual, never guessed from the
-province (Maxim, 2026-10-02). Professional and calm: the
-receipt was checked and corrected automatically, even though the print wasn't
+One short push, **drafted and shown to Maxim before it is sent**. Language:
+English when `user_preferences.language` is `en` or missing; French **only** when
+the saved preference is `fr`. Never bilingual (Maxim, 2026-10-04). Professional
+and calm: the receipt was checked and corrected, even though the image wasn't
 perfect, and every item is now tracked. No apology for a "bug"; never say how
 long it took.
 
-The 2026-09-30 copy:
+The 2026-10-04 copy (current standard):
+
+> **Your receipt is ready ✅** — Image quality can sometimes cause scanning
+> errors. Our validator double-checked your Costco receipt and fixed it, so
+> every item is now tracked.
+>
+> **Votre reçu est prêt ✅** — La qualité de l'image peut parfois causer des
+> erreurs de lecture. Notre validateur a vérifié votre reçu Costco et l'a
+> corrigé : tous vos articles sont maintenant suivis.
+
+The older 2026-09-30 copy (superseded):
 
 > **Your receipts are ready ✅ · Vos reçus sont prêts ✅**
 > We double-checked your 2 Costco receipts and corrected the lines that were hard
