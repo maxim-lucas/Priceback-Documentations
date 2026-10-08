@@ -13658,3 +13658,71 @@ missing four items.
   dropped by $143.41" and "UNT retain records dropped by $149.55" from phantom rows in the device's watch list.
   No commission was charged, and those entries are no longer registered. A banner-only row is a phantom-drop
   problem, not a name tidy, and this file deliberately never blanks a name.
+
+## 311. Nine fake "Price drop at costco" pushes — a price looked up by NAME, $75.00 for every item, sent with no review and no charge (2026-10-08, hotfix/sku-only-price-drops)
+
+- Date: 2026-10-08 · Branch: `hotfix/sku-only-price-drops` (off `main`) · Area: backend sweep + `/api/check-price` + mobile local alerts
+- **Symptom:** between 2026-10-01 and 10-05 the server pushed 9 price drops to 5 shoppers, all fake. Every "drop" was
+  exactly the price paid minus **$75.00**: DESK WHITE $299.99 "dropped by $224.99", WAGON $99.99 by $24.99, EXT CORD
+  $89.99 by $14.99, LOVE CORN 30 by $209.85 (15 × $18.99 saved as 1 × $284.85). Four were on rows that were never
+  items: the subtotal/total of a steep-angle photo (`LECTURE PRÉ`, `UNT retain records`) and the payment lines of a US
+  receipt (`MOUNT:`, `PerCard`). No commission was charged and nobody filed a claim; all said "Claim your refund".
+  Separately, phones raised their OWN alerts: `RAISIN BRAN dropped by $51.95` (6 boxes read as 1) and `POIS CHICHE
+  dropped by $5.43` (7 read as 1, against the same $75).
+- **Root cause — three paths that bypassed everything:**
+  1. **The web-price leg of the daily sweep** (`_runScheduledChecks`) walked the in-memory watch registry and called
+     `SCRAPERS[store](item.itemName)` — the NAME only, never the SKU — so every Costco item reached the last-resort
+     `https://www.costco.ca/s?keyword=<name>`. `fallbackScrape` took the first element whose class contains "price"
+     and kept its digits: **$75.00 on every page** (the site's free-shipping threshold, not a product). It then pushed
+     directly: no SKU, no review queue, no `PRICE_DROP_PUSH_ENABLED`, no commission.
+  2. **The registry it read is each phone's own report** (`/api/watch`), which a server-side receipt repair never
+     touches: the 10-04 repair removed `LECTURE PRÉ`/`UNT retain records` from the receipt, and the 10-05 sweep still
+     found them on the phone's list. `MOUNT:`/`PerCard` were deleted on 10-02 and pushed on 10-04.
+  3. **`/api/check-price` fell back to the same name search** for any Costco item without a SKU or province, and
+     every other store searched by name too. The app's background check (and a manual refresh) turned that price
+     into a drop chip AND a local "Price drop at Costco" alert — no review, no charge. Wrong quantities from old
+     scans (LOVE CORN, RAISIN BRAN) multiplied the error.
+  The dormant flyer-deal sweep (`runFlyerSweep`, off since 10-01 behind a one-line switch) was a fourth unbilled,
+  unreviewed sender waiting to be switched back on.
+- **Rule (Maxim, 2026-10-08):** price drops are decided by **SKU, never by product name**; and "never send
+  notifications or price drop notifications without my approval or depending on the configuration i set in the
+  admin console"; a drop notification must take its credit.
+- **Fix:**
+  - Backend: the scrape leg (`runScheduledChecks`) and the flyer-deal sweep (`runFlyerSweep`,
+    `FLYER_DEAL_PUSH_ENABLED`) are **removed**. `/api/check-all` runs only the verified sweep. The ONE price-drop push
+    sender is `priceDropNotifier.drainQueue` (stage → admin review when `PRICE_DROP_REVIEW_REQUIRED` → charge + push,
+    gated on `PRICE_DROP_PUSH_ENABLED` read fresh from the database).
+  - `/api/check-price` is **SKU-only**: Costco never scrapes (price_points + the admin flyer only, else `source:"none"`);
+    other stores report a price only when the store's result names the SKU (`source:"scrape_sku"`). The Costco scraper
+    lost its name search; its two SKU strategies now require a positive SKU match.
+  - App (ships with the next binary): no local price-drop alert from the background check or a manual refresh; a
+    `source:"scrape"` price (older server or a cached answer) is never a drop.
+  - `WEB_PRICE_REFRESH_*` rows are inert (descriptions say RETIRED).
+- **Data (prod, `Receipt_Data_Verification_Ledger.md`):** 9 receipts scanned before 3.0.5 re-read with 3.0.5's
+  parser (photo fixtures where they exist, the stored OCR otherwise) and accepted only where they close to the printed
+  subtotal/tax/total/count; specs in `backend/data/bad-scan-repairs/`. The repair tool learned `ignored` (fee lines)
+  and `keepItemIds` (keep a line that already carries a charged drop — `r_1790808757051_f3ivl` SOFTSOAP).
+- **Shopper notices:** `backend/data/shopper-notices/2026-10-08-false-price-drops.json` — one per affected shopper,
+  wording fitted to their error, drafted with `scripts/draftShopperNotices.js` as PENDING on Admin · Notifications to
+  approve. Nothing is sent until Maxim approves each card.
+- **Files:** `backend/server.js`, `backend/sweepScheduler.js`, `backend/config/defaults.js`, `backend/lib/pushI18n.js`,
+  `backend/lib/badScanRepair.js`, `backend/lib/shopperNoticeDrafts.js` (new), `backend/scripts/draftShopperNotices.js`
+  (new); `src/services/notificationService.js`, `src/screens/DetailScreen.js`, `src/services/priceService.js`,
+  `src/services/notificationRouting.js`, `src/services/i18n.js`. Tests: `priceDropSingleSender.test.js` (new),
+  `checkPriceSkuOnly.test.js` (new), `shopperNoticeDrafts*.test.js` (new), `badScanRepair*.test.js`,
+  `sweepNotifyTruthfulness.test.js`, `watchStateServerDb.test.js`, `sweepScheduler.test.js`, `pushI18n.test.js`;
+  mobile `notificationService`, `detailScreenDropNotify`, `qualifiesAsDrop`, `notificationRouting`.
+- **Detect next time:** `select nh.sent_at, nh.title, nh.body from priceback.notification_history nh join
+  priceback.notification_types nt on nt.id = nh.notification_type_id where nt.code = 'notifUrgentClaims' and
+  nh.title not like '%recent purchase%' and nh.title not like '%Last days%' order by 1 desc;` — any server row that is
+  not the verified-drop copy is a sender that bypassed the queue. A run of drops that all equal "paid − X" is a scraper
+  reading a page constant.
+- **Prevent:** `priceDropSingleSender.test.js` reads the source: exactly one file builds a `PRICE_DROP` push
+  (`priceDropNotifier.js`), the legacy `price_drop`/`flyer_drop` push types are built nowhere, the drain reads the
+  pause switch before claiming and honours the review gate, and no costco.ca keyword search exists anywhere.
+  `checkPriceSkuOnly.test.js` pins the $75 case end to end. The app's routing test fails if any sender emits a
+  retired type again.
+- **Regression risk:** low for prices that were real — every real drop already came from the verified queue (the
+  removed paths never produced one). By design: shoppers no longer get a local alert on the phone (the server's
+  reviewed push is the only one); signed-out phones get no drop alert at all (they cannot be billed); a non-Costco
+  store without a SKU-matched result shows "not checked" instead of a guess (none is enabled in production).

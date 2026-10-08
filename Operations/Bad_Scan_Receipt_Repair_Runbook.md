@@ -77,6 +77,17 @@ Write the spec `backend/data/bad-scan-repairs/<receiptId>.json`:
 - A coupon line (`00393628 /1787474  2,50-`) is **not** an item: fold it into the item it
   names — `lineTotal` = paid after the coupon, `originalPrice` = the pre-coupon price.
 - `lineTotal` is the LINE total; set `quantity` for an `N @ unit` line.
+- A **fee line** (`ECO FEE`, `ENVIRO FEE`, `DEPOSIT`, `*ECOFRAIS`, `CONSIGNE`) is part of the subtotal but not a
+  product: add it with `"ignored": true` (its fee code as `sku`, or none). It gets no price point and is never watched
+  — exactly what a live scan does. It cannot carry a coupon. (Added 2026-10-08.)
+- **A READABLE receipt an older parser misread** (not a bad photo) takes `"markSkipParser": false`, so it stays a
+  parser-fixture candidate, and usually `"notifyShopper": false` (draft a notice that fits the error instead —
+  §5b). (2026-10-08.)
+- **A line that already carries history** (a claim, a charged price-drop push, its review-queue row) makes the tool
+  refuse the whole receipt — deleting that row would cascade its charge record away. If that line is already right,
+  name its `receipt_items.id` in `"keepItemIds": [204]`: the spec line at the same position must be identical
+  (product, quantity, price, coupon, fee flag), and the row, its charge record, its queue row and its price point are
+  left exactly as they are while every other line is rewritten. (2026-10-08, first used on `r_1790808757051_f3ivl`.)
 - **It must reconcile.** The script refuses unless Σ lineTotal + tax = total to the cent. Use
   every check the paper prints:
   - `SOUS-TOTAL` / `SUBTOTAL` = Σ lineTotal
@@ -153,6 +164,22 @@ Statuses: `pending` → `sent` | `undelivered` (approved, but no push token or t
 *Scan results* off) | `rejected`. One notice per receipt per kind, ever — re-running the script
 never re-queues it.
 
+## 5b. A notice that fits the error (custom wording)
+
+When the stock "photo was hard to read" copy does not describe what happened — a false price-drop alert, a
+quantity read wrong, a total read as an item, our own price check — draft the notice with its own wording:
+
+```powershell
+cd C:\Workspace\Priceback\backend
+railway run -e production node <repo>\backend\scripts\draftShopperNotices.js --file <repo>\backend\data\shopper-notices\<file>.json          # dry run
+railway run -e production node <repo>\backend\scripts\draftShopperNotices.js --file <repo>\backend\data\shopper-notices\<file>.json --write  # draft
+```
+
+The file names only **receipts**; the recipient is each receipt's owner. Every supported language needs its own
+title and body (no stock fallback); no item names (a push shows on a locked screen). A pending notice is reworded, a
+sent or rejected one is never touched. Needs migration **0021** (`notification_approvals.custom_copy`). Nothing is
+sent: each card then waits on Admin · Notifications to approve.
+
 > ⚠️ The desk and the push need the backend + app from the PR that added migration 0019. Until
 > that is deployed, the drafted notice simply waits as `pending`.
 
@@ -170,3 +197,4 @@ Neither is ever sent to the shopper's app.
 | Date | Receipt | Store | What was wrong | Notes |
 |---|---|---|---|---|
 | 2026-10-04 | `r_1791145910170_14lyb` | Costco Vaudreuil #1213 (QC) | Steep-angle photo: 12 junk lines (header/footer fragments; subtotal 218,41, tax 6,14 and total 224,55 stored as items), total 534,01 / tax 0,00, 7 extra `flyer_user_scan` points, 3 real products renamed | Rebuilt to 18 lines, 218,41 + 6,14 = 224,55, 3 coupons = 7,50. LIME 6,99 / ALL POV ROUG 9,99 sit under the crease — assigned by print order (the 9,99 is directly above its 2,00 coupon). All 33 prod receipts stamped reviewed the same day; this one also skip-optimisation. Notice #2 pending approval. |
+| 2026-10-08 | 9 receipts (Bugs #311) | Pointe Claire #528, Vaudreuil #1213, Montreal #515 | NOT bad photos: receipts scanned before 3.0.5 that the older parser misread (a quantity, lost coupons and fee lines, a fee read as an item, back-computed taxes) | Specs `r_1790812128897_94g20`, `…5mwuj`, `…nhngb`, `…f3ivl` (keep item 204), `…qvs25`, `…5clwk`, `…n12jm`, `…amlyo`, `…i0bha` — all `markSkipParser:false`, `notifyShopper:false`; notices via §5b (`2026-10-08-false-price-drops.json`). ⏳ Owed: the `--write` runs (see the Task Log entry). |

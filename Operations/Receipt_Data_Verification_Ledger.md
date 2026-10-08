@@ -196,3 +196,56 @@ Same defect, older: product 24635 (sku 129572) `DEBUT PRE - LECTURE ARTICLES OEU
 shared by `r_1790696630914_pspjb`, `r_1790697283746_x850x` and `r_1790717788154_qeobd` (names only; those receipts were
 not re-audited line by line here). Phones keep their saved names until the receipt is rescanned, and a watch
 re-sync can write the old name back into `watch_registrations`. The detection query is in Bugs #310.
+
+### 2026-10-08 — every prod receipt re-read with 3.0.5's parser after the fake price drops (Bugs #311)
+
+Trigger: 9 fake "Price drop at costco" pushes (Bugs #311). Maxim: *"some of them have wrong quantities … all the
+receipts has been scanned before the new fixes we shipped in the 3.0.5"*. Method, every live prod receipt:
+
+1. **Photo fixture exists** (`__tests__/fixtures/receipts/prod-*`, re-OCR'd stored photos, ground truth pinned to the
+   paper): `main`'s parser (byte-identical to 3.0.5) replayed with word geometry.
+2. **No fixture**: the stored OCR (`header_ocr` + `raw_ocr`) replayed through the same parser, then read line by
+   line. The photo download + Vision re-OCR was refused by the session's permission layer, so these were proved by
+   the paper's OWN printed figures instead: Σ lines = SUBTOTAL, + TAX = TOTAL, units = ITEMS SOLD, Σ coupons =
+   INSTANT SAVINGS (and the GST/QST bases where they disambiguate) — each to the cent. A line was changed only when
+   those figures force it.
+3. Compared with `receipt_items` by position (scratch tool, read-only). A receipt that matched is left alone.
+
+**Found wrong — repair specified, ⏳ NOT YET APPLIED** (the production write was refused for this session; the
+specs are `backend/data/bad-scan-repairs/<id>.json` on app branch `hotfix/sku-only-price-drops`, applied with
+`scripts/repairBadScanReceipt.js` — dry run first; see the Task Log entry of 2026-10-08). None has a claim; only
+`f3ivl` has a charged drop, kept untouched with `keepItemIds`.
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1790812128897_94g20` | Costco Pointe Claire #528 · 2026-09-30 | photo fixture + OCR | 2026-10-08 | ⏳ **LOVE CORN 30 quantity 1 → 15** (`15 @ 18.99 = 284.85`; the paper counts 23 articles, stored 9). The cause of the 10-01 push "dropped by $209.85". Crowd copy 4851 (284.85 "per unit") to delete. 406.27 / 42.65 / 448.92 unchanged. |
+| `r_1790811675479_5mwuj` | Costco Pointe Claire #528 · 2026-09-26 | photo fixture + OCR | 2026-10-08 | ⏳ PEPSI 32 PK 16.99 had been stored as an ignored `CONSIGNE QC` fee; `*ECOFRAIS 0.64` and `CONSIGNE QC 3.20` lost; tax 7.83 → **3.99**. 123.44 + 3.99 = 127.43, 10 articles. |
+| `r_1790811624673_nhngb` | Costco Pointe Claire #528 · 2026-09-06 | photo fixture + OCR | 2026-10-08 | ⏳ The 4.00 coupon was on MANGUES (15.99/19.99) instead of POULET BURGE: now POULET BURGE **15.99** (orig 19.99), MANGUES **13.99** (watched). Crowd copy 4811 (POULET BURGE at 13.99) to delete. 102.22 / 5.46 / 107.68. |
+| `r_1790808757051_f3ivl` | Costco Pointe Claire #528 · 2026-09-27 | photo fixture + OCR | 2026-10-08 | ⏳ EAU ESKA **2 × 5.49** (was 1 + a junk `*ECOFRAIS 5.49`); PUREX COLD 17.99 (orig 22.99) and FRITO TWIST 6.49 (orig 8.49) coupons restored; TYL ENFANTS 17.99 and DOWNY SPA 14.99 (orig 18.99) restored; LAITBIO 3.8% **5.39** (was 17.99); tax 28.52 → **14.44**. 346.77 + 14.44 = 361.21, 25 articles. **Line 10 (SOFTSOAP SL, item 204) kept as is** — its 10-01 drop (11.49, 53 credits) was real. Extras to delete: crowd copy 4797 (LAITBIO 17.99) + the deleted duplicate `r_1790807272442_5pg85`'s 8 junk points (4757–4764, incl. the 361.21 total read as an item) and its 3 junk crowd copies (4756, 4765, 4767). |
+| `r_1791169282395_qvs25` | Costco Vaudreuil #1213 · 2026-09-22 | OCR + printed figures | 2026-10-08 | ⏳ A fake item `BAT/2702338` 89.99 (the eco-fee text of `ECO FEE 6377 0.50 BAT/2702338`) → **1734187 EXT CORD 89.99** + `ECO FEE 0.50` (ignored); 4OZ BLU MUFF and 4OZ CHOC MUF **5.99** each (their `392541/MULTIPLE 2.00-` coupons); tax 25.16 → **28.66**. 348.48 + 28.66 = 377.14, 23 articles, coupons 28.00 = printed. The cause of the 10-05 push "BAT/2702338 dropped by $14.99". |
+| `r_1791169321759_5clwk` | Costco Vaudreuil #1213 · 2026-09-15 | OCR + printed figures | 2026-10-08 | ⏳ SCOTTIES **21.99** (orig 27.99, a 6.00 coupon) and FLEECY FRESH **9.49** (orig 11.99, `391313/MULTIPLE 2.50-`) — both were WATCHED at a price never paid; 4 fee lines added (0.04, 0.20, 2.40, 0.48); tax 13.98 → **19.36**. 216.87 + 19.36 = 236.23, 17 articles, coupons 37.50 = printed. |
+| `r_1791169298590_n12jm` | Costco Vaudreuil #1213 · 2026-09-17 | OCR + printed figures | 2026-10-08 | ⏳ `ENVIRO FEE 0.12` added (ignored); tax 2.36 → **2.24**. 29.00 + 2.24 = 31.24, 4 articles. |
+| `r_1791169266388_amlyo` | Costco Vaudreuil #1213 · 2026-10-03 | OCR + printed figures | 2026-10-08 | ⏳ GLUE GUN (`1938002`) **39.99** (orig 49.99, `393828/1938002 10.00-`) — was watched at 49.99; five fee lines added (0.70, 0.96, 2.40, 2 × 4.00, 2 × 1.60); tax 45.30 → **40.04**. 381.74 + 40.04 = 421.78, 29 articles, coupons 62.00 = printed. Extras to delete: crowd copy 8028 (filed under the wrong SKU 500566) + the deleted duplicate `r_1791167425155_vu6b9`'s 19 points (8055–8073). |
+| `r_1791227158826_i0bha` | Costco Montreal #515 · 2026-09-20 | OCR + printed figures | 2026-10-08 | ⏳ `ENVIRO FEE 0.80` and `DEPOSIT 4.00` added (ignored); tax 11.24 → **6.44**. 164.56 + 6.44 = 171.00, 14 articles. |
+
+**Checked and correct (3.0.5's parse = the stored lines, or the difference is presentation only):**
+`r_1790772555478_67p5h` (WAGON — the receipt was right; its 10-01 push was the $75 name search), `r_1791168728568_er1cc`
+(DESK WHITE 299.99 / EXT CORD 89.99 / WATERPIK 59.97 / ECO FEE all right — those two 10-05 pushes were the $75 name
+search), `r_1791168705517_41ub6`, `r_1790469584273_xstgw`, `r_1790993308570_0l4w3`, `r_1790035456737_lav05`,
+`r_1788374243485_xwmjh`, `r_1788208622722_s4wle`, `r_1791237035698_6czgq`, `r_1791237953100_xc09c`,
+`r_1790697283746_x850x` (order only), `r_1791050619590_6wd4e` (the faded one; merged duplicate lines only),
+`r_1789673663269_7hyy7` (the stored SKU 367154 is right — its coupon names it; 3.0.5's parse of the fixture picks a
+stray 7217504, a parser gap to fix), `r_1791085073654_z6hct`, `r_1791118577679_bq42g`, `r_1791125306407_zm6h2`,
+`r_1790814834185_cx5ml`, `r_1790815006777_2ab87`, `r_1791049142108_a1ngm`, `r_1790717788154_qeobd`, and Maxim's
+Gloucester receipts.
+
+⚠️ `r_1791168705517_41ub6` (Vaudreuil, 09-10, 63 articles) matches its printed subtotal, tax, total and count, but
+the paper's INSTANT SAVINGS (83.15) is 6.00 more than the stored coupons (77.15): the OCR prints four `TPD/DOLE 3.00-`
+lines, two are stored, and adding the other two would break the printed subtotal — so a 6.00 misread sits among the
+zero-rated lines. Both DOLE lines are discounted (not watched), so it cannot raise a fake drop. **Left as stored; check
+the photo.**
+
+**Phones' watch lists (`watch_registrations`) still carrying junk** — harmless now that the by-name scrape leg is gone,
+and each phone replaces its row on its next registration: `002010.0696…` (the US receipt's `MOUNT:`, `PerCard`,
+`MDIET COKEM*`), `103854215126…` (`BAT/2702338`), `115743994329…` (FROMAGE COTT as 2 + 1 units at the wrong prices —
+the server copy is right), `109414101810…` (PANTALON at 24.99 — the server copy is right).
