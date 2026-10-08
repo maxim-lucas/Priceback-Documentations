@@ -16,6 +16,15 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-07 — Every admin-console queue pushes the admin
+
+- **Asked:** *"confirm that all the admin console reviews (new receipts, new price tags, new users, new notifications to approve, new price drop queue) will generate a notification to the admin … if no please wire them all"*. Branch → **`feat/admin-alerts-every-queue` off `main`** (asked first).
+- **Found:** only price tags (`tag_review`) and the verified price-drop queue (`price_drop_review`) pushed. New receipts, new accounts, notices to approve and potential (unverified) drops (PR #406) pushed nothing.
+- **Code:** `backend/jobs/adminAlerts.js` + `repos/adminAlertsRepo.js`, cron `*/5`: `receipt_review`, `new_user`, `notification_approval_review`, `potential_drop_review`, all under the existing **Admin alerts** switch; read points in `kv_state` (claim = deploy-overlap election; first run baselines silently). App routes each to its desk. Poll, not write hooks: the notice drafter is an out-of-process script, potential drops have no write, and the sign-in transaction stays untouched. See `Operations/Admin_Console_And_Data_Cleanup.md` § Admin alerts.
+- **Verified locally:** new job tests 30/30, new DB tests 4/4 (dev, 0 skipped), 10 mutations each applied once → all red; related backend suites 72/72; i18n check in sync; full mobile Jest 7923/7924 — the 1 = `dropLock.test.js`, fails identically on unmodified `main`.
+- **Regression risk:** low. No existing write path changed; the two existing admin pushes are untouched; the new types only reach accounts in ADMIN_USER_SUBS.
+- **Status:** done — merged as PR #407 (`71aba77`).
+
 ### 2026-10-04 — New Quebec receipts wrong again: does `main` fix them? Fix prod, then the parser
 
 - **Asked (/goal):** yesterday's parser work is merged on `main` but not shipped; two receipts came in this morning *"with the same problems"*. Check with the real production data — *"images not only OCR but use only production logic dont overstep"* — whether `main` resolves them; fix both in prod; *"before taking any more action you should get my confirmation first"*; afterwards, check whether the last merge conflict lost something. Mid-task: *"the ocr stored in production seems to see the good text, i think it may be a geometry problem"*; *"i dont want you to reproduce the production now, i asked you clearly to scan with the new edits of the last merge on main"*. Confirmed: repair all three (incl. last night's Quebec #503); parser → *"if needed new branch off main, but before once you repair the receipts in production, do the full 3 receipts run with the merge of the PR#400 first then edit if needed"*.

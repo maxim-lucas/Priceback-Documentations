@@ -58,6 +58,10 @@ routeForNotification(data) -> { route, params } | null
 | `profile_costco` *(2026-09-30)* | `CostcoProfile` (warehouse + membership tier) | — |
 | `tag_review` (admin) | `AdminTagReview` | `reviewId` |
 | `price_drop_review` (admin) *(2026-10-01)* | `AdminPriceDropQueue` | `pending` |
+| `receipt_review` (admin) *(2026-10-07)* | `AdminReceiptsReview` | `count` |
+| `new_user` (admin) *(2026-10-07)* | `AdminAccounts` | `count` |
+| `notification_approval_review` (admin) *(2026-10-07)* | `AdminNotificationApprovals` | `count` |
+| `potential_drop_review` (admin) *(2026-10-07)* | `AdminPotentialDrops` | `count` |
 | `test` | *nowhere, deliberately* | — |
 
 21 types since 2026-09-25. Every one of them — except `test` — also belongs to a

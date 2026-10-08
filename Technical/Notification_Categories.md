@@ -64,7 +64,7 @@ It is mirrored byte-for-byte into `backend/shared/` by
 plan (not marketing, so not behind the consent switch), `explicitOnly` because they
 shipped after binaries without the switch were installed. All three route to the
 app's `Guarantee` screen. See `Technical/Price_Drop_Guarantee.md`.
-| **`notifAdminAlerts`** | on | adminOnly | tag_review, **price_drop_review** *(2026-10-01)* | Admin (admins only) |
+| **`notifAdminAlerts`** | on | adminOnly | tag_review, **price_drop_review** *(2026-10-01)*, **receipt_review, new_user, notification_approval_review, potential_drop_review** *(2026-10-07)* | Admin (admins only) |
 
 The master switch is `notificationsEnabled`. **The one exempt type is `test`**,
 the admin console's "Send test" diagnostic. It is sent only on an explicit tap,
