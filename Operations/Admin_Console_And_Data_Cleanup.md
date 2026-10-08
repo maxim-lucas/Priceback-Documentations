@@ -186,6 +186,49 @@ unattended and scripted ones.
 
 ---
 
+## Admin alerts: every desk pushes the admin (2026-10-07)
+
+Maxim, 2026-10-07: every review on the console must reach the admin as a
+notification. All of them sit under ONE switch, **Admin alerts**
+(`notifAdminAlerts`, shown to admins only), and go through `sendUserPush`, so
+the admin's master switch and that switch both apply. Copy is plain English
+(admin-only, exempt from translation).
+
+| Desk | Push `data.type` | Sent by | When |
+|---|---|---|---|
+| Tag reviews | `tag_review` | tag submit route (`server.js`) | at once, one per tag; the submitting admin is left out |
+| Price-drop queue | `price_drop_review` | sweep's staged listener (`server.js`) | 60 s coalesced, only while review is required |
+| Receipt review | `receipt_review` | `backend/jobs/adminAlerts.js` | ≤ 5 min; an admin's own receipts are left out of their count |
+| Accounts | `new_user` | `backend/jobs/adminAlerts.js` | ≤ 5 min; purchase-first placeholders are called out |
+| Notifications to approve | `notification_approval_review` | `backend/jobs/adminAlerts.js` | ≤ 5 min; only notices still pending |
+| Potential price drops | `potential_drop_review` | `backend/jobs/adminAlerts.js` | ≤ 5 min; only groups not announced before |
+
+**Why the last four are a poll** (cron `*/5`, `trackJob("adminAlerts")`), not a
+hook at each write: notices are drafted by an operator script in another
+process (`scripts/repairBadScanReceipt.js`) that cannot reach `sendUserPush`;
+a potential drop has no write at all — it is derived from price points; and the
+account insert is inside the sign-in transaction, the riskiest place to add a
+side effect.
+
+**How it never repeats or skips:** each desk stores in `kv_state` how far it
+has read (`adminAlerts:receipts|users|notices` = the last window end;
+`adminAlerts:potentialDrops` = the group keys already announced). A run reads
+`(stored point, slot − 60 s]` on the rows' own `created_at` and moves the point
+with `kvStateRepo.claim` — an election, so during a deploy (old and new process
+both fire the cron) only one sends. A read that fails leaves the point, so the
+next run retries the window; a restart resumes from the point (catch-up capped
+at 24 h). The **first run ever only records the point** — nobody is pushed for
+history. Several items in a window are one push per admin per desk.
+
+**Operator notes**
+- No created_at index on `users` / `receipts`: each run is a small seq scan.
+  Fine at today's size; add an index if those tables reach the hundreds of
+  thousands.
+- To re-baseline a desk (e.g. after a bulk import you do not want announced),
+  delete its `kv_state` key; the next run records the point and sends nothing.
+- A failed desk fails the run in `job_runs` (Incidents), after the other desks
+  have run.
+
 ## The other three screens
 
 **Shopper report** (`GET /api/admin/users/:sub/report`) answers the four shapes a
