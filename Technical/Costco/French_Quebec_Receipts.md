@@ -112,6 +112,43 @@ lines = 161.02 / 171.11 (was both discounts lost, total overwritten to
 183.11). Both close on the printed TOTAL RABAIS ($12.00) and article count.
 Eight mutations (each fix and each guard), all killed.
 
+## 4d. The French register banners — their own file (2026-10-08, app PR #408)
+
+Two Pointe Claire #528 self-checkout receipts reached production with the
+pre-scan banner welded onto the first item: `DEBUT PRé - LECTURE ARTICLES HAVARTI
+VARI`, `DEBUT PRE PAIN DE LE`. The corpus had the same defect pinned in a golden
+snapshot since 09-29 (Quebec #503: `DEBUT PRÉ - LECTURE ARTICLES OEUFS 2.5 DZ`).
+The paper is tilted, so the geometry row for the first item picks up the banner
+words printed just above it.
+
+The excluded-keyword list (`BANNER_NOISE_RES`, `shared/ocrCleanup.js`) only knew
+the **English** banners. The French equivalents now live in the Costco
+parser's own file, **`src/services/costcoReceiptNoise.fr.js`**, applied by
+`tidyCostcoItemName` to every warehouse item name. The shared file is unchanged.
+
+| English (shared list) | French (Costco file), as the fixtures print it |
+|---|---|
+| `***START OF PRE-SCANNED ITEMS***` | `***DEBUT PRÉ-LECTURE ARTICLES*********` |
+| `***END OF PRE-SCANNED ITEMS***` | `***FIN PRÉ-LECTURE ARTICLES***********` |
+| `TOTAL NUMBER OF PRE-SCANNED ITEMS= 6` | `NOMBRE TOTAL ARTICLES PRÉ-LECTURE= 8` / `- 3` |
+| split row `***START OF` | `DEBUT PRE` left at the start or end of a name |
+| `SELF-CHECKOUT` | `LIBRE-SERVICE` |
+| `***Bottom of Basket***` | `********* Bas du panier ***********` |
+| `BOB Count 4` | `***** Compte bas du panier 4 ******`, `Compte total bas du panier-4` |
+| `AGE VERIFIED` | `ÂGE VÉRIFIÉ` (not on a French fixture yet) |
+
+OCR variants covered: `PRé` / `PRE` / `PRÉ`, `PRé-CTURE` (the "LE" lost),
+`PRé - LECTURE`. Rules: a count is eaten only behind a separator and before
+whitespace/asterisks/end, so a welded SKU is never truncated. `DÉBUT/FIN PRÉ`
+fragments are stripped only at the start or end of a name (`RIZ FIN PRÉ CUIT`
+survives). A name that is nothing but a marker is returned **unchanged**, never
+blanked: the shared last-resort scrub drops a phantom row only when it emptied
+the name itself.
+
+`__tests__/costcoReceiptNoise.fr.test.js` reads every French fixture, collects
+each banner/marker line it prints (19 distinct today), and welds each one before
+and after an item name. A new French spelling that reaches a fixture fails there.
+
 ## 5. Known limits
 
 - **The word geometry of the Pointe Claire photos was never captured** (copying a

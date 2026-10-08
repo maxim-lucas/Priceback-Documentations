@@ -13619,3 +13619,42 @@ missing four items.
 - **Lesson:** a candidate race is only as good as its score. A candidate that misreads the TAX loses to one
   that drops ITEMS, because the score sees only items + tax against TOTAL. Fixed here by making the flat
   candidate read the totals; also scoring items against the printed SUBTOTAL is the open follow-up.
+
+---
+
+## 310. Quebec receipts stored "DEBUT PRé - LECTURE ARTICLES HAVARTI VARI" — the French pre-scan banner was never on the excluded list (2026-10-08, PR #408)
+
+- Date: 2026-10-08 · PR: #408 · Area: mobile (Costco parser)
+- **Symptom:** two Pointe Claire #528 self-checkout receipts ($33.14, $34.48) parsed right to the cent, but the
+  first item's name carried the register banner: `DEBUT PRé - LECTURE ARTICLES HAVARTI VARI`, `DEBUT PRE PAIN
+  DE LE`. Production already held a third case since 2026-09-29 (Quebec #503, `DEBUT PRE - LECTURE ARTICLES
+  OEUFS 2.5 DZ`), shared by 3 receipts through `products.display_name` and copied into 3 watch registrations.
+- **Root cause:** the paper is tilted, so the geometry row of the first item picks up the banner words printed
+  just above it ("DEBUT"/"PRE" sit lower than "ARTICLES"). The excluded-keyword list that scrubs banner text
+  out of names (`BANNER_NOISE_RES`, `shared/ocrCleanup.js`) had only the English banners: `START/END OF
+  PRE-SCANNED ITEMS`, the count trailer, and the BOB count. Their French twins were never added. The golden
+  snapshot had pinned the OEUFS case as "correct" since 09-29, and the prod-capture suite never checked names.
+- **Fix:** a new Costco-owned file, `src/services/costcoReceiptNoise.fr.js`, holds the French equivalent of every
+  English entry, each form taken from what the fixtures print: `DÉBUT/FIN PRÉ-LECTURE ARTICLES`, `NOMBRE TOTAL
+  ARTICLES PRÉ-LECTURE= N`, `LIBRE-SERVICE`, `Bas du panier`, `Compte (total) bas du panier N`, `ÂGE VÉRIFIÉ`,
+  plus the OCR variants (`PRé-CTURE`, `PRé - LECTURE`, a bare `DEBUT PRE`). `tidyCostcoItemName` applies it.
+  The shared file is byte-identical (the shared list is on every store's path).
+- **Reproduction:** the exact live Vision responses (`ocr_captures` ids 1 and 2, the first ever kept) exported by
+  `scripts/exportOcrCaptures.js` into `prod-captures/`. `main` (parser byte-identical to `v3.0.5`) reproduced
+  production's names exactly.
+- **Files:** `src/services/costcoReceiptNoise.fr.js` (new), `src/services/costcoReceiptParser.js`
+  (`tidyCostcoItemName`), `__tests__/costcoReceiptNoise.fr.test.js` (new), `__tests__/receiptProdCaptures.test.js`
+  (2 ground-truth entries, plus name assertions), `__tests__/receiptLocale.test.js`, golden snapshot (1 line moved:
+  the OEUFS name; 2 captures added).
+- **Detect next time:** `select id, sku, display_name from priceback.products where display_name ~*
+  '(d[ée]but|lecture|pr[ée]-?\s*ctur|^fin pr|nombre total|pre-?scanned|bottom of basket|bob count)';`
+- **Prevent:** the fixture-driven test welds every French marker line found in any French fixture onto a name, so a
+  new spelling fails until the file learns it. `receiptProdCaptures` now asserts that no production capture's item
+  name carries banner text in either language. 17 mutations, each applied once over a green baseline, all red.
+- **Ships with the next binary.** Parsing runs on the phone; there is no OTA on this plan. Names already saved on a
+  device keep the bad text until rescanned. Prod rows repaired 2026-10-08 (one transaction: 3 `products.display_name`,
+  5 watch-registration item names in 4 rows; read back clean). See `Receipt_Data_Verification_Ledger.md`.
+- **Not covered (separate):** on 2026-10-05 the warehouse #108 receipt (`r_1791145910170_14lyb`) pushed "LECTURE PRÉ
+  dropped by $143.41" and "UNT retain records dropped by $149.55" from phantom rows in the device's watch list.
+  No commission was charged, and those entries are no longer registered. A banner-only row is a phantom-drop
+  problem, not a name tidy, and this file deliberately never blanks a name.
