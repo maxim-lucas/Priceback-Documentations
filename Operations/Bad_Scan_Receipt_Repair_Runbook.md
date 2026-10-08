@@ -113,7 +113,8 @@ railway run -e production node <repo>\backend\scripts\repairBadScanReceipt.js --
 
 Read the dry-run summary before `--write`: `before` / `after` lines and totals,
 `pricePointsRemoved` (= old line count + extras), `pricePointsWritten` (= new line count),
-`orphanProductsDeleted`, `notice.created`.
+`orphanProductsDeleted`, `crowdCopiesRemoved` (ids), `watchRegistrations`
+(`rows`, `entriesRemoved`, `entriesWritten`), `notice.created`.
 
 What `--write` does, in **one transaction**:
 
@@ -125,12 +126,33 @@ What `--write` does, in **one transaction**:
    printed name back (last writer wins).
 3. Sets `total`, `tax`; `admin_reviewed_at = now()`, `skip_parser_optimization = true`;
    recomputes the price-match status.
-4. Deletes the bad scan's synthetic `ln:<receiptId>:<n>` products nothing references.
-5. Drafts the shopper notice (`notification_approvals`, status `pending`) — **not sent**.
+4. Removes this device's **crowd copies** of the bad parse (`flyer_user_scan`,
+   `<deviceHash>:<purchaseDate>:<cents>`, filed by `/api/watch`) that the corrected receipt
+   disproves: a price an OLD line carried for its product that no receipt line of this device
+   that day carries now, paid or regular. True shelf prices stay (a couponed line's pre-coupon
+   price, another receipt's price, another day's copy). Missing copies are not invented — the
+   phone files them when it re-registers. (Since PR #411; `extraPricePointIds` still covers
+   anything else.)
+5. Deletes the bad scan's synthetic `ln:<receiptId>:<n>` products nothing references.
+6. Rewrites every **watch registration** (`watch_registrations`) that lists the receipt: its
+   entries are replaced, in place, by the corrected lines in the app's own shape (watchable lines
+   only — not claimed, not a fee, watched, not discounted; none once the window has closed), the
+   shopper's province kept, `touched_at = now()`. Other receipts' entries are untouched. The
+   admin desk also refreshes the server's in-memory copy; after the CLI, the running server keeps
+   the old list in memory until its next restart or the phone's next registration (nothing sends
+   from it — Bugs #311). (Since PR #411.)
+7. Drafts the shopper notice (`notification_approvals`, status `pending`) — **not sent**.
 
 It **refuses** (nothing written) when: the receipt is missing or deleted; a line was already
-claimed or a price-drop push went out for it (repair those by hand); the spec does not
+claimed or a price-drop push went out for it — unless the spec lists it in `keepItemIds` and it
+already IS the spec's line at its position (it is then left byte-for-byte); the spec does not
 reconcile; an extra price point is another device's.
+
+> ⚠️ It does **not** refuse a line carrying a pending verified-drop review
+> (`price_drop_review_queue`): deleting the line cascades that row away. Check first
+> (`select q.id, i.id, i.position from priceback.price_drop_review_queue q join
+> priceback.receipt_items i on i.id = q.receipt_item_id where i.receipt_id = '<receiptId>'`) and
+> list every such line that is already right in `keepItemIds`.
 
 The shopper's app picks the corrected receipt up on its next sync (the server copy wins).
 
@@ -141,6 +163,8 @@ select total, tax, admin_reviewed_at, skip_parser_optimization from priceback.re
 select sum(line_total) from priceback.receipt_items where receipt_id = '<receiptId>';           -- = subtotal
 select count(*) from priceback.price_points where source_ref like '<receiptId>:%';             -- = line count
 select count(*) from priceback.products where sku like 'ln:<receiptId>:%';                    -- 0
+select jsonb_array_length(items), touched_at from priceback.watch_registrations
+ where items @> '[{"receiptId":"<receiptId>"}]';   -- the receipt's entries = its watchable lines
 ```
 
 ## 5. Approve the notice (admin console)

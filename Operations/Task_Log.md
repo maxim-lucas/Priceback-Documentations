@@ -10745,3 +10745,37 @@ Doc: `Technical/Potential_Price_Drops_2026-10-07.md`. No migration.
 **Regression risk:** low. The floor is a no-op at N = 3 (dev + prod, checked). The 15 single-shopper `verified`
 rows in prod are all tag-review admin verifications and stay verified. The verified queue code paths are unchanged.
 The queue screen only gains a link.
+
+
+---
+
+## 2026-10-08 — Hotfix: Nepean #540 receipt repaired, Costco coupon re-zip, datafix corrects the watch registry
+
+**Branch:** `claude/gracious-mayer-fb1tbo` (off `main`) → PR #410 and PR #411, both squash-merged to `main`.
+Docs: `docs/nepean-coupon-rezip-2026-10-08`.
+**Ask:** "the latest receipt is not parsed correctly, empty sku, bad product name … fix this receipt by the runbook
+in prod"; then "fix the receipt and fix the parser and merge everything in Priceback on main as a hotfix"; then
+"the watch registration should also be auto corrected … on datafix corrections".
+**Done:**
+- Prod data (`r_1791478905313_w7a4m`, Costco Nepean #540, 2026-09-23): rebuilt to the paper with the bad-scan
+  tooling's spec (`markSkipParser: false`, `notifyShopper: false`, `keepItemIds` 835-837, extra 9999), applied as a
+  guarded transaction checked identical to `repair()` on a local Postgres copy, read back. Ledger row added.
+- Parser (PR #410, Bugs #312): a keyword-less coupon inside a labels-first block is a re-zip slot; a coupon SKU
+  with a digit read as `/` resolves to the one printed item number that fits. Fixture + line-by-line tests (flat
+  and production's own geometry reading), 11 mutations killed, golden snapshots unchanged.
+- Repair tool (PR #411, Bugs #313): a datafix now also rewrites the receipt's entries in every watch registration
+  and removes the device's crowd copies the paper disproves; the admin desk refreshes its in-memory registry.
+  Applied to this receipt's registration in prod (21 bad → 19 corrected entries).
+**Not done / follow-ups:**
+- The photo was not read (no R2 credentials in the session). Export the two live captures
+  (`scripts/exportOcrCaptures.js --receipt r_1791478905313_w7a4m`) and pin them in `receiptProdCaptures.test.js`.
+- `shared/ocrCleanup.js` missed payment lines whose first letter Vision cropped (`CCT:`, `EFERENCE #`, `UTH #`,
+  `nvoice Number`): prod `raw_ocr` of this receipt keeps a transaction reference and approval code.
+- 4 backend tests fail on clean `main` (`shopperNoticeDrafts` ×2 — its drafts file is gitignored by
+  `backend/data/*`; `pushI18n` ×1; `creditReconGuards` ×1 needs `DATABASE_URL`).
+- `development` has not moved since #343 (2026-09-17); every PR since targets `main`, so the hotfix back-merge into
+  `development` was not done — decide whether `development` is retired.
+- Migration 0021 (`notification_approvals.custom_copy`) is not applied in prod.
+**Regression risk:** parser — low (two narrow rules, every guard pinned, corpus snapshots byte-identical); ships
+with the next binary. Repair tool — low (runs only when an operator repairs a receipt; dry run shows both new
+effects first).

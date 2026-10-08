@@ -13726,3 +13726,78 @@ missing four items.
   removed paths never produced one). By design: shoppers no longer get a local alert on the phone (the server's
   reviewed push is the only one); signed-out phones get no drop alert at all (they cannot be billed); a non-Costco
   store without a SKU-matched result shows "not checked" instead of a guess (none is enabled in production).
+
+## 312. A Nepean receipt lost MADE GOOD BA and both coupons — a coupon inside a labels-first block ended the re-zip (2026-10-08, PR #410)
+
+- Date: 2026-10-08 · PR: #410 (hotfix, merged to `main`) · Area: mobile (Costco parser)
+- **Symptom:** a customer's Costco Nepean #540 receipt (2026-09-23, Ontario, 21 lines, $408.11) was stored as 21
+  wrong lines: MADE GOOD BA lost, six lines without a SKU and with a truncated name (`ITEMS COOKIE`, `12GRAIN`,
+  `TOMATO`, `PANT`, `PANTS 2PK`, `/358234 1841872 BEAR ROLLS`), K9 NUT BAR as `/2/58349 BAR`, product 77053
+  renamed `GRAPE` at MADE GOOD's 14.99, both coupons (3.00, 2.00) dropped. The lines summed to $378.29 against a
+  printed $373.29; the validator back-computed tax to 29.82 (printed 34.82), so the receipt looked consistent.
+- **Root cause:** one block printed its four labels before its four amounts — `2158349 MADE GOOD BA` /
+  `0000391656/2/58349` (its coupon; Vision read the SKU's 1 as a slash) / `1181556 K9 NUT BAR` / `311860
+  THINADDICTIV`, then `14.99 H` / `3.00- H` / `17.99 H` / `12.99`. `reshapeColumnSplitTpdBlocks` only counted
+  item lines and `TPD/` lines as labels, so the keyword-less coupon (the Ontario `<barcode>/<sku>` form) ended the
+  run and nothing was re-zipped. The flat parse dropped two items and the coupon; the geometry parse (a two-pass
+  scan, captures 3 + 4) lost names and SKUs on a skewed photo. Neither reconciled, and the geometry reading was
+  closer, so it won.
+- **Fix:** (1) a keyword-less coupon reference inside a label run is a slot that only takes a NEGATIVE amount,
+  emitted as the one-row form `handleCostcoTpdLine` already reads (still applied only to an item parsed from the
+  receipt). (2) `resolveSlashMisreadCouponRefs` (in `preprocess`): a coupon SKU with one digit read as `/` is
+  rewritten only when exactly one item number printed on the receipt fits — same length, every readable digit in
+  place; TPD/CPN rows' own codes are not candidates. With both, the flat text reconciles to the cent and beats
+  the broken geometry reading in `chooseBetterParse`.
+- **Reproduction:** the stored `raw_ocr` + `header_ocr` replayed on `main` dropped MADE GOOD BA and K9 NUT BAR;
+  production's own stored lines, fed back as geometry rows, reproduced its exact result (geometry wins, $378.29).
+- **Files:** `src/services/costcoReceiptParser.js`, `__tests__/costcoReceiptParser.prodtext.test.js`,
+  `__tests__/fixtures/receipts-prod-text/costco-nepean-540-20260923.txt` (+ README row),
+  `backend/data/bad-scan-repairs/r_1791478905313_w7a4m.json` (the repair spec).
+- **Detect next time:** a stored receipt whose lines don't add up to its printed subtotal, with SKU-less lines —
+  `select r.id, r.total, r.tax, sum(i.line_total) s, count(*) filter (where p.sku like 'ln:%') no_sku from
+  priceback.receipts r join priceback.receipt_items i on i.receipt_id = r.id join priceback.products p on p.id =
+  i.product_id where r.deleted_at is null group by r.id having count(*) filter (where p.sku like 'ln:%') > 0;`
+  then compare `s + tax` with the printed `SUBTOTAL` in `raw_ocr`.
+- **Prevent:** the receipt is pinned line by line on the flat path AND on production's own geometry reading
+  (which must now give way to the reconciled flat text); unit tests for the coupon slot and the resolver, with
+  every guard as a "left as printed" case. 11 mutations, each applied once over a green baseline, all red. Golden
+  snapshots unchanged.
+- **Ships with the next binary.** Parsing runs on the phone. The receipt itself was repaired in prod on
+  2026-10-08 (see `Receipt_Data_Verification_Ledger.md`); its watch registration was still the bad parse — Bugs #313.
+- **Follow-up (not done):** export the two live captures (`railway run -e production node
+  scripts/exportOcrCaptures.js --receipt r_1791478905313_w7a4m`) and add them to `receiptProdCaptures.test.js`
+  with ground truth, to pin the real geometry path too.
+- **Not covered (separate):** Vision cropped the first letter of the payment lines (`CCT:`, `EFERENCE #`, `UTH #`,
+  `nvoice Number`), so the on-device scrub (`shared/ocrCleanup.js`) missed them and prod `raw_ocr` for this receipt
+  holds a transaction reference and approval code. Needs its own fix (scrub keywords tolerant of a cropped first
+  letter) and a one-off scrub of affected rows.
+
+## 313. A repaired receipt kept its bad parse in the watch registry and the crowd pool (2026-10-08, PR #411)
+
+- Date: 2026-10-08 · PR: #411 (hotfix, merged to `main`) · Area: backend (receipt repair tool)
+- **Symptom:** after Bugs #312's receipt (`r_1791478905313_w7a4m`) was repaired in prod, its lines, price points and
+  products matched the paper, but the phone's watch registration (`watch_registrations`, key `push:<token>`) still
+  held all 21 bad lines: `77053 GRAPE` at 14.99 (paper: GRAPE TOMATO 6.99), `ITEMS COOKIE`, `12GRAIN`,
+  `/2/58349 BAR` without SKUs, TRAD HUMMUS at 7.99 with no coupon.
+- **Root cause:** `lib/badScanRepair.repair` (the runbook script AND the admin desk's line editor) rewrote
+  `receipt_items`, the receipt's `receipt_ocr` points and `products`, but never touched `watch_registrations`, and
+  removed `/api/watch`'s crowd copies (`flyer_user_scan`, `<deviceHash>:<date>:<cents>`) only when an operator listed
+  each id in `extraPricePointIds`. Both stayed on the bad parse until the phone happened to re-register.
+- **Fix:** in the same transaction the repair now (1) rewrites every registration listing the receipt — its entries
+  replaced in place by the corrected lines, built as the app builds them (watchable lines only: not claimed, not a
+  fee, watched, not discounted; none once the window closed), the shopper's province kept, `touched_at = now()` so a
+  stale in-memory copy cannot write the old list back; (2) removes this device's crowd copies of a price an OLD line
+  carried that no receipt line of this device that day carries now, paid or regular (a coupon line's pre-coupon
+  price, another receipt's price, another day's copy all stay). Missing copies are not invented — the phone files them
+  through `/api/watch` when it re-registers. The summary reports `watchRegistrations` and `crowdCopiesRemoved`; the
+  admin desk refreshes its in-memory registry via `onWatchRegistrations`.
+- **Files:** `backend/lib/badScanRepair.js`, `backend/server.js` (desk route), `backend/scripts/repairBadScanReceipt.js`
+  (doc), `backend/tests/badScanRepair.test.js`, `backend/tests/badScanRepairDb.test.js`.
+- **Detect next time:** a registration entry that disagrees with its receipt line —
+  `select w.touched_at, e->>'receiptId' rid, e->>'sku' sku, e->>'itemName' name, (e->>'unitPaid')::numeric paid from
+  priceback.watch_registrations w, jsonb_array_elements(w.items) e where e->>'receiptId' = '<receiptId>';` vs the
+  receipt's `receipt_items` joined to `products`.
+- **Prevent:** 5 pure + 2 DB tests (run against a local Postgres 16 with every migration), 12 mutations all red.
+- **Applied:** prod registration for `r_1791478905313_w7a4m` rewritten 2026-10-08 20:14 UTC (21 bad → 19 corrected
+  watchable lines), guarded on the audited row, read back. The running server's in-memory copy refreshes on its next
+  restart; nothing sends from it since Bugs #311.

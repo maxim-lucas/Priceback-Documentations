@@ -110,6 +110,11 @@ audit** (total, item count, no claims, no notifications). Match what
   hand-insert the missing ones: the phone re-registers its corrected lines after
   its next hydrate and production code records them.
 - Restore a garbled product name to the printed one (guard on the garbled value).
+- **Prefer the tool:** `scripts/repairBadScanReceipt.js` (or Admin → receipt → line editor) does all of the
+  above in one transaction from a spec in `backend/data/bad-scan-repairs/`, and since PR #411 also removes the
+  device's disproved crowd copies and rewrites the receipt's entries in every `watch_registrations` row (Bugs
+  #313). A hand-written SQL repair must do both itself: replace the receipt's registration entries with its
+  watchable corrected lines (not discounted, not a fee, not claimed), in the app's entry shape.
 
 **The phone picks it up by itself.** Hydrate runs on every app launch
 (`bootService`), and `mergeServerIntoLocal` makes the server authoritative for
