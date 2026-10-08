@@ -16,6 +16,16 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-08 — Two Pointe Claire receipts: first item name carries the French pre-scan banner
+
+- **Asked:** *"2 new receipts arrived in prod … the 1st item name in the 2 receipts has the same issue containing a part of the excluded keywords"*; reproduce with the 3.0.5 environment; Pointe Claire #528, $34.48 + $33.14. Branch → **`fix/fr-prescan-banner-names` off `main`** (asked first). Mid-task: *"create another version for the french not in the same file depends on the parser we use, a file should be associated"*; *"get all the keywords from the fixtures (equivalent to english translation)"*. Maxim approved the prod capture export.
+- **Found:** the excluded list (`BANNER_NOISE_RES`, `shared/ocrCleanup.js`) only had the English banners. Parser files are byte-identical between `v3.0.5` and `main`; the exact live captures (`ocr_captures` 1 + 2) reproduce prod's names on `main`. Third case already in prod since 09-29 (Quebec #503 OEUFS, pinned wrong in the golden snapshot).
+- **Code:** new `src/services/costcoReceiptNoise.fr.js` (French equivalents of every English entry, forms mined from the fixtures), applied by `tidyCostcoItemName`. Shared files untouched. Bugs #310; `Technical/Costco/French_Quebec_Receipts.md` §4d.
+- **Verified locally:** full mobile Jest 318 suites / 8054 tests, 0 fail; golden: 1 existing line moved (the intended OEUFS name), 2 added; 17 mutations all red; new file 100% coverage, parser 98.69/93.39/100/99.26 (unchanged). No CI dispatched, no build.
+- **Regression risk:** low. Name-only, after every price/SKU decision; French-only phrases; never blanks a name; every other fixture byte-identical.
+- **Prod repair (Maxim: "yes for all"), DONE 2026-10-08:** one transaction, 3 `products.display_name` (29956 HAVARTI VARI, 29072 PAIN DE BLÉ — the printed name, the OCR reads "PAIN DE LE" through a pen stroke, 24635 OEUFS 2.5 DZ) + 5 watch-registration item names in 4 rows. Read back: 0 products and 0 watch rows still carry banner text. Names saved on phones keep the old text until the receipt is rescanned; a device watch re-sync can write it back.
+- **Status:** app PR #408 open (squash-merge blocked by the auto-mode classifier, merge owed to Maxim). Ships with the next binary (3.0.6).
+
 ### 2026-10-07 — Every admin-console queue pushes the admin
 
 - **Asked:** *"confirm that all the admin console reviews (new receipts, new price tags, new users, new notifications to approve, new price drop queue) will generate a notification to the admin … if no please wire them all"*. Branch → **`feat/admin-alerts-every-queue` off `main`** (asked first).

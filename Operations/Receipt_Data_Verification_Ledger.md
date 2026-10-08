@@ -177,3 +177,22 @@ are all true — kept. Each phone re-registers its corrected lines after its nex
 the missing observations (ACTIVIA, GRENADE SC, BATON 16.99, SAUMON 35.56) through production code. No
 credit-ledger row referenced the deleted copies. No duplicate scans → no refund owed. No customer push
 sent.
+
+### 2026-10-08 — two Pointe Claire #528 receipts: French pre-scan banner in the first name (names only)
+
+Lines, totals, dates and warehouse were right on both. The receipts were checked against the photo and the exact live
+Vision capture (`ocr_captures` 1 + 2). Only the first item's name was wrong: the tilted paper welded the banner
+`DÉBUT PRÉ-LECTURE ARTICLES` onto it. Parser: Bugs #310, app PR #408. Repaired in one transaction: three
+`products.display_name` rows (shared by every receipt with that SKU) and five watch-registration item names in
+four rows, then read back. 0 products and 0 watch rows still carry banner text. No price, price point, ledger
+or notification was touched.
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1791428280569_21xro` | Costco Pointe Claire #528 · 2026-10-03 | photo ✅ + live capture | 2026-10-08 | **Name repaired.** Product 29956 (sku 2002489) `DEBUT PRé - LECTURE ARTICLES HAVARTI VARI` → `HAVARTI VARI`. 3 lines = **33.14**, tax 0, 3 units. |
+| `r_1791429053760_bjkt6` | Costco Pointe Claire #528 · 2026-10-04 | photo ✅ + live capture | 2026-10-08 | **Name repaired.** Product 29072 (sku 647249) `DEBUT PRE PAIN DE LE` → `PAIN DE BLÉ`, the name printed on the paper (a pen stroke hides the "B", so OCR reads "PAIN DE LE"). Also the name on `r_1791237035698_6czgq`. 2 lines = **34.48**, tax 0. |
+
+Same defect, older: product 24635 (sku 129572) `DEBUT PRE - LECTURE ARTICLES OEUFS 2.5 DZ` → `OEUFS 2.5 DZ`. It is
+shared by `r_1790696630914_pspjb`, `r_1790697283746_x850x` and `r_1790717788154_qeobd` (names only; those receipts were
+not re-audited line by line here). Phones keep their saved names until the receipt is rescanned, and a watch
+re-sync can write the old name back into `watch_registrations`. The detection query is in Bugs #310.
