@@ -196,3 +196,27 @@ Same defect, older: product 24635 (sku 129572) `DEBUT PRE - LECTURE ARTICLES OEU
 shared by `r_1790696630914_pspjb`, `r_1790697283746_x850x` and `r_1790717788154_qeobd` (names only; those receipts were
 not re-audited line by line here). Phones keep their saved names until the receipt is rescanned, and a watch
 re-sync can write the old name back into `watch_registrations`. The detection query is in Bugs #310.
+
+### 2026-10-08 — Nepean #540: a coupon inside a labels-first block (parser bug, Bugs #312)
+
+Scanned 2026-10-08 (two-pass scan, `ocr_captures` 3 + 4). Production stored 21 wrong lines summing to $378.29
+against a printed $373.29, tax back-computed to 29.82. **The photo was not read** (no object-store access in that
+session): the lines come from the stored OCR, which is in print order except one labels-first block, and every
+one closes on the paper's own checks — SUBTOTAL 373.29 = the 21 lines, HST 34.82 = 13% of the H-flagged lines
+(267.87; without the 3.00 coupon it would be 35.21), TOTAL 408.11 = the INTERAC payment. The block's amounts were
+zipped onto its labels in print order, and production's own geometry rows agree (12.99 on THINADDICTIV's row,
+17.99 on K9 NUT BAR's). Spec: `backend/data/bad-scan-repairs/r_1791478905313_w7a4m.json` (app PR #410).
+
+Applied as one guarded transaction equivalent to `repairBadScanReceipt.js --write` with that spec (no Railway in
+the session; checked identical to the real `repair()` on a local copy of the rows), then read back:
+`keepItemIds` 835-837 (SIERRA FZ, KNIT 1/4 ZIP, KNIT PANT — already right, carrying pending verified-drop review
+rows 9, 7, 8, which survive); review row 6 (a bogus 14.99 → 7.99 "drop" on the misread line) cascaded away with
+its line. Crowd copy **9999** (`77053` at 14.99) deleted; the other 13 copies are true shelf prices (TRAD HUMMUS
+7.99 is its pre-coupon price) — kept. No credit-ledger row referenced it (the scan's own −1 charge stays). No
+duplicate scan → no refund owed. No shopper notice drafted (a readable receipt: `markSkipParser: false`,
+`notifyShopper: false`, as the earlier parser-bug repairs). The watch registration was rewritten separately
+(20:14 UTC, Bugs #313): 21 bad entries → the 19 corrected watchable lines.
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1791478905313_w7a4m` | Costco Nepean #540 · 2026-09-23 | OCR + printed checks (photo not read) | 2026-10-08 | **Repaired.** 21 lines rebuilt to the paper: DAD'S COOKIE 1174257, DEMP 12GRAIN 1274091, GRAPE TOMATO 77053 6.99 (was "GRAPE" 14.99), **MADE GOOD BA 2158349 11.99 (orig 14.99, coupon read `/2/58349`) — was missing**, K9 NUT BAR 1181556 17.99 (was `/2/58349 BAR`), BENCH PANT 4335821, TH PANTS 2PK 3966011, TRAD HUMMUS 5.99 (orig 7.99, its 2.00 coupon), BEAR ROLLS 1841872 — 7 new products, 7 synthetic `ln:` products deleted, product 77053 renamed back `GRAPE` → `GRAPE TOMATO`. Lines = **373.29**, tax 29.82 → **34.82**, total 408.11 unchanged; `admin_reviewed_at` stamped, `skip_parser_optimization` false (it is a parser fixture). Watch registration 21 → 19 corrected entries. |
