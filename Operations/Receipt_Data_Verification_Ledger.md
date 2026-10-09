@@ -273,3 +273,27 @@ duplicate scan → no refund owed. No shopper notice drafted (a readable receipt
 | Receipt id | Store / date | Evidence | Verified | Result |
 |---|---|---|---|---|
 | `r_1791478905313_w7a4m` | Costco Nepean #540 · 2026-09-23 | OCR + printed checks (photo not read) | 2026-10-08 | **Repaired.** 21 lines rebuilt to the paper: DAD'S COOKIE 1174257, DEMP 12GRAIN 1274091, GRAPE TOMATO 77053 6.99 (was "GRAPE" 14.99), **MADE GOOD BA 2158349 11.99 (orig 14.99, coupon read `/2/58349`) — was missing**, K9 NUT BAR 1181556 17.99 (was `/2/58349 BAR`), BENCH PANT 4335821, TH PANTS 2PK 3966011, TRAD HUMMUS 5.99 (orig 7.99, its 2.00 coupon), BEAR ROLLS 1841872 — 7 new products, 7 synthetic `ln:` products deleted, product 77053 renamed back `GRAPE` → `GRAPE TOMATO`. Lines = **373.29**, tax 29.82 → **34.82**, total 408.11 unchanged; `admin_reviewed_at` stamped, `skip_parser_optimization` false (it is a parser fixture). Watch registration 21 → 19 corrected entries. |
+
+### 2026-10-09 — Kanata #541: a readable receipt photographed at ~12° (parser bug, Bugs #314)
+
+Two receipts from one Kanata #541 self-checkout visit (2026-10-03), scanned 2026-10-09 16:05 UTC by the same
+shopper, each read by Vision twice (1200px + 2000px retry; `ocr_captures` 35/36/38/39 and 37/40/41, exported with
+`scripts/exportOcrCaptures.js`). **The photo was read** (the exact JPEG Vision received, cropped at full
+resolution) and every figure closes on the paper's own checks: SUBTOTAL 196.12 = the 8 lines; TOTAL DISCOUNT(S)
+46.50 = 6.50 + 5.50 + 4.50 + 20.00 + 10.00; ITEMS SOLD 8; HST 13% 24.43 = 13% of 196.12 − 3.39 (bananas) − 4.79
+(water) = 187.94; TOTAL 220.55 = the INTERAC amount. The `0000390143 /MULTIPLE 5.50-` coupon prints directly under
+CASHMERE TP and is applied to it. Spec: `backend/data/bad-scan-repairs/r_1791561933778_ec7p8.json`.
+
+Checked first: no claim, no price-drop push, no review-queue row, no watch registration, no drafted notice, no
+crowd copy for the device (`ac586ce769f574f4`). Applied with `repairBadScanReceipt.js --write` **from a worktree at
+`22e35ec`** (the code prod runs; `main`'s tool writes `products.display_name_fr` from migration 0022, which prod
+does not have yet), dry run first, then read back. No duplicate scan → no refund owed. No notice drafted (readable
+receipt: `markSkipParser: false`, `notifyShopper: false`).
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1791561933778_ec7p8` | Costco Kanata #541 · 2026-10-03 | Photo + printed checks | 2026-10-09 | **Repaired.** 8 lines rebuilt to the paper: BOUNTY 12X91 25.99 (orig 32.49), CASHMERE TP 21.49 (orig 26.99, the MULTIPLE coupon), ORG FT BANAN 3.39, GAIN LIQUID 17.49 (orig 21.99), SAGE FULLZIP 22.99, NICORETTE2MG 69.99 (orig 89.99), LIQUID I.V. 29.99 (orig 39.99), KS WATR500 4.79. Was: every price a row off, 0 coupons, 4 synthetic `ln:` products (deleted), products 1424970/1716006/3226088/2014250 renamed (restored to the printed names). Lines = **196.12**, tax 27.90 → **24.43**, total 242.53 → **220.55**; 8 unit price points, coupon lines unwatched; `admin_reviewed_at` stamped, `skip_parser_optimization` false. |
+| `r_1791561955338_t67po` | Costco Kanata #541 · 2026-10-03 | Stored lines vs printed checks | 2026-10-09 | **Correct, untouched.** OIKOS PRO 0% 12.49, DOG DELIGHTS 12.99 (orig 16.99), TURKEY BACON 13.99, P/BUTTER 2KG 7.99 (orig 9.99) = 47.46; HST 1.69; total 49.15. |
+
+After the repair, `select id, total from priceback.receipts where … position(to_char(total,'FM9990.00') in <raw_ocr,
+separators normalised>) = 0` → **0 rows**: no production receipt carries a total its paper does not print.

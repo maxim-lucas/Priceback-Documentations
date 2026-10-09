@@ -105,6 +105,18 @@ spec must reconcile).
 
 ## 3. Dry run, then write
 
+> ⚠️ **Run the code production runs, not `main`.** `main` can be ahead of prod's schema: on 2026-10-09 it carried
+> #412's `products.display_name_fr` (migration 0022) before 0022 was applied to prod, and the tool refused on its
+> first `products` insert. Compare `railway deployment list -e production` (the deploy time) with
+> `git log origin/main`, then run the deployed commit from a worktree:
+>
+> ```powershell
+> git -C C:\Workspace\Priceback worktree add --detach ..\pb-prod-<sha> <sha>
+> cd C:\Workspace\Priceback\backend          # still the Railway-linked checkout
+> $env:NODE_PATH = "C:/Workspace/Priceback/backend/node_modules"
+> railway run -e production node C:/Workspace/pb-prod-<sha>/backend/scripts/repairBadScanReceipt.js --spec <spec>   # then --write
+> ```
+
 ```powershell
 cd C:\Workspace\Priceback\backend
 railway run -e production node <repo>\backend\scripts\repairBadScanReceipt.js --spec <repo>\backend\data\bad-scan-repairs\<receiptId>.json          # dry run (rolled back)
@@ -222,3 +234,4 @@ Neither is ever sent to the shopper's app.
 |---|---|---|---|---|
 | 2026-10-04 | `r_1791145910170_14lyb` | Costco Vaudreuil #1213 (QC) | Steep-angle photo: 12 junk lines (header/footer fragments; subtotal 218,41, tax 6,14 and total 224,55 stored as items), total 534,01 / tax 0,00, 7 extra `flyer_user_scan` points, 3 real products renamed | Rebuilt to 18 lines, 218,41 + 6,14 = 224,55, 3 coupons = 7,50. LIME 6,99 / ALL POV ROUG 9,99 sit under the crease — assigned by print order (the 9,99 is directly above its 2,00 coupon). All 33 prod receipts stamped reviewed the same day; this one also skip-optimisation. Notice #2 pending approval. |
 | 2026-10-08 | 9 receipts (Bugs #311) | Pointe Claire #528, Vaudreuil #1213, Montreal #515 | NOT bad photos: receipts scanned before 3.0.5 that the older parser misread (a quantity, lost coupons and fee lines, a fee read as an item, back-computed taxes) | Specs `r_1790812128897_94g20`, `…5mwuj`, `…nhngb`, `…f3ivl` (keep item 204), `…qvs25`, `…5clwk`, `…n12jm`, `…amlyo`, `…i0bha` — all `markSkipParser:false`, `notifyShopper:false`; notices via §5b (`2026-10-08-false-price-drops.json`). ⏳ Owed: the `--write` runs (see the Task Log entry). |
+| 2026-10-09 | `r_1791561933778_ec7p8` | Kanata #541 (ON) | NOT a bad photo: a readable receipt photographed at ~12° and curled — every price a row off its item, 5 coupons lost, total back-computed 242.53 (paper 220.55) | Parser bug (Bugs #314). `markSkipParser:false`, `notifyShopper:false`. Run from a worktree at `22e35ec` (the code prod runs). |
