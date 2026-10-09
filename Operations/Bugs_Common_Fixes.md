@@ -13801,3 +13801,58 @@ missing four items.
 - **Applied:** prod registration for `r_1791478905313_w7a4m` rewritten 2026-10-08 20:14 UTC (21 bad → 19 corrected
   watchable lines), guarded on the audited row, read back. The running server's in-memory copy refreshes on its next
   restart; nothing sends from it since Bugs #311.
+
+## 314. A tilted Kanata receipt stored $242.53 for a $220.55 purchase — every price sat a row above its item (2026-10-09, PR #413)
+
+- Date: 2026-10-09 · PR: #413 · Area: mobile (receipt parser) + prod datafix
+- **Symptom:** Costco Kanata #541 self-checkout receipt `r_1791561933778_ec7p8` (2026-10-03) stored total
+  **242.53**, tax **27.90**, 8 lines that were all wrong: `- SCANNED BOUNTY` 26.99, `CASHMERE` 3.39,
+  `/ MULTIPLE BANAN` 21.99, `/3226088 FULLZIP` 89.99, `NICORETTE2MG` under SKU 2014250 (SAGE FULLZIP's), and
+  `/2855211 2047885 LIQUID I.V. 10.00-` 4.79. All five coupons ($46.50) lost. The paper: SUBTOTAL 196.12, HST 24.43,
+  TOTAL 220.55. The other receipt from the same visit (`r_1791561955338_t67po`) parsed right.
+- **Root cause:** the photo was **readable but tilted ~12° and curled** (slope −0.24 at the top, −0.13 at the
+  totals, 0 at the footer; the right side of each row steeper than the left). `receiptGeometry` clustered rows on raw
+  `yMid`, so every price, ~600px right of its name, landed a whole row higher and was zipped onto the PREVIOUS line.
+  Coupon rows became items. The totals block shifted too (`SUBTOTAL 24.43 / TAX 220.55 / **** TOTAL` with no amount),
+  so no printed total was read, the parse looked self-consistent (confidence 0.9, only `low_sku_coverage`), the
+  second pass never ran, and the validator back-computed tax as 13% of the wrong lines: 214.63 + 27.90 = 242.53. The
+  1200px pass scored above the 2000px retry, so the app kept it. Three smaller misreads on the same photo would still
+  have lost lines once the rows were right: coupon rows whose faint minus Vision dropped (`0000390149/3226088 4.50 F`,
+  `/ MULTIPLE 5.50 A`), tax flags read as an unknown letter or twice (`26.99 A`, `39.99 P F`), and the pre-scan
+  banner read `START OF FRE-SCANNED ITEMS` (pen stroke across the P), welded onto BOUNTY.
+- **Fix (parser, ships with the next binary):**
+  - `receiptGeometry.deskewWords`: the slope is measured from the words themselves (each word and its same-line
+    right-hand neighbour, weighted by span, re-paired along the previous estimate so a steep tilt doesn't pair a word
+    with the next row's first word). Each word's baseline is **traced** to the page's centre line through a slope field
+    read at (x, y), so curl is followed. Pinned correct up to ~17° (slope 0.30); from ~19° it is not.
+  - **Gated:** the default only straightens a page whose median slope is ≥ `AUTO_DESKEW_SLOPE` 0.075 (~4.3°; every
+    committed receipt is ≤ 0.067, and forcing it on two level ones read noise and made them worse). On a straightened
+    page, rows are mean-anchored and letterless coupon rows are no longer folded into a neighbour. Level pages keep
+    the old behaviour byte-for-byte.
+  - `costcoReceiptParser`: the second pass also tries the rows **forced straight** (from slope 0.02), adopted only on a
+    strictly better score; the printed total the checks anchor on is read from the straightened rows when the default
+    rows read none (`printedTotalForChecks`). This rescued the t67po 2000px retry (tilt ~2.5°), which read the TOTAL as
+    the tax. A coupon row without its minus is a discount only with the full barcode, a SKU already on the receipt, and
+    an amount below that item's price. `/ MULTIPLE` takes its amount without the minus. `normalizeStrayTaxFlags`
+    rewrites a stray/doubled flag after an amount to `F` (same rationale as `collapseBothTaxesFlag`).
+  - `shared/ocrCleanup`: banner patterns accept `FRE`, and the split banner half `ITEMS *********` is scrubbed.
+- **Datafix (prod, 2026-10-09 17:05 UTC):** `backend/data/bad-scan-repairs/r_1791561933778_ec7p8.json` (readable
+  receipt: `markSkipParser: false`, `notifyShopper: false`), applied with `repairBadScanReceipt.js` **run from a
+  worktree at `22e35ec`** (the code prod runs; `main` already carries #412's `products.display_name_fr`, a column prod
+  does not have yet, so `main`'s tool failed on its first insert). Ledger: `Receipt_Data_Verification_Ledger.md`.
+- **Files:** `src/services/receiptGeometry.js`, `src/services/costcoReceiptParser.js`, `shared/ocrCleanup.js`;
+  tests `__tests__/receiptGeometrySkew.test.js`, `__tests__/costcoSkewedPhotoRows.test.js`,
+  `__tests__/receiptProdCaptures.test.js` (+7 live captures), golden snapshots (+7).
+- **Detect next time:** a stored total that is items + a back-computed tax rather than a printed figure — compare
+  `receipts.total` with the amounts printed in `raw_ocr`:
+  `select id, total from priceback.receipts where deleted_at is null and raw_ocr is not null and position(to_char(total,'FM9990.00') in replace(regexp_replace(raw_ocr, '(\d)[ ,](\d{3}[.,]\d{2})', '\1\2', 'g'), ',', '.')) = 0;`
+  (thousands separators and Quebec decimal commas normalised). Run on prod 2026-10-09 after the repair: **0 rows**
+  — no other receipt carries a total its paper does not print.
+  Every live scan's Vision response is in `ocr_captures`, so `scripts/exportOcrCaptures.js --receipt <id>` replays it.
+- **Prevent:** synthetic tilted/curled tables (5°, 12° and 17° both ways, a curl like this receipt's, the mild-tilt
+  and level gates, coupon rows, the neighbour prior); every line of all four live captures pinned (SKU, paid,
+  pre-coupon), all seven captures with ground truth. 23 mutations, each confirmed applied once, all red. Two pieces
+  that no test could justify were removed rather than shipped (an amount-column calibration and a box-height
+  correction — neither changed any capture or synthetic page). The 84 existing golden snapshots are byte-identical.
+- **Known, not fixed:** `shared/ocrCleanup.clusterWordRows` (the cleanup's row-level noise decisions) still clusters
+  on raw y. It did not hurt this receipt; a steeper tilt could make it judge a mixed row.
