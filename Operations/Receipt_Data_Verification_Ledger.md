@@ -297,3 +297,20 @@ receipt: `markSkipParser: false`, `notifyShopper: false`).
 
 After the repair, `select id, total from priceback.receipts where … position(to_char(total,'FM9990.00') in <raw_ocr,
 separators normalised>) = 0` → **0 rows**: no production receipt carries a total its paper does not print.
+
+### 2026-10-10 — Boisbriand #546, Drummondville #1127, Lévis #1186 (digital PDF), Vaudreuil #1213 (Bugs #315)
+
+Four receipts uploaded 2026-10-09 19:13–2026-10-10 02:26 UTC, all scanned with 3.0.5. The exact live captures
+(`ocr_captures` 42–52) were exported with `scripts/exportOcrCaptures.js` and **the photos and the PDF were read**;
+every figure closes on the paper's own checks (detail in each spec's `_note`). Lévis is a 3-page PDF of which
+production's OCR read pages 1–2 only; it was read off the PDF itself and re-OCR'd in full with the Development key.
+Checked first: no claim, no price-drop push, no review-queue row. Applied with `repairBadScanReceipt.js --write`
+**from a worktree at `22e35ec`** (prod's code: prod has neither migration 0021 nor 0022), dry run first, then read
+back. Readable receipts: `markSkipParser: false`, `notifyShopper: false` — no notice drafted.
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1791573195154_8y5tt` | Costco Boisbriand #546 · 2026-10-09 | Photo + printed checks | 2026-10-10 | **Repaired.** 21 → 36 lines (34 articles + *ECOFRAIS 0.96 + CONSIGNE QC 3.20, 11 coupons folded): 15 lost products restored, CONSIGNE 25.99 → 3.20, the 173.04 payment line removed, names restored as printed (K.S. ESSUIE, BUBLY PMFL, CHOCO. ACAI). Lines = **541.95**, tax 71.42 → **31.09** (TPS 11.88 + TVQ 19.21), total 548.38 → **573.04**; 34 price points; 2 synthetic `ln:` products and 3 crowd copies of the bad parse removed; watch registration 13 → 23 entries. `admin_reviewed_at` stamped, `skip_parser_optimization` false. |
+| `r_1791587435861_g01kg` | Costco Drummondville #1127 · 2026-10-09 | Stored OCR (complete, in order) + printed checks | 2026-10-10 | **Repaired.** The 10 product lines were right; *ECOFRAIS 1.40 and CONSIGNE QC 3.50 added as fee lines. Lines = **143.58**, tax 1.20, total 139.88 → **144.78**; 11 articles = printed 11; 8.00 of coupons = TOTAL RABAIS. Same flags. |
+| `r_1791590373883_i7aiw` | Costco Lévis #1186 · 2026-10-08 | PDF + printed checks | 2026-10-10 | **Repaired.** Totals were already right (1155.93 / 36.66 / 1192.59); 55 → 57 lines: PANCETTA 27530 ×2, OEUFS 2.5 DZ 129572, MUTTI PASSAT 1086000 given their printed SKUs (3 `ln:` products deleted), BOEUF RAGOUT ×1 → ×2 (`2 @ 24,99`), the merged PEPSI fee pairs split back into their 4 printed lines with their fee codes. 70 articles = printed 70; 16 coupons = 72.50. 1 crowd copy removed. Same flags. |
+| `r_1791599197480_p6cxu` | Costco Vaudreuil #1213 · 2026-10-07 | Photo + printed checks | 2026-10-10 | **Correct, untouched.** 16 lines = 222.43, TPS 2.71 + TVQ 5.41 = 8.12, total 230.55, 17 articles. Two names carry a pen stroke on the paper (stored `PACHE/JAUNE`, `POOLET BOUCH`). Not stamped reviewed (nothing was changed). |

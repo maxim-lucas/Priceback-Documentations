@@ -13856,3 +13856,69 @@ missing four items.
   correction — neither changed any capture or synthetic page). The 84 existing golden snapshots are byte-identical.
 - **Known, not fixed:** `shared/ocrCleanup.clusterWordRows` (the cleanup's row-level noise decisions) still clusters
   on raw y. It did not hurt this receipt; a steeper tilt could make it judge a mixed row.
+
+## 315. Three Quebec receipts stored wrong: a cash line ended the totals, a misread eco fee, and a PDF read only to page 2 (2026-10-09, PR #416)
+
+- Date: 2026-10-09 · PR: #416 · Area: mobile (receipt parser + confidence + validator) + backend (`/api/ocr` PDF pages) + prod datafix
+- **Symptom:** three production receipts scanned with 3.0.5 the evening of 2026-10-09:
+  - `r_1791573195154_8y5tt` (Boisbriand #546, paper): stored **548.38 / 71.42** for a **573.04 / 31.09** paper — 21
+    lines, 15 of the 34 products lost, `CONSIGNE QC` at 25.99, and the 173.04 MasterCard payment stored as an item
+    `NOMBRE D'ARTICLES VENDUS-`.
+  - `r_1791587435861_g01kg` (Drummondville #1127, paper): every product right, both fee lines lost → **139.88** for
+    **144.78**.
+  - `r_1791590373883_i7aiw` (Lévis #1186, **digital PDF**, 3 pages): totals right (1192.59 / 36.66) but the last three
+    lines stored as SKU-less `ln:` products and `BOEUF RAGOUT` at quantity 1 for a printed `2 @ 24,99`.
+- **Root causes:**
+  1. **Totals block (8y5tt):** the Quebec register printed `SOUS-TOTAL / 541,95 / TAXE / **** TOTAL / Comptant /
+     <stamp> / 31,09 / 573,04 / 400,00`. `reorderQuebecTotalsBlock` stopped at the tender label `Comptant` and at the
+     stamp, so no tax and no printed total were read. The text-only parse then read **742.78 at confidence 1** — a
+     wrong parse with nothing left to contradict it.
+  2. **Eco-fee label (8y5tt):** Vision read `*ECOFRAIS` as `NECOFRATS` and its amount `0,96 FF` (a doubled flag with
+     no space). The 1200px pass dropped the fee (items 540.99 for 541.95); the 2000px retry kept it as a 35th product.
+     The retry also read a coupon reference `/1950599` as `/1950999` — the $3.50 coupon found no item.
+  3. **PDF pages (i7aiw):** `POST /api/ocr` asked Vision for `pages: [1, 2]`. Vision answers only the pages asked for —
+     and with `pages` omitted, only the first **two** (checked live). A 3-page receipt lost its last lines and its
+     whole totals page; with no printed total the 2-page parse scored **0.95**.
+  4. **Digital-receipt layout (i7aiw, read in full):** the geometry rows are a clean table, but four details made the
+     scrambled flat text win: coupons print as `<code> <ITEM NAME> 7,00-` (not `TPD/<sku>`) so all 16 ($72.50) were
+     lost; totals over $999 print a thousands **space** (`1 192,59` → read as 192.59, the wrong self-check anchor);
+     `M & M ARACHIDE` (the `&` is its own word) became `Item #4145965`; a deposit whose label wrapped above its code
+     (`CONSIGNE` / `9483 QC / 308752 0,60`) became a product `Item #9483`.
+  5. **Confidence:** a Costco warehouse parse that read **no printed total** carried no penalty — a sideways photo
+     read as one 25.99 line scored 0.90.
+- **Fix (parser — ships with the next binary):**
+  - `reorderQuebecTotalsBlock` steps over the tender label (`QC_TENDER_LABEL`) and transaction stamps, handing them
+    back after the block; a normal label/amount layout followed by its stamp stays byte-for-byte.
+  - `normalizeMangledEcoFeeLabel` (only a misread whole-line label); `normalizeStrayTaxFlags` also reads `FF`/`PP`/`HH`
+    with no space; `resolveDigitMisreadCouponRefs` (reference matches no item, exactly one item number of 6+ digits one
+    digit away).
+  - Digital receipt: `joinThousandsSpaceInTotals` (totals-label lines only), `rewriteNamedCouponLines` (directly under
+    an item of the same name, negative amount), `unspaceItemAmpersands` (single letters, item lines),
+    `rejoinWrappedDepositLabel`; `tidyCostcoItemName` closes `CHOCO . ACAI`.
+  - French noise list: `Corete total bas du panier` and asterisk runs read as `wwwww`.
+  - `computeParseConfidence`: new `no_printed_total` (−0.25) for a Costco warehouse purchase with no printed total
+    **unless** the printed subtotal vouches for the items (so a complete receipt whose TOTAL streamed above its label
+    is not flagged). `validateReceipt`: no tax on a zero-item parse.
+- **Fix (backend — ships with the next Railway deploy):** `/api/ocr` asks for `RECEIPT_PDF_PAGES` = `[1..5]` (Vision's
+  per-request cap; a 3-page PDF asked `[1..5]` returns 3 pages, HTTP 200). The monthly Vision budget still reserves 2
+  units up front and charges each further page read after the call (recorded even past the cap — already spent).
+- **Datafix (prod, 2026-10-10 03:10 UTC):** specs `backend/data/bad-scan-repairs/r_1791587435861_g01kg.json`,
+  `…8y5tt.json`, `…i7aiw.json` — all `markSkipParser: false`, `notifyShopper: false` (readable receipts) — dry run,
+  then `--write`, **from a worktree at `22e35ec`** (prod's deployed code; prod has neither 0021 nor 0022). Read back:
+  8y5tt 573.04 / 31.09, 36 lines, 34 articles, 34 points; g01kg 144.78 / 1.20, 12 lines, 11 articles; i7aiw 1192.59 /
+  36.66, 57 lines, 70 articles, 0 `ln:` products. All three `admin_reviewed_at` set, `skip_parser_optimization` false.
+- **Files:** `src/services/costcoReceiptParser.js`, `costcoReceiptNoise.fr.js`, `receiptParsingShared.js`,
+  `receiptValidator.js`; `backend/lib/visionOcr.js`, `backend/lib/ocrCapture.js`, `backend/server.js`; tests
+  `costcoReceiptProdShapes`, `receiptConfidence`, `receiptProdCaptures` (+12 captures), `receiptLocale`,
+  backend `visionOcr`, `ocrCapture`, `ocrRateLimit`.
+- **Detect next time:** `select r.id from priceback.receipts r where r.deleted_at is null and exists (select 1 from
+  priceback.receipt_items i join priceback.products p on p.id = i.product_id where i.receipt_id = r.id and not i.ignored
+  and p.sku like 'ln:%')` — a non-fee line with no printed SKU is always a parse defect on a Costco warehouse receipt.
+  For a PDF: `ocr_captures` envelopes record `request.pages`; a capture whose response holds exactly as many pages as
+  were asked may have been cut short.
+- **Prevent:** every capture of the evening pinned to its paper (two new statuses: `partial` and `pdf_truncated`);
+  the 3-page PDF re-OCR'd with all pages is pinned line for line; each new rule has its look-alikes pinned untouched.
+- **Known, not fixed:** (a) a weighed pack printed `2 @ 24,99` above `81,36` stays quantity 1 (the shared multi-buy
+  guard, deliberately not loosened) — the parser counts 69 articles for the paper's 70; (b) a crop that loses the
+  COSTCO logo is not recognised as Costco at all (`unlinked__c42/c43`), so the Costco confidence checks never run on
+  it; (c) 3.0.5 phones keep the old parser until the next binary — only the backend page fix and the datafix are live.
