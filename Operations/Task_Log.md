@@ -16,6 +16,15 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-10 — "Costco online" receipts of a new user, a 75.80-for-76.08 Quebec receipt: online label, store gate, total = printed total
+
+- **Asked (/goal):** a new user's Costco online receipts show no warehouse (good) but must show they are an online purchase — in the app and in Admin → Receipt review — *"to make sure this isnt a bad parse"*; *"the receipts are very badly parsed. fix them"*; the latest receipts *"miss i think the eco fees and have a little drift from the total … make sure always that the total = same total of the receipt"*. Branch not named → asked first → **`fix/costco-online-orders` off `main`** (`7dfd024`).
+- **Found:** the 7 "online" receipts are NOT Costco — Fashion Nova (1 order) and Hoodrich (3 orders), each scanned twice; no store recognized → picker → Costco; generic parse saved as "Costco online", a billing address's `#306` registered as a new warehouse (537074). Quebec #503 `4jfke`: both live captures parse 76.08 with both fee lines (3.0.5 and `main`); the review screen re-derives the total from the lines, so the deleted fee rows took 0.28 with them.
+- **Maxim's decisions (mid-task):** export allowed; soft-delete + clean the 7; repair 4jfke; *"by default every receipt scanned by a user for a store that isnt supported or active in the app should popup a message to refuse the receipt and let the user know that this store is not supported yet"*; and for a receipt not detected as Costco: *"popup a warning … are you sure that this is a costco receipt?"*.
+- **Code:** unsupported-store refusal (online order, no store recognized → parser; inactive store → popup), "Is this a {store} receipt?" on the picker for an unrecognized scan, printed total locked on the review screen + mismatch warning, "Online order" in the warehouse slot (app + admin), no warehouse for an online order (app + server), `Membre` weld scrub. Bugs #316.
+- **Prod (done):** 4jfke repaired (spec, `22e35ec` worktree) → 76.08, 12 lines; the 7 receipts soft-deleted, their 10 price points deleted, warehouse `#306` deleted, watch registration emptied.
+- **Status:** prod repaired + cleaned; app PR #420 (ships with the next binary; the server guard needs a Railway deploy).
+
 ### 2026-10-09 — Three new Quebec receipts (Boisbriand #546, Drummondville #1127, Lévis #1186 PDF): check, repair, tune the parser
 
 - **Asked (/goal):** *"3 new receipts has been uploaded since the last check … use the latest backend service (already deployed in railway dev) and try to parse the 3 receipts … if not: 1-fix the clients receipts and mark them as reviewed and considered in the fixtures for optimization (both flags). 2-optimize the parser (… no regression at all for both parser online receipt, warehouse receipts (both formats paper and PDF) 3-update the run book if needed 4-PR then merge."* Branch not named; the goal (prod today, PR then merge) implies `main` → **`fix/costco-qc-receipts-2026-10-09` off `main`** (`6c06972` = Railway dev's deployed commit).
