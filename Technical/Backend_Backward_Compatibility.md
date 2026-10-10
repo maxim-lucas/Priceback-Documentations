@@ -1,6 +1,6 @@
 # Backend backward compatibility — old app builds keep working
 
-**Last updated:** 2026-10-10 · **Rule source:** `CLAUDE.md` in `maxim-lucas/Priceback`,
+**Last updated:** 2026-10-10 (forced update added) · **Rule source:** `CLAUDE.md` in `maxim-lucas/Priceback`,
 section *"The backend never breaks an app build that is still installed"*.
 
 ## Why this matters
@@ -8,8 +8,9 @@ section *"The backend never breaks an app build that is still installed"*.
 | | Backend (Railway) | App (Play / App Store) |
 |---|---|---|
 | Who gets a new version | **Everyone, instantly**, on deploy | Only users who update — after store review |
-| Can old copies be fixed remotely? | n/a — there is one copy | **No.** `runtimeVersion.policy = appVersion`: an OTA update only reaches the binary of the same version. A 3.0.5 phone runs 3.0.5's JS until the user updates |
-| Can the server tell callers apart? | **Not today** — the app sends no version header | — |
+| Can old copies be fixed remotely? | n/a — there is one copy | **No.** OTA updates are unavailable on the current EAS plan, and even with them `runtimeVersion.policy = appVersion` only reaches the binary of the same version. A 3.0.5 phone runs 3.0.5's JS until the user updates, so **its problems are fixed on the server or not at all** |
+| Can the server tell callers apart? | **From 3.0.7:** `X-App-Platform` / `X-App-Build` / `X-App-Version` on every request (logged as `appBuild` in the API audit line). 3.0.6 and older send nothing | — |
+| Can an old build be made to update? | — | **From 3.0.7:** yes. Raise the minimum build (below). 3.0.6 and older: no, keep them working |
 
 So the backend always serves a mix of builds. Today it reaches back to **v2.8.3**,
 which `backend/server.js` still accommodates (`/api/ocr` stays optional-auth because
@@ -50,12 +51,42 @@ The PR template's **Old app builds** section asks for these. All must hold:
 6. **Tests keep the old shape.** When a route's request or response changes, a
    backend test still sends the *previous* request shape and asserts it works.
 
-### When a break is unavoidable
+### When a break is unavoidable: force the update
 
-Don't ship it as a plain deploy. Either keep both behaviours side by side until
-the old build is gone, or (once it exists — see gaps below) raise the
-minimum-supported version so the old build shows a translated "please update"
-screen instead of failing in some random way.
+Never ship a change that makes an installed build misbehave. If it really can't
+be kept working (rules 1–3), make that build **stop and ask for the update**
+instead:
+
+1. Ship the build that works with the change, and wait until it's **live to 100%**
+   in that store: Play Console → the release → *Rollout 100%*, and App Store
+   Connect → *Ready for Distribution* with phased release finished or paused at 100%.
+2. **Admin · App version** (console → Health): set that platform's minimum build
+   to the new build's `versionCode` / `buildNumber`. You'll be asked to confirm
+   who gets blocked. It applies within ~5 minutes, with no redeploy.
+3. Deploy the backend change.
+
+What a phone below the minimum does:
+- At launch and on every return to the app it calls `GET /api/v1/app-status`,
+  gets `updateRequired: true` and shows a full-screen, translated **"Update
+  required"** screen. Its only button opens the PriceBack store listing, and the
+  Android back button doesn't dismiss it.
+- Every other API call it makes gets `426 update_required`, which raises the same
+  screen if it's not already up.
+- The verdict is stored on the phone, so it stays blocked offline. It lifts by
+  itself once the installed build reaches the minimum, i.e. after the update.
+
+Safety rails:
+- **0 = off** (the default). Set per platform, because the two stores publish on
+  their own schedule.
+- The server refuses a minimum above the build on the admin's own phone (typo
+  guard: 490 for 49). A minimum past the newest published build would lock
+  everyone out with nothing to update to.
+- Builds that don't report themselves (**3.0.6 and older**) are never refused.
+  They wouldn't understand the 426. For them, rules 1–5 are the only protection.
+- Everything fails open: a network error, a bad reply or a config read failure
+  never blocks the app. Only an explicit server verdict does.
+- Code: `backend/lib/appVersionGate.js` (server), `src/services/appVersionGate.js`
+  and `src/components/UpdateRequiredScreen.js` (app), with tests on both sides.
 
 ## Audit — 2026-10-10: deploying `main` while 3.0.5 is the store build
 
@@ -78,28 +109,29 @@ the response.
 | Receipt PDFs read up to 5 pages (#416) | Server-only: more of a long receipt is read, same response shape. |
 | #420: online orders don't register a warehouse | Server-only, and it fixes the fake warehouses 3.0.5 online receipts created. |
 
-### Degrades on 3.0.5
+### Degrades on 3.0.5: status after app PR #421
 
-| # | Change | What a 3.0.5 shopper sees | Fix that keeps 3.0.5 working |
+| # | Change | What a 3.0.5 shopper saw | Status |
 |---|---|---|---|
-| 1 | **Migration 0020: Unlimited plan bullets reordered** | The paywall's French bullets are translated **by position** (`catalog.tier.unlimited.features.<i>`), and 0020 inserted "Unlimited price drop claims" at index 1. In French, 3.0.5 shows: line 2 "Aucuns frais par baisse de prix" for *unlimited claims*, line 3 "Synchronisation des courriels" for *no per-drop charge*, line 4 "Vérification prioritaire des prix" for *Price Checker*, line 5 **"Export PDF des réclamations"** for *email sync* (a feature that is now parked), and line 6 in English. A paid tier listing a feature it doesn't include is an App Review / consumer-protection risk. | 3.0.5's `catalogFeatures()` already prefers a per-language array: if the tier carries `featuresFr`, it's used as-is. Add `featuresFr` (the new list, in the new order) to the Unlimited tier in `/api/v1/pricing.json`. It's additive, and 3.0.6+ is unaffected. |
-| 2 | **0020 removes `pdf_export` from Unlimited's `feature_keys`** | A 3.0.5 Unlimited subscriber who taps Export in Profile gets the "see plans" upgrade prompt, even though they're already on the top tier. | A product decision: keep `pdf_export` in Unlimited's keys until 3.0.5 drains, or accept it. The feature is parked on purpose (`Parked_Features.md`). |
-| 3 | **Price-tag scan cap (#414)** | 3.0.5 sends `scanContext.flow = "price_tag"`, so the cap applies. The 6th scan of the day returns `429 tag_scan_limit`, which 3.0.5 treats like any 429: *"Too many scan attempts just now — this can also happen on a weak connection. Please wait a moment and try again."* That's English-only and wrong, because the block lasts until tomorrow or next week. 3.0.5 never calls `/scan-quota`, so the shopper gets no warning first. | Accept until 3.0.5 drains, or only enforce the cap when the request carries a marker that only 3.0.6+ sends. |
+| 1 | **Migration 0020: Unlimited plan bullets reordered** | The paywall's French bullets are translated **by position** (`catalog.tier.unlimited.features.<i>`), and 0020 inserted "Unlimited price drop claims" at index 1. In French, 3.0.5 showed every bullet from line 2 on beside the wrong French, including **"Export PDF des réclamations"** for a parked feature. | **Fixed server-side.** `/api/v1/pricing.json` now gives every tier a `featuresFr` list, keyed by the English text (`shared/catalogFeatureLabels.js`). 3.0.5's `catalogFeatures()` prefers it over the positional keys. A test keeps the table identical to the app's French. |
+| 2 | **0020 removes `pdf_export` from Unlimited's `feature_keys`** | A 3.0.5 Unlimited subscriber who taps Export in Profile gets the "see plans" upgrade prompt, even though they're already on the top tier. | **Open: product decision.** Keep `pdf_export` in Unlimited's keys until 3.0.5 drains, or accept it (the feature is parked on purpose, `Parked_Features.md`). With #1 fixed, the paywall no longer advertises it. |
+| 3 | **Price-tag scan cap (#414)** | The 6th tag scan of the day got `429 tag_scan_limit`, which 3.0.5 shows as *"Too many scan attempts just now… please wait a moment and try again"*: English-only and wrong. | **Fixed server-side.** The cap is enforced only for builds that declare **3.0.6+** (`scanContext.appVersion`, sent since 3.0.5, or the `X-App-Version` header). 3.0.5 keeps its pre-cap behaviour; the per-device/IP limits and the Vision budget still apply. |
 
 Older still: builds **≤ 3.0.4** send no `scanContext`, so the tag cap never applies
 to them (only the per-device/IP limits and the Vision budget do). **2.8.3** sends
 no `Authorization` header, so `/api/ocr` stays optional-auth.
 
-## Open gaps (recommended follow-ups)
+## Open gaps
 
-1. **No client version on requests.** Have the app send `X-App-Version` and
-   `X-App-Build` (from `expo-application`) on every backend call. Then the server
-   can log the live-build mix, gate new behaviour per build (step 3) and prove a
-   shim is dead (step 5). It only helps builds that include it, so ship it soon.
-2. **No minimum-supported-version gate.** A `/api/app-config` field
-   (`minSupportedBuild`), plus an in-app blocking "Update PriceBack" screen in
-   `en` + `fr`. That gives a controlled lever for a truly unavoidable break.
-   The same caveat applies: only builds that include the screen can show it.
-3. **No server-side view of the build mix.** Until (1) exists, use Play Console
-   → *Statistics → App version* and App Store Connect → *Analytics* to see
-   which builds are still live before removing any shim.
+1. ~~No client version on requests~~ **Done** (3.0.7): `X-App-Platform`,
+   `X-App-Build`, `X-App-Version` on every backend call, logged as `appBuild`.
+2. ~~No minimum-supported-version gate~~ **Done** (3.0.7): Admin · App version
+   plus the "Update required" screen.
+3. **Builds ≤ 3.0.6 can't be forced and can't be patched.** They drain only as
+   users update on their own. Until the build mix in the API audit log (`appBuild`
+   is null for them) and Play Console → *Statistics → App version* show them
+   gone, every backend change must keep them working.
+4. **OTA is unavailable on the current EAS plan.** With OTA, a fix (or the update
+   gate itself) could reach an existing binary of the same version. Worth
+   weighing against the plan's cost the next time an installed build can only be
+   fixed client-side.
