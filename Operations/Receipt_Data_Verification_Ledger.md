@@ -314,3 +314,22 @@ back. Readable receipts: `markSkipParser: false`, `notifyShopper: false` — no 
 | `r_1791587435861_g01kg` | Costco Drummondville #1127 · 2026-10-09 | Stored OCR (complete, in order) + printed checks | 2026-10-10 | **Repaired.** The 10 product lines were right; *ECOFRAIS 1.40 and CONSIGNE QC 3.50 added as fee lines. Lines = **143.58**, tax 1.20, total 139.88 → **144.78**; 11 articles = printed 11; 8.00 of coupons = TOTAL RABAIS. Same flags. |
 | `r_1791590373883_i7aiw` | Costco Lévis #1186 · 2026-10-08 | PDF + printed checks | 2026-10-10 | **Repaired.** Totals were already right (1155.93 / 36.66 / 1192.59); 55 → 57 lines: PANCETTA 27530 ×2, OEUFS 2.5 DZ 129572, MUTTI PASSAT 1086000 given their printed SKUs (3 `ln:` products deleted), BOEUF RAGOUT ×1 → ×2 (`2 @ 24,99`), the merged PEPSI fee pairs split back into their 4 printed lines with their fee codes. 70 articles = printed 70; 16 coupons = 72.50. 1 crowd copy removed. Same flags. |
 | `r_1791599197480_p6cxu` | Costco Vaudreuil #1213 · 2026-10-07 | Photo + printed checks | 2026-10-10 | **Correct, untouched.** 16 lines = 222.43, TPS 2.71 + TVQ 5.41 = 8.12, total 230.55, 17 articles. Two names carry a pen stroke on the paper (stored `PACHE/JAUNE`, `POOLET BOUCH`). Not stamped reviewed (nothing was changed). |
+
+### 2026-10-10 — Saint-Jérôme #529: mangled totals labels, totals amounts stored as items (datafix only, no code change)
+
+One receipt scanned 2026-10-10 17:02 UTC (`ocr_captures` 65/66). Stored total **529.06**. That looked like the warehouse
+number but is the parser's own line sum: the printed TOTAL/TAXE labels were OCR'd as `**** "OTAL` / `"AXE`, so no
+printed total was read and the SOUS-TOTAL (166.89) and amount-paid (184.23) amounts became items. **Photo not read**
+(R2 unreachable from the session). The lines were rebuilt from the stored OCR and proved by the printed checks:
+lines = SOUS-TOTAL 166.89; TPS 5.79 + TVQ 11.55 = 17.34 on the pre-coupon `F` base 115.78; TOTAL 184.23 = amount paid.
+COORS LIGHT's SKU `361811` is taken from its coupon reference (OCR `36 81`); ST-HUBERT's `105964` from the split
+`105 964`. Confirm both on the photo. Every problem found, with what-if replays and proposed fixes:
+`Technical/Costco/Receipt_Parsing_Problems_2026-10-10_Saint-Jerome_529.md`.
+
+Checked first: no claim, no price-drop push, no review-queue row, no notice. Applied through the Supabase MCP as one
+guarded `DO` block (UPDATE/INSERT only), then read back. Readable OCR, so `skip_parser_optimization` stays false; no
+notice drafted.
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1791651763156_be1p8` | Costco Saint-Jérôme #529 · 2026-10-10 | Stored OCR + printed checks (photo not read) | 2026-10-10 | **Repaired.** Total 529.06 → **184.23**, tax 0.00 → **17.34**. 8 live lines: `*ECOFRAIS 83.99` → `361811 COORS LIGHT` 65.14 (orig 83.99, coupon 18.85, unwatched); `*ECOFRAIS 1.80` and `CONSIGNE QC 6.00` added as fees; product `105 / 964 ST-HUBERT` fixed in place to `105964 / ST-HUBERT`. The shopper's two soft-deleted junk lines (Unknown item 166.89, `00 APPRCLV@ - MERCI 001` 184.23) left soft-deleted at positions 8/9; **their price points 10950/10951 still to be deleted** (MCP destructive-statement confirmation). New COORS price point 10957; watch registration 7 → 5 entries. `admin_reviewed_at` stamped. |
