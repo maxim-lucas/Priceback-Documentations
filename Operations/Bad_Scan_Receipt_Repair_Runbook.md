@@ -26,6 +26,33 @@ specs in `backend/data/bad-scan-repairs/<receiptId>.json` · migration
 If in doubt, it is a parser bug: those go through the normal fixture workflow
 (`scripts/exportOcrCaptures.js` → `receiptProdCaptures.test.js`).
 
+### 0b. Reproduce with the exact live capture before deciding (added 2026-10-09)
+
+The phone parses; the stored lines are what **that phone's binary** made of Vision's answer. Replay the same answer
+through the current parser before calling anything a parser bug or a bad photo:
+
+```powershell
+cd C:\Workspace\Priceback\backend
+$env:NODE_PATH = "C:/Workspace/Priceback/backend/node_modules"
+railway run -e production node ../scripts/exportOcrCaptures.js --since <ISO time of the last check>   # read-only
+```
+
+Each capture lands in `__tests__/fixtures/receipts/prod-captures/` (`<receiptId>__c<id>.vision.json`, plus the
+gitignored photo/PDF and envelope). Parse every one with the word geometry, then read the photo/PDF itself.
+
+- **Several captures per receipt** are normal: the 1200px pass, the 2000px retry, and frames the shopper abandoned
+  (`unlinked__c<id>`: sideways, cropped, blurred). Every capture needs a ground-truth entry in
+  `receiptProdCaptures.test.js` (`ok`, `partial`, `pdf_truncated`, `faded`, `unreadable`, …) — the suite fails on
+  any capture without one.
+- **A PDF:** check how many pages Vision was asked for (`request.pages` in the `.envelope.json.gz`). Until PR #416
+  (Bugs #315) the route asked `[1, 2]` only, so a 3-page receipt lost its last lines and its totals. To read the
+  whole PDF again, re-OCR the local file through Vision with `pages: [1..5]` using the **Development** key
+  (`railway run -e Development`) — never production's.
+- The auto-mode classifier treats `railway run -e production` as a production read: it needs Maxim's explicit
+  permission each session (or he runs the export himself with `! <command>`).
+- To compare with the shopper's binary, run the tagged version's parser from a worktree (`git worktree add --detach
+  ..\pb-v<ver> v<ver>`, then junction its `node_modules` to the main checkout's).
+
 ## 1. Pull the evidence (read-only)
 
 ```sql
@@ -235,3 +262,6 @@ Neither is ever sent to the shopper's app.
 | 2026-10-04 | `r_1791145910170_14lyb` | Costco Vaudreuil #1213 (QC) | Steep-angle photo: 12 junk lines (header/footer fragments; subtotal 218,41, tax 6,14 and total 224,55 stored as items), total 534,01 / tax 0,00, 7 extra `flyer_user_scan` points, 3 real products renamed | Rebuilt to 18 lines, 218,41 + 6,14 = 224,55, 3 coupons = 7,50. LIME 6,99 / ALL POV ROUG 9,99 sit under the crease — assigned by print order (the 9,99 is directly above its 2,00 coupon). All 33 prod receipts stamped reviewed the same day; this one also skip-optimisation. Notice #2 pending approval. |
 | 2026-10-08 | 9 receipts (Bugs #311) | Pointe Claire #528, Vaudreuil #1213, Montreal #515 | NOT bad photos: receipts scanned before 3.0.5 that the older parser misread (a quantity, lost coupons and fee lines, a fee read as an item, back-computed taxes) | Specs `r_1790812128897_94g20`, `…5mwuj`, `…nhngb`, `…f3ivl` (keep item 204), `…qvs25`, `…5clwk`, `…n12jm`, `…amlyo`, `…i0bha` — all `markSkipParser:false`, `notifyShopper:false`; notices via §5b (`2026-10-08-false-price-drops.json`). ⏳ Owed: the `--write` runs (see the Task Log entry). |
 | 2026-10-09 | `r_1791561933778_ec7p8` | Kanata #541 (ON) | NOT a bad photo: a readable receipt photographed at ~12° and curled — every price a row off its item, 5 coupons lost, total back-computed 242.53 (paper 220.55) | Parser bug (Bugs #314). `markSkipParser:false`, `notifyShopper:false`. Run from a worktree at `22e35ec` (the code prod runs). |
+| 2026-10-10 | `r_1791573195154_8y5tt` | Boisbriand #546 (QC) | NOT a bad photo: 548.38 / 71.42 for 573.04 / 31.09 — a cash line (`Comptant`) and the stamp ended the totals block, the eco fee read `NECOFRATS` / `0,96 FF`, 15 of 34 products lost, the 173.04 payment stored as an item | Parser bug (Bugs #315). `markSkipParser:false`, `notifyShopper:false`. Run from a worktree at `22e35ec`. 3 crowd copies of the bad parse removed by the tool. |
+| 2026-10-10 | `r_1791587435861_g01kg` | Drummondville #1127 (QC) | NOT a bad photo: both fee lines lost (139.88 for 144.78) by the 3.0.5 binary; the current parser reads it right | Bugs #315. Same flags, same worktree. |
+| 2026-10-10 | `r_1791590373883_i7aiw` | Lévis #1186 (QC) | The Quebec **digital PDF** (3 pages): `/api/ocr` read pages 1–2 only; totals right, the last 3 lines stored SKU-less, BOEUF RAGOUT ×1 for `2 @ 24,99` | Bugs #315 (the backend now reads up to 5 pages). Spec read off the PDF; fee lines keep their printed codes. |
