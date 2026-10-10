@@ -13922,3 +13922,76 @@ missing four items.
   guard, deliberately not loosened) — the parser counts 69 articles for the paper's 70; (b) a crop that loses the
   COSTCO logo is not recognised as Costco at all (`unlinked__c42/c43`), so the Costco confidence checks never run on
   it; (c) 3.0.5 phones keep the old parser until the next binary — only the backend page fix and the datafix are live.
+
+## 316. Two clothing stores' orders saved as "Costco online", a billing address became a warehouse, and a deleted fee row shrank a total (2026-10-10, PR #420)
+
+- Date: 2026-10-10 · PR: #420 · Area: mobile (scan gate, review total, place label, admin desk) + backend (receipt create, admin list) + prod datafix
+- **Symptom:**
+  - A new account (created 2026-10-10 06:26 UTC) scanned **7** order confirmations (PDFs) — not Costco: one Fashion
+    Nova order and three Hoodrich orders, each scanned twice. All 7 were stored as **Costco online** purchases
+    (`purchase_type = online`), tax 0.00, with lines like `Card 87.78` and `Tracked Post 185.00`; four of them were
+    filed under a **new Costco warehouse `#306`** (row 537074, Alberta) — the apartment number of the billing address
+    (`… Street Northwest #306`). The admin desk labelled them "Costco.ca online", which made them look like real
+    Costco orders.
+  - `r_1791646028977_4jfke` (Quebec #503, paper, iOS 3.0.5) stored **75.80** for a **76.08** paper: the 11 products
+    were right, `*ECOFRAIS 0,08` and `CONSIGNE QC 0,20` were missing.
+- **Root causes:**
+  1. **No store gate for an unrecognized retailer.** `detectStore` found no store; the scan screen opened the store
+     picker, whose only enabled store is Costco; the GENERIC parse (`purchaseType: online` from `Order #` + `Shipping
+     address`) was saved as a Costco receipt.
+  2. **An online receipt kept a warehouse.** `resolveReceiptWarehouse` kept "whatever the scan read" for a
+     non-warehouse purchase, and `receiptsRepo.create` registered any Costco warehouse number it was sent.
+  3. **The review screen re-derived the total from the lines.** `ScanScreen` ran `total = Σ lines + tax` on every
+     edit. Both live captures (c63 1200 px, c64 2000 px — adopted) parse to **76.08 with both fee lines** on 3.0.5 and
+     on `main`, and 3.0.5's save/sync paths keep fee (`ignored`) lines — so the two "not tracked" rows were most likely
+     deleted on the review screen, and the total silently followed to 75.80. (`g01kg`, Bugs #315, lost exactly its two
+     fee lines the same way; the parser read it right there too.)
+- **Fix (app — ships with the next binary):**
+  - `parseReceiptText`: no store recognized **and** an online order → `receiptKind: "unsupported_store"` (rejected,
+    nothing extracted). A costco.ca order always names Costco. A **paper** receipt with no store read still goes to the
+    picker (a Costco slip cropped below its banner — `unlinked__c42/c43` — looks exactly like that).
+  - `ScanScreen`: right after the scan, a popup refuses (no credit — `rejectionSpendsCredit`) an `unsupported_store`
+    receipt and a recognized store that is not active (with the launch opt-in). Picking a store for a SCANNED receipt
+    nobody recognized asks "Is this a {store} receipt?" first (Maxim, 2026-10-10).
+  - **The printed total is the receipt's total** (`printedTotal` state): editing or deleting a line never moves it; a
+    mismatch shows "The lines add up to $X, but the receipt's total is $Y" (`reviewTotalWarning`). Without a printed
+    total (manual entry) the old behaviour stays. A refund keeps its signed total.
+  - `receiptPlaceLabel` / `isOnlineReceipt` (`constants/stores.js`): an online receipt reads **"Online order" /
+    "Commande en ligne"** where the warehouse label goes (Home card, Receipts list, receipt detail; admin list + detail +
+    scan facts), and never shows a warehouse number it carries. `resolveReceiptWarehouse` files an online order under
+    no warehouse.
+  - French noise list: the member label welded onto the first item (`Membre OEUFS 2.5 DZ`, c63).
+  - Offline queue: an `unsupported_store` rejection spends no credit and its card omits the credit note.
+- **Fix (backend — ships with the next Railway deploy):** `receiptsRepo.create` never registers or links a warehouse
+  for `purchaseType: "online"` (every build in the field still sends one); `listForAdmin` rows carry `purchaseType`.
+- **Datafix (prod, 2026-10-10, Maxim approved):**
+  - `r_1791646028977_4jfke`: spec `backend/data/bad-scan-repairs/r_1791646028977_4jfke.json`, dry run then `--write`
+    from the `22e35ec` worktree (prod's deployed code). Read back 76.08 / 0.00, 12 lines (2 fees), 10 points, reviewed,
+    `skip_parser_optimization` false, no notice.
+  - The 7 non-Costco receipts (owner `000195.…0626`): one `DO` block with count assertions — their 10 `receipt_ocr`
+    price points deleted, 10 lines + 7 receipts soft-deleted (`warehouse_id` null, reviewed, `skip_parser_optimization`
+    true), warehouse 537074 (`306`) deleted (nothing else referenced it), the device's watch registration emptied (it
+    listed only these 6 lines). Read back: 0 live receipts / lines / points, no `#306`, 0 watch entries. The 10 `ln:`
+    products remain (the soft-deleted lines still reference them).
+- **Files:** `src/services/receiptParser.js`, `src/screens/ScanScreen.js`, `src/screens/PendingReceiptScanScreen.js`,
+  `src/utils/receiptRejection.js`, `src/utils/receiptReviewTotals.js` (new), `src/services/receiptScanQueue.js`,
+  `src/services/receiptWarehouseDefault.js`, `src/constants/stores.js`, `src/services/adminReceiptView.js`,
+  `src/screens/{Home,Receipts,Detail,AdminReceiptDetail}Screen.js`, `src/services/costcoReceiptNoise.fr.js`,
+  `src/services/i18n.js` (EN + FR); `backend/repos/receiptsRepo.js`. Tests: `scanScreenStoreGateAndTotal` (new),
+  `receiptReviewTotals` (new), `receiptParserScan`, `receiptRejection`, `receiptScanQueue`, `stores`,
+  `adminReceiptView`, `receiptWarehouseDefault`, `costcoReceiptNoise.fr`, `receiptProdCaptures` (+11 captures,
+  new status `unsupported_store`, new corpus check "a printed total read is the paper's total"), golden (+11, 0
+  moved); backend `receiptOnlineNoWarehouseDb` (new).
+- **Detect next time:**
+  `select r.id from priceback.receipts r join priceback.purchase_types p on p.id = r.purchase_type_id where p.code =
+  'online' and r.deleted_at is null and (r.warehouse_id is not null or r.raw_ocr !~* 'costco')` — an "online" Costco
+  receipt with a warehouse, or whose OCR never says Costco. And a total drift: `select r.id from priceback.receipts r
+  where r.deleted_at is null and abs(r.total - r.tax - (select sum(line_total) from priceback.receipt_items i where
+  i.receipt_id = r.id and i.deleted_at is null)) > 0.02`.
+- **Prevent:** 13 mutations, each applied once over a green baseline, all red (backend guard included); every
+  production capture of the day pinned; the PII of the 9 clothing-order captures masked shape-for-shape (email, phone,
+  billing city/postal) — `scripts/lib/receiptPiiScrub.js` still misses an email/phone printed on an order confirmation.
+- **Known, not fixed:** (a) 3.0.5 phones keep the old behaviour until the next binary — the backend guard needs a
+  Railway deploy; (b) c64 reads `TAXE 0,00` as no tax (null — the receipt still closes and saves 0.00); (c) the same
+  order scanned twice was saved twice ("Save anyway" or a duplicate check that missed) — not investigated; (d) the
+  shopper was charged a credit for each of the 7 refused scans under the old rules — not refunded (Maxim's call).
