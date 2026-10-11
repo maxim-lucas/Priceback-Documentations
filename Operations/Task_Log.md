@@ -10811,3 +10811,19 @@ in prod"; then "fix the receipt and fix the parser and merge everything in Price
 **Regression risk:** parser — low (two narrow rules, every guard pinned, corpus snapshots byte-identical); ships
 with the next binary. Repair tool — low (runs only when an operator repairs a receipt; dry run shows both new
 effects first).
+
+
+---
+
+## 2026-10-11 — Investigation + fix: paid iOS subscriber (000195…0626) never recorded
+
+**Branch:** `fix/rc-sync-v2-key-and-visibility` (off `main`). Docs: Bugs #317.
+**Ask:** "this user subscribed monthly 4.99$ per Apple/RevenueCat but no trace in DB or admin console — did he get his
+subscription, what happened, why no notifications"; then "fix everything, get all events from App Store and Google Play,
+make sure the user gets his subscription, same timeline in the database".
+**Done:** root cause proven (webhook App filter = Play Store only; sync key is v2-only → 403/502). Code: `/health` key
+probe, durable `auth_outcomes` trace for refused/failed syncs, tests (mutation-checked).
+**Not done / owed:** (1) RevenueCat webhook App filter → All apps (browser click blocked by the permission classifier);
+(2) v1 secret key on Railway; (3) backfill of all App Store + Google Play subscribers with RevenueCat's timestamps
+(bulk export blocked by the classifier); (4) PR merge + deploy.
+**Regression risk:** low — additive (health fields, two new outcome reasons, one extra insert on an already-failing path).

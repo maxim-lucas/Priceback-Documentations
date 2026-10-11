@@ -13995,3 +13995,29 @@ missing four items.
   Railway deploy; (b) c64 reads `TAXE 0,00` as no tax (null — the receipt still closes and saves 0.00); (c) the same
   order scanned twice was saved twice ("Save anyway" or a duplicate check that missed) — not investigated; (d) the
   shopper was charged a credit for each of the 7 refused scans under the old rules — not refunded (Maxim's call).
+
+
+## 317. A paid iOS subscription left no trace: webhook filtered to Play Store only, and the sync key was v2-only (2026-10-11)
+
+- **Symptom:** an Apple subscriber (CAD 4.99 Unlimited Monthly, 2026-10-10 06:37 UTC) was active in RevenueCat and App
+  Store Connect but absent from the database and admin console: tier still free, `subscription_events` empty — for the
+  WHOLE production history, not just this user. No notification, no console line.
+- **Root cause (two independent silent failures, either one alone would have left the user on free):**
+  1. RevenueCat → Integrations → Webhooks → "Production: PriceBack Backend" had **App = "Priceback (Play Store)"**, so no
+     App Store event was ever posted to `/api/revenuecat/webhook`. No webhook hit in 30 days of Railway HTTP logs.
+  2. The backup path `POST /api/me/subscription/sync` called RevenueCat's **v1** API with `REVENUECAT_SECRET_KEY`, which
+     was the **v2-only** key `SK_Priceback` (RevenueCat: `403 code 7723 "secret API key incompatible with RevenueCat API
+     V1"`). The app retried for four minutes after the purchase; every call returned 502.
+- **Why it was invisible:** `/health` reported `syncApi: configured` because it only tested that the variable is
+  non-empty; the sync failure was a `console.warn` + bare 502 (nothing stored); a webhook that is never sent leaves nothing.
+- **Fix (this PR):** `lib/rcKeyProbe.js` — `/health` now probes the key (cached 10 min) and reports `syncApi: rejected` +
+  `syncApiReason: key_is_v2_only`, degrading the roll-up; a refused sync writes an `auth_outcomes` row
+  (`revenuecat_key_rejected`, critical → counted by the console's attention badge; `revenuecat_sync_failed`, warn).
+- **Operator steps (config, not code):** set the webhook's App filter to *All apps*; create a **v1** secret key in
+  RevenueCat → API keys and set it as `REVENUECAT_SECRET_KEY` on Railway; then backfill existing subscribers.
+- **Detect next time:** `curl https://<prod>/health | jq .checks.revenuecat` must read `status: configured` with
+  `syncApi: configured`; `select count(*) from priceback.subscription_events` must grow with every store purchase. Railway
+  HTTP logs are per-deployment — read the deployment that was live at the purchase time (`railway logs --http <id>`).
+- **Prevent:** `healthRevenueCatKey`, `rcKeyProbe`, `authOutcomeSeverity` and a DB-gated `subscriptionSync` test (mutation
+  checked; a first version was a false green because a previous run's row satisfied it — it now filters by start time).
+- **Files:** `backend/lib/rcKeyProbe.js` (new), `backend/lib/authOutcomeSeverity.js`, `backend/server.js`.
