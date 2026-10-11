@@ -10823,7 +10823,6 @@ subscription, what happened, why no notifications"; then "fix everything, get al
 make sure the user gets his subscription, same timeline in the database".
 **Done:** root cause proven (webhook App filter = Play Store only; sync key is v2-only → 403/502). Code: `/health` key
 probe, durable `auth_outcomes` trace for refused/failed syncs, tests (mutation-checked).
-**Not done / owed:** (1) RevenueCat webhook App filter → All apps (browser click blocked by the permission classifier);
-(2) v1 secret key on Railway; (3) backfill of all App Store + Google Play subscribers with RevenueCat's timestamps
-(bulk export blocked by the classifier); (4) PR merge + deploy.
+**Follow-up (same day):** PRs #424/#425 merged. RevenueCat v2 export: 379 customers, only ONE real production subscription (this user) — the other 3 are SANDBOX tests (admin Android packs, an iOS pack, an expired iOS sandbox sub); no Google Play production purchase exists. Backfilled that user (prod): Unlimited / active, 2026-10-10 06:37:01 → 2026-11-10 07:37:01 UTC, one `subscription_events` INITIAL_PURCHASE row at the purchase instant (`rc_event_id` `rcbackfill:…`, matches what the app sync would write, so a later sync is a no-op). Sandbox tests deliberately NOT backfilled (prod webhook is Production-only by design).
+**Still owed (operator):** (1) webhook App filter → All apps; (2) v1 secret key on Railway `REVENUECAT_SECRET_KEY`.
 **Regression risk:** low — additive (health fields, two new outcome reasons, one extra insert on an already-failing path).
