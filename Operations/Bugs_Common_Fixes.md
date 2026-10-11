@@ -14021,3 +14021,23 @@ missing four items.
 - **Prevent:** `healthRevenueCatKey`, `rcKeyProbe`, `authOutcomeSeverity` and a DB-gated `subscriptionSync` test (mutation
   checked; a first version was a false green because a previous run's row satisfied it — it now filters by start time).
 - **Files:** `backend/lib/rcKeyProbe.js` (new), `backend/lib/authOutcomeSeverity.js`, `backend/server.js`.
+
+
+## 318. Seven non-Costco receipts were deleted instead of shown as rejected (2026-10-11)
+
+- **Symptom:** the 7 clothing-order PDFs of account `000195…0626` (Bugs #316) were soft-deleted in prod on 2026-10-10 as a
+  datafix, so they vanished from her app. Maxim: they must show in her app as **rejected**, with the reason
+  "Not a Costco receipt — this store isn't supported yet".
+- **Datafix (prod, 2026-10-11, one guarded `DO` block, counts asserted):** the 7 receipts un-deleted, `status = rejected`,
+  `policy_status = expired` (nothing watchable/claimable), `warehouse_id` null; their lines stay soft-deleted and their
+  price points stay deleted (a refused scan extracts nothing). Read back: 7 live, 0 live lines.
+- **Credits: NOT refunded (Maxim: the credit was spent on the scan itself).** A refund was written and then reverted the
+  same day (7 `refund` ledger rows removed, balance back to 68, ledger consistent). Open policy question, not changed:
+  `rejectionSpendsCredit("unsupported_store")` is `false` for NEW scans.
+- **Fix (app, ships with the next binary):** `mapServerReceiptToLocal` keeps `status: "rejected"` + `rejectionReason`
+  instead of re-opening it as `watching`; the Receipts list shows a Rejected badge + the reason (visible under the **All**
+  chip only — a rejected receipt matches no other chip); the receipt detail shows a banner. EN + FR labels
+  `badge.rejected`, `receipts.rejectedReason`. 3.0.5/3.0.6 phones will show these as ordinary (empty) receipts.
+- **Detect next time:** `select r.id from priceback.receipts r where r.status_id = 3 and r.deleted_at is null` — rejected
+  receipts that are live. A refused receipt must never be `watching` (`policy_status_id = 1`).
+- **Prevent:** tests `syncService`, `receiptsScreen.smoke`, `detailScreen.smoke` (each mutation-checked).

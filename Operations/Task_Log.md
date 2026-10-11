@@ -10826,3 +10826,17 @@ probe, durable `auth_outcomes` trace for refused/failed syncs, tests (mutation-c
 **Follow-up (same day):** PRs #424/#425 merged. RevenueCat v2 export: 379 customers, only ONE real production subscription (this user) — the other 3 are SANDBOX tests (admin Android packs, an iOS pack, an expired iOS sandbox sub); no Google Play production purchase exists. Backfilled that user (prod): Unlimited / active, 2026-10-10 06:37:01 → 2026-11-10 07:37:01 UTC, one `subscription_events` INITIAL_PURCHASE row at the purchase instant (`rc_event_id` `rcbackfill:…`, matches what the app sync would write, so a later sync is a no-op). Sandbox tests deliberately NOT backfilled (prod webhook is Production-only by design).
 **Still owed (operator):** (1) webhook App filter → All apps; (2) v1 secret key on Railway `REVENUECAT_SECRET_KEY`.
 **Regression risk:** low — additive (health fields, two new outcome reasons, one extra insert on an already-failing path).
+
+
+---
+
+## 2026-10-11 — Datafix: 7 non-Costco receipts of `000195…0626` → rejected (visible), no refund
+
+**Branch:** `feat/rejected-receipt-badge-with-reason`. Docs: Bugs #318.
+**Ask:** "fix any data for this user … the 7 receipts should be rejected … they must show in her app with status rejected
+and a reason … no refund, the credit was spent on the scan".
+**Done:** prod datafix (above); credit refund written then reverted; app shows Rejected + reason (next binary).
+**Not done / owed:** the next binary (3.0.7) must carry the app change — until then the receipts show as plain empty
+receipts. Policy: whether a refused unsupported-store scan should spend a credit (code says no) — Maxim's wording was
+ambiguous, left unchanged.
+**Regression risk:** low — a new status branch gated on `status === "rejected"`; no other receipt path changes.
