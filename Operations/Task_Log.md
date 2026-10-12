@@ -16,6 +16,15 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-11 — New Vaudreuil receipt 509.15 for 480.15: root cause, prod datafix, admin "Fix automatically" button (Gemini)
+
+- **Asked:** *"new receipt arrived in production, (hotfix on main) find the root cause and document it in the new doc to optimize the parser then run a datafix in production to fix the receipt. is there also a way to add a button on the receipt review in admin console to fix the receipt automaticaly … (we can use Gemini LLM …)"*; mid-task: *"dont fix the parser document just the root cause"*; *"also document the cases with every root cause (new rule)"*. Branch: `claude/keen-ptolemy-xs8j5n` off `main` (`7b684c2`).
+- **Found:** `r_1791693864226_r06sa` (Vaudreuil #1213, 2026-10-08) lost 7 of 21 coupons (29.00). RC-1: `unweldSkuSlashName` (#398) turns `390384 /MULTIPLE` into `390384 MULTIPLE`, so the MULTIPLE rule (#402) never matches a 6-digit coupon number — in v3.0.5, v3.0.6 and `main`; also the cause of the MULTIPLE coupons lost on `qvs25`/`5clwk`. RC-2: a coupon ref read with no slash (`39519127003`). RC-3: ≤3.0.6 stores Σ lines + tax as the total (fixed by #420).
+- **Docs:** new `Technical/Receipt_Parser_Root_Causes.md` (root causes + every case + proposed parser changes, not applied) with the **standing rule**: every hand-repaired receipt gets its root cause and case recorded there. Rule also added to the app repo's `CLAUDE.md`. New `Operations/Receipt_Auto_Fix_Admin_Button.md`.
+- **Prod (done):** r06sa repaired → 480.15 / 21.39, 21 coupon lines, reviewed; in-place SQL via the Supabase connector (no Railway credentials in the cloud session).
+- **Code:** admin-only `POST /api/admin/receipts/:id/auto-fix` (Gemini proposal, deterministic paper checks, badScanRepair dry run; never writes) + *Fix automatically* panel on the admin receipt screen (Apply → existing `/lines`); the line editor keeps fee flags. Parser untouched.
+- **Status:** prod repaired; app PR (button ships with the next binary; the route needs a Railway deploy).
+
 ### 2026-10-10 — "Costco online" receipts of a new user, a 75.80-for-76.08 Quebec receipt: online label, store gate, total = printed total
 
 - **Asked (/goal):** a new user's Costco online receipts show no warehouse (good) but must show they are an online purchase — in the app and in Admin → Receipt review — *"to make sure this isnt a bad parse"*; *"the receipts are very badly parsed. fix them"*; the latest receipts *"miss i think the eco fees and have a little drift from the total … make sure always that the total = same total of the receipt"*. Branch not named → asked first → **`fix/costco-online-orders` off `main`** (`7dfd024`).

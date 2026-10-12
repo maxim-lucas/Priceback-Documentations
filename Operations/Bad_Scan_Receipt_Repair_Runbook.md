@@ -9,6 +9,12 @@
 > The receipt is flagged so it never becomes a parser fixture, and the shopper gets a
 > friendly notice — **only after an admin approves it** on the console.
 
+> **First try the admin button (since 2026-10-11).** For a READABLE receipt whose lines are wrong, Admin → Receipt
+> review → the receipt → **Fix automatically** proposes the corrected lines (Gemini), proves them against the paper
+> and applies them through the same engine — no session needed: `Receipt_Auto_Fix_Admin_Button.md`. This runbook stays
+> the path for bad photos, lines with history (`keepItemIds`), and anything the button cannot prove. Either way, name
+> the root cause in `Technical/Receipt_Parser_Root_Causes.md` (standing rule).
+
 Code: `backend/lib/badScanRepair.js` (logic) · `backend/scripts/repairBadScanReceipt.js` (CLI) ·
 specs in `backend/data/bad-scan-repairs/<receiptId>.json` · migration
 `0019_receipt_review_flags_and_notification_approvals.sql`.
@@ -267,3 +273,4 @@ Neither is ever sent to the shopper's app.
 | 2026-10-10 | `r_1791590373883_i7aiw` | Lévis #1186 (QC) | The Quebec **digital PDF** (3 pages): `/api/ocr` read pages 1–2 only; totals right, the last 3 lines stored SKU-less, BOEUF RAGOUT ×1 for `2 @ 24,99` | Bugs #315 (the backend now reads up to 5 pages). Spec read off the PDF; fee lines keep their printed codes. |
 | 2026-10-10 | `r_1791646028977_4jfke` | Costco Quebec #503 (QC) | NOT a bad photo: both fee lines (*ECOFRAIS 0,08, CONSIGNE QC 0,20) missing, 75.80 for 76.08 — both live captures parse right; the review screen re-derived the total after the fee rows were deleted | Bugs #316. `markSkipParser:false`, `notifyShopper:false`. Run from the `22e35ec` worktree. |
 | 2026-10-10 | 7 receipts of `000195.…0626` | NOT Costco (Fashion Nova, Hoodrich order confirmations) | Saved as "Costco online"; a billing address `#306` registered as warehouse 537074 | Not a spec: one asserted `DO` block — 10 price points deleted, receipts + lines soft-deleted (reviewed, skip-optimisation), warehouse 537074 deleted, watch registration emptied. Bugs #316. |
+| 2026-10-11 | `r_1791693864226_r06sa` | Vaudreuil #1213 (QC, English) | NOT a bad photo: 7 of 21 coupons lost, 509.15 stored for 480.15 (subtotal 458.76 + tax 21.39) — five `<6-digit> /MULTIPLE` coupons (RC-1: `unweldSkuSlashName` removed their slash) and two produce coupons whose ref was read slash-less, `39519127003` (RC-2) | `markSkipParser:false`, `notifyShopper:false`. **Applied as an in-place SQL transaction through the Supabase connector** (no Railway `DATABASE_URL` in the cloud session): the 7 lines + their price points (paid / regular / on sale), total, `admin_reviewed_at`, 4 watch entries removed (now-couponed lines); no crowd copy disproved, no product renamed. Spec committed for the record (do not `--write` it: it would rename catalogue products). Parser not changed (Maxim). |
