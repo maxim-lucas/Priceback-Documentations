@@ -12,6 +12,11 @@
 >
 > Started 2026-10-11 with `r_1791693864226_r06sa` (Costco Vaudreuil #1213). Repairs:
 > `Operations/Bad_Scan_Receipt_Repair_Runbook.md`. Admin button: `Operations/Receipt_Auto_Fix_Admin_Button.md`.
+>
+> **This register is the parser's input, not its design.** Every fix designed from it must respect
+> `Technical/Receipt_Parser_Design_Rules.md` (Maxim, 2026-10-13): *denoise first, then extract* — the noise (EN and
+> FR) is removed before extraction, only the item block and the totals block are parsed, and a new case is handled
+> by the noise vocabulary or the block boundaries, never by a one-receipt branch in the extractor.
 
 ## How to add a case
 
@@ -122,9 +127,76 @@ locked** — ships with the next binary; old builds keep the behaviour (it is cl
 |---|---|---|---|---|---|
 | `r_1791646028977_4jfke` | Québec #503 | 2026-10-10 | 3.0.5 | 75.80 / 76.08 (fee rows deleted on the review screen) | Repaired 2026-10-10 (Bugs #316). |
 | `r_1791693864226_r06sa` | Vaudreuil #1213 | 2026-10-11 | 3.0.5 / 3.0.6 | 509.15 / 480.15 (RC-1 + RC-2) | Repaired 2026-10-11. |
+| `r_1791896364317_u8xbn` | Sherbrooke #1367 | 2026-10-13 | iOS 3.0.6 | 1261.29 / 1315.27 — the parse was right (4 lines, 1143.96); the shopper removed 2 lines on the review screen and the screen re-derived the total | Restored to the paper 2026-10-13 (Maxim). |
 
 **Server-side gap (not applied).** The server could flag (not change) a receipt whose stored total differs from the
 TOTAL in its `raw_ocr`; the admin desk's *Fix automatically* button already performs that comparison on demand.
+
+---
+
+## RC-4 … RC-14 · index (sections owed)
+
+Named on 2026-10-12 by the session that shipped PR #427 (`207393a`); the per-RC sections were never written here.
+This index is reconstructed from #427's commit message, `__tests__/receiptProdCaptures.test.js` and the repair
+specs in `backend/data/bad-scan-repairs/`. **A full section (shape, code, proof, blast radius) is still owed for
+each.**
+
+| RC | Shape | Cases | Status |
+|---|---|---|---|
+| RC-4 | Footer `IMPORTANT - conserver cette copie` cleaned to a lone `-` under `**** TOTAL 445.23`; `detectRefund` read it as a trailing-minus refund total, every price negated | `3mq8x` | Fixed #427 (not in any binary yet) |
+| RC-5 | The validator back-computes **tax = printed TOTAL − Σ lines**, discarding the TAXE it read, whenever lines are lost | `mebfs`; **`ejx4g`, `w0dv6` (2026-10-13)** | Open |
+| RC-6 | Coupon reference with a SKU digit dropped (`0000393334/991230` for 9911230) matches no item | `mebfs` | Open |
+| RC-7 | Mid-receipt `SOUS-TOTAL / TAXE / TOTAL / Comptant 0,00` block ends item extraction | `mebfs`, `p2s1a` | Fixed #427 |
+| RC-8 | One tilted band of the page loses rows with their coupons (CREVETTES, ALLEGRO, 27.56) | `3mq8x` c83 | Fixed by RC-12 (#427) |
+| RC-9 | Fixture PII scrub *deleted* 10-digit words, so fixtures did not parse like the phone | corpus | Fixed #427 (mask, don't drop) |
+| RC-10 | Warehouse read from the big header before the register footer (`Boinbr Land #516`) | `p2s1a`, `zm6h2`, `8y5tt` | Fixed #427 |
+| RC-11 | 1200px pass leaves FERRERO's 5.00- unapplied and reads it as a positive "Unknown item" | `3hhhj` c81 | Open (prod adopted the right 2000px pass) |
+| RC-12 | Tilt measured from the page median; a curled band is never straightened → every price a row off | `p2s1a`, `3mq8x`; **`w0dv6`, `7yckq` (2026-10-13)** | Fixed #427 (per-word baseline) |
+| RC-13 | Cleanup drops a coupon welded to the `Compte bas du panier` row | `p2s1a` | Open |
+| RC-14 | 2000px retry: NESTLE's SKU read behind a stray `1 '`, its coupon lost | `3mq8x` c84 | Open |
+
+---
+
+## 2026-10-13 · October receipts review — cases
+
+Maxim's triage: `admin_reviewed_at IS NULL` and **purchase date** in October. 13 live receipts; 7 right against their
+paper (`21xro`, `bjkt6`, `t67po`, `xc09c`, `p6cxu`, `8wims`, `3hhhj`) and stamped reviewed; 6 handled below. Every
+case was replayed through the parser **of the build that scanned it** (worktrees at `v3.0.5` / `v3.0.6`) and
+reproduced the stored lines exactly before a cause was named, then replayed through `main` (`207393a`).
+
+| Receipt | Store | Scanned | Build | What was wrong | Cause | On `main` | Repair |
+|---|---|---|---|---|---|---|---|
+| `r_1791823503830_w0dv6` | Sherbrooke #1367 | 10-12 | iOS 3.0.6 | Same paper as `3mq8x` re-scanned 13 h later: 410.36 lines, tax 34.87 (paper 431.84 / 13.39 / 445.23); CREVETTES + ALLEGRO + coupons, AILES DE POU, BOUNTY's TPD lost | RC-12 likely (the same paper's `3mq8x` c83 was closed by RC-12; #427 as a whole closes this one, not isolated per fix) + RC-5 (tax) | Closes to the cent (431.84, 29 lines) — *covered by #427* | **Duplicate soft-deleted** (Maxim): 25 price points removed, 22 watch entries removed, reviewed + skip-optimisation |
+| `r_1791853110451_7yckq` | Barrhaven #1263 | 10-13 | Android 3.0.6 | 253.89 for 246.89: every price a row off its item (2000px pass adopted), `0000390266 /MULTIPLE 7.00-` lost, catalogue names corrupted (`.111854336482 SHEEP YOGURT`, `SAFE OIKOS 3X 24C`, `DUBLINER CATCH`, `STAR`) | RC-12 likely (#427 realigns the rows; not isolated per fix) | Sum closes (240.30) and the coupon applies, **but** the first two rows are still mis-paired: SHEEP YOGURT's 9.99 on OIKOS's SKU, OIKOS SKU-less — see *Open cases* O-1 | Spec, `--write` |
+| `r_1791853201148_ejx4g` | Barrhaven #1263 | 10-13 | Android 3.0.6 | Tax 13.98 invented (paper 0.00), BARTLETT and both coupons lost, three SKUs truncated (10893, 197372, 171600). A **pen stroke** runs down the SKU column | OCR damage (pen) + RC-5 | Still wrong: total 226.34, tax 7 — O-3 | Spec, `--write`; 3 junk products deleted |
+| `r_1791853644536_szw1y` | Barrhaven #1263 | 10-13 | Android 3.0.6 | 313.36 for 354.32: two coupons glued to the next item rows, MARBLE CHEDD + CROISSANT lost, VOID block mis-read, `**KS TOWEL**` read as banner → "Unknown item", 4 coupons lost | Several — O-2 | 340.29 / 350.28 for 348.28 — O-2 | Spec, `--write`; 3 synthetic products deleted |
+| `r_1791896364317_u8xbn` | Sherbrooke #1367 | 10-13 | iOS 3.0.6 | 1261.29 for 1315.27, 2 of 4 lines | **Not the parser**: 3.0.6 parses all 4 lines to the cent (confidence 1); the shopper removed RUFFLES REG and RECHARGE 10P on the review screen and the screen re-derived the total — RC-3 | — | Restored to the paper (Maxim, same call as `4jfke`) |
+| `r_1791841333433_eql4t` | Pointe-Claire #528 | 10-12 | iOS 3.0.5 | Lines and totals right; product 2974611 named `DEBUT PRÉ - LECTURE ARTICLES SOULIER ADID` | Pre-scan banner welded into the first item name (3.0.5) — the noise rule's textbook case | *Covered by 3.0.6* (banner scrubbed) | Spec, `--write` (label restored) |
+
+All repairs: `markSkipParser: false` (readable photos — fixture candidates), no stock notice; custom notices #3–#5
+drafted for approval (`backend/data/shopper-notices/2026-10-13-october-receipts-reviewed.json`).
+
+### Open cases — reproduced, cause not yet isolated
+
+The standing rule asks for proof by neutralisation before a root cause is named. These were reproduced exactly on
+the shopper's build, but the first neutralisation **did not close**, so no RC number is assigned yet. They are the
+first test cases for the denoise-first rework (`Receipt_Parser_Design_Rules.md`).
+
+- **O-1 · `7yckq` c94 — first rows mis-paired.** The member line and the first item row overlap on the crumpled
+  paper; Vision reads `176.111854336482` (SKU 1763195 fused with the member number). On `main` SHEEP YOGURT's 9.99
+  lands on SKU 2743612 and OIKOS is SKU-less. Removing the fused token, or replacing it by `1763195`, does **not**
+  restore the pairing → a second cause in the row pairing of the first two rows.
+- **O-2 · `szw1y` c103/c104.** Three shapes: (a) `VOID` + `359241 CHOCOLA MILK 11.99-` after two identical lines —
+  c103 loses the item entirely; (b) a coupon row read *above* its item (`0000393972/195047` before `195047 VEGGIE
+  STRAW`) — c103 leaves it unapplied; (c) TRAD HUMMUS's coupon `0000394544/358 34` (pen circle splits the SKU) —
+  joining it to `358234` does **not** restore the coupon on `main`. c104 also reads the TOTAL as 356.32.
+- **O-3 · `ejx4g` c95/c97 — pen stroke down the SKU column.** Names lose their first letter, coupon references split
+  at the stroke, and on `main` the parse reads tax 7 (the `TOTAL DISCOUNT(S) $ 7.00` value is the only 7.00 printed)
+  and total 226.34. Partly an image problem (rule 6 of the design page); the tax read is a parser problem.
+
+Captures exported locally (`__tests__/fixtures/receipts/prod-captures/…__c89`–`c107`), **not committed**: each needs
+a ground-truth entry in `receiptProdCaptures.test.js` before it can join the corpus (the paper truths are in the
+specs above).
 
 ---
 

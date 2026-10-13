@@ -9,6 +9,10 @@
 
 ## 1. How a receipt gets parsed
 
+> **Design rule for every store parser (2026-10-13):** `Receipt_Parser_Design_Rules.md` — denoise first (EN + FR),
+> keep only the item block and the totals block, then extract and verify. Same structure, same logic for every
+> receipt; special cases are image problems only (tilt, curl, quality).
+
 > The receipt **header** (`header_ocr`) and the **production-corpus** test method (every parser problem starts by
 > turning new prod receipts into paper-verified fixtures) are in `Receipt_Header_And_Prod_Corpus.md`.
 
