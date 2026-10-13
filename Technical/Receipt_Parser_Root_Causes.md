@@ -106,6 +106,7 @@ two references (`395191/27003`, `394821/67237`) closes it to the cent: 458.76 + 
 | Receipt | Store | Scanned | Build | Lost | Status |
 |---|---|---|---|---|---|
 | `r_1791693864226_r06sa` | Vaudreuil #1213 | 2026-10-11 | 3.0.5 / 3.0.6 | 2 coupons, 4.00: STRAWBERRIES (`39519127003 2.00-`), CANTALOUPE (`39482167237 2.00-`) | Repaired 2026-10-11. |
+| `r_1791853258418_xzw9x` | Nepean #540 | 2026-10-13 | Android 3.0.6 | DUBLINER's `0000391925 / 33991 2.50-` read `0000391925 33991` (a pen stroke crosses the slash); the geometry pass then merged it into DUBLINER's row (`0000391925 33991 DUBLINER 33991 10.99 2.50-`). Variant: number and SKU **space**-separated, not fused. Proof: with RC-15 neutralised, writing the slash back restores exactly −2.50 | Repaired 2026-10-13 (spec). |
 
 **Proposed parser change (not applied).** A line that is *only* a digit run of 9–14 digits followed by a negative
 amount (same row or next line) is a coupon when its **tail** is the SKU of an item parsed above it **and** its head is
@@ -152,7 +153,7 @@ each.**
 | RC-10 | Warehouse read from the big header before the register footer (`Boinbr Land #516`) | `p2s1a`, `zm6h2`, `8y5tt` | Fixed #427 |
 | RC-11 | 1200px pass leaves FERRERO's 5.00- unapplied and reads it as a positive "Unknown item" | `3hhhj` c81 | Open (prod adopted the right 2000px pass) |
 | RC-12 | Tilt measured from the page median; a curled band is never straightened → every price a row off | `p2s1a`, `3mq8x`; **`w0dv6`, `7yckq` (2026-10-13)** | Fixed #427 (per-word baseline) |
-| RC-13 | Cleanup drops a coupon welded to the `Compte bas du panier` row | `p2s1a` | Open |
+| RC-13 | Cleanup drops a coupon welded to the `Compte bas du panier` row | `p2s1a`; **`4qp2s` (2026-10-13)**: the tilted `***** Compte bas du panier 2 *****` banner merged with the `427383 CORN FLAKES` row and `FLAKES` went with it → product named `CORN`. Proof (c72, v3.0.6 and `main`): dropping only the banner's words restores `CORN FLAKES` | Open |
 | RC-14 | 2000px retry: NESTLE's SKU read behind a stray `1 '`, its coupon lost | `3mq8x` c84 | Open |
 
 ---
@@ -197,6 +198,140 @@ first test cases for the denoise-first rework (`Receipt_Parser_Design_Rules.md`)
 Captures exported locally (`__tests__/fixtures/receipts/prod-captures/…__c89`–`c107`), **not committed**: each needs
 a ground-truth entry in `receiptProdCaptures.test.js` before it can join the corpus (the paper truths are in the
 specs above).
+
+---
+
+## 2026-10-13 (afternoon) · remaining receipts — cases
+
+Maxim's selection for "the remaining receipts to fix": `admin_reviewed_at IS NULL AND (purchase_date + 30) >= CURRENT_DATE
+AND deleted_at IS NULL` (the price-adjustment window). 5 receipts. Each was read off its photo (R2 original, or the live
+capture's image) and proved with the receipt's own arithmetic; the two wrong ones were replayed through **v3.0.6** (the
+build that scanned both, per the capture envelope) and reproduced exactly before a cause was named, then through `main`
+(`68d6017`, same result).
+
+| Receipt | Store | Purchase · scanned | Build | Paper vs stored | Cause | Repair |
+|---|---|---|---|---|---|---|
+| `r_1791168728568_er1cc` | Vaudreuil #1213 (digital receipt) | 09-24 · 10-05 | — | Right: 513.33 + 72.83 = 586.16 (B lines 486.36 → GST 24.32, QST 48.51). Only `2787084 LAUNDRY 0.00 B` is not stored — a free line, not in "ITEMS SOLD = 9", nothing to watch | — | Stamped reviewed |
+| `r_1791237035698_6czgq` | Vaudreuil #1213 (FR, photo cropped at both ends) | 09-22 · 10-05 | — | Right: 11 lines 160.27; FP 49.45 + F 23.99 → TPS 3.67 + TVQ 4.93 = 8.60; 168.87. Header, date and warehouse are not on the photo (the shopper's choice is kept). Detected as Costco only through its `TPD/` line (RC-15 blast radius) | — | Stamped reviewed |
+| `r_1791723359114_xuxbv` | Sherbrooke #1367 | 09-19 · 10-11 | iOS 3.0.6 | Right: 34.78 + 69.99 − 15.00 = 89.77; TVQ 5.49 + TPS 2.75 = 8.24; 98.01 | — | Stamped reviewed |
+| `r_1791723518253_4qp2s` | Sherbrooke #1367 | 09-19 · 10-11 | iOS 3.0.6 | Lines and totals right (556.34 / 65.74 / 622.08); 3 catalogue names garbled: `Bas du pobler BATTERIE KS`, `CORN`, `- FAL IRON` | RC-18, RC-13, RC-19 | Spec `--write` (`language: fr`, 3 products renamed, BISCOFF kept: it had a drop notification) |
+| `r_1791853258418_xzw9x` | Nepean #540 (self-checkout) | 09-27 · 10-13 | Android 3.0.6 (2000px c100 adopted) | 323.97 for 129.74: BAGELS stored at the TOTAL 129.74, a `for your records` line at 129.74, 4 items and 3 coupons (11.50) lost | RC-15 + RC-16 + RC-2 + RC-17 | Spec `--write`: 11 lines, 1 synthetic product and 1 crowd copy of the bad parse removed |
+
+**Proof for xzw9x, by neutralisation** (only the input changed, never the parser; v3.0.6 and `main` agree):
+adding the missing `COSTCO` line alone → all 11 items with the right prices (Σ 134.09), still no coupon; then each
+coupon reference repaired alone restores exactly its own coupon (`/2158319`→`/2158349` −3.00, `33991`→`/33991` −2.50,
+`/FULL ZIP`→`/203764` −6.00); all four together close to the cent: 122.59 + 7.15 = 129.74.
+
+## RC-15 · Store not detected when the COSTCO logo is cut off the photo
+
+**Printed shape.** A receipt photographed from just under the logo: Vision's first line is `WHOLESALE` (or `S` +
+`WHOLESALE`), and nothing else on the paper says "Costco" — Ontario self-checkout receipts print no `TPD/`, no
+`Warehouse #`, no phone.
+
+**What goes wrong.** `detectStore` (`src/services/receiptParsingShared.js`) matches `/costco/`, `kirkland signature`,
+`warehouse #N`, `TPD/`, `BCTR`, `BUS CTR` or Costco's 1-800 number. None is on this paper, so the scan runs the
+**generic** parser: the Costco parser, its word-geometry rows and its coupon rules never run. On xzw9x the flat text
+carries the lower half as an amounts-first block (9 amounts incl. SUBTOTAL/TAX/TOTAL, then 9 labels); the generic
+pairing gave BAGELS the TOTAL 129.74, made a line of the footer's `for your records` at 129.74, and lost MADE GOOD BA
+(its labels-first pair) and every coupon. Detection list since #11 (`7c19367`, 2026-06-01) — every build.
+
+**Proof.** Replay of c100 on v3.0.6 reproduces the stored 8 lines / 316.82 / 323.97 exactly; inserting `COSTCO` above
+`WHOLESALE` (nothing else) gives all 11 items right.
+
+**Blast radius (prod, 2026-10-13):** 15 Costco receipts carry no `costco` anywhere in their OCR (`hc05z`, `eyrre`,
+`um44q`, `0rf1m`, `fzwp2`, `c108b`, `oxb04`, `jeji6`, `pspjb`, `f3ivl`, `6wd4e`, `sgftf`, `xzw9x`, `6czgq`, `xc09c`);
+they depend on the other patterns (6czgq was caught by `TPD/`). Which of them fell to the generic parser was not
+measured.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1791853258418_xzw9x` | Nepean #540 | 2026-10-13 | Android 3.0.6 | The Costco parse: 4 items, 3 coupons, BAGELS priced at the TOTAL | Repaired 2026-10-13 (spec) |
+
+**Proposed parser change (not applied).** Identify, don't guess: detect Costco from what every Costco receipt prints
+in its header and footer — `WHOLESALE` on the logo line, the register footer `Whse:N Trm:N Trn:N OP:N`, and Costco's
+GST/HST number `121476329RT` (printed on every Canadian receipt seen). This is step 1 of the design rules (identify
+from wherever the store prints it). Pin with xzw9x c99/c100 and a non-Costco receipt that prints "wholesale".
+
+## RC-16 · Coupon reference with a SKU digit misread survives on the full pipeline
+
+**Printed shape.** `0000391656 /2158349` read `0000391656 /2158319` (4 → 1), over `3.00- H`.
+
+**What goes wrong.** `resolveDigitMisreadCouponRefs` (`costcoReceiptParser.js`, #416 `8324e9f`, first in v3.0.6) is meant
+to rewrite exactly this: one item number on the receipt (2158349) is one digit away. Run **alone** on the geometry rows
+of c100 it does rewrite the row correctly — but in the full `parseReceiptText` run (with RC-15 neutralised) the coupon
+stays unapplied, and repairing the digit in the input restores it (−3.00). Where the pipeline bypasses or undoes the
+resolver was **not isolated** this session.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1791853258418_xzw9x` | Nepean #540 | 2026-10-13 | Android 3.0.6 | MADE GOOD BA's 3.00- | Repaired 2026-10-13 (spec) |
+
+**Next step (not a parser change yet).** Trace c100 + `COSTCO` through `parseCostcoWarehouseReceipt` to find which pass
+(geometry vs flat choice, labels-first re-zip) sees the unrewritten line.
+
+## RC-17 · A name-referenced coupon whose description is not the item's printed abbreviation
+
+**Printed shape.** `0000389150 / FULL ZIP  6.00- H` under `2037641 NAUTICA FZIP  28.99 H`.
+
+**What goes wrong.** The keyword-less "coupon names the ITEM" rule in `handleCostcoTpdLine`
+(`costcoReceiptParser.js`, #400 `de640ec`, first in v3.0.5 — built for `0000389137 / PUREX` over `PUREX COLD`) applies
+the coupon only to the latest item whose name contains the coupon's text **as a whole word run**. `FULL ZIP` is not in
+`NAUTICA FZIP`, so the 6.00 is dropped and the item is watched at a price the shopper did not pay.
+
+**Proof.** With RC-15 neutralised, replacing `FULL ZIP` by the item number restores exactly −6.00.
+
+**Blast radius (prod, 2026-10-13):** 5 live receipts carry a `<number> / <WORDS>` coupon line (`a1ngm`, `f3ivl`,
+`tl5wo`, `sgftf`, `xzw9x`); not checked one by one.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1791853258418_xzw9x` | Nepean #540 | 2026-10-13 | Android 3.0.6 | NAUTICA FZIP's 6.00- | Repaired 2026-10-13 (spec) |
+
+**Proposed parser change (not applied).** When no item contains the whole description, match the item directly
+above the coupon if its name shares the description's last word or its initial-letter contraction (`FULL ZIP` →
+`FZIP`), and it is priced above the amount. Never "whatever came last" without that link.
+
+## RC-18 · A misread section banner is not denoised and is welded into the next item's name
+
+**Printed shape.** Quebec self-checkout: `********* Bas du panier ***********` above the first item; Vision read
+`Bas du pobler`, and the banner sits on a tilted band.
+
+**What goes wrong.** The geometry pass merges the banner's words into the `1119338 BATTERIE KS` row; the name keeps
+`Bas du pobler`. Even with `pobler` corrected to `panier` the name becomes `Bas du BATTERIE KS` — the banner is matched
+word by word, not removed as a row. The garbled name becomes the product's catalogue label for every shopper
+(`products.display_name` + `display_name_fr`). The flat text names it right; it is the geometry rows only.
+
+**Proof (c72, v3.0.6 and `main`).** Dropping only the banner's five words gives `BATTERIE KS`.
+
+**Blast radius (prod, 2026-10-13):** 1 product named with a banner (`1119338`), now corrected. Related: the
+pre-scan banner welded into `2974611` on `eql4t` (3.0.5, covered by 3.0.6's scrub of the exact spelling).
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1791723518253_4qp2s` | Sherbrooke #1367 | 2026-10-11 | iOS 3.0.6 | Catalogue name of 1119338 | Repaired 2026-10-13 (spec renamed it) |
+
+**Proposed parser change (not applied).** Denoise first (design rules, step 2): a row whose text is bounded by
+`*{3,}` runs is a banner, whatever words it holds, and is removed as a row before item extraction — in both languages.
+
+## RC-19 · `cleanItemName` strips the `T` of a geometry-spaced `T-FAL`
+
+**Printed shape.** `1980969 T-FAL IRON  44.99 FP`. Vision returns `T`, `-`, `FAL` as three words; the geometry row
+reads `1980969 T - FAL IRON`.
+
+**What goes wrong.** `cleanItemName` (`src/services/receiptParsingShared.js`, "Strip lone letter prefix",
+`/^[A-Z]\s+(?!\/)/`, since #11 `7c19367`) drops the `T ` as a stray letter, leaving `- FAL IRON` as the catalogue
+label. The flat text keeps `T-FAL` as one token and is right.
+
+**Proof (c72, v3.0.6 and `main`).** Merging the three words into one `T-FAL` word gives `T-FAL IRON`.
+
+**Blast radius (prod, 2026-10-13):** 1 product name starting with `- ` (`1980969`), now corrected.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1791723518253_4qp2s` | Sherbrooke #1367 | 2026-10-11 | iOS 3.0.6 | Catalogue name of 1980969 | Repaired 2026-10-13 (spec renamed it) |
+
+**Proposed parser change (not applied).** Re-join `X - Y` to `X-Y` when the three words touch (no gap wider than a
+character) before cleaning the name, and never strip a lone letter followed by a hyphen.
 
 ---
 

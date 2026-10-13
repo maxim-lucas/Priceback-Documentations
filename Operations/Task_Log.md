@@ -10865,3 +10865,24 @@ and a reason … no refund, the credit was spent on the scan".
 receipts. Policy: whether a refused unsupported-store scan should spend a credit (code says no) — Maxim's wording was
 ambiguous, left unchanged.
 **Regression risk:** low — a new status branch gated on `status === "rejected"`; no other receipt path changes.
+
+
+---
+
+## 2026-10-13 — Datafix: the remaining receipts (unreviewed, inside the 30-day window)
+
+**Branch:** app `data/remaining-receipts-2026-10-13` (specs only); docs `docs/remaining-receipts-2026-10-13`.
+**Ask:** "fix all the remaining receipts in production (datafix only + document root cause)", selected with
+`admin_reviewed_at IS NULL AND (purchase_date + 30) >= CURRENT_DATE AND deleted_at IS NULL` — the same selection is
+to be reused next time.
+**Done:** 5 receipts, each read off its photo (2 R2 originals, 3 live-capture images) and proved by its own arithmetic.
+3 right → stamped reviewed (`er1cc`, `6czgq`, `xuxbv`). `xzw9x` rebuilt by spec (323.97 → 129.74, 11 lines, 3 coupons).
+`4qp2s` 3 catalogue names restored by spec (lines were right). Selection query returns 0 afterwards. Root causes
+proven by neutralisation on v3.0.6 (the scanning build) and `main`: new RC-15 (COSTCO logo cut off → store not
+detected), RC-16 (misread coupon SKU digit survives, location not isolated), RC-17 (name coupon `/ FULL ZIP` vs
+`NAUTICA FZIP`), RC-18 (misread banner welded into a name), RC-19 (`T - FAL` lone-letter strip); cases added to RC-2
+and RC-13.
+**Not done / owed:** no parser change (document only). No shopper notice drafted (readable photos, parser faults).
+RC-16's exact bypass point still to trace. RC-15/RC-17 blast-radius receipts not checked one by one.
+**Regression risk:** none for code (no code changed). Data: the two specs went through the repair tool's dry run
+first; only the stated rows changed (3 products renamed, 1 synthetic product and 1 crowd copy deleted).
