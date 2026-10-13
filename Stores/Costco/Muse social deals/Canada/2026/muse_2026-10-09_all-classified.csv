@@ -1,0 +1,885 @@
+class,reason,region,sku,name,regularPrice,instantSavings,promoPrice,validFrom,validUntil,source,locations
+price-point-only (expired),,AB,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,"Canada; Edmonton, Alberta"
+price-point-only (expired),,BC,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,"Canada; Langley, British Columbia"
+price-point-only (expired),,MB,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NB,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NL,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NS,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NT,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NU,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,ON,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,"Canada; London, Ontario; Toronto, Ontario"
+price-point-only (expired),,PE,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,QC,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,SK,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,YT,1719485,FOREST FOR CLIMATE DINNER PLATES PACK OF 180,21.99,4.5,17.49,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,AB,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,"Canada; Calgary, Alberta"
+price-point-only (expired),,BC,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,"Canada; Langley, British Columbia"
+price-point-only (expired),,MB,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NB,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NL,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NS,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NT,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NU,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,ON,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,"Canada; London, Ontario; Toronto, Ontario"
+price-point-only (expired),,PE,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,QC,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,SK,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,YT,1759948,ALCAN ALUMINUM FOIL PACK OF 3,17.99,4,13.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,AB,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,BC,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,MB,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NB,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NL,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NS,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NT,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,NU,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,ON,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,PE,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,QC,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,SK,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,YT,1851487,DISGUISE INFLATABLE COSTUMES ONE SIZE,39.99,10,29.99,2026-09-28,2026-10-11,instagram,Canada
+price-point-only (expired),,AB,1150,BEATRICE,5.79,1,4.79,2026-10-09,2026-10-10,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1886408,HANNAH,16.99,3.5,13.49,2026-10-09,2026-10-10,facebook_group,"Calgary, Alberta"
+price-point-only (expired),,AB,448,BEATRICE,5.79,1,4.79,2026-10-09,2026-10-10,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1022898,NONNA PIA'S,9.49,3,6.49,2026-09-28,2026-10-11,facebook_group,"Edmonton, Alberta"
+price-point-only (expired),,AB,10256,NESCAFE RICH BLEND,15.99,3.5,12.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,10426,BARI,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1051897,RODELLE,19.99,5,14.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,107038,CHRISTIE,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1072687,VANILLA EXTRACT,14.99,2,12.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1083313,MOLINAROS GINO BAMBINO,12.49,2.5,9.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1123546,FREYBE,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1153876,DR . PEPPER ZERO,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1156121,BOURSIN,13.49,3.5,9.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,116092,ALCAN,13.99,3,10.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1162180,AJINOMOTO,24.99,7,17.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta"
+price-point-only (expired),,AB,1188673,PRESIDENT,10.99,2.5,8.49,2026-09-28,2026-10-11,facebook_group,"Edmonton, Alberta"
+price-point-only (expired),,AB,1253037,LE CHEF,13.99,4,9.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,128888,KELLOGG'S,10.99,2.5,8.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1331706,NESTLE,24.99,5,19.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1332139,HARVEST MEATS,19.99,4,15.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,14094,MOTT'S,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1486572,PEPSI ZERO,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Edmonton, Alberta"
+price-point-only (expired),,AB,15099,GOLDEN PINEAPPLE,6.49,1.5,4.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1566195,CHEF ROBERT IRVINE'S,29.99,10,19.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1596,WHOLE MUSHROOMS,5.99,1.5,4.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta"
+price-point-only (expired),,AB,1610330,BOURSIN,13.49,3.5,9.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1704815,ORAL-B CROSSACTION BRUSH HEADS PACK OF 10,59.99,12,47.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,1704815,ORAL-B CROSSACTION BRUSH HEADS PACK OF 10,59.99,12,47.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,SK,1704815,ORAL-B CROSSACTION BRUSH HEADS PACK OF 10,59.99,12,47.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,1704815,ORAL-B CROSSACTION BRUSH HEADS PACK OF 10,59.99,12,47.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,1709080,KITCHENAID STAND MIXER 5.6 L (6 QT),439.99,90,349.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,1709080,KITCHENAID STAND MIXER 5.6 L (6 QT),439.99,90,349.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,SK,1709080,KITCHENAID STAND MIXER 5.6 L (6 QT),439.99,90,349.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,1709080,KITCHENAID STAND MIXER 5.6 L (6 QT),439.99,90,349.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,1720359,DARE,11.99,2.5,9.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1774179,DOWNY LIGHT SCENTED BEADS 1.13 KG,24.89,5,19.89,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,1774179,DOWNY LIGHT SCENTED BEADS 1.13 KG,24.89,5,19.89,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,SK,1774179,DOWNY LIGHT SCENTED BEADS 1.13 KG,24.89,5,19.89,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,1774179,DOWNY LIGHT SCENTED BEADS 1.13 KG,24.89,5,19.89,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,1785028,DISNEY,69.99,15,54.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1788908,QUAKER,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1796155,MIU,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1801478,KELLOGG'S,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1851585,ANIMATED BUTLER,299.99,100,199.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1856048,44TH STREET,16.99,4,12.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,188420,DOLE GOLDEN PINEAPPLE,14.99,3.5,11.49,2026-09-28,2026-10-11,facebook_group,"Edmonton, Alberta"
+price-point-only (expired),,AB,1899746,DYSON V12 DETECT SLIM CORDLESS VACUUM,849.99,200,649.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,1899746,DYSON V12 DETECT SLIM CORDLESS VACUUM,849.99,200,649.99,2026-09-28,2026-10-11,instagram,"Western Canada; Langley, British Columbia"
+price-point-only (expired),,SK,1899746,DYSON V12 DETECT SLIM CORDLESS VACUUM,849.99,200,649.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,1899746,DYSON V12 DETECT SLIM CORDLESS VACUUM,849.99,200,649.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,1906811,ISOPURE CLEAR PROTEIN,99.99,20,79.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1906878,BEEMAID,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta"
+price-point-only (expired),,AB,1925368,BAKER'S SECRET,19.99,5,14.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1929692,7FT POSEABLE SKELETON,99.99,20,79.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1929739,WOODEN ADVENT,49.99,20,29.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1929771,4FT PUMPKIN WITH,199.99,50,149.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1934226,"BLACKSTONE 36"" GRIDDLE PROPANE GAS",499.99,100,399.99,2026-09-28,2026-10-11,instagram,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1950599,FOREST FOR CLIMATE,15.99,3.5,12.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta"
+price-point-only (expired),,AB,1955116,MUSH,19.99,4,15.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,1960819,14KT YELLOW GOLD GRADUATED HOOP EARRINGS,599.99,150,449.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,1960819,14KT YELLOW GOLD GRADUATED HOOP EARRINGS,599.99,150,449.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,SK,1960819,14KT YELLOW GOLD GRADUATED HOOP EARRINGS,599.99,150,449.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,1960819,14KT YELLOW GOLD GRADUATED HOOP EARRINGS,599.99,150,449.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,1986019,MOUNTAIN DEW,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,200021,BARI,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,2005140,"MIDEA MINIPLUS COUNTERTOP DISHWASHER, WHITE",299.99,60,239.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,2005140,"MIDEA MINIPLUS COUNTERTOP DISHWASHER, WHITE",299.99,60,239.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,SK,2005140,"MIDEA MINIPLUS COUNTERTOP DISHWASHER, WHITE",299.99,60,239.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,2005140,"MIDEA MINIPLUS COUNTERTOP DISHWASHER, WHITE",299.99,60,239.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,2024844,TKEES KNIT 1/4 ZIP WOMENS SIZES XS-XL,29.99,7,22.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,2024844,TKEES KNIT 1/4 ZIP WOMENS SIZES XS-XL,29.99,7,22.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,SK,2024844,TKEES KNIT 1/4 ZIP WOMENS SIZES XS-XL,29.99,7,22.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,2024844,TKEES KNIT 1/4 ZIP WOMENS SIZES XS-XL,29.99,7,22.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,2025940,TKEES KNIT PANT +WOMENS SIZES XS-XL,29.99,7,22.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,2025940,TKEES KNIT PANT +WOMENS SIZES XS-XL,29.99,7,22.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,SK,2025940,TKEES KNIT PANT +WOMENS SIZES XS-XL,29.99,7,22.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,2025940,TKEES KNIT PANT +WOMENS SIZES XS-XL,29.99,7,22.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,2054789,CAVENDISH,28.99,9,19.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta"
+price-point-only (expired),,AB,2055024,ADIDAS,39.99,10,29.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,2055570,CHEFMAN EVERYTHING WARMER MODULAR WARMING TRAYS,99.99,20,79.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,2055570,CHEFMAN EVERYTHING WARMER MODULAR WARMING TRAYS,99.99,20,79.99,2026-09-28,2026-10-11,instagram,"Western Canada; Langley, British Columbia"
+price-point-only (expired),,SK,2055570,CHEFMAN EVERYTHING WARMER MODULAR WARMING TRAYS,99.99,20,79.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,2055570,CHEFMAN EVERYTHING WARMER MODULAR WARMING TRAYS,99.99,20,79.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,2061269,TOPPITS,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,2067887,KHLOVD,13.99,3,10.99,2026-09-28,2026-10-11,facebook_group,"Edmonton, Alberta"
+price-point-only (expired),,AB,2141192,MARS,23.99,5,18.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta"
+price-point-only (expired),,AB,216945,SKOTIDAKIS,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,2262,MONEY'S,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta"
+price-point-only (expired),,AB,2372538,BEATRICE,6.49,2,4.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta"
+price-point-only (expired),,AB,259629,OCEAN'S SOLID,17.49,4,13.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,262313,THE SNACK FACTORY,8.49,2,6.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,2781570,OLE,27.99,6,21.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,2908438,BIOSTEEL,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,308636,CRUSH,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,310062,PEPSI,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,312787,DIET PEPSI,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,3301967,RITZ,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,3337754,ROYAL ASIA,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,348200,TOBLERONE,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,359474,FRENCH'S,8.99,2,6.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,402498,AU PAIN DORE,16.99,4,12.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,463139,LAST MOUNTAIN,8.99,2,6.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,4645656,TIDE PODS WITH DOWNY PACK OF 104,33.99,7,26.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,4645656,TIDE PODS WITH DOWNY PACK OF 104,33.99,7,26.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,SK,4645656,TIDE PODS WITH DOWNY PACK OF 104,33.99,7,26.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,4645656,TIDE PODS WITH DOWNY PACK OF 104,33.99,7,26.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,469627,FERRERO ROCHER,21.99,5,16.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,5051504,CONNIES,15.99,3.5,12.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta"
+price-point-only (expired),,AB,5051504,CONNIES,9.97,3.5,6.47,2026-09-28,2026-10-11,facebook_group,"Edmonton, Alberta"
+price-point-only (expired),,AB,5055002,LA TERRA FINA,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,5057003,RANA,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,5083333,ORGANIKA BELLI-BLISS FIBRE RASPBERRY 700 G,34.99,7,27.99,2026-09-28,2026-10-11,instagram,"Western Canada; Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,BC,5083333,ORGANIKA BELLI-BLISS FIBRE RASPBERRY 700 G,34.99,7,27.99,2026-09-28,2026-10-11,instagram,"Western Canada; Langley, British Columbia"
+price-point-only (expired),,SK,5083333,ORGANIKA BELLI-BLISS FIBRE RASPBERRY 700 G,34.99,7,27.99,2026-09-28,2026-10-11,instagram,"Western Canada; Saskatoon, Saskatchewan"
+price-point-only (expired),,MB,5083333,ORGANIKA BELLI-BLISS FIBRE RASPBERRY 700 G,34.99,7,27.99,2026-09-28,2026-10-11,instagram,"Western Canada; Winnipeg, Manitoba"
+price-point-only (expired),,AB,5408473,SOMETHING SPECIAL,10.99,3,7.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,5555333,ALANI NU,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,5558298,FOODSAVER VACUUM SEALING SYSTEM BLACK,129.99,40,89.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,5558298,FOODSAVER VACUUM SEALING SYSTEM BLACK,129.99,40,89.99,2026-09-28,2026-10-11,instagram,"Western Canada; Langley, British Columbia"
+price-point-only (expired),,SK,5558298,FOODSAVER VACUUM SEALING SYSTEM BLACK,129.99,40,89.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,5558298,FOODSAVER VACUUM SEALING SYSTEM BLACK,129.99,40,89.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,6069000,BOTHWELL,18.49,4,14.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,6373801,DYSON GEN5DETECT EXTRA CORDLESS VACUUM,1099.99,200,899.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,6373801,DYSON GEN5DETECT EXTRA CORDLESS VACUUM,1099.99,200,899.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,SK,6373801,DYSON GEN5DETECT EXTRA CORDLESS VACUUM,1099.99,200,899.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,6373801,DYSON GEN5DETECT EXTRA CORDLESS VACUUM,1099.99,200,899.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,680,KRAFT,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Edmonton, Alberta"
+price-point-only (expired),,AB,7451272,LG 27 IN DRYER 7.3 CU.FT,649.99,100,549.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,BC,7451272,LG 27 IN DRYER 7.3 CU.FT,649.99,100,549.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,SK,7451272,LG 27 IN DRYER 7.3 CU.FT,649.99,100,549.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,MB,7451272,LG 27 IN DRYER 7.3 CU.FT,649.99,100,549.99,2026-09-28,2026-10-11,instagram,Western Canada
+price-point-only (expired),,AB,8536244,CRUNCHMASTER,12.49,3,9.49,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,8888331,ALANI VARIETY V3,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,975400,SALT SPRING ORGANIC,24.99,5,19.99,2026-09-28,2026-10-11,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,9943119,BUILT PUFF,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Edmonton, Alberta"
+price-point-only (expired),,AB,1658653,WELCH'S HALLOWEEN,17.99,3.5,14.49,2026-10-09,2026-10-12,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (expired),,AB,2060331,GOVEE,99.99,30,69.99,2026-10-09,2026-10-12,facebook_group,"Edmonton, Alberta"
+claimable,,AB,5058019,BOTHWELL,14.99,3,11.99,2026-10-09,2026-10-13,facebook_group,"Edmonton, Alberta"
+claimable,,AB,1374017,CLIF BAR,26.99,5.5,21.49,2026-10-09,2026-10-14,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1955386,GE 28IN ALL-IN-ONE WASHER 5.3 CUFT,1999.99,200,1799.99,2026-10-09,2026-10-14,instagram,Western Canada
+claimable,,BC,1955386,GE 28IN ALL-IN-ONE WASHER 5.3 CUFT,1999.99,200,1799.99,2026-10-09,2026-10-14,instagram,Western Canada
+claimable,,SK,1955386,GE 28IN ALL-IN-ONE WASHER 5.3 CUFT,1999.99,200,1799.99,2026-10-09,2026-10-14,instagram,Western Canada
+claimable,,MB,1955386,GE 28IN ALL-IN-ONE WASHER 5.3 CUFT,1999.99,200,1799.99,2026-10-09,2026-10-14,instagram,Western Canada
+claimable,,AB,2224266,SCOTTS TURF BUILDER,49.99,10,39.99,2026-10-09,2026-10-14,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,2942699,NESTLE,27.99,8,19.99,2026-10-09,2026-10-14,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,425880,CHRISTIE,9.49,2,7.49,2026-10-09,2026-10-14,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1188673,PRESIDENT,10.99,2.5,8.49,2026-10-09,2026-10-15,facebook_group,"Calgary, Alberta"
+claimable,,AB,1419444,VERKA FOODS,39.99,3,36.99,2026-10-09,2026-10-15,facebook_group,"Edmonton, Alberta"
+claimable,,AB,2036821,HOUSE OF MARLEY REBEL HEADPHONES BLACK,99.99,20,79.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,BC,2036821,HOUSE OF MARLEY REBEL HEADPHONES BLACK,99.99,20,79.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,SK,2036821,HOUSE OF MARLEY REBEL HEADPHONES BLACK,99.99,20,79.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,MB,2036821,HOUSE OF MARLEY REBEL HEADPHONES BLACK,99.99,20,79.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,AB,2036825,HOUSE OF MARLEY REBEL HEADPHONES BEIGE,99.99,20,79.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,BC,2036825,HOUSE OF MARLEY REBEL HEADPHONES BEIGE,99.99,20,79.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,SK,2036825,HOUSE OF MARLEY REBEL HEADPHONES BEIGE,99.99,20,79.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,MB,2036825,HOUSE OF MARLEY REBEL HEADPHONES BEIGE,99.99,20,79.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,AB,2080899,BEATS STUDIO PRO BLACK,248.99,20,228.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,BC,2080899,BEATS STUDIO PRO BLACK,248.99,20,228.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,SK,2080899,BEATS STUDIO PRO BLACK,248.99,20,228.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,MB,2080899,BEATS STUDIO PRO BLACK,248.99,20,228.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,AB,6670340,SAMSUNG GALAXY WATCH8 CLASSIC 46MM BLACK,697.99,175,522.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,BC,6670340,SAMSUNG GALAXY WATCH8 CLASSIC 46MM BLACK,697.99,175,522.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,SK,6670340,SAMSUNG GALAXY WATCH8 CLASSIC 46MM BLACK,697.99,175,522.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,MB,6670340,SAMSUNG GALAXY WATCH8 CLASSIC 46MM BLACK,697.99,175,522.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,AB,6670383,SAMSUNG GALAXY WATCH8 40MM BLACK,447.99,80,367.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,BC,6670383,SAMSUNG GALAXY WATCH8 40MM BLACK,447.99,80,367.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,SK,6670383,SAMSUNG GALAXY WATCH8 40MM BLACK,447.99,80,367.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,MB,6670383,SAMSUNG GALAXY WATCH8 40MM BLACK,447.99,80,367.99,2026-10-09,2026-10-15,instagram,Western Canada
+claimable,,AB,1391931,OLIVIERI,17.99,4,13.99,2026-10-09,2026-10-18,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1671205,NONNI'S,14.99,3,11.99,2026-10-09,2026-10-18,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1768199,LIFETIME,399.99,100,299.99,2026-10-09,2026-10-18,facebook_group,"Edmonton, Alberta"
+claimable,,AB,1891998,PORTOFINO,8.49,2,6.49,2026-10-09,2026-10-18,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1995795,KASHI,19.99,4,15.99,2026-10-09,2026-10-18,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,3663109,CORONA,36.99,8,28.99,2026-10-09,2026-10-18,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,5008051,DONSUEMOR,13.49,3.5,9.99,2026-10-09,2026-10-18,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,5056000,PREMIUM DESSERTS,12.99,3,9.99,2026-10-09,2026-10-18,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,5555023,SPARKLING ICE,23.99,5,18.99,2026-10-09,2026-10-18,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,67237,CANTALOUPE,5.99,2,3.99,2026-10-09,2026-10-18,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,7026055,CELLO WHISPS,14.99,4,10.99,2026-10-09,2026-10-18,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,9983271,AMOS PEELERZ,13.99,3,10.99,2026-10-09,2026-10-18,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1134668,GENERAL MILLS,9.99,2,7.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1154953,KIRKLAND SIGNATURE,15.99,4,11.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1208941,LOTUS BISCOFF,11.99,3,8.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1210029,MINH,13.99,4,9.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1359722,KFI,9.99,2,7.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1373299,CAMPBELL'S,11.99,2.5,9.49,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1400953,SIMPLE MILLS,12.99,3,9.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1412124,QUAKER,11.99,3,8.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1474938,COLGATE PRO-RELIEF TOOTHPASTE 4 X 120 ML,18.99,4,14.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,1474938,COLGATE PRO-RELIEF TOOTHPASTE 4 X 120 ML,18.99,4,14.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,1474938,COLGATE PRO-RELIEF TOOTHPASTE 4 X 120 ML,18.99,4,14.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,1474938,COLGATE PRO-RELIEF TOOTHPASTE 4 X 120 ML,18.99,4,14.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,1477486,MCCAFE,54.99,12,42.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1477487,MCCAFÉ,54.99,12,42.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (conflict),differs from the official coupon price 9.49,AB,1670109,RESER'S,11.49,2.5,8.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1696237,RUFFLES,7.99,2,5.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1709080,KITCHENAID STAND MIXER 5.6 L (6 QT),439.99,90,349.99,2026-09-28,2026-10-25,instagram,"Calgary, Alberta"
+claimable,,AB,1730860,AVEENO MOISTURIZING LOTION 2 X 710 ML,21.99,5,16.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,1730860,AVEENO MOISTURIZING LOTION 2 X 710 ML,21.99,5,16.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,1730860,AVEENO MOISTURIZING LOTION 2 X 710 ML,21.99,5,16.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,1730860,AVEENO MOISTURIZING LOTION 2 X 710 ML,21.99,5,16.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,1759,TETLEY,13.99,3,10.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1874356,PURAVIDA,18.99,4,14.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1896304,KITCHENAID,24.99,5,19.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,1901557,BERKSHIRE ELECTRIC HEATED THROW 50 IN X 60 IN,44.99,10,34.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,1901557,BERKSHIRE ELECTRIC HEATED THROW 50 IN X 60 IN,44.99,10,34.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,1901557,BERKSHIRE ELECTRIC HEATED THROW 50 IN X 60 IN,44.99,10,34.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,1901557,BERKSHIRE ELECTRIC HEATED THROW 50 IN X 60 IN,44.99,10,34.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,1931258,AVEENO SKIN RELIEF BODY WASH 3 X 532 ML,19.99,5.5,14.49,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,1931258,AVEENO SKIN RELIEF BODY WASH 3 X 532 ML,19.99,5.5,14.49,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,1931258,AVEENO SKIN RELIEF BODY WASH 3 X 532 ML,19.99,5.5,14.49,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,1931258,AVEENO SKIN RELIEF BODY WASH 3 X 532 ML,19.99,5.5,14.49,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,1933211,WITOR'S ASSORTED,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,2001954,LIQUID I.V.,39.99,10,29.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,2003250,GOOD PROTEIN PLANT BASED PROTEIN 2 KG,79.99,16,63.99,2026-09-28,2026-10-25,instagram,"Western Canada; Calgary, Alberta; Edmonton, Alberta"
+claimable,,BC,2003250,GOOD PROTEIN PLANT BASED PROTEIN 2 KG,79.99,16,63.99,2026-09-28,2026-10-25,instagram,"Western Canada; Langley, British Columbia"
+claimable,,SK,2003250,GOOD PROTEIN PLANT BASED PROTEIN 2 KG,79.99,16,63.99,2026-09-28,2026-10-25,instagram,"Western Canada; Saskatoon, Saskatchewan"
+claimable,,MB,2003250,GOOD PROTEIN PLANT BASED PROTEIN 2 KG,79.99,16,63.99,2026-09-28,2026-10-25,instagram,"Western Canada; Winnipeg, Manitoba"
+claimable,,AB,2003251,GOOD PROTEIN,79.99,16,63.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,2027032,CONTIGO TRAVEL MUG 2 X 473 ML,29.99,6,23.99,2026-09-28,2026-10-25,instagram,"Western Canada; Calgary, Alberta; Edmonton, Alberta"
+claimable,,BC,2027032,CONTIGO TRAVEL MUG 2 X 473 ML,29.99,6,23.99,2026-09-28,2026-10-25,instagram,"Western Canada; Langley, British Columbia"
+claimable,,SK,2027032,CONTIGO TRAVEL MUG 2 X 473 ML,29.99,6,23.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,2027032,CONTIGO TRAVEL MUG 2 X 473 ML,29.99,6,23.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,2040480,LOLE FLEECE JOGGER + MENS SIZES S-XXL,24.99,5,19.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,2040480,LOLE FLEECE JOGGER + MENS SIZES S-XXL,24.99,5,19.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,2040480,LOLE FLEECE JOGGER + MENS SIZES S-XXL,24.99,5,19.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,2040480,LOLE FLEECE JOGGER + MENS SIZES S-XXL,24.99,5,19.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,2040560,LOLE FULL ZIP HOODIE +MENS SIZES S-XXL,29.99,7,22.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,2040560,LOLE FULL ZIP HOODIE +MENS SIZES S-XXL,29.99,7,22.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,2040560,LOLE FULL ZIP HOODIE +MENS SIZES S-XXL,29.99,7,22.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,2040560,LOLE FULL ZIP HOODIE +MENS SIZES S-XXL,29.99,7,22.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,2047881,LIQUID I.V.,39.99,10,29.99,2026-09-28,2026-10-25,facebook_group,"Edmonton, Alberta"
+claimable,,AB,2047885,LIQUID I.V. HYDRATION VARIETY PACK 30 X 10 G,39.99,10,29.99,2026-09-28,2026-10-25,instagram,"Western Canada; Calgary, Alberta; Edmonton, Alberta"
+claimable,,BC,2047885,LIQUID I.V. HYDRATION VARIETY PACK 30 X 10 G,39.99,10,29.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,2047885,LIQUID I.V. HYDRATION VARIETY PACK 30 X 10 G,39.99,10,29.99,2026-09-28,2026-10-25,instagram,"Western Canada; Saskatoon, Saskatchewan"
+claimable,,MB,2047885,LIQUID I.V. HYDRATION VARIETY PACK 30 X 10 G,39.99,10,29.99,2026-09-28,2026-10-25,instagram,"Western Canada; Winnipeg, Manitoba"
+claimable,,AB,2048787,SAMSUNG SOUND TOWER SPEAKER MX-ST4CF,399.99,100,299.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,2048787,SAMSUNG SOUND TOWER SPEAKER MX-ST4CF,399.99,100,299.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,2048787,SAMSUNG SOUND TOWER SPEAKER MX-ST4CF,399.99,100,299.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,2048787,SAMSUNG SOUND TOWER SPEAKER MX-ST4CF,399.99,100,299.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,2053060,DYSON CLEAN+WASH HYGIENE CORDLESS WASH & VAC,679.99,180,499.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,2053060,DYSON CLEAN+WASH HYGIENE CORDLESS WASH & VAC,679.99,180,499.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,2053060,DYSON CLEAN+WASH HYGIENE CORDLESS WASH & VAC,679.99,180,499.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,2053060,DYSON CLEAN+WASH HYGIENE CORDLESS WASH & VAC,679.99,180,499.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,2062406,DELICI,13.99,3,10.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,2071606,GODIVA CHOCOLATE,18.99,6,12.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,2255333,WELL,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,2691346,CUISINART TOASTER 4 SLICE,69.99,15,54.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,2691346,CUISINART TOASTER 4 SLICE,69.99,15,54.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,2691346,CUISINART TOASTER 4 SLICE,69.99,15,54.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,2691346,CUISINART TOASTER 4 SLICE,69.99,15,54.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,2743223,CADBURY,19.99,4,15.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,2993392,NINJA CRISPI PORTABLE COOKING SYSTEM,199.99,40,159.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,2993392,NINJA CRISPI PORTABLE COOKING SYSTEM,199.99,40,159.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,2993392,NINJA CRISPI PORTABLE COOKING SYSTEM,199.99,40,159.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,2993392,NINJA CRISPI PORTABLE COOKING SYSTEM,199.99,40,159.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,301572,SABATASSO'S,17.99,4,13.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,3186011,BREATHE RIGHT NASAL STRIPS CLEAR PACK OF 72,27.99,6,21.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,3186011,BREATHE RIGHT NASAL STRIPS CLEAR PACK OF 72,27.99,6,21.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,3186011,BREATHE RIGHT NASAL STRIPS CLEAR PACK OF 72,27.99,6,21.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,3186011,BREATHE RIGHT NASAL STRIPS CLEAR PACK OF 72,27.99,6,21.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,438342,WHOLLY GUACAMOLE,15.99,4,11.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,4440923,SIMPLY PROTEIN,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (conflict),differs from the official coupon price 14.99,AB,5057007,GIOVANNI RANA,18.99,5,13.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+claimable,,AB,525,CARNATION,16.99,4,12.99,2026-09-28,2026-10-25,facebook_group,"Calgary, Alberta; Edmonton, Alberta"
+price-point-only (conflict),differs from the official coupon price 744.99,AB,5707265,SAMSUNG 65M72H 65″ CLASS (64.5″ DIAG) 4K UHD MINI-LED TV,844.99,150,694.99,2026-09-28,2026-10-25,instagram,Western Canada
+price-point-only (conflict),differs from the official coupon price 744.99,BC,5707265,SAMSUNG 65M72H 65″ CLASS (64.5″ DIAG) 4K UHD MINI-LED TV,844.99,150,694.99,2026-09-28,2026-10-25,instagram,Western Canada
+price-point-only (conflict),differs from the official coupon price 744.99,SK,5707265,SAMSUNG 65M72H 65″ CLASS (64.5″ DIAG) 4K UHD MINI-LED TV,844.99,150,694.99,2026-09-28,2026-10-25,instagram,Western Canada
+price-point-only (conflict),differs from the official coupon price 744.99,MB,5707265,SAMSUNG 65M72H 65″ CLASS (64.5″ DIAG) 4K UHD MINI-LED TV,844.99,150,694.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,5707285,SAMSUNG 85M72H 85″ CLASS (84.5″ DIAG) 4K UHD MINI-LED TV,1294.99,200,1094.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,5707285,SAMSUNG 85M72H 85″ CLASS (84.5″ DIAG) 4K UHD MINI-LED TV,1294.99,200,1094.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,5707285,SAMSUNG 85M72H 85″ CLASS (84.5″ DIAG) 4K UHD MINI-LED TV,1294.99,200,1094.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,5707285,SAMSUNG 85M72H 85″ CLASS (84.5″ DIAG) 4K UHD MINI-LED TV,1294.99,200,1094.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,5758565,SAMSUNG 65S85H 65″ CLASS (64.5″ DIAG) 4K OLED TV,1994.99,500,1494.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,5758565,SAMSUNG 65S85H 65″ CLASS (64.5″ DIAG) 4K OLED TV,1994.99,500,1494.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,5758565,SAMSUNG 65S85H 65″ CLASS (64.5″ DIAG) 4K OLED TV,1994.99,500,1494.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,5758565,SAMSUNG 65S85H 65″ CLASS (64.5″ DIAG) 4K OLED TV,1994.99,500,1494.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,628368,LISTERINE ULTRACLEAN MOUTHWASH 2 X 1.5 L,15.99,4,11.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,628368,LISTERINE ULTRACLEAN MOUTHWASH 2 X 1.5 L,15.99,4,11.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,628368,LISTERINE ULTRACLEAN MOUTHWASH 2 X 1.5 L,15.99,4,11.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,628368,LISTERINE ULTRACLEAN MOUTHWASH 2 X 1.5 L,15.99,4,11.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,8777237,SAMSUNG GALAXY A37 128GB BLACK,598.99,150,448.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,BC,8777237,SAMSUNG GALAXY A37 128GB BLACK,598.99,150,448.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,SK,8777237,SAMSUNG GALAXY A37 128GB BLACK,598.99,150,448.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,MB,8777237,SAMSUNG GALAXY A37 128GB BLACK,598.99,150,448.99,2026-09-28,2026-10-25,instagram,Western Canada
+claimable,,AB,2055376,"T-FAL INFRARED XXL SURFACE AIR FRYER, 6 L",129.99,25,104.99,2026-10-09,2027-03-05,instagram,Western Canada
+claimable,,BC,2055376,"T-FAL INFRARED XXL SURFACE AIR FRYER, 6 L",129.99,25,104.99,2026-10-09,2027-03-05,instagram,Western Canada
+claimable,,SK,2055376,"T-FAL INFRARED XXL SURFACE AIR FRYER, 6 L",129.99,25,104.99,2026-10-09,2027-03-05,instagram,Western Canada
+claimable,,MB,2055376,"T-FAL INFRARED XXL SURFACE AIR FRYER, 6 L",129.99,25,104.99,2026-10-09,2027-03-05,instagram,Western Canada
+claimable,,AB,7232432,GOURMIA AIR FRYER 8.5 L (9 QT),69.99,25,44.99,2026-10-09,2027-03-05,instagram,Western Canada
+claimable,,BC,7232432,GOURMIA AIR FRYER 8.5 L (9 QT),69.99,25,44.99,2026-10-09,2027-03-05,instagram,Western Canada
+claimable,,SK,7232432,GOURMIA AIR FRYER 8.5 L (9 QT),69.99,25,44.99,2026-10-09,2027-03-05,instagram,Western Canada
+claimable,,MB,7232432,GOURMIA AIR FRYER 8.5 L (9 QT),69.99,25,44.99,2026-10-09,2027-03-05,instagram,Western Canada
+price-point-only (markdown),,AB,1713420,Yardistry 12 x 14 ft Gazebo,2199.99,500.02,1699.97,2026-10-09,,instagram_markdown,"Calgary, Alberta"
+price-point-only (expired),,BC,118219,NATREL,5.79,1,4.79,2026-10-09,2026-10-10,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1886408,HANNAH,16.99,3.5,13.49,2026-10-09,2026-10-10,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,373323,NATREL,5.79,1,4.79,2026-10-09,2026-10-10,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,10256,NESCAFE RICH BLEND,15.99,3.5,12.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,10426,BARI,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1051897,RODELLE,19.99,5,14.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1083313,MOLINAROS GINO BAMBINO,12.49,2.5,9.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1153876,DR . PEPPER ZERO,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1156121,BOURSIN,13.49,3.5,9.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1253037,LE CHEF,13.99,4,9.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,128888,KELLOGG'S,10.99,2.5,8.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1331706,NESTLE,24.99,5,19.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1332139,HARVEST MEATS,19.99,4,15.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,14094,MOTT'S,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,15099,GOLDEN PINEAPPLE,6.49,1.5,4.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1566195,CHEF ROBERT IRVINE'S,29.99,10,19.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1596,WHOLE MUSHROOMS,5.99,1.5,4.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1610330,BOURSIN,13.49,3.5,9.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1720359,DARE,11.99,2.5,9.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1788908,QUAKER,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1796155,MIU,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1801478,KELLOGG'S,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1847427,TWIGZ BUTTERY HERB AND,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,188420,DOLE GOLDEN PINEAPPLE,14.99,3.5,11.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1906811,ISOPURE CLEAR PROTEIN,99.99,20,79.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1906878,BEEMAID,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1925368,BAKER'S SECRET,19.99,5,14.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1929692,7FT POSEABLE SKELETON,99.99,20,79.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1950599,FOREST FOR CLIMATE,15.99,3.5,12.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1955116,MUSH,19.99,4,15.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1986019,MOUNTAIN DEW,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,200021,BARI,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,2001931,CUISINART,99.99,30,69.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,2051308,Sourdough Baguettes 2 pack,5.99,1.5,4.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,2055024,ADIDAS,39.99,10,29.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,2061269,TOPPITS,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,2141192,MARS,23.99,5,18.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,216945,SKOTIDAKIS,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,2324095,DUJARDIN ORGANIC,14.99,5,9.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,259629,OCEAN'S SOLID,17.49,4,13.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,262313,THE SNACK FACTORY,8.49,2,6.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,308636,CRUSH,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,310062,PEPSI,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,312787,DIET PEPSI,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,3337754,ROYAL ASIA,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,348200,TOBLERONE,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,359474,FRENCH'S,8.99,2,6.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,39917,RESINITE,24.99,5,19.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,463139,LAST MOUNTAIN,8.99,2,6.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,469627,FERRERO ROCHER,21.99,5,16.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,5055002,LA TERRA FINA,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,5057003,RANA,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,5408473,SOMETHING SPECIAL,10.99,3,7.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,5555333,ALANI NU,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,6069000,BOTHWELL,18.49,4,14.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,8536244,CRUNCHMASTER,12.49,3,9.49,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,8888331,ALANI VARIETY V3,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,975400,SALT SPRING ORGANIC,24.99,5,19.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,9943119,BUILT PUFF,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,BC,1658653,WELCH'S HALLOWEEN,17.99,3.5,14.49,2026-10-09,2026-10-12,facebook_group,"Langley, British Columbia"
+claimable,,BC,5058019,BOTHWELL,14.99,3,11.99,2026-10-09,2026-10-13,facebook_group,"Langley, British Columbia"
+claimable,,BC,1374017,CLIF BAR,26.99,5.5,21.49,2026-10-09,2026-10-14,facebook_group,"Langley, British Columbia"
+claimable,,BC,2942699,NESTLE,27.99,8,19.99,2026-10-09,2026-10-14,facebook_group,"Langley, British Columbia"
+claimable,,BC,425880,CHRISTIE,9.49,2,7.49,2026-10-09,2026-10-14,facebook_group,"Langley, British Columbia"
+claimable,,BC,1419444,VERKA FOODS,39.99,3,36.99,2026-10-09,2026-10-15,facebook_group,"Langley, British Columbia"
+claimable,,BC,1391931,OLIVIERI,17.99,4,13.99,2026-10-09,2026-10-18,facebook_group,"Langley, British Columbia"
+claimable,,BC,140341,TUSCAN CANTALOUPE,4.99,2,2.99,2026-10-09,2026-10-18,facebook_group,"Langley, British Columbia"
+claimable,,BC,1671205,NONNI'S,14.99,3,11.99,2026-10-09,2026-10-18,facebook_group,"Langley, British Columbia"
+claimable,,BC,1891998,PORTOFINO,8.49,2,6.49,2026-10-09,2026-10-18,facebook_group,"Langley, British Columbia"
+claimable,,BC,1995795,KASHI,19.99,4,15.99,2026-10-09,2026-10-18,facebook_group,"Langley, British Columbia"
+claimable,,BC,3663109,CORONA,36.99,8,28.99,2026-10-09,2026-10-18,facebook_group,"Langley, British Columbia"
+claimable,,BC,5008051,DONSUEMOR,13.49,3.5,9.99,2026-10-09,2026-10-18,facebook_group,"Langley, British Columbia"
+claimable,,BC,5555023,SPARKLING ICE,23.99,5,18.99,2026-10-09,2026-10-18,facebook_group,"Langley, British Columbia"
+claimable,,BC,7026055,CELLO WHISPS,14.99,4,10.99,2026-10-09,2026-10-18,facebook_group,"Langley, British Columbia"
+claimable,,BC,9983271,AMOS PEELERZ,13.99,3,10.99,2026-10-09,2026-10-18,facebook_group,"Langley, British Columbia"
+claimable,,BC,1134668,GENERAL MILLS,9.99,2,7.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1154953,KIRKLAND SIGNATURE,15.99,4,11.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1208941,LOTUS BISCOFF,11.99,3,8.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1210029,MINH,13.99,4,9.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1359722,KFI,9.99,2,7.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1373299,CAMPBELL'S,11.99,2.5,9.49,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1400953,SIMPLE MILLS,12.99,3,9.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1412124,QUAKER,11.99,3,8.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1477486,MCCAFE,54.99,12,42.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1477487,MCCAFÉ,54.99,12,42.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+price-point-only (conflict),differs from the official coupon price 9.49,BC,1670109,RESER'S,11.49,2.5,8.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1696237,RUFFLES,7.99,2,5.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1845969,NINJA,629.99,130,499.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1896304,KITCHENAID,24.99,5,19.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1933211,WITOR'S ASSORTED,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,1992291,NINJA CRISPI,199.99,40,159.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,2003251,GOOD PROTEIN,79.99,16,63.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,2055376,T-FAL,129.99,25,104.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,2062406,DELICI,13.99,3,10.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,2071606,GODIVA CHOCOLATE,18.99,6,12.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,2255333,WELL,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,2743223,CADBURY,19.99,4,15.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,301572,SABATASSO'S,17.99,4,13.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,438342,WHOLLY GUACAMOLE,15.99,4,11.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,4440923,SIMPLY PROTEIN,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+claimable,,BC,525,CARNATION,16.99,4,12.99,2026-09-28,2026-10-25,facebook_group,"Langley, British Columbia"
+price-point-only (expired),,MB,1150,BEATRICE,5.79,1,4.79,2026-10-09,2026-10-10,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1886408,HANNAH,16.99,3.5,13.49,2026-10-09,2026-10-10,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,448,BEATRICE,5.79,1,4.79,2026-10-09,2026-10-10,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1022898,NONNA PIA'S,9.49,3,6.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,10256,NESCAFE RICH BLEND,15.99,3.5,12.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,10426,BARI,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1051897,RODELLE,19.99,5,14.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,107038,CHRISTIE,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1072687,VANILLA EXTRACT,14.99,2,12.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1083313,MOLINAROS GINO BAMBINO,12.49,2.5,9.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1123546,FREYBE,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1153876,DR . PEPPER ZERO,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1156121,BOURSIN,13.49,3.5,9.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1178208,HEINZ,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1253037,LE CHEF,13.99,4,9.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,128888,KELLOGG'S,10.99,2.5,8.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1331706,NESTLE,24.99,5,19.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1332139,HARVEST MEATS,19.99,4,15.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,14094,MOTT'S,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1486572,PEPSI ZERO,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,15099,GOLDEN PINEAPPLE,6.49,1.5,4.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1566195,CHEF ROBERT IRVINE'S,29.99,10,19.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1610330,BOURSIN,13.49,3.5,9.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1720359,DARE,11.99,2.5,9.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1785028,DISNEY,69.99,15,54.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1788908,QUAKER,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1796155,MIU,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1801478,KELLOGG'S,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1847427,TWIGZ BUTTERY HERB AND,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1851585,ANIMATED BUTLER,299.99,100,199.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1856048,44TH STREET,16.99,4,12.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,188420,DOLE GOLDEN PINEAPPLE,14.99,3.5,11.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1906811,ISOPURE CLEAR PROTEIN,99.99,20,79.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1906878,BEEMAID,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1929692,7FT POSEABLE SKELETON,99.99,20,79.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1929739,WOODEN ADVENT,49.99,20,29.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1929771,4FT PUMPKIN WITH,199.99,50,149.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1955116,MUSH,19.99,4,15.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1986019,MOUNTAIN DEW,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,2055024,ADIDAS,39.99,10,29.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,2061269,TOPPITS,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,2067887,KHLOVD,13.99,3,10.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,2141192,MARS,23.99,5,18.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,216945,SKOTIDAKIS,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,2262,MONEY'S,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,2372538,BEATRICE,6.49,2,4.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,259629,OCEAN'S SOLID,17.49,4,13.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,262313,THE SNACK FACTORY,8.49,2,6.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,2781570,OLE,27.99,6,21.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,2908438,BIOSTEEL,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,308636,CRUSH,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,310062,PEPSI,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,312787,DIET PEPSI,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,3337754,ROYAL ASIA,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,348200,TOBLERONE,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,359474,FRENCH'S,8.99,2,6.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,402498,AU PAIN DORE,16.99,4,12.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,463139,LAST MOUNTAIN,8.99,2,6.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,469627,FERRERO ROCHER,21.99,5,16.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,5055002,LA TERRA FINA,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,5057003,RANA,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,5555333,ALANI NU,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,6069000,BOTHWELL,18.49,4,14.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,8536244,CRUNCHMASTER,12.49,3,9.49,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,8888331,ALANI VARIETY V3,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,975400,SALT SPRING ORGANIC,24.99,5,19.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,9943119,BUILT PUFF,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,1658653,WELCH'S HALLOWEEN,17.99,3.5,14.49,2026-10-09,2026-10-12,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,MB,2060331,GOVEE,99.99,30,69.99,2026-10-09,2026-10-12,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1374017,CLIF BAR,26.99,5.5,21.49,2026-10-09,2026-10-14,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,2224266,SCOTTS TURF BUILDER,49.99,10,39.99,2026-10-09,2026-10-14,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,2942699,NESTLE,27.99,8,19.99,2026-10-09,2026-10-14,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,425880,CHRISTIE,9.49,2,7.49,2026-10-09,2026-10-14,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1008703,FANWAY,139.99,50,89.99,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1391931,OLIVIERI,17.99,4,13.99,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1671205,NONNI'S,14.99,3,11.99,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1891998,PORTOFINO,8.49,2,6.49,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1995795,KASHI,19.99,4,15.99,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,2026295,WARRIOR,79.99,30,49.99,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,3663109,CORONA,36.99,8,28.99,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,5008051,DONSUEMOR,13.49,3.5,9.99,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,5056000,PREMIUM DESSERTS,12.99,3,9.99,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,5555023,SPARKLING ICE,23.99,5,18.99,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,67237,CANTALOUPE,5.99,2,3.99,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,7026055,CELLO WHISPS,14.99,4,10.99,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,9983271,AMOS PEELERZ,13.99,3,10.99,2026-10-09,2026-10-18,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1134668,GENERAL MILLS,9.99,2,7.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1154953,KIRKLAND SIGNATURE,15.99,4,11.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1208941,LOTUS BISCOFF,11.99,3,8.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1210029,MINH,13.99,4,9.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1359722,KFI,9.99,2,7.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1373299,CAMPBELL'S,11.99,2.5,9.49,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1400953,SIMPLE MILLS,12.99,3,9.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1412124,QUAKER,11.99,3,8.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1477486,MCCAFE,54.99,12,42.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1477487,MCCAFÉ,54.99,12,42.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+price-point-only (conflict),differs from the official coupon price 9.49,MB,1670109,RESER'S,11.49,2.5,8.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1696237,RUFFLES,7.99,2,5.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1759,TETLEY,13.99,3,10.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1874356,PURAVIDA,18.99,4,14.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,1933211,WITOR'S ASSORTED,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,2001954,LIQUID I.V.,39.99,10,29.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,2003251,GOOD PROTEIN,79.99,16,63.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,2047881,LIQUID I.V.,39.99,10,29.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,2062406,DELICI,13.99,3,10.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,2071606,GODIVA CHOCOLATE,18.99,6,12.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,2255333,WELL,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,2743223,CADBURY,19.99,4,15.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,301572,SABATASSO'S,17.99,4,13.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,438342,WHOLLY GUACAMOLE,15.99,4,11.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,4440923,SIMPLY PROTEIN,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+price-point-only (conflict),differs from the official coupon price 14.99,MB,5057007,GIOVANNI RANA,18.99,5,13.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+claimable,,MB,525,CARNATION,16.99,4,12.99,2026-09-28,2026-10-25,facebook_group,"Winnipeg, Manitoba"
+price-point-only (expired),,NB,1806211,Sanctuary Home & Office Safe 1.69 CU. FT.,349.99,70,279.99,2026-09-28,2026-10-11,instagram,Eastern Canada
+price-point-only (expired),,NS,1806211,Sanctuary Home & Office Safe 1.69 CU. FT.,349.99,70,279.99,2026-09-28,2026-10-11,instagram,Eastern Canada
+price-point-only (expired),,PE,1806211,Sanctuary Home & Office Safe 1.69 CU. FT.,349.99,70,279.99,2026-09-28,2026-10-11,instagram,Eastern Canada
+price-point-only (expired),,NL,1806211,Sanctuary Home & Office Safe 1.69 CU. FT.,349.99,70,279.99,2026-09-28,2026-10-11,instagram,Eastern Canada
+price-point-only (expired),,NB,1851577,7.3FT Animated Gargoyle,299.99,100,199.99,2026-09-28,2026-10-11,instagram,Eastern Canada
+price-point-only (expired),,NS,1851577,7.3FT Animated Gargoyle,299.99,100,199.99,2026-09-28,2026-10-11,instagram,Eastern Canada
+price-point-only (expired),,PE,1851577,7.3FT Animated Gargoyle,299.99,100,199.99,2026-09-28,2026-10-11,instagram,Eastern Canada
+price-point-only (expired),,NL,1851577,7.3FT Animated Gargoyle,299.99,100,199.99,2026-09-28,2026-10-11,instagram,Eastern Canada
+price-point-only (expired),,NB,2065869,Rap Snacks Variety Box 30 x 28 g,22.99,5,17.99,2026-09-28,2026-10-11,instagram,Eastern Canada
+price-point-only (expired),,NS,2065869,Rap Snacks Variety Box 30 x 28 g,22.99,5,17.99,2026-09-28,2026-10-11,instagram,Eastern Canada
+price-point-only (expired),,PE,2065869,Rap Snacks Variety Box 30 x 28 g,22.99,5,17.99,2026-09-28,2026-10-11,instagram,Eastern Canada
+price-point-only (expired),,NL,2065869,Rap Snacks Variety Box 30 x 28 g,22.99,5,17.99,2026-09-28,2026-10-11,instagram,Eastern Canada
+claimable,,NB,1896366,Gillette Fusion5 ProGlide Pack of 18,69.99,14,55.99,2026-09-28,2026-10-25,instagram,Eastern Canada
+claimable,,NS,1896366,Gillette Fusion5 ProGlide Pack of 18,69.99,14,55.99,2026-09-28,2026-10-25,instagram,Eastern Canada
+claimable,,PE,1896366,Gillette Fusion5 ProGlide Pack of 18,69.99,14,55.99,2026-09-28,2026-10-25,instagram,Eastern Canada
+claimable,,NL,1896366,Gillette Fusion5 ProGlide Pack of 18,69.99,14,55.99,2026-09-28,2026-10-25,instagram,Eastern Canada
+claimable,,NB,2417309,Dawn Platinum Powerwash Dish Spray 3 x 635 mL,16.49,3.5,12.99,2026-09-28,2026-10-25,instagram,Eastern Canada
+claimable,,NS,2417309,Dawn Platinum Powerwash Dish Spray 3 x 635 mL,16.49,3.5,12.99,2026-09-28,2026-10-25,instagram,Eastern Canada
+claimable,,PE,2417309,Dawn Platinum Powerwash Dish Spray 3 x 635 mL,16.49,3.5,12.99,2026-09-28,2026-10-25,instagram,Eastern Canada
+claimable,,NL,2417309,Dawn Platinum Powerwash Dish Spray 3 x 635 mL,16.49,3.5,12.99,2026-09-28,2026-10-25,instagram,Eastern Canada
+price-point-only (expired),,ON,1012471,BUD LIGHT,89.99,5,84.99,2026-10-09,2026-10-10,facebook_group,"Burlington, Ontario; London, Ontario"
+price-point-only (expired),,ON,101947,MASI,15.99,1.5,14.49,2026-10-09,2026-10-10,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (expired),,ON,148021,MASI,20.99,2,18.99,2026-10-09,2026-10-10,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1567392,VEUVE CLICQUOT,84.99,7,77.99,2026-10-09,2026-10-10,facebook_group,"Burlington, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (expired),,ON,1611695,STELLA ARTOIS,54.99,5,49.99,2026-10-09,2026-10-10,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1887126,INNISKILLIN,13.49,1,12.49,2026-10-09,2026-10-10,facebook_group,"Burlington, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1887933,BUSCH LIGHT,68.99,5,63.99,2026-10-09,2026-10-10,facebook_group,"London, Ontario"
+price-point-only (expired),,ON,1980813,CAVE SPRING RIESLING,14.49,1.5,12.99,2026-10-09,2026-10-10,facebook_group,"Toronto, Ontario"
+price-point-only (expired),,ON,2054172,MICHELOB ULTRA,78.99,5,73.99,2026-10-09,2026-10-10,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2073172,RING BOLT,19.99,2,17.99,2026-10-09,2026-10-10,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,314786,OYSTER BAY,17.99,2,15.99,2026-10-09,2026-10-10,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (expired),,ON,1012726,IOGO,8.79,2,6.79,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1022898,NONNA PIA'S,9.49,3,6.49,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,10256,NESCAFE RICH BLEND,15.99,3.5,12.49,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,102708,LA MAISON CAESAR,8.99,2,6.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,108934,ZAVIDA,23.99,5,18.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,112,MRS DASH,6.99,2,4.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1153876,DR . PEPPER ZERO,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1156121,BOURSIN,13.49,3.5,9.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1176059,AFTER EIGHT,21.99,5,16.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (expired),,ON,1177,ZESTY RADISH,7.99,2,5.99,2026-09-28,2026-10-11,facebook_group,"Toronto, Ontario"
+price-point-only (expired),,ON,1195239,DANONE ACTIVIA,10.99,2.2,8.79,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1331706,NESTLE,24.99,5,19.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1354865,POINTED PEPPERS,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1396661,SUN-MAID RAISIN,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,14094,MOTT'S,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (expired),,ON,1486572,PEPSI ZERO,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,15099,GOLDEN PINEAPPLE,6.49,1.5,4.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1555007,BEN'S ORIGINAL,13.99,3,10.99,2026-09-28,2026-10-11,facebook_group,"Mississauga & Oakville, Ontario"
+price-point-only (expired),,ON,1566195,CHEF ROBERT IRVINE'S,29.99,10,19.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (expired),,ON,1610330,BOURSIN,13.49,3.5,9.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1691530,TITAN,15.99,4,11.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario"
+price-point-only (expired),,ON,1709080,KITCHENAID STAND MIXER 5.6 L (6 QT),439.99,90,349.99,2026-09-28,2026-10-11,instagram,"Markham, Ontario"
+price-point-only (expired),,ON,1720359,DARE,11.99,2.5,9.49,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1767062,JUST REAL SPUDS,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario"
+price-point-only (expired),,ON,1785028,DISNEY,69.99,15,54.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1788908,QUAKER,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1791636,SAPUTO,13.99,3,10.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (expired),,ON,1796155,MIU,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1801478,KELLOGG'S,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1851577,7.3FT ANIMATED,299.99,100,199.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1875629,SAMYANG BULDAK,14.99,3.5,11.49,2026-09-28,2026-10-11,facebook_group,"London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1899746,DYSON,849.99,200,649.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1906811,ISOPURE CLEAR PROTEIN,99.99,20,79.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1908238,GUTTERWARE,48.99,10,38.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1925368,BAKER'S SECRET,19.99,5,14.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1929692,7FT POSEABLE SKELETON,99.99,20,79.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario"
+price-point-only (expired),,ON,1929702,HALLOWEEN WOODEN LIGHT,49.99,10,39.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1929739,WOODEN ADVENT,49.99,20,29.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1929771,4FT PUMPKIN WITH,199.99,50,149.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario"
+price-point-only (expired),,ON,1934226,BLACKSTOME,499.99,100,399.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1934708,DJ & A PICKLE - LICIOUS,9.79,2,7.79,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1940193,FOREST FOR CLIMATE,19.99,4,15.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario"
+price-point-only (expired),,ON,1950599,FOREST FOR CLIMATE,15.99,3.5,12.49,2026-09-28,2026-10-11,facebook_group,"London, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1986019,MOUNTAIN DEW,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (expired),,ON,1989013,ORIGINAL TWO-BITE,8.99,2,6.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,1995795,KASHI,19.99,4,15.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2001931,CUISINART,99.99,30,69.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario"
+price-point-only (expired),,ON,2015946,BOSCH,799.99,200,599.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario"
+price-point-only (expired),,ON,2035634,FORTY CREEK,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2054789,CAVENDISH,28.99,9,19.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (expired),,ON,2055024,ADIDAS,39.99,10,29.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2055570,CHEFMAN,99.99,20,79.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario"
+price-point-only (expired),,ON,2056928,KRAFT,11.49,2.5,8.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2059194,JULES DESTROOPER,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2059358,DUSO'S,11.99,3,8.99,2026-09-28,2026-10-11,facebook_group,"Mississauga & Oakville, Ontario"
+price-point-only (expired),,ON,2066438,LECLERC,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2067887,KHLOVD,13.99,3,10.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2227556,BETTER THAN BOUILLON,13.99,3,10.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2287780,BETTER THAN BOUILLON,13.99,3,10.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2287783,BETTER THAN BOUILLON,13.99,3,10.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,242470,SENSIBLE PORTIONS,8.99,2,6.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2486572,PEPSI ZERO SUGAR CHERRY 32 x 355 mL,16.99,3.5,13.49,2026-09-28,2026-10-11,instagram,"Markham, Ontario"
+price-point-only (expired),,ON,2773392,DOSE,39.99,10,29.99,2026-09-28,2026-10-11,facebook_group,"Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2887137,FICACCI,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,2919781,ZOA ENERGY,24.99,5,19.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,301883,CUISINE ADVENTURES,13.99,3,10.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,308636,CRUSH,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (expired),,ON,308937,OLIVIA,36.99,8,28.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,310062,PEPSI 32 x 355 mL,16.99,3.5,13.49,2026-09-28,2026-10-11,instagram,"Markham, Ontario; Burlington, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,312448,VITA COCO,17.99,4,13.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,312787,DIET PEPSI,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,318527,MERCI,19.99,4,15.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,331385,PASTENE,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,334051,WHITE LINEN,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,358234,FONTAINE SANTÉ,7.99,2,5.99,2026-09-28,2026-10-11,facebook_group,"Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,392010,PEPPERIDGE FARMS,11.49,2.5,8.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,412,ORGANIC PEELED CARROTS,6.99,2,4.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario"
+price-point-only (expired),,ON,415262,HERBAMARE,9.79,2,7.79,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,432063,KIRKLAND SIGNATURE,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,458287,CRETOR'S,8.99,2,6.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,469627,FERRERO ROCHER,21.99,5,16.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,5056000,PREMIUM DESSERTS,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,5057003,RANA,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,5058003,BEEMSTER,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,5058010,ROYAL HOLLANDIA,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,5083333,ORGANIKA,34.99,7,27.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,5558298,FOODSAVER,129.99,40,89.99,2026-09-28,2026-10-11,facebook_group,"London, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,5558566,PAUL BRASSAC ORGANIC,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,83345,LEMONS,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (expired),,ON,919922,BROOKSIDE,13.99,3,10.99,2026-09-28,2026-10-11,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,35954,PILLER'S,14.99,3,11.99,2026-10-09,2026-10-13,facebook_group,"London, Ontario"
+claimable,,ON,2224266,SCOTTS TURF BUILDER,49.99,10,39.99,2026-10-09,2026-10-14,facebook_group,"London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (conflict),"two different prices for the same SKU, province and expiry in the muse file",ON,2942699,NESTLE,27.99,7.5,20.49,2026-10-09,2026-10-14,facebook_group,"Burlington, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (conflict),"two different prices for the same SKU, province and expiry in the muse file",ON,2942699,NESTLE,27.49,7.5,19.99,2026-10-09,2026-10-14,facebook_group,"Toronto, Ontario"
+claimable,,ON,1323461,STEAM WHISTLE PILSNER,46.99,3,43.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1415846,COORS ORIGINAL,74.99,4,70.99,2026-10-09,2026-10-18,facebook_group,"London, Ontario"
+claimable,,ON,1722180,FREYBE,23.99,5,18.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+claimable,,ON,1768199,LIFETIME,399.99,100,299.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario"
+claimable,,ON,1872053,SPARKLING ICE,23.99,5,18.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario"
+claimable,,ON,1902176,PRANA,12.99,3,9.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,195047,SENSIBLE PORTIONS,7.49,2,5.49,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Toronto, Ontario"
+claimable,,ON,1999688,MILLER LITE,79.99,4,75.99,2026-10-09,2026-10-18,facebook_group,"Mississauga & Oakville, Ontario"
+claimable,,ON,2021985,BEAU'S BARN BURNER,46.99,3,43.99,2026-10-09,2026-10-18,facebook_group,"Mississauga & Oakville, Ontario"
+claimable,,ON,2034361,ROYAL ASIA,24.99,6,18.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,2430233,FENNEC,15.99,4,11.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,319262,CANADIAN,86.99,5,81.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,3449587,WINIX,189.99,40,149.99,2026-10-09,2026-10-18,facebook_group,"London, Ontario; Toronto, Ontario"
+claimable,,ON,361811,COORS LIGHT,84.99,4,80.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,3663109,CORONA,36.99,8,28.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,4919,PIZZELLE,7.99,2,5.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,5555023,SPARKLING ICE,23.99,5,18.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,5756101,RW GARCIA,11.49,2.5,8.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,67237,CANTALOUPE,5.99,2,3.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,9983271,AMOS PEELERZ,13.99,3,10.99,2026-10-09,2026-10-18,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1477487,MCCAFÉ,54.99,12,42.99,2026-10-09,2026-10-23,facebook_group,"Toronto, Ontario"
+claimable,,ON,2047885,LIQUID I.V.,39.99,10,29.99,2026-10-09,2026-10-23,facebook_group,"Toronto, Ontario"
+claimable,,ON,1154953,KIRKLAND SIGNATURE,15.99,4,11.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1208941,LOTUS BISCOFF,11.99,3,8.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1210029,MINH,13.99,4,9.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1359722,KFI,9.99,2,7.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1373299,CAMPBELL'S,11.99,2.5,9.49,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1400953,SIMPLE MILLS,12.99,3,9.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1412124,QUAKER,11.99,3,8.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1477486,MCCAFE,54.99,12,42.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1477487,MCCAFÉ,54.99,12,42.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (conflict),differs from the official coupon price 9.49,ON,1670109,RESER'S,11.49,2.5,8.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1696237,RUFFLES,7.99,2,5.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1759,TETLEY,13.99,3,10.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1874356,PURAVIDA,18.99,4,14.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,1896304,KITCHENAID,24.99,5,19.99,2026-09-28,2026-10-25,facebook_group,"London, Ontario; Toronto, Ontario"
+claimable,,ON,1933211,WITOR'S ASSORTED,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,2001954,LIQUID I.V.,39.99,10,29.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,2003250,GOOD PROTEIN,79.99,16,63.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+claimable,,ON,2003251,GOOD PROTEIN,79.99,16,63.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,2027032,CONTIGO,29.99,6,23.99,2026-09-28,2026-10-25,facebook_group,"London, Ontario"
+claimable,,ON,2047881,LIQUID I.V.,39.99,10,29.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+claimable,,ON,2047885,LIQUID I.V.,39.99,10,29.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+claimable,,ON,2053060,DYSON,679.99,180,499.99,2026-09-28,2026-10-25,facebook_group,"London, Ontario; Toronto, Ontario"
+claimable,,ON,2062406,DELICI,13.99,3,10.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,2071606,GODIVA CHOCOLATE,18.99,6,12.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,2255333,WELL,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,2691346,CUISINART,69.99,15,54.99,2026-09-28,2026-10-25,facebook_group,"London, Ontario"
+claimable,,ON,2743223,CADBURY,19.99,4,15.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,2993392,NINJA,199.99,40,159.99,2026-09-28,2026-10-25,facebook_group,"London, Ontario; Toronto, Ontario"
+claimable,,ON,301572,SABATASSO'S,17.99,4,13.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,438342,WHOLLY GUACAMOLE,15.99,4,11.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,4440923,SIMPLY PROTEIN,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+price-point-only (conflict),differs from the official coupon price 14.99,ON,5057007,GIOVANNI RANA,18.99,5,13.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,525,CARNATION,16.99,4,12.99,2026-09-28,2026-10-25,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario"
+claimable,,ON,2027032,CONTIGO,29.99,6,23.99,2026-10-09,2026-10-29,facebook_group,"Toronto, Ontario"
+claimable,,ON,314786,OYSTER BAY,17.99,2,15.99,2026-10-09,2026-10-30,facebook_group,"Toronto, Ontario"
+claimable,,ON,2047881,LIQUID I.V.,39.99,10,29.99,2026-10-09,2026-10-31,facebook_group,"Toronto, Ontario"
+claimable,,ON,2086483,NICKEL BROOK SUMMER PK,54.99,5,49.99,2026-10-09,2026-11-08,facebook_group,"Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario"
+price-point-only (markdown),,ON,1907640,SMEG 1.5 cu. ft. Black Mini Fridge (FAB5URDOVOB3),799,299.03,499.97,2026-10-09,,instagram_markdown,"Newmarket, Ontario"
+price-point-only (markdown),,ON,7477004,Apple AirPods 4th Generation with Noise Cancelling (ANC),239.99,51.02,188.97,2026-10-09,,instagram_markdown,"Guelph, Ontario"
+price-point-only (expired),,QC,1774179,DOWNY LIGHT PERLES PARFUMÉES,24.99,5,19.99,2026-09-28,2026-10-11,instagram,Quebec
+price-point-only (expired),,QC,2005140,"MIDEA MINIPLUS LAVE-VAISSELLE DE COMPTOIR, BLANC",299.99,60,239.99,2026-09-28,2026-10-11,instagram,Quebec
+price-point-only (expired),,QC,5558298,FOODSAVER SYSTÈME D’EMBALLAGE,129.99,40,89.99,2026-09-28,2026-10-11,instagram,Quebec
+claimable,,QC,2036821,HOUSE OF MARLEY ÉCOUTEURS REBEL NOIR,99.99,20,79.99,2026-10-09,2026-10-15,instagram,Quebec
+claimable,,QC,2036825,HOUSE OF MARLEY ÉCOUTEURS REBEL CRÈME,99.99,20,79.99,2026-10-09,2026-10-15,instagram,Quebec
+claimable,,QC,2080899,BEATS STUDIO PRO,248.04,20,228.04,2026-10-09,2026-10-15,instagram,Quebec
+claimable,,QC,6670340,SAMSUNG MONTRE WATCH8 CLASSIC 46 MM NOIR,697.99,175,522.99,2026-10-09,2026-10-15,instagram,Quebec
+claimable,,QC,6670383,SAMSUNG MONTRE GALAXY8 40 MM NOIR,447.99,80,367.99,2026-10-09,2026-10-15,instagram,Quebec
+claimable,,QC,1442900,"SAMSUNG MONITEUR DE JEUX, 32PO LS32CG550ENXZA",269.99,70,199.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,1474938,COLGATE PRO-RELIEF DENTIFRICE 4 X 120 ML,18.99,4,14.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,1671616,DEWALT ASPIRATEUR HUMIDE/SEC,99.99,20,79.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,1730860,AVEENO LOTION HYDRATANTE,21.99,5,16.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,1894921,DEWALT CAPACITÉ DE 3 TONNES CRIC HYDRAULIQUE,179.99,40,139.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,1901557,BERKSHIRE JETÉ CHAUFFANT,44.99,10,34.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,1931258,AVEENO APAISANT NETTOYANT CORPOREL,19.99,5.5,14.49,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,1992291,NINJA CRISPI SYSTÈME DE CUISSON PORTATIF,199.99,40,159.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,2027032,CONTIGO GOBELETS DE VOYAGE,29.99,6,23.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,2040480,LOLE JOGGEUR EN POLAIRE +TAILLES HOMMES P-TTG,24.99,5,19.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,2040560,LOLE CHANDAIL À CAPUCHON,29.99,7,22.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,2047885,LIQUID I.V. VARIÉTÉ D’HYDRATATION,39.99,10,29.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,2048787,SAMSUNG ENCEINTE SOUND TOWER MX-ST4CF,399.99,100,299.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,2053060,DYSON NETTOYAGE + LAVAGE,679.99,180,499.99,2026-09-28,2026-10-25,instagram,Quebec
+price-point-only (conflict),differs from the official coupon price 999.99,QC,2091237,SAMSUNG 14″ GALAXY BOOK6 740VJK-KG2CA,1150.59,150,1000.59,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,2691346,CUISINART GRILLE-PAIN,69.99,15,54.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,2785880,DIAPER GENIE EASY ROLL RECHARGE,28.99,7,21.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,3186011,BREATHE RIGHT BANDELETTES NASALES PAQUET DE 72,27.99,6,21.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,366500,SOFTSOAP SAVON HYDRATANT,14.99,3.5,11.49,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,408123,HYDRASENSE JET MOYEN 2 X 210 ML,27.99,6,21.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,5278175,BLISTEX BAUMES À LÈVRES PAQUET DE 9,18.99,4,14.99,2026-09-28,2026-10-25,instagram,Quebec
+price-point-only (conflict),differs from the official coupon price 1094.99,QC,5707285,SAMSUNG 85M72H CLASSE 85 PO (84.5 PO) TELE MINI-DEL 4K UHD,1316.09,200,1116.09,2026-09-28,2026-10-25,instagram,Quebec
+price-point-only (conflict),differs from the official coupon price 1494.99,QC,5758565,SAMSUNG 65S85H CLASSE 65 PO (64.5 PO) TÉLÉ OLED 4K,2015.99,500,1515.99,2026-09-28,2026-10-25,instagram,Quebec
+claimable,,QC,8777237,SAMSUNG GALAXY A37 128 GO NOIR,598.99,150,448.99,2026-09-28,2026-10-25,instagram,Quebec
+price-point-only (expired),,SK,1150,BEATRICE,5.79,1,4.79,2026-10-09,2026-10-10,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1886408,HANNAH,16.99,3.5,13.49,2026-10-09,2026-10-10,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,448,BEATRICE,5.79,1,4.79,2026-10-09,2026-10-10,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1022898,NONNA PIA'S,9.49,3,6.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,10256,NESCAFE RICH BLEND,15.99,3.5,12.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,10426,BARI,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1051897,RODELLE,19.99,5,14.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,107038,CHRISTIE,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1072687,VANILLA EXTRACT,14.99,2,12.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,107758,SANTA MARGHERITA,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1083313,MOLINAROS GINO BAMBINO,12.49,2.5,9.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,11124,DRAKE MEATS,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1114521,JAMESON,69.99,10,59.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1123546,FREYBE,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1153876,DR . PEPPER ZERO,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1156121,BOURSIN,13.49,3.5,9.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1162180,AJINOMOTO,24.99,7,17.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1178208,HEINZ,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1253037,LE CHEF,13.99,4,9.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,128888,KELLOGG'S,10.99,2.5,8.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1331706,NESTLE,24.99,5,19.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,14094,MOTT'S,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1486572,PEPSI ZERO,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1493268,JACKSON TRIGGS,34.99,5,29.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,15099,GOLDEN PINEAPPLE,6.49,1.5,4.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1566195,CHEF ROBERT IRVINE'S,29.99,10,19.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1610330,BOURSIN,13.49,3.5,9.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1720359,DARE,11.99,2.5,9.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1752051,APPLETON ESTATE,54.99,6,48.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1785028,DISNEY,69.99,15,54.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1788908,QUAKER,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1801478,KELLOGG'S,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1847427,TWIGZ BUTTERY HERB AND,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1851585,ANIMATED BUTLER,299.99,100,199.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1856048,44TH STREET,16.99,4,12.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,188420,DOLE GOLDEN PINEAPPLE,14.99,3.5,11.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1906811,ISOPURE CLEAR PROTEIN,99.99,20,79.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1929692,7FT POSEABLE SKELETON,99.99,20,79.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1929727,HALLOWEEN HANGING BAT,149.99,50,99.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1929739,WOODEN ADVENT,49.99,20,29.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1929771,4FT PUMPKIN WITH,199.99,50,149.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1934226,BLACKSTOME,499.99,100,399.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1955116,MUSH,19.99,4,15.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,2054789,CAVENDISH,28.99,9,19.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,2055024,ADIDAS,39.99,10,29.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,2067887,KHLOVD,13.99,3,10.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,2141192,MARS,23.99,5,18.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,216945,SKOTIDAKIS,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,2262,MONEY'S,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,2372538,BEATRICE,6.49,2,4.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,259629,OCEAN'S SOLID,17.49,4,13.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,262313,THE SNACK FACTORY,8.49,2,6.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,2908438,BIOSTEEL,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,308636,CRUSH,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,310062,PEPSI,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,312787,DIET PEPSI,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,3301967,RITZ,16.99,3.5,13.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,3337754,ROYAL ASIA,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,348200,TOBLERONE,18.99,4,14.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,359474,FRENCH'S,8.99,2,6.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,402498,AU PAIN DORE,16.99,4,12.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,463139,LAST MOUNTAIN,8.99,2,6.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,469627,FERRERO ROCHER,21.99,5,16.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,5051504,CONNIES,15.99,3.5,12.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,5055002,LA TERRA FINA,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,5057003,RANA,14.99,3,11.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,5408473,SOMETHING SPECIAL,10.99,3,7.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,5555333,ALANI NU,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,6069000,BOTHWELL,18.49,4,14.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,680,KRAFT,9.99,2,7.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,76124,DRAKE MEATS,12.99,3,9.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,8536244,CRUNCHMASTER,12.49,3,9.49,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,8888331,ALANI VARIETY V3,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,975400,SALT SPRING ORGANIC,24.99,5,19.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,9943119,BUILT PUFF,29.99,6,23.99,2026-09-28,2026-10-11,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,1658653,WELCH'S HALLOWEEN,17.99,3.5,14.49,2026-10-09,2026-10-12,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (expired),,SK,2060331,GOVEE,99.99,30,69.99,2026-10-09,2026-10-12,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,5058019,BOTHWELL,14.99,3,11.99,2026-10-09,2026-10-13,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1374017,CLIF BAR,26.99,5.5,21.49,2026-10-09,2026-10-14,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,2942699,NESTLE,27.99,8,19.99,2026-10-09,2026-10-14,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,425880,CHRISTIE,9.49,2,7.49,2026-10-09,2026-10-14,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1188673,PRESIDENT,10.99,2.5,8.49,2026-10-09,2026-10-15,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1419444,VERKA FOODS,39.99,3,36.99,2026-10-09,2026-10-15,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1391931,OLIVIERI,17.99,4,13.99,2026-10-09,2026-10-18,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1671205,NONNI'S,14.99,3,11.99,2026-10-09,2026-10-18,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1891998,PORTOFINO,8.49,2,6.49,2026-10-09,2026-10-18,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,3663109,CORONA,36.99,8,28.99,2026-10-09,2026-10-18,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,5008051,DONSUEMOR,13.49,3.5,9.99,2026-10-09,2026-10-18,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,5056000,PREMIUM DESSERTS,12.99,3,9.99,2026-10-09,2026-10-18,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,5555023,SPARKLING ICE,23.99,5,18.99,2026-10-09,2026-10-18,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,67237,CANTALOUPE,5.99,2,3.99,2026-10-09,2026-10-18,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,9983271,AMOS PEELERZ,13.99,3,10.99,2026-10-09,2026-10-18,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1134668,GENERAL MILLS,9.99,2,7.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1154953,KIRKLAND SIGNATURE,15.99,4,11.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1208941,LOTUS BISCOFF,11.99,3,8.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1210029,MINH,13.99,4,9.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1359722,KFI,9.99,2,7.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1373299,CAMPBELL'S,11.99,2.5,9.49,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1400953,SIMPLE MILLS,12.99,3,9.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1412124,QUAKER,11.99,3,8.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1477486,MCCAFE,54.99,12,42.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1477487,MCCAFÉ,54.99,12,42.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (conflict),differs from the official coupon price 9.49,SK,1670109,RESER'S,11.49,2.5,8.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1696237,RUFFLES,7.99,2,5.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1759,TETLEY,13.99,3,10.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1874356,PURAVIDA,18.99,4,14.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,1933211,WITOR'S ASSORTED,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,2001954,LIQUID I.V.,39.99,10,29.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,2003251,GOOD PROTEIN,79.99,16,63.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,2047881,LIQUID I.V.,39.99,10,29.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,2062406,DELICI,13.99,3,10.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,2071606,GODIVA CHOCOLATE,18.99,6,12.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,2255333,WELL,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,2743223,CADBURY,19.99,4,15.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,301572,SABATASSO'S,17.99,4,13.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,438342,WHOLLY GUACAMOLE,15.99,4,11.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,4440923,SIMPLY PROTEIN,19.99,5,14.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+price-point-only (conflict),differs from the official coupon price 14.99,SK,5057007,GIOVANNI RANA,18.99,5,13.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
+claimable,,SK,525,CARNATION,16.99,4,12.99,2026-09-28,2026-10-25,facebook_group,"Saskatoon, Saskatchewan"
