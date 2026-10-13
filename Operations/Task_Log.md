@@ -16,6 +16,22 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-13 — October receipts: prod datafix, missing receipt image, parser design rule (denoise first)
+
+- **Asked:** *"few receipts has been scanned in production … the main target now is to fix these receipts (datafix) in production, also one receipt dont have any receipt image or file stores why is that?"* — filter `admin_reviewed_at IS NULL`, October. Mid-task: **"October receipts" = purchase date** (memory rule); the parser design rule *"clean all the noise (French or English) first, then keep only … warehouse, items, taxes, subtotal and total … same structure same logic"* → document it for every future parser change; notify the shoppers that the receipts were reviewed and fixed, *"quality matters and we need the data just to the total"*, **reviewed by Maxim before sending**. Branch: asked → **`hotfix/october-receipts-datafix` off `main`** (`207393a`).
+- **Maxim's decisions:** `w0dv6` (duplicate re-scan of `3mq8x`) soft-deleted; `u8xbn` (shopper removed 2 lines on the review screen) restored to the paper; the 7 correct receipts stamped reviewed.
+- **Done (prod):** 5 receipts repaired by spec (dry run → `--write` → read back to the cent), `w0dv6` soft-deleted, 3 junk products deleted, 7 stamped reviewed. Notices #3–#5 drafted **pending** (not sent).
+- **Docs:** new `Technical/Receipt_Parser_Design_Rules.md` (standing rule, also in the app repo's `CLAUDE.md`); `Receipt_Parser_Root_Causes.md` (RC-4…14 index, 2026-10-13 cases, open cases O-1…O-3); runbook log; Bugs #319 (missing image: the PUT never lands — all 5 presigned-but-missing keys absent from R2).
+- **Not done / owed:** parser not changed (rework under the new design rule, next days); RC-4…14 full sections; the 19 exported captures not committed (need ground truth); `xzw9x` (Nepean, **September** purchase) is still wrong (stored 316.82 lines / 323.97 total vs printed 122.59 / 129.74) — out of the October scope; `ejx4g`'s photo recoverable from OCR capture #96 (offered).
+- **Status:** done — app PR + docs PR below.
+
+### 2026-10-12 — Receipt parser: consolidate every root cause, fix the parser at the root, repair every receipt that doesn't close
+
+- **Asked (/goal):** analyse the cloud sessions' new root-cause docs plus the parser's whole change history *"to avoid doing and undoing same problems in circles"*; the parser works only on a perfect scan, angle and zoom break it — *"fix the parser"*; two receipts from last night are bad, one is *"inaccessible in the app and have negative balance"* although R2 shows a purchase — *"fix also the data in production"*; rejecting a hopeless photo before OCR: *document only, later*. Branch not named → asked → **`fix/receipt-parser-root-causes` off `main`** (`c2b1990`).
+- **Maxim's decisions:** repair **every receipt since 10-09 that doesn't close** on its printed SOUS-TOTAL/TOTAL; `railway run -e production` allowed this session; Costco parser **and** the shared parsing files confirmed for change. This reverses the 2026-10-11 "document, don't fix" for the parser — Maxim asked for the fix.
+- **Docs merged first:** the cloud branches `claude/keen-ptolemy-xs8j5n` (#140, root-cause register) and `claude/trusting-mccarthy-u042o8` (#141, Saint-Jérôme #529) were never merged — now on `main`.
+- **Status:** app merged as Priceback #427 (`207393a`, RC-4/7/10/12 fixes, 3 prod repairs); this docs entry and `Technical/Receipt_Photo_Quality_Gate.md` were left uncommitted on the docs branch — committed with the 2026-10-13 PR. The RC-4…RC-14 sections were never written into the register (index added 2026-10-13; sections still owed).
+
 ### 2026-10-11 — New Vaudreuil receipt 509.15 for 480.15: root cause, prod datafix, admin "Fix automatically" button (Gemini)
 
 - **Asked:** *"new receipt arrived in production, (hotfix on main) find the root cause and document it in the new doc to optimize the parser then run a datafix in production to fix the receipt. is there also a way to add a button on the receipt review in admin console to fix the receipt automaticaly … (we can use Gemini LLM …)"*; mid-task: *"dont fix the parser document just the root cause"*; *"also document the cases with every root cause (new rule)"*. Branch: `claude/keen-ptolemy-xs8j5n` off `main` (`7b684c2`).

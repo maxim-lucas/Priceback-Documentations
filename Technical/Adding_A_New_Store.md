@@ -9,6 +9,11 @@ Store-neutral by design. Per-retailer specifics live in that retailer's own
 folder (`Technical/BestBuy/`, `Technical/Abercrombie/`, `Technical/SportChek/`),
 never here.
 
+> **A new store's receipt parser follows `Technical/Receipt_Parser_Design_Rules.md`** (standing rule, Maxim
+> 2026-10-13): read the identity (warehouse/store #, date), then remove ALL noise in every supported language
+> (header, member line, banners, payment, approval, footer), keep only the item block + totals block, extract,
+> verify. The store contributes its own noise vocabulary and block boundaries — not one-receipt branches.
+
 > **Why this exists.** PriceBack has added three non-Costco stores. Best Buy
 > (#2) needed a registry built from scratch, then a hardening pass that found
 > four defects its nine-receipt corpus never hit, then an audit eight days later

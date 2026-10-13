@@ -14041,3 +14041,32 @@ missing four items.
 - **Detect next time:** `select r.id from priceback.receipts r where r.status_id = 3 and r.deleted_at is null` — rejected
   receipts that are live. A refused receipt must never be `watching` (`policy_status_id = 1`).
 - **Prevent:** tests `syncService`, `receiptsScreen.smoke`, `detailScreen.smoke` (each mutation-checked).
+
+
+## 319. A receipt with no photo again — after #396's retries — and the October receipts review (2026-10-13)
+
+- **Symptom:** `r_1791853201148_ejx4g` (Barrhaven #1263, Android 3.0.6, scanned 2026-10-13 01:00 UTC) has
+  `image_object_key` NULL. Maxim: *"one receipt don't have any receipt image or file stored, why is that?"*
+- **What is proven:** the server presigned the upload (`object_retention` #331 at 01:00:01.6, 0.25 s after the receipt
+  row), and **the object is not in R2** (`NoSuchKey`, read 15 h later). So the device's PUT to R2 never landed — not
+  merely the `/image-uploaded` confirm. The same account's other three receipts of that session (00:58, 01:00:58,
+  01:07) uploaded fine. The photo itself reached us: OCR captures #95–#98 hold it (1200 px + 2000px). Its photo went
+  through OCR **twice** (c95 = c97 and c96 = c98 byte-identical): the shopper re-scanned the same image.
+- **Same shape, all five presigned-but-missing receipts in prod:** `s4wle` (08-31), `xwmjh` (09-02), `wtm8l` (09-29),
+  `0l4w3` (10-03), `ejx4g` (10-13) — every one presigned, **none** has its object in R2. This closes #306's owed
+  check: it is always the PUT, never only the confirm. `ejx4g` is the first since #396 (in-session retry 30 s / 2 min /
+  10 min + foreground drain, shipped in 3.0.6), so the retries did not land it either.
+- **Not yet proven — the leading hypothesis:** the re-scan left the receipt's `imageUri` on a file that no longer
+  existed when the upload ran (the retry then classifies `file_missing` as terminal and stops). The device reports
+  the stage: `receipt_document_upload_failed {stage, status, attempt}` lands in `$DATA_DIR/analytics-2026-10-13.log`
+  on the prod volume — read it around 01:00 UTC (`railway ssh -e production` needs an SSH key on this PC; none is
+  set up). `stage: file_missing` confirms the hypothesis; `put` + a status says R2 refused it.
+- **Recoverable:** the 2000 px capture (`prod/ocr-captures/112683259961594767923/20261013T005917-149a0a8216228ac9.jpg`)
+  could be copied to the receipt's key and recorded — offered to Maxim, not done.
+- **Same session — October receipts review (datafix, prod):** 13 live receipts with an October purchase date and no
+  admin review; 7 right, stamped reviewed; `7yckq`, `ejx4g`, `szw1y`, `u8xbn`, `eql4t` repaired by spec
+  (`repairBadScanReceipt.js`, dry run then `--write`, read back to the cent); `w0dv6` soft-deleted as a duplicate scan of
+  `3mq8x`; 3 junk products from truncated SKUs deleted. Root causes and open cases:
+  `Technical/Receipt_Parser_Root_Causes.md` (2026-10-13 section). Shopper notices #3–#5 drafted, pending approval.
+- **Detect next time:** `select r.id from priceback.receipts r join priceback.object_retention o on o.object_key like
+  'prod/receipts/'||r.user_sub||'/'||r.id||'.%' where r.image_object_key is null` — presigned, never stored.
