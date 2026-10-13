@@ -16,6 +16,12 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-13 — Admin notification approvals: review, edit and send in the shopper's language only
+
+- **Asked:** *"the notifications in the admin console can be approved but only sent based on the user language not both languages … in the future I want the notification to be generated for review based on the language only always"*. Branch asked → **`feat/notifications-per-language` off `main`**.
+- **Done:** `GET/POST /api/admin/notification-approvals*` items now carry `language` (the shopper's) and `preview`/`defaults` for that language only; `/copy` accepts only that language (400 otherwise). Desk screen unchanged (renders whatever `preview` holds). Standing rule saved to memory (`notifications-generated-per-language`). Old admin builds: additive (fewer preview keys, same shapes).
+- **Status:** PR open, not merged (a merge deploys the backend to prod).
+
 ### 2026-10-13 — October receipts: prod datafix, missing receipt image, parser design rule (denoise first)
 
 - **Asked:** *"few receipts has been scanned in production … the main target now is to fix these receipts (datafix) in production, also one receipt dont have any receipt image or file stores why is that?"* — filter `admin_reviewed_at IS NULL`, October. Mid-task: **"October receipts" = purchase date** (memory rule); the parser design rule *"clean all the noise (French or English) first, then keep only … warehouse, items, taxes, subtotal and total … same structure same logic"* → document it for every future parser change; notify the shoppers that the receipts were reviewed and fixed, *"quality matters and we need the data just to the total"*, **reviewed by Maxim before sending**. Branch: asked → **`hotfix/october-receipts-datafix` off `main`** (`207393a`).
