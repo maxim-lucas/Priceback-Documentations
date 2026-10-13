@@ -1,7 +1,7 @@
 {
-  "_note": "Costco Business Centre 'Warehouse Instant Savings' (costcobusinesscentre.ca/o/-/warehouse-instant-savings), 2-WEEK cycle, extracted with Claude in Chrome on 2026-10-13 while viewing the Ontario warehouse offers. Region ON only: the page is regional and other provinces were not checked. Prices are Business Centre warehouse prices. 3 tiles print a saving but no price (2 sold by weight 'PER UNIT', 1 Kraft dressing) and are listed in unpricedOffers, never imported as prices. promoPrice = regularPrice - instantSavings.",
-  "region": "ON",
-  "batchKey": "costco-business-2026-10-12-ON",
+  "_note": "Costco Business Centre 'Warehouse Instant Savings' (costcobusinesscentre.ca/o/-/warehouse-instant-savings), 2-WEEK cycle, extracted with Claude in Chrome on 2026-10-13 while viewing the Ontario warehouse offers. Maxim confirmed the Business Centre savings apply across Canada, so every item is stored once and imported for ALL 13 provinces (ON was imported first under batch costco-business-2026-10-12-ON; the other 12 provinces under ...-ALL, duplicates skipped). Prices are Business Centre warehouse prices. 3 tiles print a saving but no price (2 sold by weight 'PER UNIT', 1 Kraft dressing) and are listed in unpricedOffers, never imported as prices. promoPrice = regularPrice - instantSavings.",
+  "region": "ALL",
+  "batchKey": "costco-business-2026-10-12-ALL",
   "source": "costco-business-coupons",
   "country": "Canada",
   "channel": "business-warehouse",
