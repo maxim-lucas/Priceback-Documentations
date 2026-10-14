@@ -499,12 +499,12 @@ the digits, O-2).
 
 | Receipt | Store | Scanned | Build | Lost | Status |
 |---|---|---|---|---|---|
-| `r_1791974178660_9zj1r` | Montreal #515 (PDF) | 2026-10-14 | not recorded | The SKU 1607671 of PISTACHES SP 13.99 | Repaired 2026-10-14 (SQL); *covered by the PR below* |
+| `r_1791974178660_9zj1r` | Montreal #515 (PDF) | 2026-10-14 | not recorded | The SKU 1607671 of PISTACHES SP 13.99 | Repaired 2026-10-14 (SQL); *covered by Priceback #436* |
 
 **Fix (applied, Costco only).** `joinNameAboveShortTailSkuRow` (Costco preprocess, `costcoReceiptParser.js`): a row
 made of an item number, one or two letters and an amount takes the name on the row above. The row above must be
 capitals only, with no digit and no register word. The shared engine's length rule is unchanged. The fix is in the
-Priceback PR stacked on #432.
+Priceback PR #436 (first merged as #435 into #432's branch after #432 had landed).
 
 ---
 
