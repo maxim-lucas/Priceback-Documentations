@@ -129,6 +129,8 @@ locked** — ships with the next binary; old builds keep the behaviour (it is cl
 | `r_1791646028977_4jfke` | Québec #503 | 2026-10-10 | 3.0.5 | 75.80 / 76.08 (fee rows deleted on the review screen) | Repaired 2026-10-10 (Bugs #316). |
 | `r_1791693864226_r06sa` | Vaudreuil #1213 | 2026-10-11 | 3.0.5 / 3.0.6 | 509.15 / 480.15 (RC-1 + RC-2) | Repaired 2026-10-11. |
 | `r_1791896364317_u8xbn` | Sherbrooke #1367 | 2026-10-13 | iOS 3.0.6 | 1261.29 / 1315.27 — the parse was right (4 lines, 1143.96); the shopper removed 2 lines on the review screen and the screen re-derived the total | Restored to the paper 2026-10-13 (Maxim). |
+| `r_1791931739349_fpnqe` | Sainte-Foy #516 | 2026-10-13 | iOS ≤ 3.0.6 | 78.95 / 85.94 (= 4 stored lines + tax; PAIN HAMB. lost, RC-23) | Repaired 2026-10-14 (SQL). |
+| `r_1791933620723_g7ntk` | Nepean #540 | 2026-10-13 | iOS ≤ 3.0.6 | 310.82 / 306.82 (= 16 stored lines + tax; CAD MILK's coupon lost, RC-22) | Repaired 2026-10-14 (SQL). |
 
 **Server-side gap (not applied).** The server could flag (not change) a receipt whose stored total differs from the
 TOTAL in its `raw_ocr`; the admin desk's *Fix automatically* button already performs that comparison on demand.
@@ -145,7 +147,7 @@ each.**
 | RC | Shape | Cases | Status |
 |---|---|---|---|
 | RC-4 | Footer `IMPORTANT - conserver cette copie` cleaned to a lone `-` under `**** TOTAL 445.23`; `detectRefund` read it as a trailing-minus refund total, every price negated | `3mq8x` | Fixed #427 (not in any binary yet) |
-| RC-5 | The validator back-computes **tax = printed TOTAL − Σ lines**, discarding the TAXE it read, whenever lines are lost | `mebfs`; **`ejx4g`, `w0dv6` (2026-10-13)** | Open |
+| RC-5 | The validator back-computes **tax = printed TOTAL − Σ lines**, discarding the TAXE it read, whenever lines are lost | `mebfs`; **`ejx4g`, `w0dv6` (2026-10-13)**; **`t09q9` (2026-10-14)**: FLATWARE's 15.00 coupon lost (RC-20), stored tax 4.23 for the printed 19.23, so the receipt *looked* closed | Open |
 | RC-6 | Coupon reference with a SKU digit dropped (`0000393334/991230` for 9911230) matches no item | `mebfs` | Open |
 | RC-7 | Mid-receipt `SOUS-TOTAL / TAXE / TOTAL / Comptant 0,00` block ends item extraction | `mebfs`, `p2s1a` | Fixed #427 |
 | RC-8 | One tilted band of the page loses rows with their coupons (CREVETTES, ALLEGRO, 27.56) | `3mq8x` c83 | Fixed by RC-12 (#427) |
@@ -332,6 +334,146 @@ label. The flat text keeps `T-FAL` as one token and is right.
 
 **Proposed parser change (not applied).** Re-join `X - Y` to `X-Y` when the three words touch (no gap wider than a
 character) before cleaning the name, and never strip a lone letter followed by a hyphen.
+
+---
+
+## 2026-10-14 · three receipts scanned on the evening of 2026-10-13 — cases
+
+Selection (Monica): scanned 2026-10-13 (local), `admin_reviewed_at IS NULL`, not expired (`policy_status` ≠ expired),
+not deleted. Exactly three. The OCR captures (R2) are not reachable from a cloud session, so each was replayed from
+`receipts.raw_ocr` (flat text, header from `header_ocr` put back) through `parseCostcoReceipt` on **v3.0.6** and on
+`main` (`fe53090`) — both give the same result — and each blamed shape was neutralised alone in the input.
+
+| Receipt | Store | Purchase · scanned | Paper (subtotal + tax = total) | Stored | What was wrong | Cause |
+|---|---|---|---|---|---|---|
+| `r_1791931739349_fpnqe` | Sainte-Foy #516 (QC) | 10-13 · 10-13 | 78.45 + 7.49 = 85.94 | 4 lines, 71.46 + 7.49 = 78.95 | `77264 PAIN HAMB. 6.99` lost — a KOHLER installation leaflet lay on the receipt and its text streamed between the item row and its price | RC-23 + RC-3 |
+| `r_1791933620723_g7ntk` | Nepean #540 (ON) | 10-09 · 10-13 | 288.82 + 18.00 = 306.82 | 16 lines, 292.82 + 18.00 = 310.82 | BEYOND BURGE ×3 stored as QT 2 + a separate "Unknown item" QT 1 (catalogue product 5338620 renamed "Unknown item"); CAD MILK MIN's 4.00 coupon lost; KS VIT D flagged couponed (it is not) | RC-21 + RC-22 + RC-3; RC-24 found on the replay |
+| `r_1791933708024_t09q9` | Gloucester #1362 (ON) | 09-16 · 10-13 | 188.79 + 19.23 = 208.02 | 8 lines, 203.79 + **4.23** = 208.02 | 60PC FLATWRE's 15.00 coupon lost; the validator then back-computed the tax so the receipt looked closed | RC-20 + RC-5 |
+
+**Replay fidelity.** `t09q9` reproduces the stored lines exactly. `g7ntk` reproduces both blamed symptoms exactly (the
+SKU-less "Unknown item" 18.99 beside BEYOND BURGE QT 2; CAD MILK at 19.99) but the flat replay also loses GAP JOGGER
+(RC-24), which the shopper's geometry parse kept. `fpnqe`'s flat replay keeps the 6.99 but under the leaflet line
+`• Patents: kohl`; the geometry parse lost it altogether. Both differences are the geometry path, which only the
+capture can replay.
+
+**Repairs** (2026-10-14 ~01:50 UTC, in-place SQL through the Supabase connector, guarded `DO` blocks, on Monica's
+go-ahead "if it match to the cent"): lines, price points (paid / regular / on sale), total or tax,
+`admin_reviewed_at`, the watch-registry entries, product 5338620 renamed back to `BEYOND BURGE`, product 77264
+`PAIN HAMB.` created. `g7ntk`'s extra burger line was **soft-deleted** the way the app removes a line
+(`receiptsRepo.softDeleteItemForUser`; its 18.99 price point kept) — a hard `DELETE` through the connector waits on a
+confirmation prompt that does not reach a project thread. Verified after: 85.94 / 306.82 / 208.02, each Σ lines + tax
+to the cent. The R2 photos were not re-read (the connector has no object read); the proof is each paper's own
+printed SUBTOTAL / TAX / TOTAL. `skip_parser_optimization`
+left false (readable photos, parser faults). SQL committed for the record:
+`backend/data/bad-scan-repairs/2026-10-14-three-receipts.sql` (Priceback).
+
+**Parser fix:** Priceback PR #432 "receipts: five parser root causes from the 2026-10-13 scans (RC-20 … RC-24)" — every
+rule below is a denoise / normalisation step before extraction (design rules §2 step 2), none is a branch in the
+extractor. All three receipts then close to the cent on the flat replay; the receipt test corpus is unchanged
+(3392 tests).
+
+## RC-20 · A coupon for an item whose name opens with digits is never resolved
+
+**Printed shape.** `1177820 60PC FLATWRE` / `69.99 H` / `0000389077 /1177620` / `15.00- H` — the coupon's reference
+read with one digit wrong (8 → 6).
+
+**What goes wrong.** `resolveDigitMisreadCouponRefs` (`costcoReceiptParser.js`, #416 `8324e9f`, first in v3.0.6)
+rewrites a one-digit-off reference to the only item number on the receipt it can be. Its candidate list is built with
+`PRINTED_ITEM_SKU = /^\s*(\d{3,8})\s+(?!TPD|CPN)[A-Z]/` — a name must start with a **letter**, so `60PC FLATWRE`'s
+1177820 was never a candidate, the reference stayed `/1177620`, the coupon matched nothing and was dropped.
+
+**Proof.** Replay of `t09q9` (v3.0.6 and `main`) reproduces the 8 stored lines exactly (Σ 203.79). Changing only
+`/1177620` → `/1177820` in the input: FLATWRE 54.99 (op 69.99), Σ 188.79 = SOUS-TOTAL, + 19.23 = 208.02.
+
+**Blast radius (prod, 2026-10-14):** receipts with a digit-led item name: `qvs25`, `5clwk`, `t09q9`, `x850x`. Only a
+coupon whose reference is *also* misread is affected; `t09q9` is the only one found.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1791933708024_t09q9` | Gloucester #1362 | 2026-10-13 | iOS ≤ 3.0.6 | FLATWRE's 15.00- (and the tax, via RC-5) | Repaired 2026-10-14 (SQL); *covered by the PR above* |
+
+**Fix (applied).** The candidate test accepts digits then a letter in the first word (`\d*[A-Z]`).
+
+## RC-21 · A stray bracket glued to the item number: the row loses its SKU
+
+**Printed shape.** Three identical rows `5338620 BEYOND BURGE 18.99`, the third read `5338620) BEYOND BURGE`.
+
+**What goes wrong.** No item pattern reads `5338620)` as a SKU, so the row became a SKU-less `Unknown item` 18.99 and
+`pushOrMergeItem` (which folds identical SKUs into one line, QT n) could not merge it: QT 2 + QT 1 instead of one
+line QT 3. In prod the SKU was later attached to the "Unknown item" line, so catalogue product 5338620 was renamed
+`Unknown item` (last writer wins).
+
+**Proof.** Removing only the `)`: one line `BEYOND BURGE` QT 3, 56.97.
+
+**Blast radius (prod):** `g7ntk` only.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1791933620723_g7ntk` | Nepean #540 | 2026-10-13 | iOS ≤ 3.0.6 | The QT 3 grouping; the product's name | Repaired 2026-10-14 (SQL); *covered by the PR above* |
+
+**Fix (applied).** `dropSkuStrayBracket`: a `)`, `]`, `}` or `|` directly after a 3–8 digit number at the start of a
+row, before a name, is dropped.
+
+## RC-22 · A coupon amount read with a second minus (`4.00- -`)
+
+**Printed shape.** `0000390137 /2743223` / `4.00- -`.
+
+**What goes wrong.** Every coupon pattern wants the amount, one minus and at most a tax flag; the extra `-` made the
+amount line unreadable, so CAD MILK MIN kept its full 19.99.
+
+**Proof.** Replacing `4.00- -` by `4.00-` alone: CAD MILK 15.99 (op 19.99), 4.00 closer to the subtotal.
+
+**Blast radius (prod):** `g7ntk` only.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1791933620723_g7ntk` | Nepean #540 | 2026-10-13 | iOS ≤ 3.0.6 | CAD MILK MIN's 4.00- | Repaired 2026-10-14 (SQL); *covered by the PR above* |
+
+**Fix (applied).** `collapseDoubledAmountMinus`: a run of minus signs after an amount at the end of a row is one.
+
+## RC-23 · Text from another document in the photo reaches the item block
+
+**Printed shape.** A product leaflet (KOHLER faucet installation sheet) lying on the receipt. Vision streams its
+fragments (`VE THESE I`, `ovided Tools`, `a. Thread Seal`, `USA/Canada`, `• Patents: kohl`, …) between
+`77264 PAIN HAMB.` and its price `6.99`.
+
+**What goes wrong.** Nothing removed the leaflet: the leaflet line right above the price took it (flat path), or the
+item was lost (the shopper's geometry parse). A Costco register prints in capitals only, so lower-case prose inside
+the item block is never the receipt's.
+
+**Proof.** Removing only the leaflet lines between the item row and its price: 5 lines, 78.45 = SOUS-TOTAL, + 7.49 =
+85.94.
+
+**Blast radius:** not measured — the shape (prose lines inside the item block) has no cheap SQL signature; `fpnqe` is
+the case found.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1791931739349_fpnqe` | Sainte-Foy #516 | 2026-10-13 | iOS ≤ 3.0.6 | PAIN HAMB. 6.99 (and the total, via RC-3) | Repaired 2026-10-14 (SQL); *covered by the PR above* on the flat path; the geometry path is unproved without the capture |
+
+**Fix (applied).** `dropForeignDocumentLines` (Costco denoise): inside the item block — first all-capitals item row to
+the first totals label — a row with a lower-case word, no amount, no leading item number and no coupon reference is
+dropped, and so is any amount-less, SKU-less row touching a dropped one (`VE THESE I`). Header and footer are left to
+their own cleanup.
+
+## RC-24 · An item named like another store (`GAP JOGGER`) never takes its price
+
+**Printed shape.** `1896543 GAP JOGGER` / `24.99` (flat text, name and price on two rows).
+
+**What goes wrong.** The engine pairs a name row with the price under it only if the row is not a store's name
+(`isStoreName`, `receiptParsingShared.js`). Old Navy's detection pattern `/\bgap\b/` matched, so the row was skipped,
+the 24.99 went unread and the `/MULTIPLE 5.00-` under it landed on KS VIT D. Any item word in a store pattern
+(`RONA`, `IKEA`, `STAPLES`, `ROLLBACK`, …) does the same.
+
+**Proof.** The `g7ntk` flat replay with RC-21/RC-22 neutralised is 24.99 short with GAP JOGGER missing; with the fix,
+288.82 to the cent. The shopper's geometry parse (name and price on one row) was not hit, so this receipt's stored
+GAP JOGGER line was right.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1791933620723_g7ntk` (flat replay only) | Nepean #540 | 2026-10-13 | — | GAP JOGGER 24.99 on the flat path | *Covered by the PR above* |
+
+**Fix (applied, shared code).** `isStoreName` returns false for a row led by an item number.
 
 ---
 
