@@ -475,6 +475,37 @@ GAP JOGGER line was right.
 
 **Fix (applied, shared code).** `isStoreName` returns false for a row led by an item number.
 
+## RC-25 · A one- or two-letter name tail on the SKU row loses the SKU
+
+**Printed shape.** A Quebec digital receipt (PDF) prints `1607671 PISTACHES SP 13.99 N`. Vision set the name's first
+word a row higher, so the geometry rows read `PISTACHES` / `1607671 SP 13.99 N`. The same receipt's
+`PAPRIKA` / `1300891 FUMÉ 6.99 N` has the same shape with a longer tail.
+
+**What goes wrong.** Every item pattern in `tryExtractItem` (`receiptParsingShared.js`) wants a name longer than two
+characters, so `1607671 SP 13.99 N` is not an item. Its price goes to the orphan `PISTACHES` row above, and the SKU
+and the `SP` are lost. The server then filed the line under a line-only product (`ln:<receipt>:3`) instead of the
+catalogue's 1607671 (product 7556, Pistì Spreadable Pistachio Cream 600 g). A tail of three letters or more
+(`FUMÉ`) reads correctly, so the receipt still closed and nothing flagged it. The length rule has been in place since
+the engine's first item patterns, so this is not a regression.
+
+**Proof.** The Vision capture sits in R2 and isn't reachable from a cloud session, so the rows were rebuilt from
+`raw_ocr` in print order. Of seven candidate row shapes, only `PISTACHES` / `1607671 SP 13.99 N` reproduces the stored
+lines exactly: `PISTACHES` with no SKU *and* `PAPRIKA FUMÉ` with 1300891. With only `SP` lengthened to `SPX`, the line
+reads `1607671 PISTACHES SPX`. With the fix, 9 lines close to Total Partiel 102.88, Taxes 0.00, TOTAL 102.88.
+
+**Blast radius (prod):** `9zj1r` only. Every non-fee line-only (`ln:`) product on receipts bought since 2026-09-14
+was checked: the other two are `tl5wo` (`854342 MDIET COKEM*`, a different shape) and `szw1y` (QUAIL EGGS, ink over
+the digits, O-2).
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1791974178660_9zj1r` | Montreal #515 (PDF) | 2026-10-14 | not recorded | The SKU 1607671 of PISTACHES SP 13.99 | Repaired 2026-10-14 (SQL); *covered by the PR below* |
+
+**Fix (applied, Costco only).** `joinNameAboveShortTailSkuRow` (Costco preprocess, `costcoReceiptParser.js`): a row
+made of an item number, one or two letters and an amount takes the name on the row above. The row above must be
+capitals only, with no digit and no register word. The shared engine's length rule is unchanged. The fix is in the
+Priceback PR stacked on #432.
+
 ---
 
 ## Earlier root causes (before this register)
