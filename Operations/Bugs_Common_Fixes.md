@@ -14070,3 +14070,43 @@ missing four items.
   `Technical/Receipt_Parser_Root_Causes.md` (2026-10-13 section). Shopper notices #3–#5 drafted, pending approval.
 - **Detect next time:** `select r.id from priceback.receipts r join priceback.object_retention o on o.object_key like
   'prod/receipts/'||r.user_sub||'/'||r.id||'.%' where r.image_object_key is null` — presigned, never stored.
+
+
+## 320. Refund receipts crashed both receipt screens, and a queued scan's photo was deleted under its own upload (2026-10-14, PR #433)
+
+Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
+
+### A — `Cannot read property 'toFixed' of null` (PRICEBACK-CANADA-Q Android admin, -R iOS shopper, 3.0.6)
+- **Symptom:** opening `r_1791776785814_3mq8x` (stored as a refund by RC-4: 27 negated lines, only 6 with an
+  `original_price`) threw mid-render on the admin receipt screen; the shopper's re-scan (`w0dv6`) threw on DetailScreen.
+- **Cause:** `isInstantDiscountLine` did `Number(item.originalPrice)`, and `Number(null)` is `0`, so a negative line with
+  no original read as `0 > -7.99`, discounted. The TPD box then printed `safeOriginal.toFixed(2)` with
+  `safeOriginal === null`. **Every genuine refund receipt has this shape**: it was not specific to the RC-4 receipt.
+  Same family as the "zero is a real setting" trap.
+- **Fix:** an absent original (`null`/`undefined`/blank) is never a discount, matching the server's strict
+  `Number.isFinite(it.originalPrice)` in `receiptsRepo.persistReceiptItems`. A negative line is never watched. Both
+  screens gate the box on `safeOriginal !== null` as defense in depth.
+- **Prevent:** `receiptMath.test.js` property guard (every price × original × qty shape: whenever the box shows, every
+  amount it prints is finite); refund-receipt render tests on both screens, red against the old code with Sentry's
+  exact error.
+- **Same trap, not changed (follow-ups):** backend `receiptsRepo.lineToUnitPrices` (`regularPrice 0` for a negative
+  line with no original); `shared/receiptWireContract.serverWatchEnabled` (`Number(x)` vs the server's strict check).
+
+### B — fatal `NSInvalidArgumentException: Cannot read file at …/receipts_pending/r_….jpg` (PRICEBACK-CANADA-N, iOS 3.0.3)
+- **Cause:** `persistReceiptImage` treated ANY `documentDirectory` path as already persisted, so a queued offline
+  scan's receipt kept `imageUri` on `receipts_pending/…`, a file the scan queue deletes as soon as the receipt is
+  saved (`ScanScreen.clearQueuedEntry` → `removeReceiptScan`). The upload goes through `createUploadTask`, whose native
+  `uploadTaskStartAsync` (unlike `uploadAsync`) has no exists check, and `URLSession.uploadTask(fromFile:)` raises an
+  Objective-C exception no JS `try/catch` can stop.
+- **Fix:** only `${documentDirectory}receipts/` counts as persisted; anything else is copied there.
+  `putImageWithTimeout` probes the file first and throws a JS `image_file_missing` (a probe that fails falls through
+  to the old behaviour).
+- **Likely also #319:** on Android a missing file fails the PUT quietly instead of crashing. A queued scan would leave
+  exactly #319's "presigned, never stored" receipt. Unproven per receipt (needs `receipt_document_upload_failed`
+  `stage: file_missing` from the analytics log), but this is a concrete mechanism for the hypothesis there.
+- **Prevent:** `imageUploadMissingFile.test.js`; `receiptDocumentStorage.test.js` (a `receipts_pending/` photo is
+  copied, and survives the queue deleting its own copy).
+
+### C — `Invalid access code` in Sentry (PRICEBACK-CANADA-5, 32 events)
+- Not a defect: prod `/health` → `reviewerAccess: available`; every event was a mistyped code. A person's typo is no
+  longer filed in Sentry (`reportHandledError` → `{ skip: true }`) and still counts in the analytics feed.
