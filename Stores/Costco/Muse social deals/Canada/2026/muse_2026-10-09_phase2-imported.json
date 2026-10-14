@@ -1,0 +1,1979 @@
+{
+ "_note": "Phase 2 of the muse import (rows Maxim reviewed). Removed first: expired (validUntil before 2026-10-14) = 265 rows, and no-expiry markdowns = 3 rows (not covered by the removal rules, kept out, see phase2-hold file). The remaining 83 were checked against prod (same product+province+price+expiry, any source): none were already in the database. 2 ON rows for SKU 2942699 (NESTLE) carry two different prices for the same expiry and were not imported. No deal appears in every province, so none is imported as ALL: each deal is imported for exactly the provinces it was seen in. Imported as source price_tag_scan, verified=true, batch costco-muse-2026-10-09-phase2-<expiry>.",
+ "importedAt": "2026-10-13",
+ "count": 81,
+ "notImported": [
+  {
+   "province": "ON",
+   "sku": "2942699",
+   "price": 20.49,
+   "reason": "two different prices for the same SKU, province and expiry"
+  },
+  {
+   "province": "ON",
+   "sku": "2942699",
+   "price": 19.99,
+   "reason": "two different prices for the same SKU, province and expiry"
+  }
+ ],
+ "items": [
+  {
+   "province": "AB",
+   "sku": "1188673",
+   "name": "PRESIDENT",
+   "regularPrice": 10.99,
+   "instantSavings": 2.5,
+   "promoPrice": 8.49,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-15",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Calgary Costco Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-ab-calgary-nw-beacon-hill-25"
+     }
+    ],
+    "locations": [
+     "Calgary, Alberta"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 2 tracked AB areas (Calgary, Alberta) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "AB",
+   "sku": "1419444",
+   "name": "VERKA FOODS",
+   "regularPrice": 39.99,
+   "instantSavings": 3,
+   "promoPrice": 36.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-15",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Edmonton Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-ab-edmonton-s-91-st-nw-28"
+     }
+    ],
+    "locations": [
+     "Edmonton, Alberta"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 2 tracked AB areas (Edmonton, Alberta) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "AB",
+   "sku": "1768199",
+   "name": "LIFETIME",
+   "regularPrice": 399.99,
+   "instantSavings": 100,
+   "promoPrice": 299.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Edmonton Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-ab-edmonton-s-91-st-nw-28"
+     }
+    ],
+    "locations": [
+     "Edmonton, Alberta"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 2 tracked AB areas (Edmonton, Alberta) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "AB",
+   "sku": "1709080",
+   "name": "KITCHENAID STAND MIXER 5.6 L (6 QT)",
+   "regularPrice": 439.99,
+   "instantSavings": 90,
+   "promoPrice": 349.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "instagram",
+    "posts": [
+     {
+      "by": "costco_calgary",
+      "url": "https://www.instagram.com/p/DdwgGRpGn16/"
+     }
+    ],
+    "locations": [
+     "Calgary, Alberta"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 2 tracked AB areas (Calgary, Alberta) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "AB",
+   "sku": "2047881",
+   "name": "LIQUID I.V.",
+   "regularPrice": 39.99,
+   "instantSavings": 10,
+   "promoPrice": 29.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Edmonton Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-ab-edmonton-s-91-st-nw-28"
+     }
+    ],
+    "locations": [
+     "Edmonton, Alberta"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 2 tracked AB areas (Edmonton, Alberta) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "1374017",
+   "name": "CLIF BAR",
+   "regularPrice": 26.99,
+   "instantSavings": 5.5,
+   "promoPrice": 21.49,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-14",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "2942699",
+   "name": "NESTLE",
+   "regularPrice": 27.99,
+   "instantSavings": 8,
+   "promoPrice": 19.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-14",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "425880",
+   "name": "CHRISTIE",
+   "regularPrice": 9.49,
+   "instantSavings": 2,
+   "promoPrice": 7.49,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-14",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "1419444",
+   "name": "VERKA FOODS",
+   "regularPrice": 39.99,
+   "instantSavings": 3,
+   "promoPrice": 36.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-15",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "1391931",
+   "name": "OLIVIERI",
+   "regularPrice": 17.99,
+   "instantSavings": 4,
+   "promoPrice": 13.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "140341",
+   "name": "TUSCAN CANTALOUPE",
+   "regularPrice": 4.99,
+   "instantSavings": 2,
+   "promoPrice": 2.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "1671205",
+   "name": "NONNI'S",
+   "regularPrice": 14.99,
+   "instantSavings": 3,
+   "promoPrice": 11.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "1891998",
+   "name": "PORTOFINO",
+   "regularPrice": 8.49,
+   "instantSavings": 2,
+   "promoPrice": 6.49,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "1995795",
+   "name": "KASHI",
+   "regularPrice": 19.99,
+   "instantSavings": 4,
+   "promoPrice": 15.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "3663109",
+   "name": "CORONA",
+   "regularPrice": 36.99,
+   "instantSavings": 8,
+   "promoPrice": 28.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "5008051",
+   "name": "DONSUEMOR",
+   "regularPrice": 13.49,
+   "instantSavings": 3.5,
+   "promoPrice": 9.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "5555023",
+   "name": "SPARKLING ICE",
+   "regularPrice": 23.99,
+   "instantSavings": 5,
+   "promoPrice": 18.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "7026055",
+   "name": "CELLO WHISPS",
+   "regularPrice": 14.99,
+   "instantSavings": 4,
+   "promoPrice": 10.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "9983271",
+   "name": "AMOS PEELERZ",
+   "regularPrice": 13.99,
+   "instantSavings": 3,
+   "promoPrice": 10.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "1134668",
+   "name": "GENERAL MILLS",
+   "regularPrice": 9.99,
+   "instantSavings": 2,
+   "promoPrice": 7.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "1670109",
+   "name": "RESER'S",
+   "regularPrice": 11.49,
+   "instantSavings": 2.5,
+   "promoPrice": 8.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "1992291",
+   "name": "NINJA CRISPI",
+   "regularPrice": 199.99,
+   "instantSavings": 40,
+   "promoPrice": 159.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "BC",
+   "sku": "2055376",
+   "name": "T-FAL",
+   "regularPrice": 129.99,
+   "instantSavings": 25,
+   "promoPrice": 104.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco BC Lower Mainland Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-bc-langley--20499-64-ave-34"
+     }
+    ],
+    "locations": [
+     "Langley, British Columbia"
+    ],
+    "hold": "single-warehouse-area sighting (Langley, British Columbia) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "1374017",
+   "name": "CLIF BAR",
+   "regularPrice": 26.99,
+   "instantSavings": 5.5,
+   "promoPrice": 21.49,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-14",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "2224266",
+   "name": "SCOTTS TURF BUILDER",
+   "regularPrice": 49.99,
+   "instantSavings": 10,
+   "promoPrice": 39.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-14",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "2942699",
+   "name": "NESTLE",
+   "regularPrice": 27.99,
+   "instantSavings": 8,
+   "promoPrice": 19.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-14",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "425880",
+   "name": "CHRISTIE",
+   "regularPrice": 9.49,
+   "instantSavings": 2,
+   "promoPrice": 7.49,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-14",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "1008703",
+   "name": "FANWAY",
+   "regularPrice": 139.99,
+   "instantSavings": 50,
+   "promoPrice": 89.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "1391931",
+   "name": "OLIVIERI",
+   "regularPrice": 17.99,
+   "instantSavings": 4,
+   "promoPrice": 13.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "1671205",
+   "name": "NONNI'S",
+   "regularPrice": 14.99,
+   "instantSavings": 3,
+   "promoPrice": 11.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "1891998",
+   "name": "PORTOFINO",
+   "regularPrice": 8.49,
+   "instantSavings": 2,
+   "promoPrice": 6.49,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "1995795",
+   "name": "KASHI",
+   "regularPrice": 19.99,
+   "instantSavings": 4,
+   "promoPrice": 15.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "2026295",
+   "name": "WARRIOR",
+   "regularPrice": 79.99,
+   "instantSavings": 30,
+   "promoPrice": 49.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "3663109",
+   "name": "CORONA",
+   "regularPrice": 36.99,
+   "instantSavings": 8,
+   "promoPrice": 28.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "5008051",
+   "name": "DONSUEMOR",
+   "regularPrice": 13.49,
+   "instantSavings": 3.5,
+   "promoPrice": 9.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "5056000",
+   "name": "PREMIUM DESSERTS",
+   "regularPrice": 12.99,
+   "instantSavings": 3,
+   "promoPrice": 9.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "5555023",
+   "name": "SPARKLING ICE",
+   "regularPrice": 23.99,
+   "instantSavings": 5,
+   "promoPrice": 18.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "67237",
+   "name": "CANTALOUPE",
+   "regularPrice": 5.99,
+   "instantSavings": 2,
+   "promoPrice": 3.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "7026055",
+   "name": "CELLO WHISPS",
+   "regularPrice": 14.99,
+   "instantSavings": 4,
+   "promoPrice": 10.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "9983271",
+   "name": "AMOS PEELERZ",
+   "regularPrice": 13.99,
+   "instantSavings": 3,
+   "promoPrice": 10.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "1134668",
+   "name": "GENERAL MILLS",
+   "regularPrice": 9.99,
+   "instantSavings": 2,
+   "promoPrice": 7.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "1670109",
+   "name": "RESER'S",
+   "regularPrice": 11.49,
+   "instantSavings": 2.5,
+   "promoPrice": 8.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "2001954",
+   "name": "LIQUID I.V.",
+   "regularPrice": 39.99,
+   "instantSavings": 10,
+   "promoPrice": 29.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "2047881",
+   "name": "LIQUID I.V.",
+   "regularPrice": 39.99,
+   "instantSavings": 10,
+   "promoPrice": 29.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "MB",
+   "sku": "5057007",
+   "name": "GIOVANNI RANA",
+   "regularPrice": 18.99,
+   "instantSavings": 5,
+   "promoPrice": 13.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Winnipeg Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-mb-winnipeg-sw-mcgillivray-27"
+     }
+    ],
+    "locations": [
+     "Winnipeg, Manitoba"
+    ],
+    "hold": "single-warehouse-area sighting (Winnipeg, Manitoba) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "2224266",
+   "name": "SCOTTS TURF BUILDER",
+   "regularPrice": 49.99,
+   "instantSavings": 10,
+   "promoPrice": 39.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-14",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco London Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-london-n-693-wonderland-rd-29"
+     }
+    ],
+    "locations": [
+     "London, Ontario",
+     "Mississauga & Oakville, Ontario",
+     "Toronto, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 3 of 4 tracked ON areas (London, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "1415846",
+   "name": "COORS ORIGINAL",
+   "regularPrice": 74.99,
+   "instantSavings": 4,
+   "promoPrice": 70.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco London Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-london-n-693-wonderland-rd-29"
+     }
+    ],
+    "locations": [
+     "London, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 4 tracked ON areas (London, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "1722180",
+   "name": "FREYBE",
+   "regularPrice": 23.99,
+   "instantSavings": 5,
+   "promoPrice": 18.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-burlington--brant-st-30"
+     }
+    ],
+    "locations": [
+     "Burlington, Ontario",
+     "London, Ontario",
+     "Mississauga & Oakville, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 3 of 4 tracked ON areas (Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "1768199",
+   "name": "LIFETIME",
+   "regularPrice": 399.99,
+   "instantSavings": 100,
+   "promoPrice": 299.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-burlington--brant-st-30"
+     }
+    ],
+    "locations": [
+     "Burlington, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 4 tracked ON areas (Burlington, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "1872053",
+   "name": "SPARKLING ICE",
+   "regularPrice": 23.99,
+   "instantSavings": 5,
+   "promoPrice": 18.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-burlington--brant-st-30"
+     }
+    ],
+    "locations": [
+     "Burlington, Ontario",
+     "London, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 2 of 4 tracked ON areas (Burlington, Ontario; London, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "195047",
+   "name": "SENSIBLE PORTIONS",
+   "regularPrice": 7.49,
+   "instantSavings": 2,
+   "promoPrice": 5.49,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-burlington--brant-st-30"
+     }
+    ],
+    "locations": [
+     "Burlington, Ontario",
+     "London, Ontario",
+     "Toronto, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 3 of 4 tracked ON areas (Burlington, Ontario; London, Ontario; Toronto, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "1999688",
+   "name": "MILLER LITE",
+   "regularPrice": 79.99,
+   "instantSavings": 4,
+   "promoPrice": 75.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Mississauga & Oakville Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-mississauga-%26-oakville-s-3180-laird-rd-23"
+     }
+    ],
+    "locations": [
+     "Mississauga & Oakville, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 4 tracked ON areas (Mississauga & Oakville, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "2021985",
+   "name": "BEAU'S BARN BURNER",
+   "regularPrice": 46.99,
+   "instantSavings": 3,
+   "promoPrice": 43.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Mississauga & Oakville Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-mississauga-%26-oakville-s-3180-laird-rd-23"
+     }
+    ],
+    "locations": [
+     "Mississauga & Oakville, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 4 tracked ON areas (Mississauga & Oakville, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "3449587",
+   "name": "WINIX",
+   "regularPrice": 189.99,
+   "instantSavings": 40,
+   "promoPrice": 149.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco London Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-london-n-693-wonderland-rd-29"
+     }
+    ],
+    "locations": [
+     "London, Ontario",
+     "Toronto, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 2 of 4 tracked ON areas (London, Ontario; Toronto, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "4919",
+   "name": "PIZZELLE",
+   "regularPrice": 7.99,
+   "instantSavings": 2,
+   "promoPrice": 5.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-burlington--brant-st-30"
+     }
+    ],
+    "locations": [
+     "Burlington, Ontario",
+     "Mississauga & Oakville, Ontario",
+     "Toronto, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 3 of 4 tracked ON areas (Burlington, Ontario; Mississauga & Oakville, Ontario; Toronto, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "1477487",
+   "name": "MCCAFÉ",
+   "regularPrice": 54.99,
+   "instantSavings": 12,
+   "promoPrice": 42.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-23",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Ottawa Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-toronto--warden-ave-31"
+     }
+    ],
+    "locations": [
+     "Toronto, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 4 tracked ON areas (Toronto, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "2047885",
+   "name": "LIQUID I.V.",
+   "regularPrice": 39.99,
+   "instantSavings": 10,
+   "promoPrice": 29.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-23",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Ottawa Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-toronto--warden-ave-31"
+     }
+    ],
+    "locations": [
+     "Toronto, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 4 tracked ON areas (Toronto, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "2047881",
+   "name": "LIQUID I.V.",
+   "regularPrice": 39.99,
+   "instantSavings": 10,
+   "promoPrice": 29.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-burlington--brant-st-30"
+     }
+    ],
+    "locations": [
+     "Burlington, Ontario",
+     "London, Ontario",
+     "Mississauga & Oakville, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 3 of 4 tracked ON areas (Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "2027032",
+   "name": "CONTIGO",
+   "regularPrice": 29.99,
+   "instantSavings": 6,
+   "promoPrice": 23.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-29",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Ottawa Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-toronto--warden-ave-31"
+     }
+    ],
+    "locations": [
+     "Toronto, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 4 tracked ON areas (Toronto, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "314786",
+   "name": "OYSTER BAY",
+   "regularPrice": 17.99,
+   "instantSavings": 2,
+   "promoPrice": 15.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-30",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Ottawa Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-toronto--warden-ave-31"
+     }
+    ],
+    "locations": [
+     "Toronto, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 4 tracked ON areas (Toronto, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "2047881",
+   "name": "LIQUID I.V.",
+   "regularPrice": 39.99,
+   "instantSavings": 10,
+   "promoPrice": 29.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-31",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Ottawa Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-toronto--warden-ave-31"
+     }
+    ],
+    "locations": [
+     "Toronto, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 1 of 4 tracked ON areas (Toronto, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "ON",
+   "sku": "2086483",
+   "name": "NICKEL BROOK SUMMER PK",
+   "regularPrice": 54.99,
+   "instantSavings": 5,
+   "promoPrice": 49.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-11-08",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-on-burlington--brant-st-30"
+     }
+    ],
+    "locations": [
+     "Burlington, Ontario",
+     "London, Ontario",
+     "Mississauga & Oakville, Ontario"
+    ],
+    "hold": "warehouse-level secret sale seen in only 3 of 4 tracked ON areas (Burlington, Ontario; London, Ontario; Mississauga & Oakville, Ontario) - may not apply province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "1374017",
+   "name": "CLIF BAR",
+   "regularPrice": 26.99,
+   "instantSavings": 5.5,
+   "promoPrice": 21.49,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-14",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "2942699",
+   "name": "NESTLE",
+   "regularPrice": 27.99,
+   "instantSavings": 8,
+   "promoPrice": 19.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-14",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "425880",
+   "name": "CHRISTIE",
+   "regularPrice": 9.49,
+   "instantSavings": 2,
+   "promoPrice": 7.49,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-14",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "1188673",
+   "name": "PRESIDENT",
+   "regularPrice": 10.99,
+   "instantSavings": 2.5,
+   "promoPrice": 8.49,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-15",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "1419444",
+   "name": "VERKA FOODS",
+   "regularPrice": 39.99,
+   "instantSavings": 3,
+   "promoPrice": 36.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-15",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "1391931",
+   "name": "OLIVIERI",
+   "regularPrice": 17.99,
+   "instantSavings": 4,
+   "promoPrice": 13.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "1671205",
+   "name": "NONNI'S",
+   "regularPrice": 14.99,
+   "instantSavings": 3,
+   "promoPrice": 11.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "1891998",
+   "name": "PORTOFINO",
+   "regularPrice": 8.49,
+   "instantSavings": 2,
+   "promoPrice": 6.49,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "3663109",
+   "name": "CORONA",
+   "regularPrice": 36.99,
+   "instantSavings": 8,
+   "promoPrice": 28.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "5008051",
+   "name": "DONSUEMOR",
+   "regularPrice": 13.49,
+   "instantSavings": 3.5,
+   "promoPrice": 9.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "5056000",
+   "name": "PREMIUM DESSERTS",
+   "regularPrice": 12.99,
+   "instantSavings": 3,
+   "promoPrice": 9.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "5555023",
+   "name": "SPARKLING ICE",
+   "regularPrice": 23.99,
+   "instantSavings": 5,
+   "promoPrice": 18.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "67237",
+   "name": "CANTALOUPE",
+   "regularPrice": 5.99,
+   "instantSavings": 2,
+   "promoPrice": 3.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "9983271",
+   "name": "AMOS PEELERZ",
+   "regularPrice": 13.99,
+   "instantSavings": 3,
+   "promoPrice": 10.99,
+   "validFrom": "2026-10-09",
+   "validUntil": "2026-10-18",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "1134668",
+   "name": "GENERAL MILLS",
+   "regularPrice": 9.99,
+   "instantSavings": 2,
+   "promoPrice": 7.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "1670109",
+   "name": "RESER'S",
+   "regularPrice": 11.49,
+   "instantSavings": 2.5,
+   "promoPrice": 8.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "2001954",
+   "name": "LIQUID I.V.",
+   "regularPrice": 39.99,
+   "instantSavings": 10,
+   "promoPrice": 29.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "2047881",
+   "name": "LIQUID I.V.",
+   "regularPrice": 39.99,
+   "instantSavings": 10,
+   "promoPrice": 29.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  },
+  {
+   "province": "SK",
+   "sku": "5057007",
+   "name": "GIOVANNI RANA",
+   "regularPrice": 18.99,
+   "instantSavings": 5,
+   "promoPrice": 13.99,
+   "validFrom": "2026-09-28",
+   "validUntil": "2026-10-25",
+   "flags": {
+    "sourceKind": "social_price_tag",
+    "platform": "facebook_group",
+    "posts": [
+     {
+      "by": "Costco Canada Weekly Secret Sales",
+      "url": "https://yepsavings.com/ca-sk-saskatoon-s-south-19"
+     }
+    ],
+    "locations": [
+     "Saskatoon, Saskatchewan"
+    ],
+    "hold": "single-warehouse-area sighting (Saskatoon, Saskatchewan) with no regional flyer or official coupon confirming it province-wide"
+   }
+  }
+ ]
+}
