@@ -10886,3 +10886,23 @@ and RC-13.
 RC-16's exact bypass point still to trace. RC-15/RC-17 blast-radius receipts not checked one by one.
 **Regression risk:** none for code (no code changed). Data: the two specs went through the repair tool's dry run
 first; only the stated rows changed (3 products renamed, 1 synthetic product and 1 crowd copy deleted).
+
+
+---
+
+## 2026-10-14 — Pending-claims reminder; shorter price-drop push
+
+**Branch:** app `feat/pending-claims-reminder` (off `main`, Maxim's choice); docs `docs/pending-claims-reminder`.
+**Ask:** credit-used and "flyer deal" notifications off for everyone; the price-drop push must not name its source;
+a reminder totalling the unclaimed drops ("3 price drops to claim, $18.00 in total") after 2+ days waiting or when one
+is about to expire, at most one a day but only every 2–3 days; a new drop's push mentions "N more claims waiting";
+everything in the admin notification history; "short and straight"; no production errors.
+**Done:** verified both legacy pushes were already removed (no change needed). Drop push: "Verified by shoppers"
+removed, "Verified by PriceBack." only when PriceBack verified it, "N more claims are waiting." appended. New daily job
+`jobs/pendingClaimsReminder.js` (18:00 UTC, elected slot, 3-day gap / 2 when expiring, kill switch + gap in ops
+config), EN + FR copy that says how to stop it (mark claimed). Full note: `Technical/Pending_Claims_Reminder_2026-10-14.md`.
+**Not done / owed:** the phone-side variant (server first, per Maxim; switch the server job off if built). The
+existing local per-receipt expiry reminders are unchanged and can overlap with the server one on new builds.
+`priceDropDb`/`priceDropPipelineE2E` DB tests fail on clean `main` too (pre-existing, 5 tests).
+**Regression risk:** low — additive; the only changed live text is the drop push body (tails removed/added); the
+pending-claims lookup in the drop push is try/caught so a DB blip cannot cost a push; new job is a kill-switchable cron.

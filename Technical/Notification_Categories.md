@@ -44,7 +44,7 @@ It is mirrored byte-for-byte into `backend/shared/` by
 | Category (`code` = pref key) | Default | Flags | `data.type`s | Screen group |
 |---|---|---|---|---|
 | `notifUrgentClaims` | on | | verified_price_drop, price_drop, flyer_drop *(flyer_drop not sent since 2026-10-01)* | Price drops |
-| `notifClaimReminders` | on | | expiry_early, expiry_warning, expiry_final (+ the snooze) | Price drops |
+| `notifClaimReminders` | on | | expiry_early, expiry_warning, expiry_final, pending_claims_reminder (+ the snooze) | Price drops |
 | `notifDailyDigest` | off | | daily_digest | Price drops |
 | `notifDropCharge` | on | | *(none since 2026-10-01 — "credits used" push retired; switch kept, like `notifOtherCredit`)* | Credits & rewards |
 | `notifFriendJoins` | on | | referral_settled | Credits & rewards |
