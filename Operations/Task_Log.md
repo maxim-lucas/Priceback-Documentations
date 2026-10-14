@@ -10893,6 +10893,19 @@ RC-16's exact bypass point still to trace. RC-15/RC-17 blast-radius receipts not
 **Regression risk:** none for code (no code changed). Data: the two specs went through the repair tool's dry run
 first; only the stated rows changed (3 products renamed, 1 synthetic product and 1 crowd copy deleted).
 
+
+---
+
+## 2026-10-14 — Sentry triage: fix every actionable issue so it cannot come back
+
+**Branch:** app `fix/sentry-errors-2026-10-14` (off `main`, Maxim's choice); docs `docs/sentry-triage-2026-10-14`.
+**Ask:** "there is some errors in sentry, connect to sentry using the token, analyze the problems and fix them all if
+possible" + "i dont want to see the same errors in the futur again".
+**Plan:** 11 unresolved issues. Fix in code: refund-line `toFixed of null` crash on DetailScreen + admin receipt screen
+(PRICEBACK-CANADA-Q/R — `Number(null) === 0` in `isInstantDiscountLine`), queued-scan photo deleted under its own upload
+(PRICEBACK-CANADA-N — native NSException). Stop sending a mistyped reviewer code to Sentry (-5). Archive the
+restricted-device sign-in pair (B/C/K/M) and the OS document-camera hang (P) until escalating; resolve H and J.
+Full triage: `Technical/Sentry_Triage_2026-10-14.md`.
 ### 2026-10-13 — Weekly Costco coupons (warehouse + Business Centre) + muse social deals; import de-duplication
 
 - **Asked:** extract the new Costco savings with Claude in Chrome (warehouse + online + costcobusinesscentre.ca), save them like every week; classify `costco_all_deals_by_province.json` (muse scrape): unclaimable savings → price points only, valid savings → imported to generate price drops. Mid-task: *"the code should be smart enough to accept the import for the savings that doesn't exist yet, but if it's redundant the database should not import the same saving in the same validity window and the same source"*. Branches asked: code → new branch off `main`; claimable = not expired on 2026-10-13.
