@@ -1,0 +1,27 @@
+{
+  "_note": "Costco Canada 'Great Savings This Week' (costco.ca/o/-/coupons), 2-WEEK cycle only, extracted with Claude in Chrome on 2026-10-13 (Ontario warehouse). The 4-WEEK cycle (2026-09-28 to 2026-10-25) is UNCHANGED from coupons_2026-10-01.json (86 priced tiles identical by name+price+regular hash; only the 3 Hot Buy tiles differ because they print no regular price) and is not repeated here. Treated as national like the previous cycles (ON/QC/BC were verified identical on 2026-10-01; NOT re-verified for QC/BC this week). promoPrice = regularPrice - instantSavings; eco-fees and taxes excluded. One SKU = one row.",
+  "region": "ALL",
+  "batchKey": "costco-coupons-2026-10-12-ALL",
+  "source": "costco-coupons",
+  "country": "Canada",
+  "channel": "warehouse",
+  "extractedAt": "2026-10-13",
+  "extractedFrom": "https://www.costco.ca/o/-/coupons",
+  "offerCycles": {
+    "twoWeek": {
+      "validFrom": "2026-10-12",
+      "validUntil": "2026-10-25"
+    }
+  },
+  "count": 8,
+  "items": [
+    {"sku":"2085631","name":"Serta queen hybrid mattress","size":null,"regularPrice":679.99,"instantSavings":150,"promoPrice":529.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"2089886","name":"Apple caramel strudel bites","size":"pack of 12","regularPrice":7.99,"instantSavings":2,"promoPrice":5.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"warehouse"}},
+    {"sku":"680","name":"Kraft cheese slices","size":"1.25 kg","regularPrice":9.99,"instantSavings":2,"promoPrice":7.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"warehouse"}},
+    {"sku":"2026940","name":"Three Farmer's ranch mix","size":"510 g","regularPrice":13.99,"instantSavings":4,"promoPrice":9.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"137959","name":"Zavida hazelnut vanilla whole bean coffee","size":"907 g","regularPrice":23.99,"instantSavings":5,"promoPrice":18.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"2042206","name":"Celebrations assorted chocolates","size":"750 g","regularPrice":19.99,"instantSavings":4,"promoPrice":15.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"1494819","name":"Inno Foods Almond Fruit Crunch gluten-free cereal","size":"900 g","regularPrice":14.99,"instantSavings":3,"promoPrice":11.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"2768077","name":"Cedar Valley pita chips","size":"760 g","regularPrice":11.99,"instantSavings":3,"promoPrice":8.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}}
+  ]
+}
