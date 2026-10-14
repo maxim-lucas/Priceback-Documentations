@@ -48,6 +48,7 @@ routeForNotification(data) -> { route, params } | null
 | `referral_settled` | `InviteFriend` | — |
 | `store_launch` | `Main` → `Stores` | `storeCode` |
 | `daily_digest` | `Main` → `Receipts` | — |
+| `pending_claims_reminder` | `Main` → `Receipts` | `count`, `total`, `soonestDaysLeft` |
 | `tag_scans_ready` | `PendingTagScan` | — |
 | `receipt_scans_ready` | `PendingReceiptScan` | — |
 | `scan_review_reminder` *(2026-09-25)* | `PendingTagScan` / `PendingReceiptScan` | `kind` (`tag` \| `receipt`) |
