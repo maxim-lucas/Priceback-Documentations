@@ -1,0 +1,96 @@
+{
+  "_note": "Costco Business Centre 'Warehouse Instant Savings' (costcobusinesscentre.ca/o/-/warehouse-instant-savings), 2-WEEK cycle, extracted with Claude in Chrome on 2026-10-13 while viewing the Ontario warehouse offers. Maxim confirmed the Business Centre savings apply across Canada, so every item is stored once and imported for ALL 13 provinces (ON was imported first under batch costco-business-2026-10-12-ON; the other 12 provinces under ...-ALL, duplicates skipped). Prices are Business Centre warehouse prices. 3 tiles print a saving but no price (2 sold by weight 'PER UNIT', 1 Kraft dressing) and are listed in unpricedOffers, never imported as prices. promoPrice = regularPrice - instantSavings.",
+  "region": "ALL",
+  "batchKey": "costco-business-2026-10-12-ALL",
+  "source": "costco-business-coupons",
+  "country": "Canada",
+  "channel": "business-warehouse",
+  "extractedAt": "2026-10-13",
+  "extractedFrom": "https://www.costcobusinesscentre.ca/o/-/warehouse-instant-savings",
+  "offerCycles": {
+    "twoWeek": {
+      "validFrom": "2026-10-12",
+      "validUntil": "2026-10-25"
+    }
+  },
+  "count": 34,
+  "unpricedOffers": [
+    {
+      "name": "European Quality Meats roast beef or Montreal style smoked meat",
+      "size": "*3 kg avg wt",
+      "skus": [
+        "39625",
+        "39626"
+      ],
+      "headlineSave": 11,
+      "perUnit": true,
+      "validFrom": "2026-10-12",
+      "validUntil": "2026-10-25",
+      "channel": "warehouse-only",
+      "reason": "sold by weight - per-unit saving, no fixed price printed"
+    },
+    {
+      "name": "Balderson medium cheddar cheese",
+      "size": "*4.5 kg avg wt",
+      "skus": [
+        "33693"
+      ],
+      "headlineSave": 17,
+      "perUnit": true,
+      "validFrom": "2026-10-12",
+      "validUntil": "2026-10-25",
+      "channel": "warehouse-only",
+      "reason": "sold by weight - per-unit saving, no fixed price printed"
+    },
+    {
+      "name": "Kraft ranchers choice or Caeser dressing",
+      "size": "3.78 L",
+      "skus": [
+        "33478",
+        "33493"
+      ],
+      "headlineSave": 6,
+      "perUnit": false,
+      "validFrom": "2026-10-12",
+      "validUntil": "2026-10-25",
+      "channel": "warehouse+online",
+      "reason": "saving printed without a regular/promo price"
+    }
+  ],
+  "items": [
+    {"sku":"1068070","name":"Golden Maple frozen chicken nuggets","size":"2 × 2 kg","regularPrice":19.99,"instantSavings":4,"promoPrice":15.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"2061550","name":"Skoulakis frozen cooked chicken breast portions","size":"2 kg","regularPrice":31.99,"instantSavings":7,"promoPrice":24.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"2068876","name":"European Quality Meats Texas homestyle chicken burgers","size":"40 × 113 g","regularPrice":39.99,"instantSavings":8,"promoPrice":31.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"1057625","name":"Santa Lucia fior di latte cheese","size":"3 kg","regularPrice":39.99,"instantSavings":10,"promoPrice":29.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"2252200","name":"Castle Cheese shredded Mexi blend topping","size":"2 kg","regularPrice":18.99,"instantSavings":4,"promoPrice":14.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"2052353","name":"Coca-Cola original glass bottle","size":"24 × 355 mL","regularPrice":34.99,"instantSavings":7,"promoPrice":27.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"57803","name":"Evian natural spring water","size":"24 × 330 mL","regularPrice":29.99,"instantSavings":6,"promoPrice":23.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"93147","name":"Evian natural spring water","size":"12 × 1.5 L","regularPrice":34.99,"instantSavings":7,"promoPrice":27.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"1979118","name":"Nestea iced tea","size":"12 × 473 mL","regularPrice":17.99,"instantSavings":4,"promoPrice":13.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"1058690","name":"Red Bull regular or sugar-free energy drink","size":"12 × 473 mL","regularPrice":44.99,"instantSavings":9,"promoPrice":35.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":2,"flags":{"priceSource":"both"}},
+    {"sku":"1179849","name":"Red Bull regular or sugar-free energy drink","size":"12 × 473 mL","regularPrice":44.99,"instantSavings":9,"promoPrice":35.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":2,"flags":{"priceSource":"both"}},
+    {"sku":"1248185","name":"Moulin Rouge crushed cayenne pepper","size":"1.4 kg","regularPrice":11.49,"instantSavings":3,"promoPrice":8.49,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"1248197","name":"Moulin Rouge cayenne pepper powder","size":"1.8 kg","regularPrice":12.99,"instantSavings":3,"promoPrice":9.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"1328403","name":"Yupik cocoa powder","size":"1.5 kg","regularPrice":23.99,"instantSavings":5,"promoPrice":18.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"1170282","name":"Lea & Perrins Worcestershire sauce","size":"3.7 L","regularPrice":29.99,"instantSavings":6,"promoPrice":23.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"23071","name":"HALLS cough drops","size":"5","regularPrice":23.99,"instantSavings":5,"promoPrice":18.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":7,"flags":{"priceSource":"both"}},
+    {"sku":"62837","name":"HALLS cough drops","size":"5","regularPrice":23.99,"instantSavings":5,"promoPrice":18.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":7,"flags":{"priceSource":"both"}},
+    {"sku":"62853","name":"HALLS cough drops","size":"5","regularPrice":23.99,"instantSavings":5,"promoPrice":18.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":7,"flags":{"priceSource":"both"}},
+    {"sku":"62862","name":"HALLS cough drops","size":"5","regularPrice":23.99,"instantSavings":5,"promoPrice":18.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":7,"flags":{"priceSource":"both"}},
+    {"sku":"115050","name":"HALLS cough drops","size":"5","regularPrice":23.99,"instantSavings":5,"promoPrice":18.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":7,"flags":{"priceSource":"both"}},
+    {"sku":"1286157","name":"HALLS cough drops","size":"5","regularPrice":23.99,"instantSavings":5,"promoPrice":18.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":7,"flags":{"priceSource":"both"}},
+    {"sku":"5604915","name":"HALLS cough drops","size":"5","regularPrice":23.99,"instantSavings":5,"promoPrice":18.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":7,"flags":{"priceSource":"both"}},
+    {"sku":"34006","name":"Toblerone Swiss milk chocolate","size":"24 × 35 g","regularPrice":25.99,"instantSavings":6,"promoPrice":19.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"106010","name":"Hubba Bubba original or gushing grape bubble tape","size":"5","regularPrice":19.99,"instantSavings":5,"promoPrice":14.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":2,"flags":{"priceSource":"both"}},
+    {"sku":"206010","name":"Hubba Bubba original or gushing grape bubble tape","size":"5","regularPrice":19.99,"instantSavings":5,"promoPrice":14.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":2,"flags":{"priceSource":"both"}},
+    {"sku":"33523","name":"Hubba Bubba Max original, strawberry watermelon or sour blue raspberry","size":"18 × 5 pieces","regularPrice":17.49,"instantSavings":4.5,"promoPrice":12.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":3,"flags":{"priceSource":"both"}},
+    {"sku":"1759278","name":"Hubba Bubba Max original, strawberry watermelon or sour blue raspberry","size":"18 × 5 pieces","regularPrice":17.49,"instantSavings":4.5,"promoPrice":12.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":3,"flags":{"priceSource":"both"}},
+    {"sku":"1759282","name":"Hubba Bubba Max original, strawberry watermelon or sour blue raspberry","size":"18 × 5 pieces","regularPrice":17.49,"instantSavings":4.5,"promoPrice":12.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":3,"flags":{"priceSource":"both"}},
+    {"sku":"1338425","name":"Café Express round containers with lids","size":"34 oz, pack of 50","regularPrice":19.99,"instantSavings":5,"promoPrice":14.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"1338385","name":"Café Express round containers with lids","size":"22 oz, pack of 50","regularPrice":12.49,"instantSavings":3,"promoPrice":9.49,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"1111582","name":"iECO hinged bagasse containers","size":"15.2 cm × 22.8 cm (6 in × 9 in) 2 packs of 50","regularPrice":19.49,"instantSavings":5,"promoPrice":14.49,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"1304076","name":"Titan parchment paper baking sheets","size":"41.65 cm × 61.97 cm (16.4 in × 24.4 in) pack of 1,000 sheets","regularPrice":59.99,"instantSavings":15,"promoPrice":44.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"1113083","name":"Suave 2-ply jumbo toilet paper","size":"6","regularPrice":25.99,"instantSavings":6,"promoPrice":19.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}},
+    {"sku":"2473277","name":"Sagetra 3-tier wire basket cart","size":"36 in. × 18 in. × 39 in.","regularPrice":99.99,"instantSavings":20,"promoPrice":79.99,"validFrom":"2026-10-12","validUntil":"2026-10-25","tileSkuCount":1,"flags":{"priceSource":"both"}}
+  ]
+}
