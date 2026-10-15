@@ -10945,3 +10945,19 @@ Full triage: `Technical/Sentry_Triage_2026-10-14.md`.
 - **Phase 2 (351 rows):** removed 265 expired (validUntil before 2026-10-14) and 3 no-expiry markdowns (not covered by the removal rules, left out and flagged); the other 83 were checked against prod (same product + province + price + expiry, any source): none already on file. 2 ON rows (SKU 2942699, two prices for one expiry) were not imported. **81 rows imported** as `price_tag_scan`, `verified=true`, batches `costco-muse-2026-10-09-phase2-<expiry>`, provenance in `flags` (+ `phase:2`). No deal appears in every province, so nothing was imported as ALL; each deal went to exactly the provinces it was seen in (43 deals: e.g. 11 in BC+MB+SK, 15 ON-only). File: `Muse social deals/Canada/2026/muse_2026-10-09_phase2-imported.json`.
 - **Business Centre:** 34 SKUs × the 12 other provinces = **408 rows** (`costco-business-2026-10-12-ALL`, source `flyer`); ON already had them (skipped). Files updated to region ALL.
 - **Owed:** 3 no-expiry markdown rows still held; PR #431 (importer dedupe) not merged.
+
+## 2026-10-15 — Admin "View as shopper" + automatic unlock of hidden drops
+
+**Ask (Maxim, /goal):** from the admin users list, open a preview of what a shopper sees in their app
+(products, price drops, credits) to answer support mail — without exposing personal data (card or other
+sensitive info). Also: why has nobody bought credits though ~$150 of drops were found? Mid-task: hidden
+drops (balance below 0) must unlock automatically when the shopper buys credits back to ≥ 0 or subscribes.
+**Branch:** `feat/admin-user-preview` off `main` (asked; Maxim chose a new branch off main).
+**Done:** `GET /api/admin/users/:sub/preview` (allowlist-redacted, read-only, admin-gated, logged);
+`AdminShopperPreviewScreen` reached from the Accounts row eye icon, the ⋯ sheet and the account screen;
+`purchaseService.subscribeEntitlementChange` + `useDropLock` re-read on it. Design + prod findings:
+`Technical/Admin_View_As_Shopper.md`.
+**Prod findings:** 0 packs ever bought; 149/161 shoppers positive → drops shown free; 5 negative only since
+10-13/14; 0/41 drops claimed; $3 pack does not unlock a −269 balance.
+**Regression risk:** low. Backend route is new and additive. The unlock signal only adds a re-read of the
+same cached values the focus re-read already used.
