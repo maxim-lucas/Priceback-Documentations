@@ -10945,3 +10945,20 @@ Full triage: `Technical/Sentry_Triage_2026-10-14.md`.
 - **Phase 2 (351 rows):** removed 265 expired (validUntil before 2026-10-14) and 3 no-expiry markdowns (not covered by the removal rules, left out and flagged); the other 83 were checked against prod (same product + province + price + expiry, any source): none already on file. 2 ON rows (SKU 2942699, two prices for one expiry) were not imported. **81 rows imported** as `price_tag_scan`, `verified=true`, batches `costco-muse-2026-10-09-phase2-<expiry>`, provenance in `flags` (+ `phase:2`). No deal appears in every province, so nothing was imported as ALL; each deal went to exactly the provinces it was seen in (43 deals: e.g. 11 in BC+MB+SK, 15 ON-only). File: `Muse social deals/Canada/2026/muse_2026-10-09_phase2-imported.json`.
 - **Business Centre:** 34 SKUs × the 12 other provinces = **408 rows** (`costco-business-2026-10-12-ALL`, source `flyer`); ON already had them (skipped). Files updated to region ALL.
 - **Owed:** 3 no-expiry markdown rows still held; PR #431 (importer dedupe) not merged.
+
+## 2026-10-15 — Receipts show the printed line text again; product name is the English label
+
+**Branch:** app `fix/receipt-printed-names` (off `main`, Maxim's choice); docs `docs/receipt-printed-names`.
+**Ask:** the one-label-per-language concept (PR #412, migration 0022) is not working: French text lands in the
+English name, both slots hold the same French text, and receipts no longer show the exact printed label, so shoppers
+are lost. Restore the old concept: `products.display_name` is English only (the official name from receipts); a
+receipt line always shows its own printed text. Asked whether to restore the backup into dev and merge prod in.
+**Decision (Maxim):** no restore + merge. Fix forward. For a product seen only on French receipts, keep today's
+behavior (the French text holds the name) until an English name arrives. **Hold:** copying the 2026-10-09 backup
+aside. Mid-task rule: *"the user should never see an empty receipt or empty labels until he updates, even if we have
+to do that in few steps while deploying."*
+**Plan:** migration 0025 `receipt_items.printed_name` (nullable, additive). Every line write stores it. Every read
+returns `coalesce(printed_name, product label)`, so an un-backfilled line keeps exactly today's label. The server
+detects the receipt language from its OCR when the build sends none (≤3.0.5), so a French receipt can no longer
+claim the English slot. App (next build): a line shows its printed text first. Data steps (backfill printed names
+from `raw_ocr`, reset the 184 products holding French text in both slots) are separate and need Maxim's go.
