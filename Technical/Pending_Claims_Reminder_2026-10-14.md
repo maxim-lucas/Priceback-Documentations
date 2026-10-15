@@ -12,6 +12,11 @@ push; (3) a reminder that totals the unclaimed drops; (4) "short and straight to
   `priceDropSingleSender.test.js` fails the build if a `flyer_drop`/`price_drop` sender comes back.
   The one price-drop push is the verified one, released by the admin review queue.
 
+> **Superseded the same day (hotfix `hotfix/claim-window-per-item`):** the days left are now the ITEM's
+> own — the earlier of the 30-day window and the saving's last day — and a saving that has ended is
+> neither pushed nor counted. The first reminder (2026-10-14 20:37 UTC, 7 shoppers) used the old rule; the
+> kill switch was turned off until the fix shipped. See `Claim_Deadline_Per_Item.md`.
+
 ## The price-drop push now
 `You can save $10.00 · 29 days left to claim.` — nothing else, plus two optional sentences:
 - `Verified by PriceBack.` **only** when PriceBack itself verified the drop (admin-verified, fewer shoppers than the
@@ -28,7 +33,7 @@ receipts to stop reminders.` (EN + FR.) One push per shopper, type `pending_clai
 | Rule | Value |
 |---|---|
 | Runs | daily slot, 18:00 UTC (cron + 5-min boot catch-up; slot elected in `kv_state`; skipped if >4 h late) |
-| What counts as waiting | a row in `price_drop_notifications`, line unclaimed + watched + undeleted, receipt undeleted, store window still open on the **shopper's** province day |
+| What counts as waiting | a row in `price_drop_notifications`, line unclaimed + watched + undeleted, receipt undeleted, and **the item still claimable** on the **shopper's** province day: store window open AND the saving not ended (since the same-day hotfix, `Claim_Deadline_Per_Item.md`). Days left are the item's own. |
 | Total | sum of (unit paid − lowest announced price) × quantity — the same figure as the drop pushes |
 | Sent when | the oldest waiting drop has waited **2+ days**, OR one expires within **3 days** |
 | Cadence | never daily: **3 days** between reminders (`PENDING_CLAIMS_REMINDER_GAP_DAYS`), **2** when something is about to expire |
