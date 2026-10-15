@@ -44,9 +44,16 @@ foreground) overwrote it with the product's name.
 |---|---|---|
 | Bootstrap / receipt reads (`receiptsRepo._itemSelect`) | `coalesce(printed_name, display_name)` | `coalesce(printed_name, display_name_fr)` |
 | Upload answer `products[]` (`receiptsRepo.lineProducts`) | same, from the first line of this receipt naming the product | same |
-| Price-drop candidates (`priceDropRepo.findNotifiable`) | `coalesce(ri.printed_name, p.display_name)`: the shopper's own line | — |
+| Price-drop candidates (`priceDropRepo.findNotifiable`) | `p.display_name`: the PRODUCT's name, never the line's printed text | — |
+| Admin receipt desk (`receiptsRepo.getForAdmin`) | `name` as above, plus `productName` (`products.display_name`) and `printedName` | — |
 
-Admin desks that group by product (review queue, potential drops, saving dates) still show the product name.
+**Where a name stands for the product, it comes from the products table** (Maxim, 2026-10-15: *"the table product
+have the right product name for the admin and price drop notifications even if the items have some parsing
+problems"*). Price-drop pushes and every admin desk name the product. The receipt desk shows each line's product
+name, with "On the receipt: …" beside it when the print differs. Its line editor has a **Product name** field per
+line: changed, it sets the product's English name (`renameProduct`, base slot) whatever the receipt's language; left
+alone, nothing is sent. The repair spec takes the same optional `items[].productName`. A misread line therefore never
+renames what a push or a desk says, and an admin can correct the product without touching the shopper's line.
 
 ## Old app builds
 
@@ -61,17 +68,29 @@ No field is removed or retyped. `nameFr` stays on the wire (3.0.6 reads it).
 ## Deploy order (no empty receipt or label at any step)
 
 1. **Migration 0025 on prod, by hand**, plus the ledger row (LF hash). It adds a nullable column, and the running
-   backend never touches it. ✅ dev (2026-10-15, `db:migrate`) · ⏳ prod.
-2. **Deploy the backend.** New lines get `printed_name`. Old lines fall back to today's label. Every build keeps
+   backend never touches it. ✅ dev (2026-10-15, `db:migrate`) · ✅ prod (2026-10-15, ledger row 36).
+2. **Deploy the backend** (merge #438; Railway auto-deploys `main`). ⏳ the merge waits on Maxim. New lines get `printed_name`. Old lines fall back to today's label. Every build keeps
    working.
-3. **Backfill `printed_name` for existing lines** (data step, **needs Maxim's go**). Replay the parser on each
-   receipt's `raw_ocr` (all 90 live receipts have it; 94 OCR captures are linked), match lines by position + SKU +
-   amount, and write only exact matches. Mismatches are listed for review, never guessed. Until this runs, those
-   lines keep today's label.
-4. **Product name clean-up** (data step, **needs Maxim's go**; the backup copy is on hold). Products whose base slot
-   holds French text get their English name back where an English receipt or the 2026-10-09 04:10 UTC backup
-   (`restore-db.js --dump-table=products`, read-only) shows one. The rest keep their French text (rule 2). The
-   pre-change backups roll off the 14-day retention: the 2026-10-09 one is gone around **2026-10-23**.
+3. **Backfill `printed_name` for existing lines**: `railway run -e production -s Priceback node
+   scripts/backfill-printed-names.js [--write]` (`lib/printedNameBackfill.js`). Safe before or after step 2. Costco
+   prints `SKU NAME` on one OCR line, so each line takes the text after its SKU (amount and tax flag stripped). One
+   reading only; a SKU on several lines (deposits, eco fees) is paired in print order when the counts match; an
+   `ln:` line takes its own product's name. An OCR misread within two edits of a name the product carries (or equal
+   but for punctuation) takes the product's checked reading ("SROGH BAGUET" → SRDGH BAGUET). Prod dry run
+   2026-10-15: **1,070 / 1,116** resolved (992 printed, 44 settled to the product's reading, 30 own product, 4 in
+   print order); 46 unresolved (42 SKU not on its own OCR line, 3 ambiguous, 1 barcode) keep the product name. A
+   handful of OCR misreads no label is close to stay as read (`K.S. ESSUTE`, `PRSONT DIE`), which is what the
+   shopper's phone showed at scan time. ⏳ `--write` waits on Maxim.
+4. **Product name clean-up**, AFTER step 2: `railway run -e production -s Priceback node
+   scripts/cleanup-product-names.js [--write]` (`lib/productNameCleanup.js`). A product is renamed only when its
+   name is French print (its French label, or exactly what a French receipt printed) AND an English receipt printed
+   it; the English text read most often wins. Catalogue/admin names, names printed the same in both languages and
+   French-only products are left alone (rule 2); the French label is never touched. Prod dry run 2026-10-15:
+   **11 renames** (LONGE PORC → PORK LOIN, ROCHER T48 → FERRERO 48CT, OEUFS 2.5 DZ → EGGS 2.5 DZ, POITRINE DÉS →
+   B/S BREASTS, CREVETTES → SHRIMP CTL, …); 302 products bought on French receipts only keep their name. Run before
+   the deploy, a French receipt's un-backfilled lines would show the new English name on the old backend, hence the
+   order. The receipts are the evidence, so the 2026-10-09 backup is not needed (the copy stays on hold; it ages out
+   around 2026-10-23). ⏳ waits on Maxim.
 5. **Ship the next app build** (tag + release per CLAUDE.md).
 
 ## Tests

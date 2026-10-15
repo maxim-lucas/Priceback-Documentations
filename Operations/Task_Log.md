@@ -10974,3 +10974,18 @@ product-name clean-up (backup copy on hold — the 2026-10-09 backup ages out ~2
 pre-0025 lines are unchanged. Changed visible content: lines that have printed text now show it on every build.
 3.0.6 shows one text per product (latest synced) if a shopper's receipts printed it differently. Repair renames are
 now narrower (only changed names).
+**Follow-up (same day):** Maxim: *"go ahead and for the product names in the admin database it should come from the
+product table. the target is that the table product have the right product name for the admin and price drop
+notifications even if the items have some parsing problems"*, then *"run the migration too and deploy everything"*.
+- Price-drop candidates are named by `products.display_name` again (reverted the printed-name change). The admin
+  receipt desk names a line by its product, printed text beside it; its line editor has a "Product name" field
+  (repair spec `items[].productName`) that sets the English name.
+- `scripts/backfill-printed-names.js` (prod dry run: 1,070 of 1,116 lines resolved, 46 left on the product-name
+  fallback) and `scripts/cleanup-product-names.js` (prod dry run: 11 renames; 302 French-only products kept).
+- ✅ **Migration 0025 applied to prod** by hand 2026-10-15 (ledger row 36). Nothing else changed in prod.
+- ⛔ The permission layer refused the PR merge (= the Railway deploy) and the prod `--write` runs. They wait on
+  Maxim. Order: backfill `--write` (safe before the deploy) → merge #438 (Railway auto-deploys `main`) → cleanup
+  `--write` (only after the deploy, or old-backend French receipts would show the English name).
+- The 2026-10-09 backup is no longer needed for the clean-up (the receipts are the evidence); the copy stays on hold.
+- Found, not fixed: `priceDropDb` "first sweep pushes each verified drop once" and "a strictly lower verified price
+  re-notifies" fail on clean `main` e7029dd too.
