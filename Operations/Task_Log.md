@@ -16,6 +16,13 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-14 — Claim deadline per item: the saving's validity window ∩ the 30-day store window (hotfix)
+
+- **Asked (/goal):** *"the reminders say remaining 21 days to claim or more, this is not usualy possible … you can only claim in the savings validity window … the client has only 1 week left for this specific item but still 28 remaining days for the rest of the items"*; mention that a claim after the saving ended *"would most likely be refused"*; perishables (meat, chicken, fruit): *document only*, to be confirmed with Costco customer service. *"Everything should be updated to make sense (Notification, Price Drops, claim window, website, app, legal text)"*. Hotfix on `main` → **`hotfix/claim-window-per-item` off `origin/main` (226a216)**.
+- **Maxim's decisions:** ended saving → no push, no commission, not counted as waiting; the app says it may still be asked but will most likely be refused. Correction notice drafted per receipt, **pending** his approval. Reminder kill switch off in prod until the deploy. End-date precedence: flyer → tag's printed EXP → admin-entered dates → unknown (30 days + "claim soon"). The Monday-before + 1/2-week estimate is an admin pre-fill only. New admin **Saving dates** screen (Sameday button / auto-fetch) + EXP editing on the price-tag review.
+- **Prod (done):** `PENDING_CLAIMS_REMINDER_ENABLED=false` at 2026-10-15 00:00 UTC (it had fired 2026-10-14 20:37 UTC to 7 shoppers, counting savings that ended Oct 11).
+- **Status:** in progress.
+
 ### 2026-10-13 — Admin notification approvals: review, edit and send in the shopper's language only
 
 - **Asked:** *"the notifications in the admin console can be approved but only sent based on the user language not both languages … in the future I want the notification to be generated for review based on the language only always"*. Branch asked → **`feat/notifications-per-language` off `main`**.
