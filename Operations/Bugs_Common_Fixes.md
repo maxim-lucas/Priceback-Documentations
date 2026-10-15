@@ -14120,3 +14120,29 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Files: shared/claimDeadline.js, backend/repos/priceDropRepo.js (`_savingEndsJoin`, `findNotifiable`, `pendingClaimRows`, `getLatestVerifiedPrice`), backend/lib/pendingClaims.js, backend/priceDropNotifier.js, backend/repos/pricesRepo.js (`applyTagExpiry`), backend/repos/savingDatesRepo.js, backend/lib/claimDeadlineCorrections.js, src/services/claimDeadline.js, src/components/ClaimDeadlineChip.js, src/services/notificationService.js (`receiptClaimReminder`).
 - Detect next time: `GET /api/admin/saving-dates` lists every saving a drop depends on with no end date; a push whose `data.endKnown` is false; `notification_history` bodies for `pending_claims_reminder`.
 - Prevent: priceDropWindowSourceDb (ended flyer gives way to a running tag; valid_until alone untrusted; tag > admin), pendingClaimsReminder (ended not waiting; per-item days), priceDropLockedPush, pricePointBusinessRules (applyTagExpiry scope), savingDatesDb, app claimDeadline/notificationService/dropLock tests. See `Technical/Claim_Deadline_Per_Item.md`.
+## 322. Receipts stopped reading like the paper — French or price-tag text in place of the printed line (2026-10-15)
+
+- Date: 2026-10-15 · PR: (fix/receipt-printed-names) · Area: both
+- Symptom: shoppers saw receipt lines that were not what the receipt printed: a price tag's catalogue text
+  ("ORAL-B IO BROSSES À DENTS" for "ORAL - BIO"), French text on an English receipt, and in prod 184 of 242
+  French-labelled products held the same French text in both `display_name` and `display_name_fr`.
+- Root cause: `receipt_items` never stored a line name. Reads joined the product's shared label, and 3.0.6
+  (PR #412) shows that label (`nameFr` in French) over the line's own text. A French receipt fills the base slot
+  until an English one arrives, and builds before 3.0.6 send no `language`, so their French receipts counted as
+  unknown and held the English slot for good.
+- Fix: migration 0025 `receipt_items.printed_name`, written by `persistReceiptItems` on every line write. Reads are
+  `coalesce(printed_name, product label)` for both `name` and `nameFr`, so a pre-0025 line is unchanged and never
+  empty. The server reads the receipt's language from its OCR when the build sends none
+  (`shared/receiptLocale.receiptLabelLanguage`). App: `lineLabel` shows the line's text first. Drop candidates name
+  the shopper's own line.
+- Files: backend/db/migrations/0025_receipt_item_printed_name.sql, backend/db/schema.js,
+  backend/repos/receiptsRepo.js (`printedNameOf`, `_itemSelect`, `lineProducts`), backend/repos/priceDropRepo.js,
+  backend/server.js (POST /api/receipts `language`), shared/receiptLocale.js, shared/receiptWireContract.js,
+  src/services/productLabels.js.
+- Detect next time: `SELECT count(*) FROM priceback.products WHERE display_name_fr IS NOT NULL AND display_name =
+  display_name_fr` (French-only products, expected to shrink as English receipts arrive), and
+  `SELECT count(*) FROM priceback.receipt_items WHERE printed_name IS NULL AND deleted_at IS NULL` (lines still on
+  the fallback).
+- Prevent: `receiptProductLabelsDb.test.js` (mutation-checked), the five app label tests, `receiptLocale.test.js`.
+  **Lesson: a shared label must never be displayed over a per-record fact.** Store the fact on the record. See
+  `Technical/Receipt_Printed_Names.md`.
