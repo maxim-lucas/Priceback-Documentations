@@ -10961,3 +10961,11 @@ drops (balance below 0) must unlock automatically when the shopper buys credits 
 10-13/14; 0/41 drops claimed; $3 pack does not unlock a −269 balance.
 **Regression risk:** low. Backend route is new and additive. The unlock signal only adds a re-read of the
 same cached values the focus re-read already used.
+**Follow-up (same day, Maxim):** in-app drops must pass admin review; reminders; "Unlock" must preselect
+the minimum pack; the preview must be the exact UI and data (settings, warehouse, membership, invites,
+notification switches); a forced update for old builds; a maintenance switch. **Done:** released-drop
+gate (bootstrap `releasedDrops`, `GET /api/me/drops`, app reconcile); unlock-pack preselect; "Open their
+app" (real screens behind a storage/network/purchase/notification guard, masked identity); Admin · App
+version → Maintenance mode + "Refuse builds before 3.0.7" (both off by default). The server "claims
+waiting" reminder is already live in prod (first run 2026-10-14 sent 7 pushes); the on-phone one is
+unreleased. **Not done:** Android Play in-app immediate update (native module = new build; needs a go).

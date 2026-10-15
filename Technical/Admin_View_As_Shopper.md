@@ -93,3 +93,61 @@ Suggested (not built — needs a product decision):
 2. Decide whether a free account at ≥ 0 should keep seeing drops in full (today the welcome credits pay
    for up to ~$5 of drops before any paywall).
 3. Look at the zero claims: none of the 41 drops was marked claimed, including fully visible ones.
+
+## Open their app — the real screens (added later the same day)
+
+The summary screen has **Open their app — exact screens, read-only**. It opens the shopper's real Home,
+Receipts, Stores and Profile tabs (same tab bar), and the screens they lead to (Detail, claim assistant,
+paywall, credit history, invites, notification settings, Costco profile, subscription, FAQ, tutorials,
+guarantee, savings streak), fed with that shopper's redacted data and shown in **their language**.
+Camera, scanning and Gmail screens are not hosted. Tapping one leaves the preview.
+
+How it stays safe (`src/services/shopperPreviewSession.js`, `src/screens/ShopperPreviewHost.js`):
+
+| Guard | While a preview runs |
+|---|---|
+| AsyncStorage (wrapped once at startup) | snapshot keys read the shopper's data; a key the snapshot lacks reads **empty**; **every write is dropped** |
+| fetch (the version wrapper) | **every** call to our API returns a local `423` — reads too (a `GET /api/me/*` would answer with the admin's account) |
+| purchases | `purchaseProduct` / `restorePurchases` refused (the admin's own store account) |
+| local notifications | no schedule, no cancel (the shopper's reminders on the admin's phone / the admin's own cancelled) |
+| identity | `getStoredUser` returns the **masked** email, no name, no photo |
+
+The session is entered only while the host has focus, and the real screens mount **after** it is entered
+(React runs child effects first). It ends on blur or unmount, and the admin's language is restored.
+
+Settings shown (summary + Profile): language, default warehouse, membership type, auto-reload, low-balance
+warning, notification switches, friend invites. Each friend is **an initial and a date**, never a name or
+a photo.
+
+## A drop shows in the app only once released
+
+Before: the phone's own price check put a drop chip on screen as soon as a verified lower price existed,
+before admin review and without any charge. Now `priceDropQueueRepo.releasedForUser` lists, per live
+unclaimed line, the lowest released price: notified, approved/sending/sent, or pending when review is
+off. It is served on `/api/me/bootstrap` (`releasedDrops`) and `GET /api/me/drops`. The app
+(`src/services/releasedDrops.js`) shows only released drops, at the released price. A lower price found
+on an unreleased line reads "Lower price found — we're verifying it". Old builds (≤ 3.0.6) keep their own
+chip.
+
+## "Unlock" preselects the pack that unlocks
+
+From a locked drop, the paywall puts first, and marks, the smallest pack that brings the balance back to
+≥ 0 in one purchase. The hero says how many credits it takes. When no single pack covers the deficit, it
+points to the subscription. Hidden drops unlock the moment the balance is written back to ≥ 0 or a
+subscription lands (entitlement-change signal).
+
+## Maintenance mode and old builds (Admin · App version)
+
+- **Maintenance mode** (`MAINTENANCE_MODE`, off by default): shopper-app routes answer `503` "PriceBack is
+  down for maintenance". 3.0.7+ shows a blocking **Under maintenance** screen (EN/FR) that re-checks every
+  30 s and lifts by itself. 2.9–3.0.6 show their own maintenance copy. Admins, the admin console, webhooks,
+  importers and the public JSON keep working.
+- **Minimum build** (existing): 3.0.7+ below it gets the blocking **Update required** screen with a store
+  button, at launch and on every return to the foreground.
+- **Refuse builds before 3.0.7** (`REFUSE_UNREPORTED_BUILDS`, off by default): those builds send no build
+  number, so the minimum can't reach them. On: their shopper-app calls get `426`; 3.0.4–3.0.6 show "This
+  version of PriceBack is out of date". **Turn on only once 3.0.7+ is live to 100 % in BOTH stores.** It
+  can't be turned on from a phone that doesn't report its own build.
+- **Silent auto-install is not possible** for a store app. Android can run Play's in-app *immediate
+  update* flow, but it needs a native module (`expo-in-app-updates` or similar), i.e. a new build. Not
+  done: needs a decision.
