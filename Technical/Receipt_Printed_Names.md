@@ -33,7 +33,11 @@ foreground) overwrote it with the product's name.
 3. **The server reads the receipt's language itself when a build doesn't send it** (`shared/receiptLocale.js`
    `receiptLabelLanguage`, the app's own two-marker rule, run on `headerOcr + rawOcr`). This means a French receipt
    from a build before 3.0.6 can no longer hold the English slot for good.
-4. **Never empty.** Every read is `coalesce(printed_name, product label)`. A line written before 0025 (NULL
+4. **A repair renames a product only for a name the admin changed** (`lib/badScanRepair.js`). The desk's line
+   editor starts from what each line shows, which is now its printed text. A name left as it was (same position,
+   same SKU, same text) renames nothing. Otherwise re-saving a receipt would rename every product to that receipt's
+   printed (possibly French) text. A repair with no `language` reads it from the receipt's OCR.
+5. **Never empty.** Every read is `coalesce(printed_name, product label)`. A line written before 0025 (NULL
    `printed_name`) shows exactly what it showed before. `products.display_name` is NOT NULL.
 
 | Read | `name` | `nameFr` |
@@ -76,6 +80,13 @@ No field is removed or retyped. `nameFr` stays on the wire (3.0.6 reads it).
   per-line printed text on reads and on the upload answer, a pre-0025 line falling back (never empty), trimmed
   storage, `(unnamed)` not stored. Mutations checked: reading the product name instead of the printed text → 2 red;
   dropping the OCR language fallback → 1 red.
+- `backend/tests/badScanRepairDb.test.js`: a re-save of unchanged names renames nothing (an unreadable-language
+  receipt, where a rename would put French in the English name); a repair with no language reads it from the OCR and
+  corrects only the French slot. Mutations checked: both guards removed → red.
+- Full suites (2026-10-15): backend 2582/2584, 95.18 % statements. The 1 failure is
+  `receiptUnsupportedCountryDb` "registration BEFORE the upload", which **fails identically on clean `main`**
+  (pre-existing, not this change); 1 skipped. Mobile: everything passes except 4 suites driven by 19 *untracked*
+  prod-capture fixtures in the working tree that have no golden yet (they pass with those files moved aside).
 - `__tests__/productLabels.test.js`, `detailScreenProductLabels`, `homeScreenProductLabels`,
   `receiptsScreenProductLabels`, `exportServiceProductLabels`: printed text first, product label only for a nameless
   line.

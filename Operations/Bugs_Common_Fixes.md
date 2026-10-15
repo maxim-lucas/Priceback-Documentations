@@ -14137,8 +14137,8 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
   the shopper's own line.
 - Files: backend/db/migrations/0025_receipt_item_printed_name.sql, backend/db/schema.js,
   backend/repos/receiptsRepo.js (`printedNameOf`, `_itemSelect`, `lineProducts`), backend/repos/priceDropRepo.js,
-  backend/server.js (POST /api/receipts `language`), shared/receiptLocale.js, shared/receiptWireContract.js,
-  src/services/productLabels.js.
+  backend/server.js (POST /api/receipts `language`), backend/lib/badScanRepair.js (rename only a changed name; OCR
+  language), shared/receiptLocale.js, shared/receiptWireContract.js, src/services/productLabels.js.
 - Detect next time: `SELECT count(*) FROM priceback.products WHERE display_name_fr IS NOT NULL AND display_name =
   display_name_fr` (French-only products, expected to shrink as English receipts arrive), and
   `SELECT count(*) FROM priceback.receipt_items WHERE printed_name IS NULL AND deleted_at IS NULL` (lines still on

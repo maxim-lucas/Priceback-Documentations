@@ -10962,3 +10962,15 @@ returns `coalesce(printed_name, product label)`, so an un-backfilled line keeps 
 detects the receipt language from its OCR when the build sends none (≤3.0.5), so a French receipt can no longer
 claim the English slot. App (next build): a line shows its printed text first. Data steps (backfill printed names
 from `raw_ocr`, reset the 184 products holding French text in both slots) are separate and need Maxim's go.
+**Done:** migration 0025 (applied to **dev** only), line writes + reads, OCR language for builds without one,
+drop candidates name the shopper's line, the repair engine renames only a changed name, app `lineLabel` prints the
+line first, wire contract. Design + deploy order: `Technical/Receipt_Printed_Names.md`; Bugs #322.
+**Verified:** backend 2582/2584 (the 1 failure, `receiptUnsupportedCountryDb`, fails identically on clean `main`);
+mobile all green except 4 suites caused by 19 untracked prod-capture fixtures in the working tree; i18n check green;
+four mutations each turn their test red.
+**Not done / owed (each needs Maxim):** 0025 on prod + backend deploy; backfill `printed_name` from `raw_ocr`;
+product-name clean-up (backup copy on hold — the 2026-10-09 backup ages out ~2026-10-23); next app build.
+**Regression risk:** low-medium. Every read is `coalesce(printed_name, product label)`, so nothing goes empty and
+pre-0025 lines are unchanged. Changed visible content: lines that have printed text now show it on every build.
+3.0.6 shows one text per product (latest synced) if a shopper's receipts printed it differently. Repair renames are
+now narrower (only changed names).
