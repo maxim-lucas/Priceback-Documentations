@@ -297,6 +297,38 @@
   pinned artefact, not a decision.
 - **Status:** app PR **#375** open (`5ecd07b`); prod data already repaired (3 receipts, guarded tx).
   Merge is Maxim's; the parser fix reaches users with the next store build.
+### 2026-09-28 — `development` merged into `main` on a new branch (main wins), national offers stored once (Costco too), `(province OR NATIONAL)` detection, every store but Costco stays "Coming soon"
+
+- **Asked (/goal):** *"merge main and dev in a new branch, main always wins if there is conflict,
+  any modification done in main should never be lost, also add this rule all national offers should
+  be stored as national not duplicated even for costco, add this filter also in the price drop
+  detection (province || national) for costco stores, all stores in prod should remain coming soon
+  except costco"*. Follows the previous session's NATIONAL look-up and
+  `Roadmap/Costco_Coupons_Ingestion_Roadmap.md` (§1 is what this implements).
+- **Branch:** the ask named it — a NEW branch holding both: **`merge/main-and-development`** off
+  `origin/main` `63c9dc2`, in a separate worktree because the main checkout held an uncommitted
+  `CLAUDE.md` edit that `development` also changes (left untouched, as was the untracked
+  `costco-coupons-2026-09-14-ALL.json`). Docs: `docs/merge-main-development-national`.
+- **Merge:** contradictions → `main`; both-only-added → both kept. Migration `0007_national_province`
+  renumbered **0013**. Proof per file for all 346 files `main` changed (307 identical / 27 patch
+  reverse-applies / 12 line-checked). Six semantic conflicts fixed separately — Bugs #297–#299 and
+  `Operations/Merge_Main_Development_2026-09-28.md` §2.
+- **Stores:** prod (queried) = Costco only. Best Buy's #320 promotion moved back to the lab lane — five
+  declarations + regenerated sync SQL; `main`'s posture exactly. **Reverses #320 on `development`'s
+  side, by Maxim's instruction.** Dev DB keeps Best Buy enabled (lab lane) — unchanged, as the
+  2026-09-19 entry requires. 🛑 `store-content-sync.sql` would hide 7 grocery stores prod shows as
+  "Coming soon" — not applied anywhere.
+- **National:** an `"ALL"` import is stored once (`NATIONAL`, overlay + `price_points`), readers are
+  `(province OR NATIONAL)` with the cheaper offer winning, a national re-import collapses an old
+  fan-out (only next to its replacement). Found + fixed Bugs #296 (region sweep reached other
+  provinces' buyers via a national row). Bulk writes isolate each row (Bugs #300). Applies to every
+  `"ALL"` import, not only `costco-coupons` as the roadmap had proposed — Maxim's rule is broader.
+- **Prod facts (read-only, 2026-09-28):** NATIONAL province already present (id 49640);
+  `BESTBUY_SCAN_ENABLED` = false; `ALL-2026-09-14` = 1,547 rows (collapses to 119 on re-import).
+- **Verified locally (no Actions):** backend 2,414 tests / 0 fail / 1 skipped, coverage
+  95.24/81.52/95.67/95.24; mobile 303/303 suites, 7,251 pass; `i18n:check` in sync (1,612).
+- **Status:** app PR **#373** → `main`, **open — not merged**: merging deploys the backend to production
+  and puts all of `development` on `main`, which is Maxim's release decision. Docs PR alongside.
 
 ### 2026-09-28 — Splash tagline + slogans localized (EN/FR by the saved language, next cold start)
 
@@ -402,6 +434,60 @@
   the PREVIOUS day west of UTC — fixed by the hotfix entry above (Bugs #288).
 - **Status:** merged as **#369** (`eb6e7a8`). (Recorded here by the follow-up session; the original entry
   was written but left uncommitted because the file held other sessions' changes.)
+
+### 2026-09-27 — Extract Ontario Costco flyer coupons for review before import
+
+- **Asked (/goal):** *"use Firecrawl to parse all the ontario flyer content
+  https://www.costco.ca/o/-/coupons and extract all necessary details to import them to the app as
+  price points. i need to double check them before you submit them into the production table"*.
+- **Firecrawl MCP was down** (`CONNECTION_CLOSED`); `Technical/Flyer-ingestion.md` already documents that
+  `costco.ca/coupons.html` is Akamai-protected and blocks server-side scraping anyway, so used a live
+  Claude-in-Chrome browse instead (the documented method for this exact page) — page confirmed "offers
+  available in Ontario" for the loaded delivery location.
+- **Output only — NOT imported.** Draft JSON in [[import-flyer.mjs]] shape at
+  `backend/data/flyer-imports/costco-coupons-2026-09-14.DRAFT.json` (region ON, batchKey
+  `ON-2026-09-14`, 78 priced items across the 2-week + 4-week sections). 5 items excluded (missing
+  price breakdown on page — Duracell batteries, 3 "Costco.ca only" tiles, the Bridgestone tire rebate)
+  and 1 anomaly flagged (Kirkland facial towel showed `validUntil` year 2027, treated as a site typo →
+  set to 2026). Awaiting Maxim's review before running `import-flyer.mjs` / `POST /api/flyer/import`.
+- **Status:** draft ready for review, nothing pushed to prod.
+
+### 2026-09-27 — Same flyer extraction for Quebec
+
+- **Asked:** *"can you do the same for quebec also?"* — same source URL, region switched via delivery
+  location (auto-resolved to warehouse **Boisbriand**).
+- **Output only — NOT imported.** `backend/data/flyer-imports/costco-coupons-2026-09-14-QC.DRAFT.json`
+  (region QC, batchKey `QC-2026-09-14`), same 78-item catalog and prices as the Ontario batch, with two
+  QC-specific deltas: Champion dual fuel generator carries a $0.35 eco-fee (price $800.34 vs $799.99 in
+  ON); several grocery items show a "Taxable Food" tag (QST display only, not a price difference).
+  Same 5 exclusions + Kirkland-towel 2027 typo as the ON batch.
+- **Status:** draft ready for review, nothing pushed to prod.
+
+### 2026-09-27 — Corrected national (ALL-province) flyer price points + crawl rules
+
+- **Asked:** after reviewing the ON/QC drafts, Maxim gave detailed corrections (see message log) —
+  Duracell has 4 SKUs (log all, 3 resolve online at $19.99/$25.99, warehouse likely cheaper), the 3
+  `COSTCO.CA ONLY` tiles under-report their savings (Samsung 77" TV is actually -$700 not -$500 per
+  its product page), eco-fees/taxes are never part of product price in any province, Hot Buy tiles
+  are not price drops, never merge multiple SKUs into one entry (golden rule, always), and asked to
+  find the cross-province pattern before building per-province files.
+- **Verified BC too** (in addition to ON/QC): identical catalog/regular-price/savings nationwide,
+  only eco-fee amount and QC's "Taxable Food" tag vary — both excluded from price. This makes the
+  flyer genuinely national, so replaced the separate ON/QC drafts with one
+  `backend/data/flyer-imports/costco-coupons-2026-09-14-ALL.json` (region ALL, 119 line items after
+  SKU-level splitting, validated: no duplicate SKUs, only 1 item — the unresolved Duracell SKU
+  1625149 — has no promoPrice).
+- **Docs:** new `Technical/Costco_Flyer_Province_Comparison.md` (province diff findings, golden rule,
+  Hot Buy rule, online-tile-price-discrepancy rule, Duracell findings, priceSource flag, Bridgestone
+  rebate roadmap ask, desired crawl cadence); cross-referenced from `Flyer-ingestion.md`.
+- **Not done — Maxim's call:** recurring automated crawl (first-hour-of-new-cycle) not yet scheduled;
+  Treasure Hunt / Offers Ending Sunday / Online deals / Executive-only deals not covered by any crawl
+  yet. Bridgestone-style rebate offers need a new "special offers" table — not built, flagged only.
+- **Status:** `costco-coupons-2026-09-14-ALL.json` ready for review, nothing imported to prod yet.
+  **Update 2026-09-28:** it WAS imported to production later on 2026-09-27 — 1,547 `price_points`
+  rows (119 offers × 13 provinces), confirmed by query; it needed three re-runs (Bugs #300). The
+  local JSON's `_note` still says "pending review". The follow-ups are
+  `Roadmap/Costco_Coupons_Ingestion_Roadmap.md`, written the same day.
 
 ### 2026-09-27 — Repair production receipt data against the photos + the parser bugs behind it
 
@@ -10971,3 +11057,70 @@ DB (assertion fired before the test's restore). Reset to false and verified; the
 `error:` in the App Store fallback object → renamed to `reason`, affected files re-run green; the whole suite was not
 re-run). Mutations on every fix turn a test red. Dev switches confirmed at defaults afterwards. **PR #440, not merged**
 (merge = Railway deploy to prod → Maxim).
+## 2026-10-15 — Receipts show the printed line text again; product name is the English label
+
+**Branch:** app `fix/receipt-printed-names` (off `main`, Maxim's choice); docs `docs/receipt-printed-names`.
+**Ask:** the one-label-per-language concept (PR #412, migration 0022) is not working: French text lands in the
+English name, both slots hold the same French text, and receipts no longer show the exact printed label, so shoppers
+are lost. Restore the old concept: `products.display_name` is English only (the official name from receipts); a
+receipt line always shows its own printed text. Asked whether to restore the backup into dev and merge prod in.
+**Decision (Maxim):** no restore + merge. Fix forward. For a product seen only on French receipts, keep today's
+behavior (the French text holds the name) until an English name arrives. **Hold:** copying the 2026-10-09 backup
+aside. Mid-task rule: *"the user should never see an empty receipt or empty labels until he updates, even if we have
+to do that in few steps while deploying."*
+**Plan:** migration 0025 `receipt_items.printed_name` (nullable, additive). Every line write stores it. Every read
+returns `coalesce(printed_name, product label)`, so an un-backfilled line keeps exactly today's label. The server
+detects the receipt language from its OCR when the build sends none (≤3.0.5), so a French receipt can no longer
+claim the English slot. App (next build): a line shows its printed text first. Data steps (backfill printed names
+from `raw_ocr`, reset the 184 products holding French text in both slots) are separate and need Maxim's go.
+**Done:** migration 0025 (applied to **dev** only), line writes + reads, OCR language for builds without one,
+drop candidates name the shopper's line, the repair engine renames only a changed name, app `lineLabel` prints the
+line first, wire contract. Design + deploy order: `Technical/Receipt_Printed_Names.md`; Bugs #322.
+**Verified:** backend 2582/2584 (the 1 failure, `receiptUnsupportedCountryDb`, fails identically on clean `main`);
+mobile all green except 4 suites caused by 19 untracked prod-capture fixtures in the working tree; i18n check green;
+four mutations each turn their test red.
+**Not done / owed (each needs Maxim):** 0025 on prod + backend deploy; backfill `printed_name` from `raw_ocr`;
+product-name clean-up (backup copy on hold — the 2026-10-09 backup ages out ~2026-10-23); next app build.
+**Regression risk:** low-medium. Every read is `coalesce(printed_name, product label)`, so nothing goes empty and
+pre-0025 lines are unchanged. Changed visible content: lines that have printed text now show it on every build.
+3.0.6 shows one text per product (latest synced) if a shopper's receipts printed it differently. Repair renames are
+now narrower (only changed names).
+**Follow-up (same day):** Maxim: *"go ahead and for the product names in the admin database it should come from the
+product table. the target is that the table product have the right product name for the admin and price drop
+notifications even if the items have some parsing problems"*, then *"run the migration too and deploy everything"*.
+- Price-drop candidates are named by `products.display_name` again (reverted the printed-name change). The admin
+  receipt desk names a line by its product, printed text beside it; its line editor has a "Product name" field
+  (repair spec `items[].productName`) that sets the English name.
+- `scripts/backfill-printed-names.js` (prod dry run: 1,070 of 1,116 lines resolved, 46 left on the product-name
+  fallback) and `scripts/cleanup-product-names.js` (prod dry run: 11 renames; 302 French-only products kept).
+- ✅ **Migration 0025 applied to prod** by hand 2026-10-15 (ledger row 36). Nothing else changed in prod.
+- ⛔ The permission layer refused the PR merge (= the Railway deploy) and the prod `--write` runs. They wait on
+  Maxim. Order: backfill `--write` (safe before the deploy) → merge #438 (Railway auto-deploys `main`) → cleanup
+  `--write` (only after the deploy, or old-backend French receipts would show the English name).
+- The 2026-10-09 backup is no longer needed for the clean-up (the receipts are the evidence); the copy stays on hold.
+- Found, not fixed: `priceDropDb` "first sweep pushes each verified drop once" and "a strictly lower verified price
+  re-notifies" fail on clean `main` e7029dd too.
+
+## 2026-10-15 — Admin "View as shopper" + automatic unlock of hidden drops
+
+**Ask (Maxim, /goal):** from the admin users list, open a preview of what a shopper sees in their app
+(products, price drops, credits) to answer support mail — without exposing personal data (card or other
+sensitive info). Also: why has nobody bought credits though ~$150 of drops were found? Mid-task: hidden
+drops (balance below 0) must unlock automatically when the shopper buys credits back to ≥ 0 or subscribes.
+**Branch:** `feat/admin-user-preview` off `main` (asked; Maxim chose a new branch off main).
+**Done:** `GET /api/admin/users/:sub/preview` (allowlist-redacted, read-only, admin-gated, logged);
+`AdminShopperPreviewScreen` reached from the Accounts row eye icon, the ⋯ sheet and the account screen;
+`purchaseService.subscribeEntitlementChange` + `useDropLock` re-read on it. Design + prod findings:
+`Technical/Admin_View_As_Shopper.md`.
+**Prod findings:** 0 packs ever bought; 149/161 shoppers positive → drops shown free; 5 negative only since
+10-13/14; 0/41 drops claimed; $3 pack does not unlock a −269 balance.
+**Regression risk:** low. Backend route is new and additive. The unlock signal only adds a re-read of the
+same cached values the focus re-read already used.
+**Follow-up (same day, Maxim):** in-app drops must pass admin review; reminders; "Unlock" must preselect
+the minimum pack; the preview must be the exact UI and data (settings, warehouse, membership, invites,
+notification switches); a forced update for old builds; a maintenance switch. **Done:** released-drop
+gate (bootstrap `releasedDrops`, `GET /api/me/drops`, app reconcile); unlock-pack preselect; "Open their
+app" (real screens behind a storage/network/purchase/notification guard, masked identity); Admin · App
+version → Maintenance mode + "Refuse builds before 3.0.7" (both off by default). The server "claims
+waiting" reminder is already live in prod (first run 2026-10-14 sent 7 pushes); the on-phone one is
+unreleased. **Not done:** Android Play in-app immediate update (native module = new build; needs a go).
