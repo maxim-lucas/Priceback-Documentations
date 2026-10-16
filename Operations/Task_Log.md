@@ -16,6 +16,287 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-14 — Claim deadline per item: the saving's validity window ∩ the 30-day store window (hotfix)
+
+- **Asked (/goal):** *"the reminders say remaining 21 days to claim or more, this is not usualy possible … you can only claim in the savings validity window … the client has only 1 week left for this specific item but still 28 remaining days for the rest of the items"*; mention that a claim after the saving ended *"would most likely be refused"*; perishables (meat, chicken, fruit): *document only*, to be confirmed with Costco customer service. *"Everything should be updated to make sense (Notification, Price Drops, claim window, website, app, legal text)"*. Hotfix on `main` → **`hotfix/claim-window-per-item` off `origin/main` (226a216)**.
+- **Maxim's decisions:** ended saving → no push, no commission, not counted as waiting; the app says it may still be asked but will most likely be refused. Correction notice drafted per receipt, **pending** his approval. Reminder kill switch off in prod until the deploy. End-date precedence: flyer → tag's printed EXP → admin-entered dates → unknown (30 days + "claim soon"). The Monday-before + 1/2-week estimate is an admin pre-fill only. New admin **Saving dates** screen (Sameday button / auto-fetch) + EXP editing on the price-tag review.
+- **Prod (done):** `PENDING_CLAIMS_REMINDER_ENABLED=false` at 2026-10-15 00:00 UTC (it had fired 2026-10-14 20:37 UTC to 7 shoppers, counting savings that ended Oct 11).
+- **Status:** in progress.
+
+### 2026-10-13 — Admin notification approvals: review, edit and send in the shopper's language only
+
+- **Asked:** *"the notifications in the admin console can be approved but only sent based on the user language not both languages … in the future I want the notification to be generated for review based on the language only always"*. Branch asked → **`feat/notifications-per-language` off `main`**.
+- **Done:** `GET/POST /api/admin/notification-approvals*` items now carry `language` (the shopper's) and `preview`/`defaults` for that language only; `/copy` accepts only that language (400 otherwise). Desk screen unchanged (renders whatever `preview` holds). Standing rule saved to memory (`notifications-generated-per-language`). Old admin builds: additive (fewer preview keys, same shapes).
+- **Status:** PR open, not merged (a merge deploys the backend to prod).
+
+### 2026-10-13 — October receipts: prod datafix, missing receipt image, parser design rule (denoise first)
+
+- **Asked:** *"few receipts has been scanned in production … the main target now is to fix these receipts (datafix) in production, also one receipt dont have any receipt image or file stores why is that?"* — filter `admin_reviewed_at IS NULL`, October. Mid-task: **"October receipts" = purchase date** (memory rule); the parser design rule *"clean all the noise (French or English) first, then keep only … warehouse, items, taxes, subtotal and total … same structure same logic"* → document it for every future parser change; notify the shoppers that the receipts were reviewed and fixed, *"quality matters and we need the data just to the total"*, **reviewed by Maxim before sending**. Branch: asked → **`hotfix/october-receipts-datafix` off `main`** (`207393a`).
+- **Maxim's decisions:** `w0dv6` (duplicate re-scan of `3mq8x`) soft-deleted; `u8xbn` (shopper removed 2 lines on the review screen) restored to the paper; the 7 correct receipts stamped reviewed.
+- **Done (prod):** 5 receipts repaired by spec (dry run → `--write` → read back to the cent), `w0dv6` soft-deleted, 3 junk products deleted, 7 stamped reviewed. Notices #3–#5 drafted **pending** (not sent).
+- **Docs:** new `Technical/Receipt_Parser_Design_Rules.md` (standing rule, also in the app repo's `CLAUDE.md`); `Receipt_Parser_Root_Causes.md` (RC-4…14 index, 2026-10-13 cases, open cases O-1…O-3); runbook log; Bugs #319 (missing image: the PUT never lands — all 5 presigned-but-missing keys absent from R2).
+- **Not done / owed:** parser not changed (rework under the new design rule, next days); RC-4…14 full sections; the 19 exported captures not committed (need ground truth); `xzw9x` (Nepean, **September** purchase) is still wrong (stored 316.82 lines / 323.97 total vs printed 122.59 / 129.74) — out of the October scope; `ejx4g`'s photo recoverable from OCR capture #96 (offered).
+- **Status:** done — app PR + docs PR below.
+
+### 2026-10-12 — Receipt parser: consolidate every root cause, fix the parser at the root, repair every receipt that doesn't close
+
+- **Asked (/goal):** analyse the cloud sessions' new root-cause docs plus the parser's whole change history *"to avoid doing and undoing same problems in circles"*; the parser works only on a perfect scan, angle and zoom break it — *"fix the parser"*; two receipts from last night are bad, one is *"inaccessible in the app and have negative balance"* although R2 shows a purchase — *"fix also the data in production"*; rejecting a hopeless photo before OCR: *document only, later*. Branch not named → asked → **`fix/receipt-parser-root-causes` off `main`** (`c2b1990`).
+- **Maxim's decisions:** repair **every receipt since 10-09 that doesn't close** on its printed SOUS-TOTAL/TOTAL; `railway run -e production` allowed this session; Costco parser **and** the shared parsing files confirmed for change. This reverses the 2026-10-11 "document, don't fix" for the parser — Maxim asked for the fix.
+- **Docs merged first:** the cloud branches `claude/keen-ptolemy-xs8j5n` (#140, root-cause register) and `claude/trusting-mccarthy-u042o8` (#141, Saint-Jérôme #529) were never merged — now on `main`.
+- **Status:** app merged as Priceback #427 (`207393a`, RC-4/7/10/12 fixes, 3 prod repairs); this docs entry and `Technical/Receipt_Photo_Quality_Gate.md` were left uncommitted on the docs branch — committed with the 2026-10-13 PR. The RC-4…RC-14 sections were never written into the register (index added 2026-10-13; sections still owed).
+
+### 2026-10-11 — New Vaudreuil receipt 509.15 for 480.15: root cause, prod datafix, admin "Fix automatically" button (Gemini)
+
+- **Asked:** *"new receipt arrived in production, (hotfix on main) find the root cause and document it in the new doc to optimize the parser then run a datafix in production to fix the receipt. is there also a way to add a button on the receipt review in admin console to fix the receipt automaticaly … (we can use Gemini LLM …)"*; mid-task: *"dont fix the parser document just the root cause"*; *"also document the cases with every root cause (new rule)"*. Branch: `claude/keen-ptolemy-xs8j5n` off `main` (`7b684c2`).
+- **Found:** `r_1791693864226_r06sa` (Vaudreuil #1213, 2026-10-08) lost 7 of 21 coupons (29.00). RC-1: `unweldSkuSlashName` (#398) turns `390384 /MULTIPLE` into `390384 MULTIPLE`, so the MULTIPLE rule (#402) never matches a 6-digit coupon number — in v3.0.5, v3.0.6 and `main`; also the cause of the MULTIPLE coupons lost on `qvs25`/`5clwk`. RC-2: a coupon ref read with no slash (`39519127003`). RC-3: ≤3.0.6 stores Σ lines + tax as the total (fixed by #420).
+- **Docs:** new `Technical/Receipt_Parser_Root_Causes.md` (root causes + every case + proposed parser changes, not applied) with the **standing rule**: every hand-repaired receipt gets its root cause and case recorded there. Rule also added to the app repo's `CLAUDE.md`. New `Operations/Receipt_Auto_Fix_Admin_Button.md`.
+- **Prod (done):** r06sa repaired → 480.15 / 21.39, 21 coupon lines, reviewed; in-place SQL via the Supabase connector (no Railway credentials in the cloud session).
+- **Code:** admin-only `POST /api/admin/receipts/:id/auto-fix` (Gemini proposal, deterministic paper checks, badScanRepair dry run; never writes) + *Fix automatically* panel on the admin receipt screen (Apply → existing `/lines`); the line editor keeps fee flags. Parser untouched.
+- **Status:** prod repaired; app PR (button ships with the next binary; the route needs a Railway deploy).
+
+### 2026-10-10 — "Costco online" receipts of a new user, a 75.80-for-76.08 Quebec receipt: online label, store gate, total = printed total
+
+- **Asked (/goal):** a new user's Costco online receipts show no warehouse (good) but must show they are an online purchase — in the app and in Admin → Receipt review — *"to make sure this isnt a bad parse"*; *"the receipts are very badly parsed. fix them"*; the latest receipts *"miss i think the eco fees and have a little drift from the total … make sure always that the total = same total of the receipt"*. Branch not named → asked first → **`fix/costco-online-orders` off `main`** (`7dfd024`).
+- **Found:** the 7 "online" receipts are NOT Costco — Fashion Nova (1 order) and Hoodrich (3 orders), each scanned twice; no store recognized → picker → Costco; generic parse saved as "Costco online", a billing address's `#306` registered as a new warehouse (537074). Quebec #503 `4jfke`: both live captures parse 76.08 with both fee lines (3.0.5 and `main`); the review screen re-derives the total from the lines, so the deleted fee rows took 0.28 with them.
+- **Maxim's decisions (mid-task):** export allowed; soft-delete + clean the 7; repair 4jfke; *"by default every receipt scanned by a user for a store that isnt supported or active in the app should popup a message to refuse the receipt and let the user know that this store is not supported yet"*; and for a receipt not detected as Costco: *"popup a warning … are you sure that this is a costco receipt?"*.
+- **Code:** unsupported-store refusal (online order, no store recognized → parser; inactive store → popup), "Is this a {store} receipt?" on the picker for an unrecognized scan, printed total locked on the review screen + mismatch warning, "Online order" in the warehouse slot (app + admin), no warehouse for an online order (app + server), `Membre` weld scrub. Bugs #316.
+- **Prod (done):** 4jfke repaired (spec, `22e35ec` worktree) → 76.08, 12 lines; the 7 receipts soft-deleted, their 10 price points deleted, warehouse `#306` deleted, watch registration emptied.
+- **Status:** prod repaired + cleaned; app PR #420 (ships with the next binary; the server guard needs a Railway deploy).
+
+### 2026-10-09 — Three new Quebec receipts (Boisbriand #546, Drummondville #1127, Lévis #1186 PDF): check, repair, tune the parser
+
+- **Asked (/goal):** *"3 new receipts has been uploaded since the last check … use the latest backend service (already deployed in railway dev) and try to parse the 3 receipts … if not: 1-fix the clients receipts and mark them as reviewed and considered in the fixtures for optimization (both flags). 2-optimize the parser (… no regression at all for both parser online receipt, warehouse receipts (both formats paper and PDF) 3-update the run book if needed 4-PR then merge."* Branch not named; the goal (prod today, PR then merge) implies `main` → **`fix/costco-qc-receipts-2026-10-09` off `main`** (`6c06972` = Railway dev's deployed commit).
+- **Found (prod, read-only SQL):** `r_1791573195154_8y5tt` (Boisbriand #546, photo) stored 548.38 / 71.42 for a 541.95 + 31.09 = 573.04 paper — 21 lines, 15 of 34 products lost, CONSIGNE stored at 25.99, the 173.04 card payment stored as an item "NOMBRE D'ARTICLES VENDUS-". `r_1791587435861_g01kg` (Drummondville #1127, photo) — every product right, both fee lines lost: 139.88 for 144.78. `r_1791590373883_i7aiw` (Lévis #1186, **PDF**) — stored raw_ocr stops before the totals; the visible lines and the tax (B lines + 2 écofrais = 244.77 → 12.24 + 24.42 = 36.66) agree, but the last 3 lines lost their SKUs. Dev DB: no new receipts.
+- **Mid-task:** *"i gave the permissions for export (fixtures)"*; *"all the parser optimization are a hotfix on main"* → branch renamed **`hotfix/costco-qc-receipts-2026-10-09`** (off `main`).
+- **Captures exported** (11: c42–c52; a 4th receipt `p6cxu` Vaudreuil #1213 arrived meanwhile — right in prod, nothing to fix; c50/c51 an abandoned Oshawa scan, right). Replayed with geometry on `main` and on `v3.0.5` (the shoppers' binary): `main` = `v3.0.5` on the PDF (no regression — the layout was simply unhandled).
+- **Causes (Bugs #315):** totals block cut by `Comptant` + stamp; `*ECOFRAIS` read `NECOFRATS` / `0,96 FF`; a coupon ref one digit off; `/api/ocr` asked Vision for PDF pages `[1, 2]` only (Vision's default is also 2); the Quebec digital receipt's coupons print `<code> <ITEM NAME>`, totals use a thousands space, `M & M`, a wrapped `CONSIGNE`; no confidence penalty for a warehouse parse with no printed total.
+- **Prod (done, 2026-10-10 03:10 UTC):** specs g01kg / 8y5tt / i7aiw dry-run then `--write` from a worktree at `22e35ec`; read back to the paper; all three `admin_reviewed_at` set, `skip_parser_optimization` false (fixture candidates). No notices (readable receipts).
+- **Code:** parser fixes + `no_printed_total` signal (exempt when the printed subtotal vouches) + no tax on zero items; backend `RECEIPT_PDF_PAGES` [1..5] with per-page budget charging. 12 new fixtures with ground truth (+ the 3-page PDF re-OCR'd with the dev key).
+- **Found, NOT done (out of scope, needs Maxim):** the 9 Bugs #311 receipts (2026-10-08) were never repaired in prod — e.g. `f3ivl` tax 28.52 (paper 14.44), `5mwuj` 7.83 (3.99); their specs are committed, their `--write` runs are still owed.
+- **Status:** prod repaired; app PR #416 merged (`8324e9f`). Parser ships with the next binary; the backend PDF fix needs a prod deploy (prod is on `22e35ec`, without migrations 0021–0023).
+
+### 2026-10-09 — Kanata receipt stored $242.53 for $220.55: fix it in prod, then the parser (tilted photo)
+
+- **Asked (/goal):** *"2 new receipts has been scanned today, 1 parsed correctly but the 1st one parsed total 242.53$ is wrong, first thing fix the receipt in production, then optimize the parser to avoid this type of problems. you should have all necessary data in production to simulate the production live environnement while scanned. (main branch)"*. Mid-task: *"you have my permission for all the tasks required even for the datafix in the production database"*. Branch → **`fix/costco-skewed-photo-geometry` off `main`** (named: main).
+- **Found:** `r_1791561933778_ec7p8` (Kanata #541) — a READABLE receipt photographed at ~12° and curled. The 4 live Vision captures (`ocr_captures` 35/36/38/39, exported) reproduce production exactly: every price a row above its item, 5 coupons lost, totals block shifted, no printed total → validator back-computed 242.53/27.90 (paper 220.55/24.43). The other receipt (`t67po`) was right.
+- **Prod (done first, 17:05 UTC):** spec `backend/data/bad-scan-repairs/r_1791561933778_ec7p8.json`, dry run then `--write`, **run from a worktree at `22e35ec`** (prod's deployed code — `main`'s tool needs migration 0022, not applied in prod). Read back: 220.55 / 24.43, 8 lines = 196.12, 8 points, 0 `ln:` products, product names restored. No notice drafted (readable receipt).
+- **Code:** `receiptGeometry` skew correction (local slope traced at (x, y); auto only from slope 0.075; level pages byte-identical), straightened-page row rules; Costco parser: straightened rework candidates + printed total read from straightened rows, minus-less coupon rows (3 corroborations), `/ MULTIPLE` without minus, stray tax flags; cleanup: `FRE` banner + `ITEMS ****` fragment. Bugs #314.
+- **Verified locally:** all 7 captures from today parse to the paper at confidence 1 (all four of ec7p8 line-for-line); parser corpus 57 suites green, 84 existing golden snapshots byte-identical, +7 new; full mobile Jest 326 suites / 8312 tests, 0 fail, coverage floors met (parser 98.76/93.91/100/99.31, geometry 97.43/92.85/100/99.31); 23 mutations all red. No CI dispatched, no build.
+- **Regression risk:** low. Default rows change only on a page tilted ≥ ~4.3° (none in the committed corpus); every other change is score-gated or needs corroboration.
+- **Also found:** the fixture PII scrub (`scripts/lib/receiptPiiScrub.js`) misses the self-checkout `Prescan … Name:` attendant name and the auth/invoice numbers; the 7 new fixtures were masked by hand, shape-for-shape, parse-neutral. Follow-up owed.
+- **Status:** prod repaired; app PR #413 (`06f0190`). Ships with the next binary.
+
+### 2026-10-08 — Nine fake price-drop pushes: SKU-only detection, one reviewed+billed sender, receipts re-read with 3.0.5, notices for approval
+
+- **Asked (/goal):** the 10-05 fake pushes (9 to 5 shoppers, all "paid − $75.00"). *"The first rule … is to be based on the SKU for price drops never the product name … what the hell happened?"* First fix the receipts (*"some of them have wrong quantities"*) — products, price points, items, receipts; fix the detection; notify the shoppers that poor receipt quality can generate false drops or wrong quantities, *"depending on the error"*; *"fix it live in main hotfix"*; turn the notification system off before fixing and back on after. Mid-task: *"these notifications didnt take the required credit"*; *"any notifications should pass by the admin review … never send notifications or price drop notifications without my approval or depending on the configuration i set in the admin console"*; *"all the receipts has been scanned before the new fixes we shipped in the 3.0.5"*.
+- **Done first (prod, 14:41 UTC):** `app_config` `WEB_PRICE_REFRESH_ENABLED` and `PRICE_DROP_PUSH_ENABLED` → `false` (no Railway env override; read back). The verified queue holds new drops unsent and unbilled meanwhile.
+- **Root cause (Bugs #311):** the sweep's web-price leg called the scraper with the item NAME; costco.ca's search page gave $75.00 for every query (the first element whose class contains "price"); it pushed directly — no SKU, no review, no commission — from the phones' own watch lists, which a server-side receipt repair never touches (LECTURE PRÉ / UNT retain records were pushed a day after their repair; MOUNT:/PerCard after their deletion). `/api/check-price` fell back to the same name search and the app raised its OWN local alerts from it (RAISIN BRAN $51.95, POIS CHICHE $5.43). The off-by-switch flyer-deal sweep was a fourth unbilled sender.
+- **Code (app branch `hotfix/sku-only-price-drops` off `main`):** both legacy senders removed; `/api/check-all` = verified sweep only; `/api/check-price` SKU-only (Costco: price_points + flyer only; other stores: a result naming the SKU, `scrape_sku`); Costco scraper's name search removed; app: no local price-drop alert (background or manual refresh), a `scrape` price is never a drop (ships with the next binary). Repair tool: `ignored` fee lines and `keepItemIds`. New `scripts/draftShopperNotices.js` (wording per shopper, drafted PENDING, never sent). Structural test `priceDropSingleSender.test.js`; `$75` route test.
+- **Receipts:** every prod receipt re-read with 3.0.5's parser (photo fixtures + stored OCR), accepted only when it closes on the printed subtotal/tax/total/count/savings. 9 wrong → specs in `backend/data/bad-scan-repairs/` (LOVE CORN qty 15, lost coupons on SCOTTIES/FLEECY/GLUE GUN/PUREX/FRITO/muffins, a fee read as an item, PEPSI filed as a deposit, a coupon on the wrong item, lost fee lines, back-computed taxes); bad crowd copies and two deleted duplicates' points listed as extras. Ledger section 2026-10-08.
+- **⚠️ Prod writes NOT done by this session:** the photo download/Vision re-OCR, the batched dry runs and generating repair SQL were refused by the permission layer, so the repairs, migration 0021 and the notice drafts are commands for Maxim (in the PR). The switches stay OFF until the hotfix is deployed AND the receipts are repaired.
+- **Notices:** `backend/data/shopper-notices/2026-10-08-false-price-drops.json` — 8 shoppers, cause stated as it really was (photo vs our price check), no item names, EN + FR. Drafted → Admin · Notifications to approve; the 8th (fees/tax only) is optional.
+- **Regression risk:** low for real drops (the removed paths never produced one; the queue is unchanged). By design: no local drop alert on the phone; signed-out phones get no drop alert; non-Costco stores show "not checked" unless SKU-matched (none enabled in prod).
+- **Status:** code + tests done; PR open; merge, prod repairs, 0021, notice drafts and switch re-enable owed in that order.
+
+### 2026-10-08 — Two Pointe Claire receipts: first item name carries the French pre-scan banner
+
+- **Asked:** *"2 new receipts arrived in prod … the 1st item name in the 2 receipts has the same issue containing a part of the excluded keywords"*; reproduce with the 3.0.5 environment; Pointe Claire #528, $34.48 + $33.14. Branch → **`fix/fr-prescan-banner-names` off `main`** (asked first). Mid-task: *"create another version for the french not in the same file depends on the parser we use, a file should be associated"*; *"get all the keywords from the fixtures (equivalent to english translation)"*. Maxim approved the prod capture export.
+- **Found:** the excluded list (`BANNER_NOISE_RES`, `shared/ocrCleanup.js`) only had the English banners. Parser files are byte-identical between `v3.0.5` and `main`; the exact live captures (`ocr_captures` 1 + 2) reproduce prod's names on `main`. Third case already in prod since 09-29 (Quebec #503 OEUFS, pinned wrong in the golden snapshot).
+- **Code:** new `src/services/costcoReceiptNoise.fr.js` (French equivalents of every English entry, forms mined from the fixtures), applied by `tidyCostcoItemName`. Shared files untouched. Bugs #310; `Technical/Costco/French_Quebec_Receipts.md` §4d.
+- **Verified locally:** full mobile Jest 318 suites / 8054 tests, 0 fail; golden: 1 existing line moved (the intended OEUFS name), 2 added; 17 mutations all red; new file 100% coverage, parser 98.69/93.39/100/99.26 (unchanged). No CI dispatched, no build.
+- **Regression risk:** low. Name-only, after every price/SKU decision; French-only phrases; never blanks a name; every other fixture byte-identical.
+- **Prod repair (Maxim: "yes for all"), DONE 2026-10-08:** one transaction, 3 `products.display_name` (29956 HAVARTI VARI, 29072 PAIN DE BLÉ — the printed name, the OCR reads "PAIN DE LE" through a pen stroke, 24635 OEUFS 2.5 DZ) + 5 watch-registration item names in 4 rows. Read back: 0 products and 0 watch rows still carry banner text. Names saved on phones keep the old text until the receipt is rescanned; a device watch re-sync can write it back.
+- **Status:** app PR #408 open (squash-merge blocked by the auto-mode classifier, merge owed to Maxim). Ships with the next binary (3.0.6).
+
+### 2026-10-07 — Every admin-console queue pushes the admin
+
+- **Asked:** *"confirm that all the admin console reviews (new receipts, new price tags, new users, new notifications to approve, new price drop queue) will generate a notification to the admin … if no please wire them all"*. Branch → **`feat/admin-alerts-every-queue` off `main`** (asked first).
+- **Found:** only price tags (`tag_review`) and the verified price-drop queue (`price_drop_review`) pushed. New receipts, new accounts, notices to approve and potential (unverified) drops (PR #406) pushed nothing.
+- **Code:** `backend/jobs/adminAlerts.js` + `repos/adminAlertsRepo.js`, cron `*/5`: `receipt_review`, `new_user`, `notification_approval_review`, `potential_drop_review`, all under the existing **Admin alerts** switch; read points in `kv_state` (claim = deploy-overlap election; first run baselines silently). App routes each to its desk. Poll, not write hooks: the notice drafter is an out-of-process script, potential drops have no write, and the sign-in transaction stays untouched. See `Operations/Admin_Console_And_Data_Cleanup.md` § Admin alerts.
+- **Verified locally:** new job tests 30/30, new DB tests 4/4 (dev, 0 skipped), 10 mutations each applied once → all red; related backend suites 72/72; i18n check in sync; full mobile Jest 7923/7924 — the 1 = `dropLock.test.js`, fails identically on unmodified `main`.
+- **Regression risk:** low. No existing write path changed; the two existing admin pushes are untouched; the new types only reach accounts in ADMIN_USER_SUBS.
+- **Status:** done — merged as PR #407 (`71aba77`).
+
+### 2026-10-04 — New Quebec receipts wrong again: does `main` fix them? Fix prod, then the parser
+
+- **Asked (/goal):** yesterday's parser work is merged on `main` but not shipped; two receipts came in this morning *"with the same problems"*. Check with the real production data — *"images not only OCR but use only production logic dont overstep"* — whether `main` resolves them; fix both in prod; *"before taking any more action you should get my confirmation first"*; afterwards, check whether the last merge conflict lost something. Mid-task: *"the ocr stored in production seems to see the good text, i think it may be a geometry problem"*; *"i dont want you to reproduce the production now, i asked you clearly to scan with the new edits of the last merge on main"*. Confirmed: repair all three (incl. last night's Quebec #503); parser → *"if needed new branch off main, but before once you repair the receipts in production, do the full 3 receipts run with the merge of the PR#400 first then edit if needed"*.
+- **`main` on the three photos** (production's exact Vision request; `main`'s scan steps): Drummondville ✅; Gatineau ⚠️ (KS 40X500ML dropped, `/ MULTIPLE` coupon lost); Quebec #503 ❌ worse than prod (two couponed items dropped). PR #400's merge commit = its head byte-for-byte, same results → **nothing was lost in the merge**.
+- **Prod:** all three repaired from the photos (ledger 2026-10-04): 6 / 13 / 16 lines, 91.43 / 161.48 / 266.75; two wrong crowd copies deleted; four product names restored.
+- **Code (`fix/costco-receipts-2026-10-04` off `main`):** Bugs #309 — amount-first totals block, engine hook `isItemNameLine` + `isCostcoSkuNameLine`, `/ MULTIPLE` coupon, detached footer period; one shared `COSTCO_WAREHOUSE_HOOKS`. Fixtures `prod-2026-10-04/` (re-OCR of the stored photos, PII-scrubbed).
+- **Verified locally:** full mobile Jest 7830/7831 (the 1 = `notificationServiceProfileNudges`, date-dependent, fails identically on unmodified `main`); all 59 receipt suites green; golden 82/82 (3 added, 0 existing moved); 11 mutations each applied once over a green baseline, all red; parser coverage 98.69/93.39/100/99.26 and shared 94.29/89.66/95.6/96.89, above the floors. No CI dispatched, no build.
+- **Regression risk:** low. Every existing fixture parses byte-identically (golden). The totals rewrite fires only on a block that is not the normal layout AND closes s + t = T exactly; the engine hook is additive (a store without it parses as before); `/ MULTIPLE` applies only to the item directly above, priced above the discount.
+- **Status:** branch + docs ready, not committed — waiting for Maxim.
+
+### 2026-10-03 — Two Quebec warehouse receipts missing SKUs; the item count must match the paper
+
+- **Asked (/goal):** two receipts scanned today in Quebec both wrong, both warehouse (*"this paper format is always warehouse format"*), SKUs missing (*"every item have always an SKU"*). Fix the customers' receipts first, then make the parser recover the way the manual repair did. Mid-task: a review-queue drop showed ~70% (*"prices never drops 70 percent"*); *"check always the receipt photo not the OCR"*; *"costco may count the total items summing the quantities"* — align the count. Branch → new `fix/quebec-warehouse-sku` off `main` (asked first). Maxim's request = the confirmation the Costco-parser rule needs.
+- **Prod:** both receipts rebuilt from the photos (ledger 2026-10-03); the drop is REAL (9.99 → 7.99 × 6) and was kept with the right quantity; crowd copies corrected. Pointe Claire's top 8 articles are faded on the paper — gap documented, not invented.
+- **Code:** un-weld `SKU/NAME`, two-line ANNUL voids, FR labels-first totals solved by `s + t = T`, multi-buy order restore, a final SKU/quantity audit against the receipt's own text (never changes a price), warehouse from the register footer, register counters ⇒ warehouse; `countUnits` on scan / pending / admin receipt screens. Bugs #306. Regression risk: golden snapshots byte-identical; every rule fires only on an exact-arithmetic or exact-name proof.
+- **Status:** branch pushed, PR open — not merged (Maxim's call; ships in the next build).
+
+### 2026-10-02 — A new customer's US (Bayonne, NJ) receipt: flag, clean prod, refuse US receipts
+
+- **Asked (/goal):** a new user scanned one receipt twice and most prices were gone — fix her scan, fix prod, fix the bugs. Branch → new **`fix/receipt-scan-new-user` off `main`** (asked first); Costco-parser change allowed *"only with zero regression risk"*. Mid-task, once the receipt proved to be **Costco Bayonne, NJ #1334 (USD)**: *"flag the receipt as a US store that is not supported so we wont redo the analyze later"*; Maxim ran the prod SQL himself (*"give me the queries i will run it myself"*); then *"send a notification … price drops in USA are not available yet, but it will be available soon and she will be notified once it is live"*; and *"if no saved language preference send always in english"* (memory + playbook §8 updated).
+- **Prod (Maxim ran the guarded block; read back):** both copies (`r_1790986971714_tl5wo`, `r_1790986803639_sgftf`) → status `rejected`, total 523.14 / tax 6.98, watch off on every line, 45 USD price points removed from the QC pool (25 receipt + 20 crowd copies), fake QC warehouse "1334" deleted, the two payment lines saved as items ("MOUNT: $523.14", "PerCard 523.14") deleted. Rows kept: the phone re-uploads a receipt missing on the server.
+- **Push sent** (EN, `notifScanResults`, Expo ticket `01a0ff81…`, `notification_history` #29). ⚠️ **Promise owed:** notify this account when US receipts go live.
+- **Code (app PR #394, `fix/receipt-scan-new-user` off `main`):** `shared/receiptCountry.js` (US = whole `City, ST 12345` line, a CA postal code vetoes; prod 26 receipts → only the 2 Bayonne copies, dev 33 → 0, every fixture → 0). App dispatcher refuses US before any store parser (Costco parser untouched) + Veryfi gate, reject card EN/FR. Server: upload stores `unsupported_country` (seeded) unpriced/unwatched/no warehouse, purges the device's crowd copies + stub warehouse (now + 60 s); `/api/watch` skips flagged lines; watch toggle pinned off. Payment-line scrub deliberately NOT widened (no Canadian occurrence). Bugs #304, ledger, playbook §1b + §8, roadmap "US receipts".
+- **Verified locally:** 12 mutations all red; mobile 7103/7105 (`dropLock` + `notificationServiceProfileNudges` date-dependent, red on a clean tree too), golden 56/56; backend 2167/2168 pass, 0 fail, c8 94.84/81.46/94.97/94.84; i18n 1679 = 1679. No CI dispatched, no build.
+- **Regression risk:** low — every gate fires only on a positive US read; Canadian receipts take a byte-identical path.
+- ⚠️ **Shared checkout:** another session switched `C:\Workspace\Priceback` to `fix/dashboard-subscribers-paid-only` mid-task, so my commit first landed there; refs restored (theirs back to `d7a6ae2`, merged as #393). Security review of the first push found an IDOR in the crowd purge (device id from the body) — fixed in the same PR (`748fcc4`): owner-only, `owner_claimed_at`-bounded, stub only on evidence; +2 tests, 3 mutations red. Status: PRs open → merging.
+
+### 2026-10-03 — Creator & agency partner program (influencer / agency codes)
+
+- **Asked (/goal):** act as a marketing strategist, then build it: partner with Instagram influencers and marketing agencies. Some will ask for a sales share, some for a free plan for years or for life, and agencies want paying per traffic with no data to price it. Idea: reuse the referral field as an influencer code that can expire, with e.g. 45 credits per user. *"What is actually known as a system in these situations in Canada/USA?"* Branch → asked first → **new `feat/partner-codes` off `main`**.
+- **Decisions Maxim made:** payout is **per deal** (credits, cash CPA, revenue share, comped plan, in any combination). The new user's welcome bonus defaults to on and can be **0 per deal**. Triggers are **per deal**: credit rewards on first scan *or* first purchase; agency cash mostly on **paid users**, with an optional **minimum spend** and a **commission rate on actual spend**.
+- **Shape:** migration **0017** (5 tables + 2 lookups); `partnerCode.js` (vanity codes, never friend-shaped, PB prefix reserved); `partnerEarnings.js` (pure money math: CPA / min spend / commission / window / hold, computed on read); `partnersRepo` (redeem, once-only rewards under row locks, catalog-priced conversion capture); the same `/api/me/referral/redeem` and onboarding field; hooks in `settleReferralAfterFirstPurchase` + receipt create; 7 admin routes; `AdminPartnersScreen` / `AdminPartnerDetailScreen`; EN + FR. Playbook: `Marketing-Plan/10-creator-and-agency-partner-program.md`. Reference: `Technical/Partner_Program.md`.
+- **Regression risk:** the shared redeem route (friend codes still take the unchanged path, and the new mutual-exclusion probe fails open without 0017), the purchase-settle function (partner hook is non-fatal and runs first), and the receipt-create route (fire-and-forget). Existing referral suites ran unchanged and green.
+- **Status:** code + tests done on `9cb97e6`, app PR **#397** open, **not merged**. Merging deploys the backend, and **prod DDL 0017 must be applied first** (LF sha256 `2ff0987f…9aac`, when `1790900000000`). Dev has it. Verified locally: backend `npm test` 2204/2205 pass, 0 fail, 1 skip, c8 94.9 / 81.47 / 94.85 / 94.9. Mobile Jest 7183/7184; the 1 fail is the pre-existing `notificationServiceProfileNudges`, which fails identically on clean `origin/main`. i18n 1692 en = fr. Two mutation probes (refund hold, once-only partner stamp) each went red. No CI dispatched, no build, no prod write.
+- **Security review follow-up (same day):** a background review flagged payout inflation, reward farming and reward replay. Fixed on the same PR:
+  - a renewal recorded by both the webhook and a next-day client sync was counted twice → now **one charge per product per billing period**;
+  - the first-scan reward fired on an empty `items: []` receipt → now **only a real receipt** (at least one item, positive total);
+  - throwaway accounts on one phone (or a purged account signing up again) could each earn first_scan rewards → now **once per device per partner** (`first_scan_device_hash`, advisory-locked).
+  Each guard was mutation-checked.
+- **Second review pass:**
+  - **race:** the device check compared `first_scan_at` stamps taken *before* the lock, so an earlier-stamped, later-locking scan also paid. The timestamp clause was removed; the regression test reproduces the ordering.
+  - **bypass:** the device id is client-reported. That is acknowledged as friction, not proof, in the code, the admin form (warning under the partner-credit trigger) and the playbook: pay untrusted partners on first purchase.
+
+### 2026-10-01 — Rate / Instagram / Facebook as community asks (NOT rewarded)
+
+- **Asked (/goal):** reward *Rate PriceBack*, *Follow on Instagram*, *Follow on Facebook* with 5 credits each — *"but is it possible to validate this actions? … i dont want to give free credits without getting the required action"*; surface them in *Grow your balance* and on Buy credits. Branch → new branch off `main` (asked first); *"merge it before"* → PR #384 squash-merged first.
+- **Finding:** none of the three is verifiable (no store/Meta API reports a rating or a follow) and rewarding them breaks App Review 3.2.2, Play's ratings policy and Meta's like-gating ban. Maxim: keep the design, add them **without credits**, framed as helping grow the community. Rationale + donation/tip notes: `Publishing-Compliance/Rewarded_Actions_Policy.md`.
+- **Done (app branch `feat/community-actions`):** `CommunityStrip` in `ProfileKit.js` under the two earn tiles (Rate us · Instagram · Facebook, no badge); Buy credits gains a *Help the community grow* group after *Or earn them free*. Existing Help & community rows untouched. 6 new keys EN + FR. Tests: `__tests__/communityActions.test.js` (11), mutation-checked.
+- **Regression risk:** additive UI only; reuses `openRateApp`/`openSocial` unchanged. No credit, pricing, backend or parser code touched.
+
+### 2026-10-01 — Weekly Costco coupons: extract, import to prod, special-offers table
+
+- **Asked:** extract this week's coupons with Claude in Chrome (a cloud routine cannot reach costco.ca — egress-blocked), save a JSON under `Stores/Costco/Coupons/Canada/<Warehouse|Online> offers/<year>/coupons_<date>.json` (national, stored once, ON/QC/BC verified identical); then *"import the prices in production, the special offers should be imported in a new table"* and flag in the roadmap that special offers feed a manual price-drop check with no commission. Branch → `main` ("main (Recommended)", asked first).
+- **Done:** files merged (docs #103). Prices imported to prod: batch `costco-coupons-2026-09-28-ALL` (127 items) + `…-ALL-online` (1). Prod still runs the OLD per-province fan-out (127 rows × 13) because the NATIONAL change is on `merge/main-and-development`, not `main`. Hot Buy SKUs (4) and the unpriced pork loin (2) were NOT imported (flags unenforced server-side, see Flyer-ingestion §5).
+- **New table (app PR, branch `feat/special-offers-table` off `main`):** migration 0015 `special_offers` + lookup `special_offer_types`, `specialOffersRepo`, `POST /api/special-offers/import` + `GET /api/admin/special-offers` (shared `_adminTokenOk`), `scripts/import-special-offers.mjs`, tests. DDL applied to dev AND prod BEFORE merge (hard rule), ledger row inserted (hash 850ffdc4…, when 1790700000000); the 4 Costco offers inserted in prod (batch `…-ALL-special`).
+- **Still owed:** Maxim merges the app PR (Railway deploys main); the manual-check flagging + admin surface are roadmap only (docs #104). Regression risk: new tables/routes only; no price path, parser or Costco code touched.
+### 2026-10-01 — Notification fixes, the price-drop lock (paywall), admin review desk
+
+- **Asked (/goal):** disable "price-drop credits used" and "flyer deal on product"; the verified-drop push
+  hides the new price, shows only the saving, severity by days left to claim; a "balance low — buy credits
+  or subscribe" nudge; *"the user doesn't know what product or price dropped before he subscribes or has
+  sufficient credit … he should hit a paywall"*; admin: a notification when drops await review, select +
+  accept/reject several at once, a button to open the full receipt, the balance before deduction.
+  Mid-task: the locked subscription buttons must open the subscription paywall, and *"make sure the user
+  understands what happens (icon, tip, …)"*.
+- **Branch:** asked first → new **`fix/notifications-paywall-admin-review` off `main`**.
+- **Decisions Maxim made:** "disable" = stop sending entirely; the low-balance nudge = when a found drop
+  can't be covered; an unaffordable drop is **still charged into debt** (unchanged) but its item and new
+  price are **hidden** until credits/subscription — the saving and days left stay visible; **free accounts
+  only**, subscribers never locked. ⚠️ Changes only the DISPLAY side of the recorded "commission debt is
+  intentional" decision; billing untouched.
+- **Shape:** `src/services/dropLock.js` (rule + display-only mask), `LockedDropCard`, Paywall `reason`
+  (`drop_locked`/`price_check`/`email_sync`) via `paywallNav.openPaywall`; notifier copy/severity/lock;
+  `FLYER_DEAL_PUSH_ENABLED=false`; charge push removed (type out of registry + router); admin
+  `POST /api/admin/price-drop-queue/bulk`, balances on the list, `price_drop_review` admin alert
+  (coalesced 60 s). No migration. Detail: `Technical/Price_Drop_Lock_And_Notifications_2026-10-01.md`.
+- **Status:** code + tests done on `ea51f95`, app PR **#385** + docs PR **#106** open, **not merged** (merging deploys the backend; Maxim's
+  call). Verified locally: backend `npm test` 2140 tests, 2138 pass / 1 fail / 1 skip — the fail is
+  `dataCleanupRegistry` "coverage map matches the live schema" (`notification_history` on `main` +
+  `special_offers*` in the shared dev DB have no dataCleanup classifier — pre-existing, not this branch);
+  c8 94.8 / 81.35 / 94.9 / 94.8. Mobile Jest 295 suites / 6914 tests, 1 fail = the pre-existing
+  `notificationServiceProfileNudges` ledger test (fails on a clean tree too — its NOW is today's date);
+  coverage 84.91 / 78.03 / 74.43 / 87.38. `i18n:check` 1650 keys en = fr. One mutation probe (masking off
+  in Detail) turned the locked test red. No CI dispatched, no device test, no build.
+
+### 2026-09-30 — A new customer's double-scanned receipts: repair, clean up, fix the parser, notify
+
+- **Asked (/goal):** *"a new user scanned two receipts twice because it didnt parse well, 1st thing fix the
+  receipts for the user (total should be 2), then cleanup the other 2, after that optimize the scanner to get
+  the real results. once everything is done send a notification to the user … I need the parser to be as
+  perfect as the manual checkup"*. Branch → `fix/receipt-parse-pointe-claire-528` off `main` ("use main
+  branch, the user is real in production"); Costco-parser change confirmed explicitly. Mid-task: *"no dont
+  use the OCR only, i will give you the images"* (Maxim downloaded both R2 photos; the session's own R2 and
+  fixture-copy attempts were blocked by the permission classifier); *"i will refund the client myself … but
+  it should be in the playbook"*; the push must say receipts are checked and corrected automatically, even
+  when the print isn't perfect, and that this can take a few minutes, in a professional tone.
+- **Prod data (guarded transactions, read back):** account `000769.156a…0021` now holds exactly 2 receipts,
+  both matching the photos to the cent: 09-23 = 15 lines, 272.18 (was 209.22); 09-26 = 171.11 (was 183.11).
+  Duplicates `vlakw` and `tbelg` hard-deleted with their 18 price points and one orphan product. Detail:
+  `Receipt_Data_Verification_Ledger.md`.
+- **Code:** app PR #382: `-FP` discount flag, `RABAIS`, coupon-led column runs, `cancelAnnulledLines`.
+  French-only; Bugs #302. Full `npm test`: 290/290 suites, 6856 tests.
+- **New:** `Operations/Receipt_Repair_Playbook.md`, including step 6 (refund each duplicate scan, done by Maxim).
+- **Still owed:** merge #382 (blocked for the session by the classifier); Maxim's refund of 2 credits; the 2
+  duplicate photos in R2; an admin "receipts reviewed" push sender (playbook §8).
+### 2026-09-30 — Profile-completion notifications, postal → province at signup, admin notification history
+
+- **Asked (/goal):** hotfix on `main`: (1) a notification asking users — mainly **legacy accounts created
+  without a province** — to complete their profile, opening a **full screen to pick province + postal
+  code**; (2) a notification to complete the **Costco profile** (preferred warehouse + membership type);
+  (3) at **signup, typing the postal code auto-selects the province**. Mid-task addition: (4) the admin
+  console's account page shows the **notification history the user got on their phone** (title + text).
+- **Branch:** `hotfix/profile-completion-notifications` off `main` (Maxim named `main` as a hotfix).
+- **Status:** in progress.
+
+### 2026-09-30 — Fix every finding of the code review of #376 + #377
+
+- **Asked:** ran `/code-review xhigh #376 #377` (15 findings), then *"Go ahead create a new branch and fix
+  everything."* Both PRs merged to `main` → new branch **`fix/review-376-377-findings` off `main`**, PR into
+  `main` (worked in a separate worktree: the main checkout holds another session's uncommitted
+  `fix/play-reviewer-access-android` work, untouched). "Fix everything" included the Costco TAG parser finding
+  (explicit go-ahead; the receipt parser is untouched).
+- **Shape:** all 15 fixed; table in `Technical/Code_Review_2026-09-30_PR376_PR377.md`, bugs #298 (queue billing),
+  #299 (profile-sync wedge on postal code / CASL), #300 (tag credits). No migration.
+- **Decisions / constraints:** ⚠️ a drop the shopper **claimed while it was held for review is now BILLED when
+  an admin approves it** (no drop alert, charge notice sent) — #376's test pinned "superseded, never charged";
+  the reason is that the app shows verified drops independently of the queue, so review-on would otherwise let
+  most drops escape the commission. **Maxim's call to reverse.** Held/rejected drops still cost nothing, and
+  commission-charged-once is strengthened, not changed. The drain's re-check uses exactly the sweep's window
+  rule (no new "today inside the window" gate — that would be a product change to both).
+- **Also fixed:** two backend tests #377 left red on `main` (`flaggedEarningGuardsDb`, `sybilVerificationDb` —
+  their tag fixtures had no end date). Confirmed failing on untouched `main` first.
+- **Status:** PR **#379** open (`d18bd6b`), docs PR **#99**. Verified locally: full backend suite 2081/2082
+  (0 fail, 1 long-standing skip), coverage 94.68/80.74/94.96/94.68; full mobile Jest 284 suites / 6733 pass;
+  i18n in sync. **Not merged** — merging deploys the backend, and the claimed-while-held billing change needs
+  Maxim's yes. Hotfix to `main` → merge back into `development` the same day.
+
+### 2026-09-29 — Hotfix: only SAVINGS price tags earn credit; tag-parser + review-photo fixes
+
+- **Asked (/goal):** merge the previous work (price-drop review queue → **PR #376**, merged), then a new
+  hotfix branch off `main` (`hotfix/price-tag-savings-only`). A new user submitted **6 tags, none a
+  savings tag** (regular prices). (1) **Tighten the price-tag screen** so the shopper sees that **only savings
+  tags give credit**; no validity date ⇒ usually not savings; no price-before + discounted price / discount
+  amount ⇒ not savings; **non-savings tags are still read and reach the review — they just earn nothing.**
+  (2) Fix the review photo sometimes showing "Couldn't load the image". (3) Treat tags **waiting for review as
+  price points** (keep SKU/product/price reference) **without the free credit**; **draft a feedback
+  notification for the user — Maxim reviews the wording BEFORE anything is pushed.** (4) Optimise the price-tag
+  **OCR parser** (many problems).
+- **Shape:** one shared predicate `shared/tagSavings.js` (discount AND end date) mirrored to
+  `backend/shared/`; server `hasSavings` + both settlement SQL queries now require `valid_until`; `TagCard`
+  live badge + intro notice + reworded no-credit copy (en/fr); `ZoomableImage` auto-retry ×2 + fresh signed URL
+  (`GET /api/admin/price-tag-reviews/:id/image-url`) + "Try again"; parser learns French ÉCOFRAIS/TOTAL, `FXP`
+  for `EXP`, French savings words, cluttered-read confidence. Details: `Technical/Price_Tag_Savings_Only_Credit.md`.
+- **Pending tags:** they were already price points (`price_points`, unverified, source `tag`) — nothing new
+  needed; the credit path is what closed. The 3 of the 6 with `regular > current` but no date can no longer pay.
+- **Notification:** DRAFT ONLY in `Operations/Price_Tag_Feedback_Notification_Draft.md` — NOT sent.
+- **Status:** code + tests done; PR pending. Bug entry #297.
+
+### 2026-09-29 — Hotfix: production receipt misparses (names, lost lines, app tab bar)
+
+- **Asked (/goal):** *"i scanned few receipts today in production and some items was misparsed, the
+  name was incorrect or incomplete, some keywords should have been excluded and didnt. this is a hotfix
+  on main branch. check the uploaded receipts by maxim today and make sure all products are parsed
+  correctly, fix the names if needed and optimize the list of excluded keywords or optimize the parser
+  to support the receipts. Dont take any risk of regression"*. Branch named: `main` → per the
+  feature-branch rule, `hotfix/receipt-parse-2026-09-29` off `main`, PR into `main`.
+- **Costco-parser confirmation:** the /goal itself asks for parser changes; kept to
+  `costcoReceiptParser.js` only — `receiptParsingShared.js`, `receiptGeometry.js`, `ocrCleanup.js`
+  and the Best Buy parser are untouched.
+- **Shape:** 8 receipts audited (all Costco Gloucester). Four rules added — TPD-led column-split
+  block, wrapped-name tail rejoin, post-parse name tidy (` / `, trailing `$`), Costco-app tab-bar strip.
+  Prod data repaired for 3 receipts in one guarded transaction. Detail: Bugs_Common_Fixes #296,
+  Receipt_Data_Verification_Ledger.
+- **Prod images:** downloaded read-only via `railway run` for audit; re-OCR through the dev backend
+  was declined by the permission layer, so the geometry of today's photos is NOT captured as fixtures —
+  flat prod text is (`__tests__/fixtures/receipts-prod-text/`).
+- **Does not reverse anything recorded here.** The golden snapshot's `B / S THIGHS`-style names were a
+  pinned artefact, not a decision.
+- **Status:** app PR **#375** open (`5ecd07b`); prod data already repaired (3 receipts, guarded tx).
+  Merge is Maxim's; the parser fix reaches users with the next store build.
 ### 2026-09-28 — `development` merged into `main` on a new branch (main wins), national offers stored once (Costco too), `(province OR NATIONAL)` detection, every store but Costco stays "Coming soon"
 
 - **Asked (/goal):** *"merge main and dev in a new branch, main always wins if there is conflict,
@@ -10368,3 +10649,453 @@ has **no production guard** by design (see `purge-test-data.js`'s precedent) —
 it is a manual, deliberate CLI action gated on `--yes`, never called from any
 automated path. No store parser, no user-facing string, no mobile code
 touched.
+
+# 2026-09-30 — Play rejected 3.0.2 ("Login credentials are missing") → Android reviewer access
+
+**Branch:** `fix/play-reviewer-access-android` (off `main`), docs `docs/play-reviewer-access-android`.
+
+Read the rejection in Play Console via Chrome: Sign in details held only "N/A – Google Sign-In only".
+Production showed Play's reviewers had signed in with their own Google accounts minutes after #374
+gated Price Check + Email Sync. Maxim chose to extend the reviewer access code to Android (not a Google
+test account) and asked that reviewer accounts never be caught by data cleanup.
+
+## Changes
+- `src/services/authService.js` — `_sessionsActive()`; reviewer sign-in allowed on Android;
+  `isSignedIn`/`authedFetch`/`revokeFirstPartySession` honour a reviewer session on Android only.
+- `src/screens/OnboardingScreen.js` — "Have an access code?" on both platforms.
+- `src/services/i18n.js` — reviewer copy store-neutral, EN + FR.
+- `backend/lib/reviewerAccount.js` (new) — identity + complimentary Unlimited overlay.
+- `backend/server.js` — uses it in `_dbProfileFor`; `/api/me` skips the device claim for the reviewer; the three scan-charge sites read the same overlay so the reviewer is not charged credits it is shown as not needing.
+- `backend/lib/dataCleanup.js`, `backend/lib/staleSignups.js` — always exclude the reviewer account.
+
+## Tests
+Mobile: 9 new Android cases in `authServiceReviewerCode.test.js` (incl. Google-user containment and a
+spoofed-provider case); mutation-checked. Backend: `reviewerAccount.test.js` (new), 2 DB cases in
+`reviewerAccessDb.test.js`, registry + fingerprint cases.
+
+## Regression risk
+Android Google users: one extra keychain read per authed request; request shape unchanged (tested).
+iOS: `_sessionsActive()` returns true exactly as `_sessionsSupported()` did. Backend overlay is keyed on
+the exact synthetic sub. No parser, no pricing, no Costco code touched.
+
+## Still owed
+3.0.3 bump → tag → EAS build (Maxim's go) → upload → paste Play Sign in details block from
+`REVIEWER_NOTES.md` with the code → resubmit.
+
+---
+
+## 2026-09-30 — ASO "costco" listing copy + YouTube tutorials on the website
+
+Website PR #17 (`/blog/tutorials` EN/FR, Worker `/api/tutorials` from the @priceback RSS feed, YouTube footer links, sitemap) and app PR #381 (Play/Apple listing copy only). Plan + honest ranking limits: `Marketing-Plan/08-aso-costco-search.md`. Regression risk: website deploy config changed (`wrangler.jsonc` now has `main` + ASSETS binding, `run_worker_first: ["/api/*"]`); verify priceback.ca still serves after merge. No app code touched.
+
+---
+
+## 2026-10-01 — Admin dashboard: drops, subscribers, credit buyers, Total gain, tag + checker scans
+
+**Branch:** `feat/admin-dashboard-business-metrics` (off `main`), docs `docs/admin-dashboard-business-metrics`.
+
+Maxim's ask (/goal): add Price drop notifications, Price drops amount, User subscribed, User bought
+credits, Total gain (CAD, official prices), Price tag scanned, Price checker scanned to the admin
+dashboard, for every window filter. Reference: `Operations/Admin_Dashboard_Metrics.md`.
+
+## Changes
+- `backend/repos/adminConsoleRepo.js` — `businessCounters()` merged into `overview()`.
+- `backend/db/migrations/0016_price_checker_scans.sql` (new table, anonymous) + schema.js + journal + regenerated `deploy/schema.sql`.
+- `backend/repos/priceCheckerScansRepo.js` (new); `/api/barcode/resolve` records each lookup, not awaited.
+- `backend/lib/dataCleanup.js` — `price_checker_scans` → KEEP; also classified `notification_history` (0014) → CASCADE, which had left `dataCleanupRegistry` red on `main`.
+- `src/screens/AdminDashboardScreen.js` — seven new rows + `formatCad`. Admin-only → exempt from i18n.
+
+## Tests
+`backend/tests/adminDashboardMetricsDb.test.js` (new, exact deltas on all three windows; mutation-checked
+on the charge dedupe). `__tests__/adminDashboardScreen.test.js` +7 cases.
+
+## Regression risk
+`/api/barcode/resolve` gains one un-awaited insert whose repo never rejects — the response is unchanged.
+Overview adds one aggregate statement plus a guarded read; existing counters untouched. Migration 0016 is additive.
+Pre-existing, not touched: `notificationServiceProfileNudges.test.js` fails on `main` too (time-of-day dependent).
+
+---
+
+## 2026-10-02 — Price tag translator + expired savings never credited
+
+**Branch:** `feat/price-tag-translator` (off `main`), docs `docs/price-tag-translator`.
+Ask (/goal): expired tag savings earn no credit (like a regular price); present the scanner as a
+price-tag translator (price endings + Death Star, which OCR misses); poor warehouse connectivity.
+Reference: `Technical/Price_Tag_Translator.md`.
+Regression risk: submission path unchanged (server predicate called without `today`); only `hasAsterisk` detection widened.
+
+---
+
+## 2026-10-02 — Costco "Offers Ending Sunday": extract to JSON (no import)
+
+**Ask:** use the same strategy as the weekly Costco coupons (extract with Claude in Chrome → JSON in this repo) for `https://www.costco.ca/offers-ending.html`. Branch → new branch off `main` (asked first). Scope → **extract to JSON only**, no import, no app code (asked).
+**Done:** `Stores/Costco/Offers-ending/Canada/2026/offers-ending_2026-10-02.json` — 258 tiles over 11 pages; checksummed against the in-browser copy (count, price/was/savings sums, id and name-length sums all equal).
+**What the page is:** 81 tiles carry a discount (was-price and/or "After $X OFF"), 168 list a current price only, 12 show no price (members-only / sign-in, or eco-fee-only battery tiles); 135 are Online Only. Tiles have no per-item end date: `validUntil` 2026-10-04 is inferred from the title.
+**Differs from the coupons batch — read before importing:** (1) `productId` is Costco's catalog id (`100…`/`4000…`/`4101…`/`4201…`), NOT the 7-digit warehouse item number, so it does not match a receipt SKU without a lookup; (2) one warehouse view only (Gloucester ON) — NOT verified national like the ON/QC/BC coupons; (3) price-only tiles are not deals; (4) the count moved 259 → 258 within the hour.
+**Regression risk:** none — one data file, no code, no import, nothing in prod touched.
+
+---
+
+## 2026-10-02 — Credit drift on a deleted-then-restored account
+
+**Branch:** `fix/account-deletion-credit-forfeit` (off `main`), docs `docs/account-deletion-credit-forfeit`.
+Ask: prod account deleted then restored shows a credit drift (balance 0 vs ledger 75); deletion must forfeit
+credits and never be reported as drift. Root cause + fix: `Operations/Bugs_Common_Fixes.md` #303.
+Regression risk: `requestDeletion` gains a row lock + one insert; in-window restore now reverses the
+latest forfeit (same balance as before; restore row delta is +forfeit instead of 0). Legacy tombstones keep
+the replay. Prod case #2 needs a manual dismissal + forfeit row (not applied by this PR).
+
+---
+
+## 2026-10-02 — Price tag scan: layout + merged notice
+
+**Branch:** `feat/price-tag-scan-layout-merge-notice` (off `main`) — merged as Priceback #390.
+Ask: keep the scan-mode toggle at the same height on all three scanners → move the translator
+(`QuickPriceCheck`) and the savings notice BELOW the camera; drop the redundant reward line in the
+warehouse selector; merge into one notice: "Only SAVINGS tags earn credit · Capped weekly · Regular-price tags are welcome too and help everyone".
+Changes: `PriceTagScanScreen.js` (order + `adWrap`), `WarehousePicker.js` (`creditLine` prop removed), `i18n.js`
+(`priceTag.creditPerTag` deleted en+fr; `priceTag.savingsOnlyNotice` rewritten en+fr). Test: `priceTagScreen.smoke.test.js` (+1, order + no credit line).
+Regression risk: layout only, no logic. The "N tags waiting for review" banner still renders ABOVE the mode switcher when shown (not moved).
+
+---
+
+## 2026-10-03 — Offers Ending Sunday: item numbers resolved, import file ready, matching findings
+
+**Ask:** import the 81 discounted tiles as flyer deals; document findings so the concept can be optimised toward a flexible system matching online deals (different item numbers) to warehouse items and barcodes. Branch → docs-only branch off `main`; no app code.
+**Done:** looked up the real item number of all 81 tiles from their product pages (page `sku` == printed "Item", 81/81). Built `flyer-import_2026-10-02.json` (78 items, region `ON`, batch `costco-offers-ending-2026-10-04-ON`); all 78 pass the real `flyerPricing.normalizeOffer` offline. 3 Duracell tiles skipped (savings but no price). Findings + proposed design: `Technical/Online_Offers_And_Item_Matching.md`.
+**NOT done:** the prod import itself — it needs `FLYER_ADMIN_TOKEN`, which this session could not read (permission denied on credential access). Maxim runs it (command in the PR/handoff).
+**Key findings:** catalog id ≠ item number (raw ids would all be rejected by the 4–8 digit rule); barcodes are NOT on the page (0/81); `normalizeOffer` silently drops provenance flags and `price_points` has no channel, so an online price becomes indistinguishable from a warehouse price and can raise a warehouse price-drop push for the 36 items sold in both channels.
+**Regression risk:** none from this change (data + docs). The import itself writes `price_points` and triggers the drop sweep for ON — see the doc §3.2.
+
+---
+
+## 2026-10-03 — Laval receipt mis-parsed + missing photo (hotfix on main)
+
+**Branch:** `hotfix/laval-receipt-parser` (off `main`) — Priceback #395; docs `docs/laval-receipt-column-solver`.
+Ask (/goal): a new user's Laval scan was parsed wrong and its photo is missing — (1) fix the customer's receipt,
+(2) fix the photo bug, (3) make the parser always get it right.
+Done: (1) prod receipt `r_1790993308570_0l4w3` repaired to the printed figures (items, totals, crowd price points).
+(3) `costcoColumnSolver` — score-gated constraint solver for scrambled item tables; "Total Partiel" no longer read
+as the grand total. Bugs_Common_Fixes #305.
+Open: (2) photo — server presigned, device upload/confirm failed; the R2 check and the `src/utils/imageUpload.js`
+review were blocked by the session's permission classifier and are owed. PR #395 merge also owed (blocked).
+Regression risk: solver only replaces a parse already failing the printed checks; adopted on 1 of 72 fixtures; goldens unchanged.
+
+---
+
+## 2026-10-03 — Receipt header = the printed block or null; 24-receipt prod corpus; parser fixes
+
+**Branch:** `hotfix/header-ocr-no-item-fallback` (stacked on `fix/quebec-warehouse-sku` / #398) + `docs/parser-prod-corpus-2026-10-03`.
+**Ask (Maxim):** header_ocr "6 @ 10.99" on r_1791050619590_6wd4e; the header must be warehouse/title/address or null; the
+member line is the last header line, else a basket / "début" marker; then *"pull all receipts from production, use them as
+fixtures, then run all patterns until the parser is perfect … for both languages"*, plus a new memory rule (always pull the
+new prod receipts as fixtures for a receipt-parser problem).
+**Done:** header cascade (`receiptHeader.js`); 23 prod captures as fixtures with paper-verified ground truth
+(`receiptProdCaptures.test.js`); 14 parser shape fixes (Bugs #307); OCR-misread member/cashier labels in cleanup + scrub.
+Every `ok` capture reconciles to the cent; the faded / unreadable / re-OCR-damaged ones are flagged.
+**NOT done / owed:** prod data cleanup (1 member number, 9 cashier names in `raw_ocr`) — Maxim's call; Best Buy in-store
+header (`BEST` / `BUY` on two lines) left null (lab lane).
+**Regression risk:** low-moderate — shared Costco parsing code (confirmed by the ask). Existing fixtures: no item / total /
+date change; header + raw-text digests moved as intended; full mobile suite 7702/7704 (2 pre-existing).
+## 2026-10-04 — Bad-angle receipt fixed by hand; receipt review flags; admin-approved shopper notices
+
+**Branch:** `fix/bad-angle-receipt-review` (off `main`, asked first); docs `docs/bad-scan-receipt-runbook`.
+**Ask (/goal):** a shopper scanned a receipt at a very bad angle — fix the receipt's items, price points etc. for this time **without touching the parser**, and write a runbook for these cases. Add two receipt columns: *skip optimisation* and *reviewed by admin*; set both on this receipt, only *reviewed* on all others. The runbook also sends the shopper a "photo quality was bad, we did it this time, use the framing tips next time" notice — **every such notice must wait on the admin console for Maxim's approval**.
+**Done:**
+- Migration 0019: `receipts.admin_reviewed_at`, `receipts.skip_parser_optimization`; `notification_approvals` + lookups `notification_approval_kinds` / `_statuses`. Applied to dev AND prod (hand-applied + ledger row `2c6814a3…`, when 1791100000000) BEFORE merge. ⚠️ 0018 (`ocr_captures`, #399) is on NEITHER dev nor prod — prod runs an older build.
+- `lib/badScanRepair.js` + `scripts/repairBadScanReceipt.js` (dry run by default; refuses claimed/notified lines, non-reconciling specs, other devices' price points). Admin: *Notifications to approve* screen (approve/reject, EN+FR preview), receipt detail flag toggles. Push `receipt_quality_notice` under *Scan results*, opens the receipt. `exportOcrCaptures.js` never exports a skip-flagged receipt.
+- **Prod data fix applied** (Maxim granted it): `r_1791145910170_14lyb` (Vaudreuil #1213) rebuilt 12 junk lines → 18 real, 534,01/0,00 → 224,55/6,14; 19 bad price points removed, 18 written; 5 junk products deleted, 3 renamed products restored; notice #2 **pending approval**. All 33 prod receipts stamped `admin_reviewed_at`; only this one `skip_parser_optimization`.
+- Runbook: `Operations/Bad_Scan_Receipt_Repair_Runbook.md`.
+**Regression risk:** additive. Shopper receipt reads strip the two flags (pinned by test). Parser untouched. The approval desk/push only work once this PR's backend + app are deployed; until then notice #2 just waits.
+
+---
+
+## 2026-10-03 — OCR capture: keep every live scan's exact Vision input + response
+
+**Branch:** `feat/ocr-capture` (off `main`, app repo) + `docs/ocr-capture` (this repo).
+**Ask (Maxim):** prod receipt `r_1791050619590_6wd4e` stored header_ocr "6 @ 10.99"; build fixtures from
+ALL prod receipts and make the parser right first time in both languages; then *"keep the Vision response
+in prod … we have to save the exact and same conditions as real live scan from users."*
+**Done:** `ocr_captures` table (migration 0017) + `lib/ocrCapture` — `/api/ocr` stores the exact image bytes
+Vision received and Vision's verbatim response (gzipped envelope + request/client context) AFTER answering;
+`/api/receipts` links new receipts to their capture by item-line overlap (same receipt 0.76–1.00, others ≤ 0.33,
+measured); 90-day age sweep via `object_retention`; admin receipt detail lists captures; app sends `scanContext`;
+`scripts/exportOcrCaptures.js` turns captures into fixtures. Full write-up: `Technical/OCR_Capture.md`.
+**NOT done:** migration 0017 applied to dev or prod (the session's permission guard blocked `drizzle-kit migrate`);
+`ocrCapturesDb.test.js` runs once it is applied. Privacy/Data Safety wording for the verbatim member number — decision owed.
+**Regression risk:** low — capture and link run after the response, best-effort, behind `OCR_CAPTURE_ENABLED`;
+a missing table only logs. The app adds one optional body field older backends ignore.
+
+---
+
+## 2026-10-07 — Unlimited plan: drop PDF export + family sharing, add unlimited claims + Price Checker
+
+**Branch:** `feat/unlimited-plan-features` (off `main`); docs `docs/unlimited-plan-features`.
+**Ask (/goal):** remove PDF export and family sharing from Unlimited; add unlimited price drop claims and access to Price Checker.
+**Found:** the bundled catalog had already lost family sharing, but the live paywall reads the DB row, and **both** DBs still
+listed "PDF export of claims" + "Family sharing (up to 6 users)" with keys `pdf_export`/`family_sharing` and **no** `barcode_scan`.
+The seed COALESCEs `features`/`feature_keys`, so only a migration can fix an existing row. The French overlay was also
+already misaligned: config had 6 bullets, `catalog.tier.unlimited.features.*` had 5, keyed by position.
+**Done:** `shared/pricing.config.js` (+ backend mirror) gets the new bullets and drops `PDF_EXPORT` from Unlimited. New
+`PARKED_FEATURE_KEYS = [pdf_export]`. i18n en+fr re-keyed 0–5. Migration `0020_unlimited_plan_features.sql`
+was applied by hand to dev + prod, with ledger rows. PDF export is parked: `Technical/Parked_Features.md`.
+Tests: `backend/tests/unlimitedPlanFeaturesMigration.test.js` (SQL ↔ config), `__tests__/unlimitedPlanCatalog.test.js`
+(position keys ↔ config, every language), `sharedPricing` parked-key invariant, `purchaseService` gate.
+**Rollback values (prod row before):** features `["Unlimited receipt scans","No per-drop charge","Email sync (Gmail & Outlook)","Priority price checking (every 2 h)","PDF export of claims","Family sharing (up to 6 users)"]`;
+feature_keys `["email_sync","priority_price_check","pdf_export","claim_assistant","family_sharing","advanced_analytics","early_access"]`.
+**Regression risk:** low. Price Checker access is still gated on `premium.active` (`ScanModeSwitcher.js`) and is unchanged. PDF
+export was already unreachable. The one behavioural change is that `canUseFeature("pdf_export")` is now false for Unlimited.
+**Not verified:** whether the prod backend caches the catalog (a read of `configService.js` was blocked by the session guard).
+The paywall may show the old list until the next refresh or restart.
+**Pre-existing, not mine:** `__tests__/tagCardSavingsBadge.test.js` fails on `main` too. It hardcodes a savings end date of 2026-10-05, now past.
+Prod free-tier row lists `barcode_scan` in `feature_keys`. Harmless today (gate reads premium status), left as is.
+
+
+---
+
+## 2026-10-07 — Hotfix: admin desk editing + tag photos + receipt warehouse default
+
+**Branch:** `hotfix/admin-review-editing` (off `main`) → Priceback #405, docs `docs/admin-review-editing`.
+**Ask (/goal):** (1) tag review photos always "failed to load"; (2) full OCR text + edit the tag on the admin
+console; (3) edit receipts (date, warehouse, taxes…); (4) same for notifications; (5) a receipt with no
+detected or selected warehouse → "Your Costco warehouse", else the nearest one.
+**Done:**
+- Tag photo proxied through `GET /api/admin/price-tag-reviews/:id/image` (Bugs_Common_Fixes #308).
+- Tag review: full selectable OCR text; `POST …/:id/edit` corrects SKU/brand/product/prices/expiry on the
+  review AND its price point (pending only; product re-pointed on a SKU change; `printedExpiry` kept in step).
+- Receipt desk: `POST /api/admin/receipts/:id/edit` (date, warehouse, total, tax, purchase type — the
+  receipt's own `receipt_ocr` price points follow a new date/club; unknown club refused) and
+  `POST …/:id/lines` (the bad-scan repair engine, no shopper notice, parser flag untouched).
+- Notices: `POST /api/admin/notification-approvals/:id/copy` — per-language title/body override, used by
+  the preview AND the push; `null` resets. **Migration 0021** (`notification_approvals.custom_copy jsonb`):
+  applied to DEV; **prod is applied by hand** (run the file + ledger row). Until then the desk lists fine
+  (`to_jsonb(row)` read) and only Save answers 503.
+- Receipt scan: review screen gets a warehouse row (pick = this receipt only, never the favourite); Save
+  files the receipt under pick → scan reading → favourite → nearest (location already granted, never
+  prompted; only a club with a KNOWN distance — the bundled list has no coords) → account province's first
+  club → none. Online orders: none. New i18n keys en+fr.
+- Test fix: `tagCardSavingsBadge.test.js` date bomb (hardcoded 2026-10-05) → relative date.
+**Regression risk:** server list/verify/reject routes unchanged; approve now builds its push through
+`_approvalCopy` (stock copy when no override — identical output). ScanScreen: a receipt that USED to save with
+no warehouse now gets the favourite/nearest one — intended, but it does attribute its prices to that club.
+
+
+---
+
+## 2026-10-07 — Hotfix: potential (unverified) price drops for the admin
+
+**Branch:** `hotfix/admin-potential-price-drops` (off `main`), docs `docs/admin-potential-price-drops`.
+**Ask (/goal):** list potential price drops (no verified price yet, but another receipt from the same warehouse
+or province shows a lower price) so the admin can judge whether to send them. Mid-task: keep them APART from the
+verified queue; even with N = 1 a single shopper is potential, never verified.
+**Done:**
+- `potentialDropRepo` (read-only list; `verifyGroup` stamps the group's crowd rows `verified=true`, `excludeGroup`
+  excludes them). Nothing is ever written to `price_drop_review_queue` by this path. Verify runs a province sweep,
+  so the drops land in the verified queue as `pending`.
+- `GET /api/admin/potential-drops`, `POST …/verify`, `POST …/reject` (admin-only, desk rate limit).
+- `AdminPotentialDropsScreen` (amber, "UNVERIFIED PRICE"), with a tile on admin home and a link on the queue screen.
+  Each line is marked SAME WAREHOUSE / SAME PROVINCE ONLY, with days left to claim and the evidence receipt.
+- Floor: `priceDropRepo.effectiveMinUsers = max(2, PRICE_VERIFY_MIN_USERS)`, used by findNotifiable,
+  getLatestVerifiedPrice and markNewlyVerified.
+Doc: `Technical/Potential_Price_Drops_2026-10-07.md`. No migration.
+**Regression risk:** low. The floor is a no-op at N = 3 (dev + prod, checked). The 15 single-shopper `verified`
+rows in prod are all tag-review admin verifications and stay verified. The verified queue code paths are unchanged.
+The queue screen only gains a link.
+
+
+---
+
+## 2026-10-08 — Hotfix: Nepean #540 receipt repaired, Costco coupon re-zip, datafix corrects the watch registry
+
+**Branch:** `claude/gracious-mayer-fb1tbo` (off `main`) → PR #410 and PR #411, both squash-merged to `main`.
+Docs: `docs/nepean-coupon-rezip-2026-10-08`.
+**Ask:** "the latest receipt is not parsed correctly, empty sku, bad product name … fix this receipt by the runbook
+in prod"; then "fix the receipt and fix the parser and merge everything in Priceback on main as a hotfix"; then
+"the watch registration should also be auto corrected … on datafix corrections".
+**Done:**
+- Prod data (`r_1791478905313_w7a4m`, Costco Nepean #540, 2026-09-23): rebuilt to the paper with the bad-scan
+  tooling's spec (`markSkipParser: false`, `notifyShopper: false`, `keepItemIds` 835-837, extra 9999), applied as a
+  guarded transaction checked identical to `repair()` on a local Postgres copy, read back. Ledger row added.
+- Parser (PR #410, Bugs #312): a keyword-less coupon inside a labels-first block is a re-zip slot; a coupon SKU
+  with a digit read as `/` resolves to the one printed item number that fits. Fixture + line-by-line tests (flat
+  and production's own geometry reading), 11 mutations killed, golden snapshots unchanged.
+- Repair tool (PR #411, Bugs #313): a datafix now also rewrites the receipt's entries in every watch registration
+  and removes the device's crowd copies the paper disproves; the admin desk refreshes its in-memory registry.
+  Applied to this receipt's registration in prod (21 bad → 19 corrected entries).
+**Not done / follow-ups:**
+- The photo was not read (no R2 credentials in the session). Export the two live captures
+  (`scripts/exportOcrCaptures.js --receipt r_1791478905313_w7a4m`) and pin them in `receiptProdCaptures.test.js`.
+- `shared/ocrCleanup.js` missed payment lines whose first letter Vision cropped (`CCT:`, `EFERENCE #`, `UTH #`,
+  `nvoice Number`): prod `raw_ocr` of this receipt keeps a transaction reference and approval code.
+- 4 backend tests fail on clean `main` (`shopperNoticeDrafts` ×2 — its drafts file is gitignored by
+  `backend/data/*`; `pushI18n` ×1; `creditReconGuards` ×1 needs `DATABASE_URL`).
+- `development` has not moved since #343 (2026-09-17); every PR since targets `main`, so the hotfix back-merge into
+  `development` was not done — decide whether `development` is retired.
+- Migration 0021 (`notification_approvals.custom_copy`) is not applied in prod.
+**Regression risk:** parser — low (two narrow rules, every guard pinned, corpus snapshots byte-identical); ships
+with the next binary. Repair tool — low (runs only when an operator repairs a receipt; dry run shows both new
+effects first).
+
+
+---
+
+## 2026-10-11 — Investigation + fix: paid iOS subscriber (000195…0626) never recorded
+
+**Branch:** `fix/rc-sync-v2-key-and-visibility` (off `main`). Docs: Bugs #317.
+**Ask:** "this user subscribed monthly 4.99$ per Apple/RevenueCat but no trace in DB or admin console — did he get his
+subscription, what happened, why no notifications"; then "fix everything, get all events from App Store and Google Play,
+make sure the user gets his subscription, same timeline in the database".
+**Done:** root cause proven (webhook App filter = Play Store only; sync key is v2-only → 403/502). Code: `/health` key
+probe, durable `auth_outcomes` trace for refused/failed syncs, tests (mutation-checked).
+**Follow-up (same day):** PRs #424/#425 merged. RevenueCat v2 export: 379 customers, only ONE real production subscription (this user) — the other 3 are SANDBOX tests (admin Android packs, an iOS pack, an expired iOS sandbox sub); no Google Play production purchase exists. Backfilled that user (prod): Unlimited / active, 2026-10-10 06:37:01 → 2026-11-10 07:37:01 UTC, one `subscription_events` INITIAL_PURCHASE row at the purchase instant (`rc_event_id` `rcbackfill:…`, matches what the app sync would write, so a later sync is a no-op). Sandbox tests deliberately NOT backfilled (prod webhook is Production-only by design).
+**Still owed (operator):** (1) webhook App filter → All apps; (2) v1 secret key on Railway `REVENUECAT_SECRET_KEY`.
+**Regression risk:** low — additive (health fields, two new outcome reasons, one extra insert on an already-failing path).
+
+
+---
+
+## 2026-10-11 — Datafix: 7 non-Costco receipts of `000195…0626` → rejected (visible), no refund
+
+**Branch:** `feat/rejected-receipt-badge-with-reason`. Docs: Bugs #318.
+**Ask:** "fix any data for this user … the 7 receipts should be rejected … they must show in her app with status rejected
+and a reason … no refund, the credit was spent on the scan".
+**Done:** prod datafix (above); credit refund written then reverted; app shows Rejected + reason (next binary).
+**Not done / owed:** the next binary (3.0.7) must carry the app change — until then the receipts show as plain empty
+receipts. Policy: whether a refused unsupported-store scan should spend a credit (code says no) — Maxim's wording was
+ambiguous, left unchanged.
+**Regression risk:** low — a new status branch gated on `status === "rejected"`; no other receipt path changes.
+
+
+---
+
+## 2026-10-13 — Datafix: the remaining receipts (unreviewed, inside the 30-day window)
+
+**Branch:** app `data/remaining-receipts-2026-10-13` (specs only); docs `docs/remaining-receipts-2026-10-13`.
+**Ask:** "fix all the remaining receipts in production (datafix only + document root cause)", selected with
+`admin_reviewed_at IS NULL AND (purchase_date + 30) >= CURRENT_DATE AND deleted_at IS NULL` — the same selection is
+to be reused next time.
+**Done:** 5 receipts, each read off its photo (2 R2 originals, 3 live-capture images) and proved by its own arithmetic.
+3 right → stamped reviewed (`er1cc`, `6czgq`, `xuxbv`). `xzw9x` rebuilt by spec (323.97 → 129.74, 11 lines, 3 coupons).
+`4qp2s` 3 catalogue names restored by spec (lines were right). Selection query returns 0 afterwards. Root causes
+proven by neutralisation on v3.0.6 (the scanning build) and `main`: new RC-15 (COSTCO logo cut off → store not
+detected), RC-16 (misread coupon SKU digit survives, location not isolated), RC-17 (name coupon `/ FULL ZIP` vs
+`NAUTICA FZIP`), RC-18 (misread banner welded into a name), RC-19 (`T - FAL` lone-letter strip); cases added to RC-2
+and RC-13.
+**Not done / owed:** no parser change (document only). No shopper notice drafted (readable photos, parser faults).
+RC-16's exact bypass point still to trace. RC-15/RC-17 blast-radius receipts not checked one by one.
+**Regression risk:** none for code (no code changed). Data: the two specs went through the repair tool's dry run
+first; only the stated rows changed (3 products renamed, 1 synthetic product and 1 crowd copy deleted).
+
+
+---
+
+## 2026-10-14 — Pending-claims reminder; shorter price-drop push
+
+**Branch:** app `feat/pending-claims-reminder` (off `main`, Maxim's choice); docs `docs/pending-claims-reminder`.
+**Ask:** credit-used and "flyer deal" notifications off for everyone; the price-drop push must not name its source;
+a reminder totalling the unclaimed drops ("3 price drops to claim, $18.00 in total") after 2+ days waiting or when one
+is about to expire, at most one a day but only every 2–3 days; a new drop's push mentions "N more claims waiting";
+everything in the admin notification history; "short and straight"; no production errors.
+**Done:** verified both legacy pushes were already removed (no change needed). Drop push: "Verified by shoppers"
+removed, "Verified by PriceBack." only when PriceBack verified it, "N more claims are waiting." appended. New daily job
+`jobs/pendingClaimsReminder.js` (18:00 UTC, elected slot, 3-day gap / 2 when expiring, kill switch + gap in ops
+config), EN + FR copy that says how to stop it (mark claimed). Full note: `Technical/Pending_Claims_Reminder_2026-10-14.md`.
+**Not done / owed:** the phone-side variant (server first, per Maxim; switch the server job off if built). The
+existing local per-receipt expiry reminders are unchanged and can overlap with the server one on new builds.
+`priceDropDb`/`priceDropPipelineE2E` DB tests fail on clean `main` too (pre-existing, 5 tests).
+**Regression risk:** low — additive; the only changed live text is the drop push body (tails removed/added); the
+pending-claims lookup in the drop push is try/caught so a DB blip cannot cost a push; new job is a kill-switchable cron.
+## 2026-10-14 — Sentry triage: fix every actionable issue so it cannot come back
+
+**Branch:** app `fix/sentry-errors-2026-10-14` (off `main`, Maxim's choice); docs `docs/sentry-triage-2026-10-14`.
+**Ask:** "there is some errors in sentry, connect to sentry using the token, analyze the problems and fix them all if
+possible" + "i dont want to see the same errors in the futur again".
+**Plan:** 11 unresolved issues. Fix in code: refund-line `toFixed of null` crash on DetailScreen + admin receipt screen
+(PRICEBACK-CANADA-Q/R — `Number(null) === 0` in `isInstantDiscountLine`), queued-scan photo deleted under its own upload
+(PRICEBACK-CANADA-N — native NSException). Stop sending a mistyped reviewer code to Sentry (-5). Archive the
+restricted-device sign-in pair (B/C/K/M) and the OS document-camera hang (P) until escalating; resolve H and J.
+Full triage: `Technical/Sentry_Triage_2026-10-14.md`.
+### 2026-10-13 — Weekly Costco coupons (warehouse + Business Centre) + muse social deals; import de-duplication
+
+- **Asked:** extract the new Costco savings with Claude in Chrome (warehouse + online + costcobusinesscentre.ca), save them like every week; classify `costco_all_deals_by_province.json` (muse scrape): unclaimable savings → price points only, valid savings → imported to generate price drops. Mid-task: *"the code should be smart enough to accept the import for the savings that doesn't exist yet, but if it's redundant the database should not import the same saving in the same validity window and the same source"*. Branches asked: code → new branch off `main`; claimable = not expired on 2026-10-13.
+- **Extracted (docs, `Stores/Costco/`):** `Coupons/Canada/Warehouse offers/2026/coupons_2026-10-13.{json,csv}` — the new 2-WEEK cycle (2026-10-12 → 10-25), 8 SKUs, ON warehouse, stored national (QC/BC not re-verified this week). The 4-WEEK cycle is unchanged from 2026-10-01 (hash-compared: 86 priced tiles identical; only the 3 Hot Buy tiles differ because they print no regular price). `Coupons/Canada/Business offers/2026/coupons_2026-10-13.{json,csv}` — 34 priced SKUs (24 tiles), region ON only, 3 unpriced tiles listed under `unpricedOffers`. The files are JSON as every week; a CSV was added next to each because the ask said CSV.
+- **Muse (`Muse social deals/Canada/2026/`):** 1910 location rows → 884 unique province/SKU/expiry/price deals. Maxim: *respect province-based savings, flag the unsure ones for a 2nd phase*; *the source is price tags (social media), respect the source type, keep the detail*; *mark them verified*. Result: **533 imported** (285 valid, 248 price-point-only) and **351 held for phase 2** (`muse_2026-10-09_phase2-hold-for-review.json`, reason on every row). Held = a Facebook secret sale seen in only some tracked warehouse areas of its province (AB 2 areas, ON 4), a single-city sighting (BC Langley, MB Winnipeg, SK Saskatoon) that no regional flyer / official coupon confirms province-wide, or a markdown. A deal is imported only if it matches an official coupon (sku+expiry+price), comes from a regional/provincial Instagram flyer (Canada, Western, Eastern, Quebec), or was seen in every tracked area of its province. `validFrom` is inferred (muse only has an expiry). Full verdict per row in `muse_2026-10-09_all-classified.csv`.
+- **Code (app PR #431, branch `fix/flyer-import-dedupe`, NOT merged):** `pricesRepo.recordPricePointsBulk` skips a row when the same product + province + source type + price + `valid_from/valid_until` is already on file under a different batch key; a new saving is written; re-posting the same batch key still updates in place; a row with no printed window is never skipped. Test `flyerImportDedupeDb.test.js` 6/6 on the DEV db, mutation turns 4 of 6 red; 25/25 with the neighbouring suites. Regression risk: server-only, only caller is the token-gated importer, no API shape change.
+- **Prod import (Supabase connector SQL, prod `xjfrlzwonyaorwktnkpj`) — DONE:** warehouse 2-week `costco-coupons-2026-10-12-ALL` (104 rows = 8 × 13 provinces, source `flyer`); Business `costco-business-2026-10-12-ON` (34 rows, ON, `flyer`); muse valid deals `costco-muse-2026-10-09-claimable-<expiry>` (**284 rows**, source `price_tag_scan`, `verified=true`, 10 provinces; one row of 285 lost to a within-statement duplicate key); muse unclaimable `costco-muse-2026-10-09-pricepoints-<expiry>` (**248 rows**, source `scrape`, `verified=true`, 13 provinces; `scrape` is not a price-drop source so they can never produce a drop). Every muse row carries `flags` = `{sourceKind:"social_price_tag", platform, posts:[{by,url}], locations, hold?}`; `observed_at` = 2026-10-09 (first seen), device hash `d8c1b0f3a9e44d27`. Dedupe rule applied in SQL (same product+province+source type+price+window, other batch → skipped). **Redone once:** the first muse rows were written as source `flyer`; Maxim said the source is price tags, so those 72 rows were deleted (ids 12825–12896, plus an earlier 58, 12767–12824) and re-imported under the right type. No warehouse/online price older than this batch was touched.
+- **Still owed:** phase 2 review of the 351 held muse rows; Business Centre and warehouse offers for provinces other than ON were not extracted (the pages are regional); PR #431 (dedupe code) not merged, so the importer API does not yet enforce the rule, only this SQL did.
+- **Known risks:** Business Centre prices are stored as `flyer` rows for ON, so a Gold Star buyer of the same SKU could be offered a drop on a Business-only price (admin review queue still gates charging). Muse names are brand-only for new SKUs (display only). Prod runs the OLD per-province fan-out; the SQL mirrors it.
+
+### 2026-10-13 (later) — Muse phase 2 imported; Business Centre reflected in all provinces
+
+- **Asked:** after reviewing the phase-2 file — remove expired savings, savings already in the database, and anything ending before tomorrow's end date; group by province (all provinces → import for all); import every remaining offer as verified. Also: the Business Centre savings are valid across Canada, so import them for every province, not only ON.
+- **Phase 2 (351 rows):** removed 265 expired (validUntil before 2026-10-14) and 3 no-expiry markdowns (not covered by the removal rules, left out and flagged); the other 83 were checked against prod (same product + province + price + expiry, any source): none already on file. 2 ON rows (SKU 2942699, two prices for one expiry) were not imported. **81 rows imported** as `price_tag_scan`, `verified=true`, batches `costco-muse-2026-10-09-phase2-<expiry>`, provenance in `flags` (+ `phase:2`). No deal appears in every province, so nothing was imported as ALL; each deal went to exactly the provinces it was seen in (43 deals: e.g. 11 in BC+MB+SK, 15 ON-only). File: `Muse social deals/Canada/2026/muse_2026-10-09_phase2-imported.json`.
+- **Business Centre:** 34 SKUs × the 12 other provinces = **408 rows** (`costco-business-2026-10-12-ALL`, source `flyer`); ON already had them (skipped). Files updated to region ALL.
+- **Owed:** 3 no-expiry markdown rows still held; PR #431 (importer dedupe) not merged.
+
+## 2026-10-15 — Receipts show the printed line text again; product name is the English label
+
+**Branch:** app `fix/receipt-printed-names` (off `main`, Maxim's choice); docs `docs/receipt-printed-names`.
+**Ask:** the one-label-per-language concept (PR #412, migration 0022) is not working: French text lands in the
+English name, both slots hold the same French text, and receipts no longer show the exact printed label, so shoppers
+are lost. Restore the old concept: `products.display_name` is English only (the official name from receipts); a
+receipt line always shows its own printed text. Asked whether to restore the backup into dev and merge prod in.
+**Decision (Maxim):** no restore + merge. Fix forward. For a product seen only on French receipts, keep today's
+behavior (the French text holds the name) until an English name arrives. **Hold:** copying the 2026-10-09 backup
+aside. Mid-task rule: *"the user should never see an empty receipt or empty labels until he updates, even if we have
+to do that in few steps while deploying."*
+**Plan:** migration 0025 `receipt_items.printed_name` (nullable, additive). Every line write stores it. Every read
+returns `coalesce(printed_name, product label)`, so an un-backfilled line keeps exactly today's label. The server
+detects the receipt language from its OCR when the build sends none (≤3.0.5), so a French receipt can no longer
+claim the English slot. App (next build): a line shows its printed text first. Data steps (backfill printed names
+from `raw_ocr`, reset the 184 products holding French text in both slots) are separate and need Maxim's go.
+**Done:** migration 0025 (applied to **dev** only), line writes + reads, OCR language for builds without one,
+drop candidates name the shopper's line, the repair engine renames only a changed name, app `lineLabel` prints the
+line first, wire contract. Design + deploy order: `Technical/Receipt_Printed_Names.md`; Bugs #322.
+**Verified:** backend 2582/2584 (the 1 failure, `receiptUnsupportedCountryDb`, fails identically on clean `main`);
+mobile all green except 4 suites caused by 19 untracked prod-capture fixtures in the working tree; i18n check green;
+four mutations each turn their test red.
+**Not done / owed (each needs Maxim):** 0025 on prod + backend deploy; backfill `printed_name` from `raw_ocr`;
+product-name clean-up (backup copy on hold — the 2026-10-09 backup ages out ~2026-10-23); next app build.
+**Regression risk:** low-medium. Every read is `coalesce(printed_name, product label)`, so nothing goes empty and
+pre-0025 lines are unchanged. Changed visible content: lines that have printed text now show it on every build.
+3.0.6 shows one text per product (latest synced) if a shopper's receipts printed it differently. Repair renames are
+now narrower (only changed names).
+**Follow-up (same day):** Maxim: *"go ahead and for the product names in the admin database it should come from the
+product table. the target is that the table product have the right product name for the admin and price drop
+notifications even if the items have some parsing problems"*, then *"run the migration too and deploy everything"*.
+- Price-drop candidates are named by `products.display_name` again (reverted the printed-name change). The admin
+  receipt desk names a line by its product, printed text beside it; its line editor has a "Product name" field
+  (repair spec `items[].productName`) that sets the English name.
+- `scripts/backfill-printed-names.js` (prod dry run: 1,070 of 1,116 lines resolved, 46 left on the product-name
+  fallback) and `scripts/cleanup-product-names.js` (prod dry run: 11 renames; 302 French-only products kept).
+- ✅ **Migration 0025 applied to prod** by hand 2026-10-15 (ledger row 36). Nothing else changed in prod.
+- ⛔ The permission layer refused the PR merge (= the Railway deploy) and the prod `--write` runs. They wait on
+  Maxim. Order: backfill `--write` (safe before the deploy) → merge #438 (Railway auto-deploys `main`) → cleanup
+  `--write` (only after the deploy, or old-backend French receipts would show the English name).
+- The 2026-10-09 backup is no longer needed for the clean-up (the receipts are the evidence); the copy stays on hold.
+- Found, not fixed: `priceDropDb` "first sweep pushes each verified drop once" and "a strictly lower verified price
+  re-notifies" fail on clean `main` e7029dd too.
+
+## 2026-10-15 — Admin "View as shopper" + automatic unlock of hidden drops
+
+**Ask (Maxim, /goal):** from the admin users list, open a preview of what a shopper sees in their app
+(products, price drops, credits) to answer support mail — without exposing personal data (card or other
+sensitive info). Also: why has nobody bought credits though ~$150 of drops were found? Mid-task: hidden
+drops (balance below 0) must unlock automatically when the shopper buys credits back to ≥ 0 or subscribes.
+**Branch:** `feat/admin-user-preview` off `main` (asked; Maxim chose a new branch off main).
+**Done:** `GET /api/admin/users/:sub/preview` (allowlist-redacted, read-only, admin-gated, logged);
+`AdminShopperPreviewScreen` reached from the Accounts row eye icon, the ⋯ sheet and the account screen;
+`purchaseService.subscribeEntitlementChange` + `useDropLock` re-read on it. Design + prod findings:
+`Technical/Admin_View_As_Shopper.md`.
+**Prod findings:** 0 packs ever bought; 149/161 shoppers positive → drops shown free; 5 negative only since
+10-13/14; 0/41 drops claimed; $3 pack does not unlock a −269 balance.
+**Regression risk:** low. Backend route is new and additive. The unlock signal only adds a re-read of the
+same cached values the focus re-read already used.
+**Follow-up (same day, Maxim):** in-app drops must pass admin review; reminders; "Unlock" must preselect
+the minimum pack; the preview must be the exact UI and data (settings, warehouse, membership, invites,
+notification switches); a forced update for old builds; a maintenance switch. **Done:** released-drop
+gate (bootstrap `releasedDrops`, `GET /api/me/drops`, app reconcile); unlock-pack preselect; "Open their
+app" (real screens behind a storage/network/purchase/notification guard, masked identity); Admin · App
+version → Maintenance mode + "Refuse builds before 3.0.7" (both off by default). The server "claims
+waiting" reminder is already live in prod (first run 2026-10-14 sent 7 pushes); the on-phone one is
+unreleased. **Not done:** Android Play in-app immediate update (native module = new build; needs a go).

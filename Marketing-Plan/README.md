@@ -9,6 +9,7 @@ This folder is the working home for PriceBack's go-to-market and growth strategy
 - [`03-claude-automation-plan.md`](03-claude-automation-plan.md) — how Claude + MCP servers run the social accounts
 - [`04-growth-tactics.md`](04-growth-tactics.md) — creative/novel user-acquisition ideas beyond social
 - [`05-launch-calendar.md`](05-launch-calendar.md) — 90-day execution calendar + KPIs
+- [`10-creator-and-agency-partner-program.md`](10-creator-and-agency-partner-program.md) — how to pay Instagram creators and agencies (CPA / commission / credits / comp), deal sheet, negotiation script; built in the app as partner codes
 
 ## Social media lives in a different repo
 

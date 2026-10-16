@@ -51,7 +51,7 @@ rows FK to these by `id`; application code looks them up by `code`.
 | `provinces` | Province/state within a country (`country_id` FK). Unique `(country_id, code)`. | CA provinces + a few US states |
 | `subscription_statuses` | RevenueCat-style subscription state. | `active, expired, in_grace_period, in_billing_retry, cancelled, paused, unknown` |
 | `subscription_event_types` | Webhook event kinds. | `INITIAL_PURCHASE, RENEWAL, CANCELLATION, UNCANCELLATION, NON_RENEWING_PURCHASE, EXPIRATION, BILLING_ISSUE, PRODUCT_CHANGE, TRANSFER, SUBSCRIPTION_PAUSED` |
-| `credit_event_types` | Ledger entry kinds (see §5). | `free_trial, topup_purchase, monthly_grant, scan_consume, admin_adjust, refund, migration_seed, signup_grant, price_tag_scan, price_tag_revoke, price_drop_charge, referral_referrer_bonus, referral_referee_bonus` |
+| `credit_event_types` | Ledger entry kinds (see §5). | `free_trial, topup_purchase, monthly_grant, scan_consume, admin_adjust, refund, migration_seed, signup_grant, price_tag_scan, price_tag_revoke, price_drop_charge, referral_referrer_bonus, referral_referee_bonus, partner_referee_bonus, partner_referral_bonus` |
 | `receipt_sources` | How a receipt entered the system. | `ocr, manual, import` |
 | `receipt_statuses` | Receipt processing state. | `pending, processed, rejected, needs_review` |
 | `policy_statuses` | Per-receipt price-protection lifecycle (migration 0004). | `watching, claimed, expired` |
@@ -281,6 +281,8 @@ Index: `(user_sub, created_at)`.
 | `price_tag_revoke` | Clawback of a previously-granted tag reward (rejected on review). | − |
 | `referral_referrer_bonus` | Bonus to the inviter (see §7). | + |
 | `referral_referee_bonus` | Bonus to the invited friend. | + |
+| `partner_referee_bonus` | Welcome credits for redeeming a creator/agency code (§7). | + |
+| `partner_referral_bonus` | Credits to a partner's own account per referred user (§7). | + |
 
 Tag-credit business rules are parameterised in `app_config` (keys
 `PRICE_TAG_CREDIT_REWARD`, `PRICE_TAG_WEEKLY_CREDIT_CAP`,
@@ -349,6 +351,20 @@ its bonus (so payout can be deferred and audited).
 
 `users.referral_code` / `users.referred_by` / `users.referrals_count` hold the
 denormalized counters and code lookups.
+
+### Creator / agency partner program (migration 0017)
+Vanity codes for Instagram creators and marketing agencies, each carrying its own
+deal. Mutually exclusive with a friend code. Full reference:
+[Partner_Program.md](Partner_Program.md).
+
+| Table | Purpose |
+|---|---|
+| `partner_types` / `partner_triggers` | Lookups: `influencer, agency` / `signup, first_scan, first_purchase`. |
+| `partners` | The creator or agency. `user_sub` → `users` (set null) = their own account (credit payee, self-redeem guard). `comped_until` records a RevenueCat comp. |
+| `partner_codes` | `code` UNIQUE + the deal: welcome credits + trigger, partner credits + trigger, `cpa_amount`, `min_spend`, `commission_pct`, `window_months`, `hold_days`, dates, `max_redemptions`, `active`. Deal frozen after first use. |
+| `partner_attributions` | One per user (`user_sub` UNIQUE, set null). `attributed_at` (DB clock), `first_scan_at` + `first_scan_device_hash` (first-scan rewards pay once per device per partner), once-only stamps `referee_credited_at` / `partner_credited_at`. |
+| `partner_conversions` | Paid, non-sandbox charges since attribution, CAD catalog price, one per product per billing period; `source_ref` UNIQUE. Kept forever (sources are pruned). |
+| `partner_payouts` | Cash actually sent; owed = payable − Σ payouts. |
 
 ---
 

@@ -1,0 +1,24 @@
+{
+  "_note": "Costco Canada 'Great Savings This Week' (costco.ca/o/-/coupons), extracted with Claude in Chrome on 2026-10-01. PENDING Maxim's validation before any import. National batch: identical SKUs/prices/savings verified in ON, QC and BC (same signature hash, 104 tiles each), so every item is stored ONCE and imported with region ALL. Eco-fees and taxes are never part of any price (promoPrice = regularPrice - instantSavings). One SKU = one row (comma lists and size ranges expanded; tileSkuCount = SKUs on the original tile).",
+  "region": "ALL",
+  "batchKey": "costco-coupons-2026-09-28-ALL-online",
+  "source": "costco-coupons",
+  "country": "Canada",
+  "channel": "online",
+  "extractedAt": "2026-10-01",
+  "extractedFrom": "https://www.costco.ca/o/-/coupons",
+  "offerCycles": {
+    "twoWeek": {
+      "validFrom": "2026-09-28",
+      "validUntil": "2026-10-11"
+    },
+    "fourWeek": {
+      "validFrom": "2026-09-28",
+      "validUntil": "2026-10-25"
+    }
+  },
+  "count": 1,
+  "items": [
+    {"sku":"1407581","name":"Samsung 7.5 cu ft. dryer with steam","size":null,"regularPrice":949.99,"instantSavings":100,"promoPrice":849.99,"validFrom":"2026-09-28","validUntil":"2026-10-25","flags":{"priceSource":"online","priceFromProductPage":true}}
+  ]
+}

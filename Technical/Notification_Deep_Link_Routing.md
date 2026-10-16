@@ -42,19 +42,27 @@ routeForNotification(data) -> { route, params } | null
 |---|---|---|
 | `verified_price_drop`, `price_drop`, `flyer_drop` | `Detail` | `receiptId` |
 | `expiry_warning`, `expiry_early`, `expiry_final` | `Detail` | `receiptId` |
-| `price_drop_charge` | `CreditHistory` (or `Detail` if a `receiptId` is present) | — |
+| ~~`price_drop_charge`~~ | *retired 2026-10-01 — no longer sent, no route; an old one in a tray takes the generic fallback* | — |
 | `tag_verified` | `CreditHistory` | — |
 | `low_balance` | `BuyCredits` | — |
 | `referral_settled` | `InviteFriend` | — |
 | `store_launch` | `Main` → `Stores` | `storeCode` |
 | `daily_digest` | `Main` → `Receipts` | — |
+| `pending_claims_reminder` | `Main` → `Receipts` | `count`, `total`, `soonestDaysLeft` |
 | `tag_scans_ready` | `PendingTagScan` | — |
 | `receipt_scans_ready` | `PendingReceiptScan` | — |
 | `scan_review_reminder` *(2026-09-25)* | `PendingTagScan` / `PendingReceiptScan` | `kind` (`tag` \| `receipt`) |
 | `first_receipt`, `scan_reminder` *(2026-09-25)* | `Scan` (the root-stack scanner modal, not the `ScanTab` placeholder) | — |
 | `monthly_recap` *(2026-09-25)* | `Main` → `Receipts` | — |
 | `referral_nudge` *(2026-09-25)* | `InviteFriend` | — |
+| `profile_location` *(2026-09-30)* | `CompleteProfile` (postal code + province) | — |
+| `profile_costco` *(2026-09-30)* | `CostcoProfile` (warehouse + membership tier) | — |
 | `tag_review` (admin) | `AdminTagReview` | `reviewId` |
+| `price_drop_review` (admin) *(2026-10-01)* | `AdminPriceDropQueue` | `pending` |
+| `receipt_review` (admin) *(2026-10-07)* | `AdminReceiptsReview` | `count` |
+| `new_user` (admin) *(2026-10-07)* | `AdminAccounts` | `count` |
+| `notification_approval_review` (admin) *(2026-10-07)* | `AdminNotificationApprovals` | `count` |
+| `potential_drop_review` (admin) *(2026-10-07)* | `AdminPotentialDrops` | `count` |
 | `test` | *nowhere, deliberately* | — |
 
 21 types since 2026-09-25. Every one of them — except `test` — also belongs to a
@@ -71,7 +79,7 @@ about it.
 Navigation v6's nested form — `navigate("Main", { screen: "Stores", params })`.
 Navigating to `"Stores"` from the root would throw.
 
-### `price_drop_charge` deliberately carries no receipt id
+### `price_drop_charge` deliberately carries no receipt id *(historical — retired 2026-10-01, see `Technical/Price_Drop_Lock_And_Notifications_2026-10-01.md`)*
 
 It is one consolidated message per user covering several receipts, so naming one
 would point at an arbitrary member of the set. The credit ledger is the honest

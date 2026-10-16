@@ -60,6 +60,69 @@ Check the whole path, not just the last fix.
 - [ ] Screenshots match the current build.
 - [ ] Support URL and Privacy Policy URL both resolve.
 
+**Google Play Console**
+
+- [ ] **Sign in details carries the reviewer access code** (App content → Sign
+      in details), with the Play block from `REVIEWER_NOTES.md`. Never
+      "N/A – Google Sign-In only" and never "contact us for an account": Play
+      reviewers may not use their own Google account, create one, or contact
+      you. See rejection #3 below.
+- [ ] Every paid feature is reachable by the reviewer account without buying
+      anything — Play reviewers cannot purchase or start a trial. Any new
+      subscription gate must be checked against `reviewer:appstore`.
+
+---
+
+## 3. Google Play — "Login credentials are missing" (3.0.2, 2026-09-30)
+
+### What Google said
+
+Policy status → "Play Console Requirements: Violation of Play Console
+Requirements". *Login credentials are missing — you have not provided any login
+information for the review team.* Evidence: four screenshots ending on our
+"Create your account" screen after the Google account picker.
+
+### What was actually wrong
+
+Nothing new in the sign-in code — which is why it looked inexplicable. The Sign
+in details declaration had said "N/A – Google Sign-In only" since launch, and
+Play's own form says reviewers *"are unable to create accounts, use their own
+existing accounts"*. Earlier reviews got through because the reviewers signed in
+with their own Google accounts anyway (production holds them:
+`<firstname><lastname>.<5 digits>@gmail.com`, four created on 09-27/09-29).
+
+What changed was #374, merged 2026-09-29 04:30 UTC: Price Check and Email Sync
+moved behind the Unlimited subscription. Play's fleet signed in at 05:08–05:13
+UTC, found premium features locked behind a purchase they may not make, and
+filed it as missing credentials.
+
+Two things we suspected and ruled out, with evidence:
+
+- **The data cleanup deleting reviewer accounts** did not cause this. The Play
+  fleet uses a fresh account per review, so deleting old ones loses nothing.
+  It DID endanger our own reviewer account — `reviewer:appstore` is on
+  `@priceback.ca`, matched the company-accounts classifier, and was absent from
+  production on 2026-09-30. Now protected in code.
+- **The reviewer access code** existed (PR #299) but was iOS-only by design.
+
+### What shipped (3.0.3)
+
+- The access-code link and session on Android, scoped to the reviewer account
+  only (`_sessionsActive` in `authService.js`) — every Google user's request
+  path is byte-identical.
+- `reviewer:appstore` reports a complimentary, non-expiring Unlimited tier
+  (read-side only) and is exempt from the single-device claim, so parallel
+  reviewers never auto-flag it.
+- The account is protected from `dataCleanup` and `staleSignups`.
+- Sign in details rewritten from `REVIEWER_NOTES.md`.
+
+### Durable rule
+
+A store's reviewer must be able to reach **every** feature with credentials
+**we** supply, on **that** platform, without buying anything. "They can use
+their own account" is not a plan on Play, and a new paywall gate is a
+review-access change, not just a pricing change.
+
 ---
 
 ## 1. Guideline 3.1.2(c) — a discount advertised in the language of a free trial

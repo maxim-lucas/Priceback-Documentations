@@ -159,6 +159,17 @@ later" discipline as the tag itself.
   the i18n rule) — a French shopper reading English release notes is the same
   category of defect as an English-only button label.
 
+### 4d. Once the build is live to 100%: the minimum build
+
+After the rollout reaches 100% on a store, decide whether older builds may keep
+running. Usually they may, and you change nothing. If this release exists
+because an older build misbehaves against the current backend (or the next
+backend deploy can't be made safe for it), set that platform's minimum to this
+build's number in **Admin · App version**. Phones on older builds that report
+themselves (3.0.7+) then show the blocking "Update required" screen. **Never
+before 100%**: a minimum past the newest published build locks everyone out.
+Procedure and safety rails: `Technical/Backend_Backward_Compatibility.md`.
+
 ## 5. Rolling back
 
 A tag is a rollback *reference*, not a rollback *mechanism* — neither store lets
@@ -174,6 +185,9 @@ you un-ship a binary.
 4. **Halt the rollout** meanwhile: Play → staged-rollout halt; App Store →
    "Remove from sale" / pause phased release. That is a console action, not a
    repo action.
+5. **Never raise the minimum build to block a bad build.** Users on the bad build
+   would be sent to a store that only has that same build. Raise it only to the
+   fixed build, once that one is live to 100% (§4d).
 
 ## 6. Branch & PR conventions in force
 

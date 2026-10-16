@@ -1,0 +1,268 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>PriceBack — App Store screenshots (1320×2868)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #111; }
+  body { font-family: "Segoe UI", "Helvetica Neue", Arial, system-ui, sans-serif; }
+  .slide { width: 1320px; height: 2868px; position: relative; overflow: hidden; display: none; }
+  .slide.on { display: block; }
+  .t-dark   { background: radial-gradient(110% 60% at 85% 8%, rgba(16,185,129,.45), transparent 60%), linear-gradient(170deg,#0d3d28 0%,#072016 100%); --h:#fff; --s:rgba(226,245,237,.88); --hl:#34e3a5; }
+  .t-mint   { background: radial-gradient(100% 50% at 10% 0%, #ffffff, transparent 70%), linear-gradient(170deg,#e4f4ec 0%,#bfe8d3 100%); --h:#0d3d28; --s:#2f5d49; --hl:#059669; }
+  .t-green  { background: radial-gradient(90% 50% at 90% 0%, rgba(255,255,255,.28), transparent 65%), linear-gradient(170deg,#10b981 0%,#047857 100%); --h:#fff; --s:rgba(255,255,255,.92); --hl:#062a1a; }
+  .head { position: absolute; left: 90px; right: 90px; top: 150px; }
+  .brand { display:flex; align-items:center; gap:24px; margin-bottom: 44px; }
+  .brand img { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .brand span { font-size: 62px; font-weight: 800; letter-spacing: -1.5px; color: var(--h); }
+  h1 { font-size: 138px; line-height: 1.0; font-weight: 800; letter-spacing: -4px; color: var(--h); }
+  h1 em { font-style: normal; color: var(--hl); }
+  .sub { margin-top: 34px; font-size: 56px; line-height: 1.28; font-weight: 500; color: var(--s); max-width: 1100px; }
+  .phone { position: absolute; left: 130px; width: 1060px; height: 2400px; border-radius: 170px; background: #0b0f0d;
+           padding: 22px; box-shadow: 0 0 0 4px #2a3330, 0 60px 120px rgba(0,0,0,.45); }
+  .screen { width: 1016px; height: 100%; border-radius: 150px 150px 0 0; overflow: hidden; position: relative; background: #eef5f1; }
+  .zoom { zoom: 2.605; width: 390px; height: 1000px; position: relative; color: #0d3d28; }
+  .island { position: absolute; top: 26px; left: 50%; transform: translateX(-50%); width: 270px; height: 78px; border-radius: 40px; background: #000; z-index: 9; }
+  /* ---------- in-app UI (390px wide design space) ---------- */
+  .sb { height: 46px; display:flex; justify-content:space-between; padding: 14px 28px 0; font-size: 15px; font-weight: 700; }
+  .pad { padding: 0 18px; }
+  .hello { font-size: 13px; color:#64748b; margin-top: 8px; }
+  .title { font-size: 25px; font-weight: 800; letter-spacing: -.5px; }
+  .card { background:#fff; border-radius: 18px; padding: 14px; box-shadow: 0 2px 10px rgba(13,61,40,.08); border: 1px solid #e8efea; }
+  .hero { background: linear-gradient(135deg,#0d3d28,#047857); color:#fff; border-radius: 20px; padding: 18px; margin-top: 14px; }
+  .hero small { opacity:.8; font-size: 12px; font-weight:600; letter-spacing:.4px; text-transform: uppercase; }
+  .hero b { display:block; font-size: 40px; letter-spacing:-1px; margin: 4px 0 2px; }
+  .hero span { font-size: 12px; opacity:.85; }
+  .row { display:flex; align-items:center; gap: 12px; }
+  .ico { width: 44px; height: 44px; border-radius: 12px; background:#dcfce7; display:flex; align-items:center; justify-content:center; font-size: 22px; flex:none; }
+  .grow { flex:1; min-width:0; }
+  .nm { font-size: 14px; font-weight: 700; }
+  .meta { font-size: 11.5px; color:#64748b; margin-top: 2px; }
+  .save { font-size: 16px; font-weight: 800; color:#15803d; text-align:right; }
+  .chip { display:inline-block; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 99px; margin-top: 4px; }
+  .g { background:#dcfce7; color:#15803d; } .y { background:#fef3c7; color:#92400e; } .r { background:#fee2e2; color:#991b1b; }
+  .mt { margin-top: 10px; }
+  .sec { font-size: 13px; font-weight: 800; color:#0d3d28; margin: 16px 0 8px; }
+  .btn { background:#10b981; color:#fff; font-weight: 800; font-size: 14px; text-align:center; padding: 13px; border-radius: 14px; }
+  .btn.o { background:#fff; color:#047857; border:1.5px solid #10b981; }
+  .old { text-decoration: line-through; color:#94a3b8; }
+  .dark { background: linear-gradient(170deg,#1a2a24,#05110c); color:#fff; }
+  .cam { background: linear-gradient(160deg,#2b3a34,#101a16); }
+  .pill { position:absolute; left: 50%; transform: translateX(-50%); }
+  .radio { width: 22px; height: 22px; border-radius: 50%; border:2px solid #cbd5d0; flex:none; }
+  .radio.on { border-color:#10b981; background: radial-gradient(#10b981 45%, #fff 50%); }
+  .bar { background:#10b981; border-radius: 6px 6px 0 0; width: 100%; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const Q = new URLSearchParams(location.search);
+const LANG = Q.get("lang") || "en";
+const ONLY = Number(Q.get("n") || 0);
+
+/* ----- copy: every user-visible string, per language ----- */
+const T = {
+ en: {
+  brand: "PriceBack",
+  s: [
+   ["Costco prices, <em>tracked</em> for you", "Scan your receipt once. We watch every price and tell you the moment one drops."],
+   ["Drops matched to <em>your warehouse</em>", "Pick your usual Costco and see the price drops that apply where you shop."],
+   ["Gold Star or <em>Executive</em>", "Tell us your membership and we surface the drops and Executive-only offers made for you."],
+   ["Scan your receipt, <em>we do the rest</em>", "Items, prices and purchase date are read for you. No typing."],
+   ["Claim your refund, <em>step by step</em>", "Ready-to-use talking points and an email template make the price adjustment easy."],
+   ["Decode any <em>price tag</em>", "Scan or type the price on the shelf. Its ending tells you if it is a real deal, even offline."],
+   ["We watch the deals <em>for you</em>", "PriceBack keeps following Costco prices and notifies you about what you could miss."],
+   ["Alerts the moment <em>prices drop</em>", "A push notification the instant an item you bought gets cheaper."],
+   ["Watch your <em>savings grow</em>", "See what you have found and claimed, week after week."],
+   ["Private <em>by design</em>", "Your receipts, your data. Download or delete everything whenever you want."]
+  ],
+  disc: "PriceBack is an independent app and is not affiliated with Costco Wholesale.",
+  ui: {
+   hi: "Hi Alex", foundYear: "Found this year", ready: "3 price drops ready to claim",
+   drops: "Price drops", daysLeft: n => n + " days left to claim", save: "Save",
+   olive: "Olive oil 2 L", eggs: "Free-range eggs 24 ct", detergent: "Laundry detergent 5.7 L", towels: "Paper towels 12 rolls", salmon: "Salmon fillets 1.3 kg",
+   boughtOn: d => "Bought " + d,
+   yourWh: "Your warehouse", search: "Search city or postal code", near: "Near you", selected: "Your usual warehouse",
+   w1: "Toronto – Etobicoke", w2: "Toronto – Scarborough", w3: "Mississauga", w4: "Montréal – Saint-Léonard", w5: "Calgary – Deerfoot",
+   pricesFor: "Price drops for Ontario", km: n => n + " km",
+   mem: "Your membership", gold: "Gold Star", goldSub: "Standard membership", exec: "Executive", execSub: "Unlocks Executive-only price drops",
+   execOnly: "Executive only", execOffer: "Members-only offer matched to you",
+   scanning: "Scanning receipt…", n: x => x, recHdr: "WAREHOUSE RECEIPT", dateLong: "Thursday, October 2", price1497: '$14<span style="color:#059669">.97</span>', decTitle: "Price tag translator", decOn: "Price on the tag", decEndings: "What the ending means", d97: "Corporate markdown", d97d: "The price ends in .97: head office marked this down. Limited time.", dx9: "Manufacturer promo", d00: "Manager markdown", d88: "Store clearance", dstar: "Discontinuing item", decOffline: "Works without internet, handy in the warehouse.", tracking: "Tracking", watchingNow: "Items we are watching", watchSub: "Checked for you, so you do not have to", watching: "Watching the price", dropFound: "Price drop found", trackThese: "Track these prices", itemsFound: "6 items found", total: "Total",
+   claim: "Claim assistant", showCounter: "At the customer service desk", st1: "Show your receipt and membership card", st2: "Mention the lower price, same warehouse", st3: "Get the difference refunded",
+   copyEmail: "Copy email template", talking: "Talking points", window: "Window open, 12 days left",
+   tagScan: "Point at the price tag", tagSeen: "Shelf price", youPaid: "You paid", couldSave: "You could save",
+   flyer: "Flyer deals", thisWeek: "Valid this week", instant: "Instant savings", off: n => "$" + n + " off",
+   p1t: "Price drop", p1b: "Olive oil 2 L dropped $5.00. 12 days left to claim.",
+   p2t: "Price drop", p2b: "Salmon fillets 1.3 kg is $3.00 cheaper. Claim it now.",
+   p3t: "Executive offer", p3b: "A new Executive-only deal matches your membership.",
+   now: "now", min: "2 min ago",
+   savings: "Savings", totalFound: "Total found", claimed: "Claimed", streak: "7-week streak", export: "Export PDF report", months: ["Jun","Jul","Aug","Sep","Oct"],
+   pv1: "You own your data", pv1s: "Your receipts and savings history belong to you",
+   pv2: "Download or delete anytime", pv2s: "Everything we hold, one tap away in Profile",
+   pv3: "We never sell your data", pv3s: "No tracking across other apps or websites",
+   free: "Free to start", canada: "Made for Canada"
+  }
+ },
+ fr: {
+  brand: "PriceBack",
+  s: [
+   ["Les prix Costco, <em>suivis</em> pour vous", "Scannez votre reçu une fois. Nous surveillons chaque prix et vous avertissons dès qu'il baisse."],
+   ["Des baisses selon <em>votre entrepôt</em>", "Choisissez votre Costco habituel et voyez les baisses de prix qui s'appliquent où vous magasinez."],
+   ["Gold Star ou <em>Executive</em>", "Indiquez votre adhésion et nous affichons les baisses et les offres Executive faites pour vous."],
+   ["Scannez le reçu, <em>on fait le reste</em>", "Articles, prix et date d'achat sont lus pour vous. Aucune saisie."],
+   ["Réclamez <em>étape par étape</em>", "Des points de discussion et un modèle de courriel rendent l'ajustement de prix facile."],
+   ["Décodez <em>chaque étiquette</em>", "Scannez ou entrez le prix de l'étiquette. La fin du prix vous dit si c'est une vraie aubaine, même hors ligne."],
+   ["On surveille les aubaines <em>pour vous</em>", "PriceBack suit les prix Costco et vous avertit de ce que vous pourriez manquer."],
+   ["Alerte dès que <em>les prix baissent</em>", "Une notification dès qu'un article que vous avez acheté devient moins cher."],
+   ["Voyez vos <em>économies grandir</em>", "Voyez ce que vous avez trouvé et réclamé, semaine après semaine."],
+   ["Privé <em>par conception</em>", "Vos reçus, vos données. Téléchargez ou supprimez tout quand vous voulez."]
+  ],
+  disc: "PriceBack est une application indépendante, non affiliée à Costco Wholesale.",
+  ui: {
+   hi: "Bonjour Alex", foundYear: "Trouvé cette année", ready: "3 baisses de prix à réclamer",
+   drops: "Baisses de prix", daysLeft: n => n + " jours pour réclamer", save: "Économie",
+   olive: "Huile d'olive 2 L", eggs: "Œufs de poules en liberté 24 un.", detergent: "Détergent à lessive 5,7 L", towels: "Essuie-tout 12 rouleaux", salmon: "Filets de saumon 1,3 kg",
+   boughtOn: d => { const [m, day] = d.split(" "); return "Acheté le " + day + " " + MFR[m]; },
+   yourWh: "Votre entrepôt", search: "Ville ou code postal", near: "Près de vous", selected: "Votre entrepôt habituel",
+   w1: "Toronto – Etobicoke", w2: "Toronto – Scarborough", w3: "Mississauga", w4: "Montréal – Saint-Léonard", w5: "Calgary – Deerfoot",
+   pricesFor: "Baisses de prix pour l'Ontario", km: n => n + " km",
+   mem: "Votre adhésion", gold: "Gold Star", goldSub: "Adhésion standard", exec: "Executive", execSub: "Débloque les baisses de prix Executive",
+   execOnly: "Executive seulement", execOffer: "Offre réservée aux membres, pour vous",
+   scanning: "Analyse du reçu…", n: x => x.replace(".", ","), recHdr: "REÇU D'ENTREPÔT", dateLong: "jeudi 2 octobre", price1497: '14<span style="color:#059669">,97</span> $',
+   trackThese: "Suivre ces prix", tracking: "Suivi", watchingNow: "Articles sous surveillance", watchSub: "Vérifiés pour vous, sans effort de votre part", watching: "Prix sous surveillance", dropFound: "Baisse de prix trouvée",
+   decTitle: "Traducteur d'étiquettes", decOn: "Prix sur l'étiquette", decEndings: "Ce que signifie la fin du prix", d97: "Rabais corporatif", d97d: "Le prix se termine par .97 : le siège social a réduit ce prix. Durée limitée.", dx9: "Promo fabricant", d00: "Rabais gérant", d88: "Liquidation", dstar: "Article discontinué", decOffline: "Fonctionne sans internet, pratique dans l'entrepôt.",
+   itemsFound: "6 articles trouvés", total: "Total",
+   claim: "Assistant de réclamation", showCounter: "Au comptoir du service à la clientèle", st1: "Présentez votre reçu et votre carte de membre", st2: "Mentionnez le prix plus bas, même entrepôt", st3: "Faites rembourser la différence",
+   copyEmail: "Copier le modèle de courriel", talking: "Points de discussion", window: "Période ouverte, 12 jours restants",
+   p1t: "Baisse de prix", p1b: "Huile d'olive 2 L a baissé de 5,00 $. 12 jours pour réclamer.",
+   p2t: "Baisse de prix", p2b: "Filets de saumon 1,3 kg coûtent 3,00 $ de moins. Réclamez maintenant.",
+   p3t: "Offre Executive", p3b: "Une nouvelle offre Executive correspond à votre adhésion.",
+   now: "maintenant", min: "il y a 2 min",
+   savings: "Économies", totalFound: "Total trouvé", claimed: "Réclamé", streak: "Série de 7 semaines", months: ["juin","juil.","août","sept.","oct."],
+   pv1: "Vos données vous appartiennent", pv1s: "Vos reçus et votre historique d'économies sont à vous",
+   pv2: "Téléchargez ou supprimez en tout temps", pv2s: "Tout ce que nous détenons, à un tap dans Profil",
+   pv3: "Nous ne vendons jamais vos données", pv3s: "Aucun pistage dans d'autres applis ou sites web",
+   free: "Gratuit pour commencer", canada: "Conçu pour le Canada"
+  }
+ }
+};
+const L = T[LANG];
+const MFR = {Sep:"sept.", Oct:"oct."};
+const U = L.ui;
+
+const status = (light) => `<div class="sb"${light ? ' style="color:#fff"' : ''}><span>9:41</span><span>●●● ▮</span></div>`;
+const dropRow = (ico, name, bought, was, now, chipCls, chipTxt) => `
+  <div class="card mt row"><div class="ico">${ico}</div>
+    <div class="grow"><div class="nm">${name}</div><div class="meta">${bought} · <span class="old">$${was}</span> → <b>$${now}</b></div><span class="chip ${chipCls}">${chipTxt}</span></div>
+    <div class="save">$${(was - now).toFixed(2)}<div class="meta" style="font-weight:600">${U.save}</div></div></div>`;
+
+const SCREENS = [
+ /* 1 Home */ () => `${status()}<div class="pad">
+   <div class="hello">${U.hi}</div><div class="title">${U.drops}</div>
+   <div class="hero"><small>${U.foundYear}</small><b>$128.40</b><span>${U.ready}</span></div>
+   ${dropRow("🫒", U.olive, U.boughtOn("Sep 18"), 24.99, 19.99, "g", U.daysLeft(12))}
+   ${dropRow("🐟", U.salmon, U.boughtOn("Sep 25"), 21.99, 18.99, "y", U.daysLeft(7))}
+   ${dropRow("🧻", U.towels, U.boughtOn("Sep 6"), 23.49, 19.99, "r", U.daysLeft(2))}
+   ${dropRow("🥚", U.eggs, U.boughtOn("Oct 1"), 9.99, 8.49, "g", U.daysLeft(14))}
+  </div>`,
+ /* 2 Warehouse */ () => `${status()}<div class="pad">
+   <div class="title">${U.yourWh}</div>
+   <div class="card mt meta" style="font-size:13px;padding:13px">🔍 &nbsp;${U.search}</div>
+   <div class="sec">${U.selected}</div>
+   <div class="card row" style="border:2px solid #10b981"><div class="ico">📍</div><div class="grow"><div class="nm">${U.w1}</div><div class="meta">${U.pricesFor}</div></div><div class="radio on"></div></div>
+   <div class="sec">${U.near}</div>
+   ${[[U.w2,12],[U.w3,19],[U.w4,520],[U.w5,2700]].slice(0,2).map(w => `<div class="card mt row"><div class="ico" style="background:#eef5f1">🏬</div><div class="grow"><div class="nm">${w[0]}</div><div class="meta">${U.km(w[1])}</div></div><div class="radio"></div></div>`).join("")}
+   <div class="card mt row"><div class="ico" style="background:#eef5f1">🏬</div><div class="grow"><div class="nm">${U.w4}</div><div class="meta">Québec</div></div><div class="radio"></div></div>
+   <div class="card mt row"><div class="ico" style="background:#eef5f1">🏬</div><div class="grow"><div class="nm">${U.w5}</div><div class="meta">Alberta</div></div><div class="radio"></div></div>
+   <div class="card mt" style="background:#dcfce7;border:none"><div class="nm" style="color:#15803d">✓ ${U.pricesFor}</div></div>
+  </div>`,
+ /* 3 Membership */ () => `${status()}<div class="pad">
+   <div class="title">${U.mem}</div>
+   <div class="card mt row"><div class="ico" style="background:#fef3c7">⭐</div><div class="grow"><div class="nm" style="font-size:16px">${U.gold}</div><div class="meta">${U.goldSub}</div></div><div class="radio"></div></div>
+   <div class="card mt row" style="border:2px solid #10b981"><div class="ico" style="background:#0d3d28;color:#fff">✦</div><div class="grow"><div class="nm" style="font-size:16px">${U.exec}</div><div class="meta">${U.execSub}</div></div><div class="radio on"></div></div>
+   <div class="sec">${U.drops}</div>
+   <div class="card" style="border:1.5px solid #0d3d28"><span class="chip" style="background:#0d3d28;color:#fff;margin:0 0 8px">✦ ${U.execOnly}</span>
+     <div class="row"><div class="ico">🥩</div><div class="grow"><div class="nm">${U.salmon}</div><div class="meta">${U.execOffer}</div></div><div class="save">$3.00</div></div></div>
+   ${dropRow("🫒", U.olive, U.boughtOn("Sep 18"), 24.99, 19.99, "g", U.daysLeft(12))}
+   ${dropRow("🥚", U.eggs, U.boughtOn("Oct 1"), 9.99, 8.49, "g", U.daysLeft(14))}
+   ${dropRow("🧴", U.detergent, U.boughtOn("Sep 28"), 25.99, 21.99, "y", U.daysLeft(6))}
+   ${dropRow("🧻", U.towels, U.boughtOn("Sep 20"), 23.49, 19.99, "g", U.daysLeft(9))}
+  </div>`,
+ /* 4 Receipt scan */ () => `<div class="dark" style="height:1000px">${status(true)}<div class="pad" style="color:#fff">
+   <div class="title" style="margin-bottom:12px">${U.scanning}</div>
+   <div style="position:relative;background:#fff;color:#0d3d28;border-radius:6px;padding:16px 16px 12px;box-shadow:0 12px 30px rgba(0,0,0,.5);transform:rotate(-1.5deg)">
+     <div style="text-align:center;font-weight:800;font-size:13px;letter-spacing:2px">${U.recHdr}</div>
+     ${[[U.olive,"24.99"],[U.salmon,"21.99"],[U.towels,"23.49"],[U.eggs,"9.99"],[U.detergent,"19.99"],[U.towels.replace("12","6"),"14.99"]].map(r => `<div class="row" style="justify-content:space-between;font-size:12.5px;margin-top:9px;font-family:monospace"><span>${r[0]}</span><b>${U.n(r[1])}</b></div>`).join("")}
+     <div style="height:3px;background:#10b981;box-shadow:0 0 18px 4px #34e3a5;margin:14px -16px 0"></div>
+   </div>
+   <div class="card mt" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff"><div class="row" style="justify-content:space-between"><span class="nm">✓ ${U.itemsFound}</span><b>$114.44</b></div></div>
+   <div class="btn mt">${U.trackThese}</div>
+  </div></div>`,
+ /* 5 Claim */ () => `${status()}<div class="pad">
+   <div class="title">${U.claim}</div>
+   ${dropRow("🫒", U.olive, U.boughtOn("Sep 18"), 24.99, 19.99, "g", U.window)}
+   <div class="sec">${U.showCounter}</div>
+   ${[U.st1,U.st2,U.st3].map((s,i) => `<div class="card mt row"><div class="ico" style="width:34px;height:34px;border-radius:50%;font-size:15px;font-weight:800;color:#047857">${i+1}</div><div class="grow nm" style="font-weight:600">${s}</div></div>`).join("")}
+   <div class="btn mt" style="margin-top:16px">✉ ${U.copyEmail}</div>
+   <div class="btn o mt">💬 ${U.talking}</div>
+  </div>`,
+ /* 6 Tag decoder */ () => `${status()}<div class="pad">
+   <div class="title">${U.decTitle}</div>
+   <div class="card mt row" style="justify-content:space-between;padding:12px 16px"><div><div class="meta">${U.decOn}</div><div style="font-size:44px;font-weight:900;letter-spacing:-1.5px;line-height:1.1">${U.price1497}</div></div>
+     <div style="font-family:monospace;font-size:18px;letter-spacing:3px;color:#64748b">|||| ||| ||</div></div>
+   <div class="card mt" style="background:#dcfce7;border:1.5px solid #10b981"><div class="nm" style="color:#15803d;font-size:16px">✓ ${U.d97}</div><div class="meta" style="color:#2f5d49;margin-top:4px;line-height:1.35">${U.d97d}</div></div>
+   <div class="sec">${U.decEndings}</div>
+   ${[[".97",U.d97],[".X9",U.dx9],[".00",U.d00],[".88",U.d88],["★",U.dstar]].map(r => `<div class="card mt row" style="padding:9px 12px"><div style="width:46px;font-weight:900;font-size:17px;color:#047857">${r[0]}</div><div class="nm" style="font-weight:600">${r[1]}</div></div>`).join("")}
+   <div class="meta" style="margin-top:12px;text-align:center">📶 ${U.decOffline}</div>
+  </div>`,
+ /* 7 Watching */ () => `${status()}<div class="pad">
+   <div class="title">${U.tracking}</div>
+   <div class="hero"><small>${U.watchingNow}</small><b>24</b><span>${U.watchSub}</span></div>
+   ${[["🫒",U.olive,"g","✓ "+U.dropFound],["🐟",U.salmon,"g","✓ "+U.dropFound],["🧴",U.detergent,"",U.watching],["🥚",U.eggs,"",U.watching],["🧻",U.towels,"",U.watching]].map(d => `
+    <div class="card mt row"><div class="ico">${d[0]}</div><div class="grow"><div class="nm">${d[1]}</div><span class="chip ${d[2] || ""}" ${d[2] ? "" : 'style="background:#eef5f1;color:#475569"'}>${d[3]}</span></div>
+    <div class="meta" style="font-size:20px">${d[2] ? "🔔" : "👀"}</div></div>`).join("")}
+  </div>`,
+ /* 8 Notifications */ () => `<div class="dark" style="height:1000px;background:radial-gradient(80% 40% at 50% 0%,rgba(16,185,129,.35),transparent 70%),linear-gradient(170deg,#12332a,#05110c)">${status(true)}
+   <div style="text-align:center;color:#fff;margin-top:34px"><div style="font-size:15px;opacity:.8">${U.dateLong}</div><div style="font-size:84px;font-weight:300;letter-spacing:-2px;line-height:1.05">9:41</div></div>
+   <div class="pad" style="margin-top:44px">${[[U.p1t,U.p1b,U.now],[U.p2t,U.p2b,U.min],[U.p3t,U.p3b,U.min]].map(n => `
+    <div style="background:rgba(255,255,255,.88);backdrop-filter:blur(10px);border-radius:20px;padding:13px;margin-bottom:10px;color:#0d3d28" class="row">
+     <img src="icon.png" style="width:38px;height:38px;border-radius:9px;flex:none"/>
+     <div class="grow"><div class="row" style="justify-content:space-between"><b style="font-size:13.5px">${n[0]}</b><span class="meta">${n[2]}</span></div><div style="font-size:12.5px;line-height:1.3;margin-top:1px">${n[1]}</div></div></div>`).join("")}</div></div>`,
+ /* 9 Savings */ () => `${status()}<div class="pad">
+   <div class="title">${U.savings}</div>
+   <div class="hero"><small>${U.totalFound}</small><b>$128.40</b><span>${U.claimed}: $86.50</span></div>
+   <div class="card mt" style="height:190px;display:flex;align-items:flex-end;gap:14px;padding:16px 16px 10px">
+     ${[28,44,36,70,100].map((h,i) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px"><div class="bar" style="height:${h}%"></div><span class="meta">${U.months[i]}</span></div>`).join("")}</div>
+   <div class="card mt row"><div class="ico" style="background:#fef3c7">🔥</div><div class="grow nm" style="font-size:16px">${U.streak}</div></div>
+  </div>`,
+ /* 10 Privacy */ () => `${status()}<div class="pad" style="text-align:center">
+   <div style="width:110px;height:110px;margin:22px auto 8px;border-radius:30px;background:linear-gradient(160deg,#10b981,#047857);display:flex;align-items:center;justify-content:center;font-size:56px;box-shadow:0 12px 30px rgba(16,185,129,.4)">🛡️</div>
+   <div style="text-align:left">
+   ${[["🔑",U.pv1,U.pv1s],["⬇️",U.pv2,U.pv2s],["🚫",U.pv3,U.pv3s]].map(p => `<div class="card mt row"><div class="ico">${p[0]}</div><div class="grow"><div class="nm">${p[1]}</div><div class="meta">${p[2]}</div></div></div>`).join("")}
+   </div>
+   <div class="row mt" style="justify-content:center;margin-top:18px"><span class="chip g" style="font-size:13px;padding:6px 14px">${U.free}</span><span class="chip g" style="font-size:13px;padding:6px 14px">🍁 ${U.canada}</span></div>
+   <div class="meta" style="margin-top:22px;font-size:11px;line-height:1.4">${L.disc}</div>
+  </div>`
+];
+const THEMES = ["t-dark","t-mint","t-green","t-dark","t-mint","t-green","t-mint","t-dark","t-green","t-dark"];
+// phone top: a little lower on slides with a 3-line headline
+const PHONE_TOP = [900,900,900,900,900,900,900,900,900,900];
+
+document.getElementById("root").innerHTML = SCREENS.map((fn, i) => {
+  const [h, s] = L.s[i];
+  return `<section class="slide ${THEMES[i]} ${ (!ONLY || ONLY === i+1) ? "on" : "" }" id="s${i+1}">
+    <div class="head">${i === 0 ? `<div class="brand"><img src="icon.png"/><span>${L.brand}</span></div>` : ""}<h1>${h}</h1><div class="sub">${s}</div></div>
+    <div class="phone" style="top:${PHONE_TOP[i] + (i === 0 ? 110 : 0)}px"><div class="screen"><div class="island"></div><div class="zoom">${fn()}</div></div></div>
+    ${i === 9 ? `<div style="position:absolute;left:90px;right:90px;bottom:34px;text-align:center;font-size:30px;color:var(--s)"></div>` : ""}
+  </section>`;
+}).join("");
+if (LANG === "fr") {
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const nodes = []; while (w.nextNode()) nodes.push(w.currentNode);
+  nodes.forEach(n => { n.nodeValue = n.nodeValue.replace(/\$(\d+)\.(\d{2})/g, "$1,$2 $"); });
+}
+</script>
+</body>
+</html>

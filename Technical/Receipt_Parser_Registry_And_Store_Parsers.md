@@ -9,6 +9,13 @@
 
 ## 1. How a receipt gets parsed
 
+> **Design rule for every store parser (2026-10-13):** `Receipt_Parser_Design_Rules.md` — denoise first (EN + FR),
+> keep only the item block and the totals block, then extract and verify. Same structure, same logic for every
+> receipt; special cases are image problems only (tilt, curl, quality).
+
+> The receipt **header** (`header_ocr`) and the **production-corpus** test method (every parser problem starts by
+> turning new prod receipts into paper-verified fixtures) are in `Receipt_Header_And_Prod_Corpus.md`.
+
 ```
 OCR text ──► detectStore() ──► resolveStoreParser(storeId) ──► the store's parser
              (pre-parser)       (the registry)                  (or the generic engine)
@@ -55,8 +62,13 @@ items; the scan pipeline decides what an empty parse means.
 
 1. Confirm `STORE_DETECTION_PATTERNS` matches the store.
 2. Write `src/services/<store>ReceiptParser.js` against the contract, reusing
-   `parseReceiptEngine` and its `reshapeLines` / `handleDiscountLine` hooks
-   rather than re-implementing item extraction.
+   `parseReceiptEngine` and its `reshapeLines` / `handleDiscountLine` /
+   `isItemNameLine` hooks rather than re-implementing item extraction.
+   `isItemNameLine` (2026-10-04) is additive: it admits a store's own price-less
+   item row the generic three-letter name test refuses (Costco's `KS 40X500ML`),
+   never refuses one it admits. Pass a store's hooks as ONE shared object to
+   every engine call (Costco: `COSTCO_WAREHOUSE_HOOKS`) — a hook missing from one
+   candidate is masked by the second-pass candidates that still have it.
 3. Add one line to `STORE_PARSERS` — or `LAB_STORE_PARSERS` while it is being
    built.
 4. **Capture real receipts.** `npm run capture:receipts`, then a

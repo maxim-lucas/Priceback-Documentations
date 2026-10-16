@@ -43,10 +43,10 @@ It is mirrored byte-for-byte into `backend/shared/` by
 
 | Category (`code` = pref key) | Default | Flags | `data.type`s | Screen group |
 |---|---|---|---|---|
-| `notifUrgentClaims` | on | | verified_price_drop, price_drop, flyer_drop | Price drops |
-| `notifClaimReminders` | on | | expiry_early, expiry_warning, expiry_final (+ the snooze) | Price drops |
+| `notifUrgentClaims` | on | | verified_price_drop, price_drop, flyer_drop *(flyer_drop not sent since 2026-10-01)* | Price drops |
+| `notifClaimReminders` | on | | expiry_early, expiry_warning, expiry_final, pending_claims_reminder (+ the snooze) | Price drops |
 | `notifDailyDigest` | off | | daily_digest | Price drops |
-| `notifDropCharge` | on | | price_drop_charge | Credits & rewards |
+| `notifDropCharge` | on | | *(none since 2026-10-01 — "credits used" push retired; switch kept, like `notifOtherCredit`)* | Credits & rewards |
 | `notifFriendJoins` | on | | referral_settled | Credits & rewards |
 | `notifFlaggedVerified` | on | | tag_verified | Credits & rewards |
 | `notifOtherCredit` | off | | *(no sender — pre-existing switch, kept)* | Credits & rewards |
@@ -55,6 +55,7 @@ It is mirrored byte-for-byte into `backend/shared/` by
 | **`notifMonthlyRecap`** | on | explicitOnly | **monthly_recap** | Scans & updates |
 | **`notifScanResults`** | on | | tag_scans_ready, receipt_scans_ready, **scan_review_reminder** | Scans & updates |
 | `notifStoreLaunch` | on | | store_launch | Scans & updates |
+| **`notifProfileSetup`** *(2026-09-30)* | on | | **profile_location, profile_costco** (local) | Scans & updates — see `Technical/Profile_Completion_Reminders_And_Notification_History.md` |
 | **`notifGuarantee`** | on | explicitOnly | **guarantee_earned, guarantee_renewal_reminder, guarantee_ending** | Your plan |
 | `marketingPushConsent` | **off** | consent | **referral_nudge** | From PriceBack ("Tips & offers") |
 
@@ -63,7 +64,7 @@ It is mirrored byte-for-byte into `backend/shared/` by
 plan (not marketing, so not behind the consent switch), `explicitOnly` because they
 shipped after binaries without the switch were installed. All three route to the
 app's `Guarantee` screen. See `Technical/Price_Drop_Guarantee.md`.
-| **`notifAdminAlerts`** | on | adminOnly | tag_review | Admin (admins only) |
+| **`notifAdminAlerts`** | on | adminOnly | tag_review, **price_drop_review** *(2026-10-01)*, **receipt_review, new_user, notification_approval_review, potential_drop_review** *(2026-10-07)* | Admin (admins only) |
 
 The master switch is `notificationsEnabled`. **The one exempt type is `test`**,
 the admin console's "Send test" diagnostic. It is sent only on an explicit tap,

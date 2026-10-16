@@ -142,6 +142,28 @@ What's left is the **product surface**.
 
 ---
 
+### US receipts (Costco US) — price-drop tracking 🔵
+
+**Why it is on the list.** On 2026-10-02 a Quebec customer scanned a receipt from
+Costco Bayonne, NJ #1334 and was promised by push: *"Price-drop tracking isn't
+available yet for US Costco stores. It's coming soon, and we'll notify you as soon
+as it's live."* Since that day US receipts are refused (app) and stored unpriced as
+`unsupported_country` (server) — `shared/receiptCountry.js`, Bugs #304.
+
+**What "live" needs, at minimum:** a USD price pool that never mixes with CAD
+(price points keyed by country/currency, not by the shopper's province); US
+warehouses registered under a US state, not a province; Costco US's own
+price-adjustment policy (30 days, same as Canada, but its own claim copy and
+online form); store availability (the app is Canada + Egypt only today); and
+`SUPPORTED_RECEIPT_COUNTRIES` gaining `"US"` only once all of that exists.
+
+**🔴 Owed on launch:** notify every account holding an `unsupported_country`
+receipt — at minimum `002010.0696…0013` (receipts `r_1790986971714_tl5wo`,
+`r_1790986803639_sgftf`). Query: `select distinct user_sub from priceback.receipts r
+join priceback.receipt_statuses s on s.id = r.status_id where s.code in
+('unsupported_country')` plus the two ids above (flagged `rejected` before the code
+existed).
+
 ### 🔵 Other parked ideas
 
 #### 🔵 Flyer parser — "SAVE $N"-only banner tiles
