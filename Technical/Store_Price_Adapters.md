@@ -42,7 +42,7 @@ targets ──► resolvePriceAdapter(storeCode) ──► the store's adapter �
 | `backend/lib/bestBuyCatalog.js` | Best Buy's adapter. **The only file that knows Best Buy's JSON shape.** Injectable `fetchImpl`. |
 | `backend/services/storePriceAdapters.js` | The registry + `resolvePriceAdapter` + `hasDbPriceFeed`. |
 | `backend/jobs/bestBuyPriceRefresh.js` | The daily job: target selection → paced fetch → write-on-change. |
-| `backend/db/migrations/0007_national_province.sql` | The reserved `NATIONAL` province. |
+| `backend/db/migrations/0013_national_province.sql` | The reserved `NATIONAL` province. Was `0007` on `development`; renumbered when `development` was merged into `main` (2026-09-28), which had taken 0007–0012. Idempotent. |
 | `backend/tests/fixtures/bestbuy-api/` | Four real captured API responses. |
 
 ### The adapter contract
@@ -96,6 +96,7 @@ two-character ISO 3166-2 subdivision.
 | `priceDropRepo.findNotifiable` — buyer join ⚠️ | `u.province_id = v.province_id` → also match a national row |
 | `priceDropRepo.findNotifiable` — region scope | region-scoped sweep still sees national rows |
 | `priceDropRepo.findNotifiable` — `provinces` join | reordered below `users` so a national row reports the **buyer's** province, not the sentinel |
+| `priceDropRepo.findNotifiable` — region scope, **buyer side** (2026-09-28) | a region-scoped sweep reaches only that region's buyers — the filter used to sit on the watched-PRODUCTS prefilter only, so a national row joined every province's buyers of that product |
 
 ⚠️ **`findNotifiable` is the query that charges the commission.** It joins a
 price row's province to the *buyer's* province, so a national row matched no
@@ -103,15 +104,49 @@ buyer until this changed. It is the riskiest edit in the whole feature.
 
 Two things make it safe:
 
-- `nationalProvinceId` resolves to **`-1` when migration 0007 has not been
+- `nationalProvinceId` resolves to **`-1` when migration 0013 has not been
   applied**, which makes every clause referencing it dead and the functions
   byte-identical to their previous behaviour.
-- The predicates only ever **widen** (`= x` → `IN (x, national)`), and no Costco
-  row is ever written with the national province, so no Costco result set can
-  change. Verified: the 60-test money-query baseline passes unchanged, including
-  *"a price in another province is not returned"*.
+- The predicates only ever **widen** (`= x` → `IN (x, national)`), and — until
+  2026-09-28 — no Costco row was ever written with the national province, so no
+  Costco result set could change. Verified then: the 60-test money-query
+  baseline passes unchanged, including *"a price in another province is not
+  returned"*.
 
 **Paying this once buys it for every future national retailer.**
+
+### Costco national offers — stored as NATIONAL since 2026-09-28
+
+Maxim, 2026-09-28: *"all national offers should be stored as national not
+duplicated even for costco, add this filter also in the price drop detection
+(province || national) for costco stores"*. So the second bullet above no
+longer holds — and it no longer has to, because evidence replaced it.
+
+- **What writes NATIONAL for Costco:** a flyer import whose scope is `"ALL"` —
+  the national coupon book, from the CLI, the scheduled crawl or the in-app
+  Flyer Scan's national scope. `commitFlyerImport` stores it ONCE, in the
+  overlay (`NATIONAL:<sku>`) and in `price_points`, instead of 13 provincial
+  copies. Warehouse tags, receipts and provincial imports stay provincial.
+  Rule and mechanics: `Technical/Flyer-ingestion.md`.
+- **Detection is `(province || NATIONAL)` for a Costco buyer**, through the same
+  clauses Best Buy already used, and the tier/lowest-price choice picks between
+  a province's own flyer and the national one (the cheaper wins; both apply).
+- **One real bug surfaced, and it was not Costco's.** A region-scoped sweep's
+  buyer filter existed only on the watched-PRODUCTS prefilter, so a NATIONAL row
+  joined every province's buyers of that product — a sweep scoped to NB reached
+  an MB buyer. Invisible while every row was provincial (its own province pinned
+  the buyer). The filter now also applies to the candidate lines. No double
+  charge was possible (dedupe + advisory lock); the scope was simply wrong.
+- **The evidence:** `backend/tests/costcoNationalOfferDb.test.js` runs the money
+  path with a real Costco NATIONAL row — one row written; the import's own sweep
+  reaches a province the import never named; a region sweep sees the national
+  row for its own buyers only; a province with no row of its own is priced from
+  NATIONAL; a province's own cheaper flyer wins there and only there; the
+  commission is charged exactly once while two sweeps race; the charged drop is
+  locked (`lockedDropsForUser`). Mutation-checked.
+- **A wrong national row is wrong everywhere** — the roadmap's concern. So was a
+  wrong fanned-out batch: 13 copies of the same wrong price. The blast radius did
+  not change; only the number of rows did.
 
 ---
 
