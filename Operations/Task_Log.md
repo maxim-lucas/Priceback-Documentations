@@ -10946,6 +10946,50 @@ Full triage: `Technical/Sentry_Triage_2026-10-14.md`.
 - **Business Centre:** 34 SKUs × the 12 other provinces = **408 rows** (`costco-business-2026-10-12-ALL`, source `flyer`); ON already had them (skipped). Files updated to region ALL.
 - **Owed:** 3 no-expiry markdown rows still held; PR #431 (importer dedupe) not merged.
 
+## 2026-10-15 — Receipts show the printed line text again; product name is the English label
+
+**Branch:** app `fix/receipt-printed-names` (off `main`, Maxim's choice); docs `docs/receipt-printed-names`.
+**Ask:** the one-label-per-language concept (PR #412, migration 0022) is not working: French text lands in the
+English name, both slots hold the same French text, and receipts no longer show the exact printed label, so shoppers
+are lost. Restore the old concept: `products.display_name` is English only (the official name from receipts); a
+receipt line always shows its own printed text. Asked whether to restore the backup into dev and merge prod in.
+**Decision (Maxim):** no restore + merge. Fix forward. For a product seen only on French receipts, keep today's
+behavior (the French text holds the name) until an English name arrives. **Hold:** copying the 2026-10-09 backup
+aside. Mid-task rule: *"the user should never see an empty receipt or empty labels until he updates, even if we have
+to do that in few steps while deploying."*
+**Plan:** migration 0025 `receipt_items.printed_name` (nullable, additive). Every line write stores it. Every read
+returns `coalesce(printed_name, product label)`, so an un-backfilled line keeps exactly today's label. The server
+detects the receipt language from its OCR when the build sends none (≤3.0.5), so a French receipt can no longer
+claim the English slot. App (next build): a line shows its printed text first. Data steps (backfill printed names
+from `raw_ocr`, reset the 184 products holding French text in both slots) are separate and need Maxim's go.
+**Done:** migration 0025 (applied to **dev** only), line writes + reads, OCR language for builds without one,
+drop candidates name the shopper's line, the repair engine renames only a changed name, app `lineLabel` prints the
+line first, wire contract. Design + deploy order: `Technical/Receipt_Printed_Names.md`; Bugs #322.
+**Verified:** backend 2582/2584 (the 1 failure, `receiptUnsupportedCountryDb`, fails identically on clean `main`);
+mobile all green except 4 suites caused by 19 untracked prod-capture fixtures in the working tree; i18n check green;
+four mutations each turn their test red.
+**Not done / owed (each needs Maxim):** 0025 on prod + backend deploy; backfill `printed_name` from `raw_ocr`;
+product-name clean-up (backup copy on hold — the 2026-10-09 backup ages out ~2026-10-23); next app build.
+**Regression risk:** low-medium. Every read is `coalesce(printed_name, product label)`, so nothing goes empty and
+pre-0025 lines are unchanged. Changed visible content: lines that have printed text now show it on every build.
+3.0.6 shows one text per product (latest synced) if a shopper's receipts printed it differently. Repair renames are
+now narrower (only changed names).
+**Follow-up (same day):** Maxim: *"go ahead and for the product names in the admin database it should come from the
+product table. the target is that the table product have the right product name for the admin and price drop
+notifications even if the items have some parsing problems"*, then *"run the migration too and deploy everything"*.
+- Price-drop candidates are named by `products.display_name` again (reverted the printed-name change). The admin
+  receipt desk names a line by its product, printed text beside it; its line editor has a "Product name" field
+  (repair spec `items[].productName`) that sets the English name.
+- `scripts/backfill-printed-names.js` (prod dry run: 1,070 of 1,116 lines resolved, 46 left on the product-name
+  fallback) and `scripts/cleanup-product-names.js` (prod dry run: 11 renames; 302 French-only products kept).
+- ✅ **Migration 0025 applied to prod** by hand 2026-10-15 (ledger row 36). Nothing else changed in prod.
+- ⛔ The permission layer refused the PR merge (= the Railway deploy) and the prod `--write` runs. They wait on
+  Maxim. Order: backfill `--write` (safe before the deploy) → merge #438 (Railway auto-deploys `main`) → cleanup
+  `--write` (only after the deploy, or old-backend French receipts would show the English name).
+- The 2026-10-09 backup is no longer needed for the clean-up (the receipts are the evidence); the copy stays on hold.
+- Found, not fixed: `priceDropDb` "first sweep pushes each verified drop once" and "a strictly lower verified price
+  re-notifies" fail on clean `main` e7029dd too.
+
 ## 2026-10-15 — Admin "View as shopper" + automatic unlock of hidden drops
 
 **Ask (Maxim, /goal):** from the admin users list, open a preview of what a shopper sees in their app
