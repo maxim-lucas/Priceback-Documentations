@@ -11032,6 +11032,31 @@ Full triage: `Technical/Sentry_Triage_2026-10-14.md`.
 - **Business Centre:** 34 SKUs × the 12 other provinces = **408 rows** (`costco-business-2026-10-12-ALL`, source `flyer`); ON already had them (skipped). Files updated to region ALL.
 - **Owed:** 3 no-expiry markdown rows still held; PR #431 (importer dedupe) not merged.
 
+### 2026-10-15 — Force an update on every installed build (iOS first); lower the risk of the preview guards and the drop gate
+
+**Ask (Maxim, /goal):** make a forced update reach every version, older ones included, on every platform, iOS
+especially; reduce the regression risk of the shopper-preview storage/network guards and of "drops only after
+release". Mid-task: *"or just a popup that mention to the users that the app wont work properly until an update … at
+least the users should get this message on every startup"* and *"dont send any email to the users without my
+approuval"*. Branch: off `main` (asked → "on main"); app `feat/force-update-every-build`, docs
+`docs/force-update-every-build`.
+**Finding:** no build before 3.0.7 has a surface whose TEXT the server sets; neither store can force an install;
+iOS has no forced-update API. Every build back to 2.8.3 calls `GET /api/me/bootstrap` on boot + foreground, and
+shows pushes as banners while open (checked in the tagged source).
+**Done:** update-reminder push on every opening of a pre-3.0.7 build (`UPDATE_REMINDER_ENABLED`, off by default,
+30-min cooldown, EN/FR, store from User-Agent, master switch respected). The 426 now reads "Please update the app."
+(matches the shipped classifier since 2.8.10). "Refuse builds before 3.0.7" checks the live App Store version first.
+Preview storage guard attached only during a preview. Released-drops off switch (+ Bugs #323 client fix).
+Runbook: `Operations/Forcing_An_App_Update.md`.
+**Not done:** email (needs Maxim's approval, Resend domain, Apple private-relay registration); Android Play In-App
+Updates (native module → its own PR + device build, 3.0.8+).
+**Incident (mine, dev only):** a mutation run of the App Store guard turned `REFUSE_UNREPORTED_BUILDS` ON in the dev
+DB (assertion fired before the test's restore). Reset to false and verified; the test now restores in `finally`.
+**Verified:** mobile full suite + coverage gate 9,615 pass / 0 fail (also clears `main`'s pre-existing
+`syncService.js` function-coverage red from #439); backend full suite 2,655 pass / 1 fail (`errorContract` flagged
+`error:` in the App Store fallback object → renamed to `reason`, affected files re-run green; the whole suite was not
+re-run). Mutations on every fix turn a test red. Dev switches confirmed at defaults afterwards. **PR #440, not merged**
+(merge = Railway deploy to prod → Maxim).
 ## 2026-10-15 — Receipts show the printed line text again; product name is the English label
 
 **Branch:** app `fix/receipt-printed-names` (off `main`, Maxim's choice); docs `docs/receipt-printed-names`.

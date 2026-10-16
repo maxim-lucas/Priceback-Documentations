@@ -81,8 +81,13 @@ Safety rails:
 - The server refuses a minimum above the build on the admin's own phone (typo
   guard: 490 for 49). A minimum past the newest published build would lock
   everyone out with nothing to update to.
-- Builds that don't report themselves (**3.0.6 and older**) are never refused.
-  They wouldn't understand the 426. For them, rules 1–5 are the only protection.
+- Builds that don't report themselves (**3.0.6 and older**) are never refused by
+  the minimum. They have no update screen, so a 426 alone shows no update
+  message. Their way to the store is the **update reminder** (a push the OS draws
+  over the open app each time they open it) and, once 3.0.7+ is live in both
+  stores, **Refuse builds before 3.0.7**. Full procedure, coverage per build and
+  the iOS specifics: `Operations/Forcing_An_App_Update.md`. Until those are on,
+  rules 1–5 are the only protection.
 - Everything fails open: a network error, a bad reply or a config read failure
   never blocks the app. Only an explicit server verdict does.
 - Code: `backend/lib/appVersionGate.js` (server), `src/services/appVersionGate.js`
@@ -127,7 +132,10 @@ no `Authorization` header, so `/api/ocr` stays optional-auth.
    `X-App-Build`, `X-App-Version` on every backend call, logged as `appBuild`.
 2. ~~No minimum-supported-version gate~~ **Done** (3.0.7): Admin · App version
    plus the "Update required" screen.
-3. **Builds ≤ 3.0.6 can't be forced and can't be patched.** They drain only as
+3. **Builds ≤ 3.0.6 can't be patched, and can only be *asked* to update.**
+   Since 2026-10-15: the update reminder push on every opening, plus *Refuse
+   builds before 3.0.7* (App Store-checked) — `Operations/Forcing_An_App_Update.md`.
+   A shopper with notifications off gets no reminder. Otherwise they drain only as
    users update on their own. Until the build mix in the API audit log (`appBuild`
    is null for them) and Play Console → *Statistics → App version* show them
    gone, every backend change must keep them working.
