@@ -14120,6 +14120,40 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Files: shared/claimDeadline.js, backend/repos/priceDropRepo.js (`_savingEndsJoin`, `findNotifiable`, `pendingClaimRows`, `getLatestVerifiedPrice`), backend/lib/pendingClaims.js, backend/priceDropNotifier.js, backend/repos/pricesRepo.js (`applyTagExpiry`), backend/repos/savingDatesRepo.js, backend/lib/claimDeadlineCorrections.js, src/services/claimDeadline.js, src/components/ClaimDeadlineChip.js, src/services/notificationService.js (`receiptClaimReminder`).
 - Detect next time: `GET /api/admin/saving-dates` lists every saving a drop depends on with no end date; a push whose `data.endKnown` is false; `notification_history` bodies for `pending_claims_reminder`.
 - Prevent: priceDropWindowSourceDb (ended flyer gives way to a running tag; valid_until alone untrusted; tag > admin), pendingClaimsReminder (ended not waiting; per-item days), priceDropLockedPush, pricePointBusinessRules (applyTagExpiry scope), savingDatesDb, app claimDeadline/notificationService/dropLock tests. See `Technical/Claim_Deadline_Per_Item.md`.
+## 324. Charged price drops never showed in the app, and server-deleted receipts never left it (live since launch; fixed 2026-10-15)
+
+- Date: 2026-10-15 · PR: (fix/price-drops-not-shown) · Area: both (app 3.0.7 + backend + migration 0026)
+- Symptom: an iPhone shopper got 3 verified price-drop pushes (charged 30 + 45 + 30 credits) on 2026-10-13/14.
+  On 2026-10-15 their Tracking tab showed every receipt under Watching and nothing under Alerts. They also still
+  had both copies of a $445.23 receipt whose duplicate an admin repair had soft-deleted on 2026-10-13. Prod:
+  33 drops notified to 15 shoppers since 2026-09-27, all charged once, 0 claimed.
+- Root cause: (1) a drop reached the phone only as a push. The Alerts chip came from the phone's own
+  `/api/check-price` loop (an iOS background task that barely runs) or the manual Check button, and
+  `syncService.mergeServerIntoLocal` wiped any chip older than 48 h on every sync. The bootstrap sent
+  `priceDrop: null`. (2) The bootstrap omits deleted receipts; the phone read "missing" as "not uploaded",
+  re-sent it, and the server ignored the re-send, so the phone kept it forever. (3) The released-drops list (#439,
+  unreleased) keyed drops by stored `position`, which no longer matches the phone's index after a line is deleted.
+- Fix: the server's released drops are now the source of the chips, applied on every bootstrap, `/api/me/drops`
+  and background check, gate or not (`gated` only strips unreleased local chips). Each drop carries a
+  per-drop `locked` (its commission took the balance below zero), so a paid drop stays visible on a locked
+  account. Positions are live-line indexes. Bootstrap `deletedReceiptIds` → the phone removes them. Push
+  `data.position` + `refreshDrops` → the alert opens the receipt on the dropped line with the drop on screen.
+  Admin · Account shows the app version (migration 0026, stamped by the bootstrap; old iPhones read from the
+  User-Agent).
+- Files: backend/server.js, backend/repos/priceDropQueueRepo.js, backend/repos/receiptsRepo.js, backend/repos/usersRepo.js,
+  backend/repos/adminConsoleRepo.js, backend/lib/appBuildStamp.js, backend/lib/shopperPreview.js, backend/priceDropNotifier.js,
+  backend/db/migrations/0026_user_app_build.sql, src/services/{releasedDrops,dropLock,syncService,notificationRouting,adminAccountActions,adminShopperPreview}.js,
+  src/screens/{DetailScreen,AdminAccountDetailScreen}.js, src/components/AdminAccountReport.js
+- Detect next time: a push the app sends about a record must be matched by the record reaching the app. Ask
+  "if the phone never runs its own check, what does the shopper see?" For any server-side delete, ask
+  "what does a phone that still holds it do on the next sync?"
+- Prevent: releasedDropsDb (9 tests), detailScreenRefreshDrops, releasedDrops "shown whatever the gate",
+  dropLock "PAID stays visible", syncService "a receipt the server deleted", notificationRouting "opens its line".
+- Old builds (≤3.0.6) are NOT fixed by the server: they need 3.0.7, then the update reminder (#440).
+  Design + deploy order: `Technical/Price_Drop_Delivery_To_The_App.md`.
+- Note on #323: an explicit `gated: false` is now cached (as the off list), no longer just cleared. The rule
+  #323 protects still holds: an offline check never falls back to an earlier gate.
+
 ## 323. The released-drops "off switch" could never reach a phone that had once been gated (2026-10-15)
 
 - Date: 2026-10-15 · PR: #440 (feat/force-update-every-build) · Area: app (3.0.7, unreleased) + backend

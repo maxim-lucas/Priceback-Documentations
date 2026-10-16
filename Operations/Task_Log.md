@@ -11124,3 +11124,25 @@ app" (real screens behind a storage/network/purchase/notification guard, masked 
 version → Maintenance mode + "Refuse builds before 3.0.7" (both off by default). The server "claims
 waiting" reminder is already live in prod (first run 2026-10-14 sent 7 pushes); the on-phone one is
 unreleased. **Not done:** Android Play in-app immediate update (native module = new build; needs a go).
+
+## 2026-10-15 — Charged price drops never showed in the app; deleted receipts never left it
+
+**Ask (Maxim, /goal):** a shopper (`000488.…0338`, iPhone) got 3 price drops days ago; today's screenshots show
+every receipt under Watching and nothing under Alerts, and a receipt deleted in the DB is still on the phone next
+to its original. Fix the root cause for every shopper, show the app version on the admin account screen, make a
+drop notification open the dropped receipt, and show every dropped item on the receipt screen with locked drops
+hidden until the balance is ≥ 0 or the shopper subscribes.
+**Branch:** `fix/price-drops-not-shown` off `main` (asked; Maxim chose a new branch off main).
+**Root causes (all builds ≤3.0.6):** drops reached the phone only as a push. The chip came from the phone's own
+price check (barely runs on iOS) and a sync wiped it after 48 h. Server-side deletes were read as "not uploaded
+yet". Released drops were keyed by stored position. Prod: 33 drops / 15 shoppers, all charged once, 0 claimed.
+**Done:** server-sent released drops are the source of the chips (gate or not), per-drop lock, live-line keys,
+`deletedReceiptIds`, push `position` + alert → receipt on that line, app build stamped per account (migration
+0026, dev only) shown in Admin · Account. Doc: `Technical/Price_Drop_Delivery_To_The_App.md`; Bugs #324.
+**Regression risk:** low-medium. Backend changes are additive (new fields, new nullable columns), but 0026 MUST
+be applied to prod before the deploy (`getBySub` selects every column). `releasedDrops` semantics changed
+(`position` = live index, gate-off still lists drops); no shipped build reads it. The app now removes receipts
+the server deleted, which is intended and covers account reset too (a deleted account's phone is signed out
+anyway).
+**Not done / owed (each needs Maxim):** 0026 on prod + deploy (also ships #439/#440, not live in prod today);
+3.0.7 build; update reminder once 3.0.7 is at 100%. Old builds can't be fixed from the server.
