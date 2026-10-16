@@ -10989,3 +10989,27 @@ notifications even if the items have some parsing problems"*, then *"run the mig
 - The 2026-10-09 backup is no longer needed for the clean-up (the receipts are the evidence); the copy stays on hold.
 - Found, not fixed: `priceDropDb` "first sweep pushes each verified drop once" and "a strictly lower verified price
   re-notifies" fail on clean `main` e7029dd too.
+
+## 2026-10-15 — Admin "View as shopper" + automatic unlock of hidden drops
+
+**Ask (Maxim, /goal):** from the admin users list, open a preview of what a shopper sees in their app
+(products, price drops, credits) to answer support mail — without exposing personal data (card or other
+sensitive info). Also: why has nobody bought credits though ~$150 of drops were found? Mid-task: hidden
+drops (balance below 0) must unlock automatically when the shopper buys credits back to ≥ 0 or subscribes.
+**Branch:** `feat/admin-user-preview` off `main` (asked; Maxim chose a new branch off main).
+**Done:** `GET /api/admin/users/:sub/preview` (allowlist-redacted, read-only, admin-gated, logged);
+`AdminShopperPreviewScreen` reached from the Accounts row eye icon, the ⋯ sheet and the account screen;
+`purchaseService.subscribeEntitlementChange` + `useDropLock` re-read on it. Design + prod findings:
+`Technical/Admin_View_As_Shopper.md`.
+**Prod findings:** 0 packs ever bought; 149/161 shoppers positive → drops shown free; 5 negative only since
+10-13/14; 0/41 drops claimed; $3 pack does not unlock a −269 balance.
+**Regression risk:** low. Backend route is new and additive. The unlock signal only adds a re-read of the
+same cached values the focus re-read already used.
+**Follow-up (same day, Maxim):** in-app drops must pass admin review; reminders; "Unlock" must preselect
+the minimum pack; the preview must be the exact UI and data (settings, warehouse, membership, invites,
+notification switches); a forced update for old builds; a maintenance switch. **Done:** released-drop
+gate (bootstrap `releasedDrops`, `GET /api/me/drops`, app reconcile); unlock-pack preselect; "Open their
+app" (real screens behind a storage/network/purchase/notification guard, masked identity); Admin · App
+version → Maintenance mode + "Refuse builds before 3.0.7" (both off by default). The server "claims
+waiting" reminder is already live in prod (first run 2026-10-14 sent 7 pushes); the on-phone one is
+unreleased. **Not done:** Android Play in-app immediate update (native module = new build; needs a go).
