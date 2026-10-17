@@ -35,7 +35,9 @@ trusts, in order (Maxim's precedence):
    `price_tag_scan`, `flags.sourceKind = 'social_price_tag'`) by their own `valid_from..valid_until`.
    Without this rule the Oct 18 savings (lines 506, 1646, 1661, 2047) read as "unknown end";
 3. **admin-entered** dates (`flags.savingDates = {from, until, by, at}`), only when 1 and 2 have nothing;
-4. otherwise **unknown**: the store window is the only limit and the copy says "claim soon".
+4. *(since 2026-10-16, while "Same dates in every province" is on)* 1 or 3 from the **same product in any
+   province, at any price**, when that window fits the purchase — see § "One offer, one set of dates";
+5. otherwise **unknown**: the store window is the only limit and the copy says "claim soon".
 
 With a purchase, only windows that could apply count (ending on/after the purchase, starting within its
 store window) — another run of the same price is ignored.
@@ -82,10 +84,8 @@ Asked by Maxim before 3.1.1 (hotfix on `main`, branch `hotfix/admin-saving-dates
   `isCoveredByTrusted`), if that window can apply to the group's first purchase (ends on/after it,
   starts within the 30-day store window). A social post's date doesn't count. Another run of the
   offer (an old flyer that ended before the purchase) doesn't hide it.
-  ⚠️ **The list only.** The drop engine (`_savingEndsJoin`) still matches the end date on the same
-  province **and** price. So a QC drop hidden here because an ON flyer dates the SKU still gets the
-  receipt window ("claim soon") until a QC/same-price date exists. Carrying a date across provinces
-  into shopper deadlines is a separate decision (Maxim).
+  ~~⚠️ The list only~~ — **decided the same day, see § "One offer, one set of dates" below**: the drop
+  engine now carries that date to the shopper too.
 - **Sources.** Every listed group carries `sources` (additive): one entry per source type, one per
   social post with its link (`by`, `url`, https only), plus count, distinct shoppers, last sighting
   and window. Labels are plain English (`SOURCE_LABELS`), never codes.
@@ -104,6 +104,39 @@ Asked by Maxim before 3.1.1 (hotfix on `main`, branch `hotfix/admin-saving-dates
   delivery cookie (`PROVINCE_POSTAL_CODES` in `lib/costcoSameday.js`). Not yet proven: that Sameday
   prices by that cookie from a data-centre IP. The page opened on the phone uses whatever address is
   set in that browser, so the note tells the admin to set the province there.
+
+### 2026-10-16 — One offer, one set of dates (shopper deadlines follow the list)
+
+**Maxim's answer** to the gap above: *"if an offer is available in more than a warehouse or a province and has
+been detected in the same week range it will always have the exact same dates … grouped, and with a toggle I
+can split them eventually."* Branch `fix/saving-dates-grouped-sameday-sku` off `main`.
+
+- **Engine.** `_savingEndsJoin` (one LEFT JOIN LATERAL, used by the sweep, the queue, the reminder, the
+  potential list and Admin · Saving dates) now reads every row of the **product** and ranks: the group's own
+  printed → the group's own admin → **any province/price printed → any province/price admin** → the group's
+  own social post. Every tier must fit the purchase (ends on/after it, starts within its store window), which
+  is exactly `isCoveredByTrusted`. So "hidden from Admin · Saving dates" and "the shopper gets a date" are the
+  same test. A date another province proves outranks this group's social post (`unverified` stays false).
+- **Without a purchase** (the product page's `/api/check-price` group lookup) nothing is borrowed: there is no
+  purchase to fit a run to.
+- **The switch.** `SAVING_DATES_GROUP_ACROSS_PROVINCES` (ops flag, default **true**, admin-switchable via
+  `setOpsFlag`). It's on Admin · Saving dates ("Same dates in every province"), through
+  `POST /api/admin/saving-dates/settings {groupAcrossProvinces}`. `GET` returns `settings` (additive). Off: the
+  join is per group again, the list stops hiding SKUs dated elsewhere, and the screen shows one card per
+  SKU **and province**. Each flip and each grouped `PUT` runs the all-provinces sweep, because one date now
+  moves drops in every province. An env var pins the switch (409 `ENV_OVERRIDE`, the screen says
+  "Pinned by a server setting").
+- **Effect on shoppers.** A drop that showed the receipt window ("claim soon") gets the real, usually earlier,
+  deadline. The correction drafter (`lib/claimDeadlineCorrections`) prepares a pending notice for those
+  receipts and sends nothing until approved. Old builds just read a `savingEnds` they already render; the
+  field's meaning doesn't change.
+
+**Sameday lookup, same branch.** Maxim showed that Sameday's search *does* find warehouse SKUs
+(`/s?k=1170833`). The route's `searchUrl` is now the **SKU** search; additive `nameSearchUrl` is the
+product-name search. Order: the proven product page → the SKU search → "Search Sameday by name instead" (a
+link on the card after a lookup that proved no page). The search page fills its results in the browser (the
+server-side HTML only echoes the query), so the server can't tell whether the SKU search will find the
+item. The admin falls back by hand.
 
 ## Correcting what shoppers were already told
 
