@@ -14120,6 +14120,16 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Files: shared/claimDeadline.js, backend/repos/priceDropRepo.js (`_savingEndsJoin`, `findNotifiable`, `pendingClaimRows`, `getLatestVerifiedPrice`), backend/lib/pendingClaims.js, backend/priceDropNotifier.js, backend/repos/pricesRepo.js (`applyTagExpiry`), backend/repos/savingDatesRepo.js, backend/lib/claimDeadlineCorrections.js, src/services/claimDeadline.js, src/components/ClaimDeadlineChip.js, src/services/notificationService.js (`receiptClaimReminder`).
 - Detect next time: `GET /api/admin/saving-dates` lists every saving a drop depends on with no end date; a push whose `data.endKnown` is false; `notification_history` bodies for `pending_claims_reminder`.
 - Prevent: priceDropWindowSourceDb (ended flyer gives way to a running tag; valid_until alone untrusted; tag > admin), pendingClaimsReminder (ended not waiting; per-item days), priceDropLockedPush, pricePointBusinessRules (applyTagExpiry scope), savingDatesDb, app claimDeadline/notificationService/dropLock tests. See `Technical/Claim_Deadline_Per_Item.md`.
+## 327. A locked drop's product was named on screen: the drops-only view pointed straight at it (3.1.1, fixed 2026-10-17)
+
+- Date: 2026-10-17 · Branch: `fix/locked-drop-line-hidden` · Area: app · `src/screens/DetailScreen.js` (drops-only filter, #446)
+- Symptom: a free account below zero opened a receipt with a locked drop and saw that one product listed alone — name, SKU and price paid — with only the drop's price hidden. Knowing the product is enough to claim at the till, so the lock gave nothing away it was meant to keep.
+- Root cause: #446 (first shipped in 3.1.1 / build 51) opens a receipt on its dropped lines and counted a masked (`dropLocked`) line as a dropped line. `maskReceiptForLock` hides a locked drop by making it indistinguishable among all the lines; a filter that shows only the dropped lines undoes that.
+- Fix: in the drops view a locked line renders as `LockedDropLine` ("Hidden price drop" + Unlock → paywall) with no name, SKU or price. "Show all items" lists it among the others, unmarked, as before #446. The filter also runs when every line is a drop and one is locked (a one-line receipt would otherwise be shown whole).
+- Backend: cannot hide it from a 3.1.1 phone without also removing the drop entirely (no lock card) — the masking and the filter are both in the binary. Fix ships in the next build.
+- Detect next time: open a receipt as a locked shopper via Admin · "Open their app" and check the drops view names nothing.
+- Prevent: `detailScreenDropsOnly.test.js` › *locked account* (5 cases; a mutation removing the locked branch turns 4 red); `detailScreen.smoke.test.js` now asserts the locked product's name is absent (it asserted the opposite).
+
 ## 326. Admin · Saving dates: "Look up on Sameday" opened Duracell batteries, and one SKU was listed twice (2026-10-16)
 
 - Date: 2026-10-16 · Branch: `hotfix/admin-saving-dates-sameday` · PR #447 · Area: backend + admin screen

@@ -11177,3 +11177,19 @@ anyway).
 - **Branch:** `fix/saving-dates-grouped-sameday-sku` off `main` (7a28a60), asked → PR into `main`.
 - **Done:** see `Technical/Claim_Deadline_Per_Item.md` § "One offer, one set of dates". `_savingEndsJoin` borrows a flyer/tag/admin date from the same product in any province/price when it fits the purchase (the same test that hides the SKU from the list). Ops flag `SAVING_DATES_GROUP_ACROSS_PROVINCES` (default on) is switchable on Admin · Saving dates; off = per group, one card per SKU and province. Lookup: page → SKU search → "Search by name" link.
 - **Regression risk:** medium on shopper deadlines, on purpose: drops dated only by another province's flyer/tag/admin date now get that end instead of the receipt window, so some deadlines get earlier and the correction drafter prepares (doesn't send) notices for them. Rollback is the switch. Backend changes are additive (`settings`, `nameSearchUrl`, a new route); `searchUrl` now searches by SKU (read only by the unreleased 3.1.1 admin screen).
+
+## 2026-10-16 — Release 3.1.1 (build 51)
+
+- **Asked (Maxim):** bump to 3.1.1 from `main`, stamp/tag/release, merge, build both platforms for production.
+- **Done:** PR #449 (app.json, package.json, `KNOWN_BUILDS[51]` + test) squash-merged → `fa5e13f`. Tag `v3.1.1` (annotated, pushed), GitHub release with store copy (en + fr). EAS production builds started from the tag: Android `f32f9d61-0335-4010-8f57-2a1780258d3f`, iOS `766794fd-6abc-4435-9a20-e0d1ee35c449`.
+- **Not done:** store submission; device smoke test; docs-repo commit (entry is local only).
+- **Regression risk:** low — no backend routes/migrations since 3.1.0; the saving-dates grouping (#448) is switchable in Admin.
+
+## 2026-10-17 — A locked drop's product was visible in the drops-only receipt view
+
+- **Asked (Maxim):** locked shoppers (balance below zero) see the dropped product in the receipt's drops view, only the drop price is hidden. The locked line must be hidden, with a button to unlock. Also: can this be done from the backend, or does it need a new build?
+- **Branch:** `fix/locked-drop-line-hidden` off `main` (fa5e13f) → PR into `main`.
+- **Done:** see Bugs #327. The drops view shows a "Hidden price drop · Unlock" row instead of the locked line. Show all lists every line unmarked. en + fr labels.
+- **Backend answer:** a new build is needed. The masking and the filter both run in the 3.1.1 binary. The only server-side lever for 3.1.1 phones would be to leave locked drops out of `/api/me/drops` (with the gate on, the phone then strips them). That hides the product, but it also removes the "a drop was found, unlock" card, so it was not done without Maxim's go.
+- **Regression risk:** low. Display only, locked accounts only. Unlocked shoppers and paid drops (`revealLocked: false`) are unchanged.
+
