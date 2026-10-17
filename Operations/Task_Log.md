@@ -11146,3 +11146,19 @@ the server deleted, which is intended and covers account reset too (a deleted ac
 anyway).
 **Not done / owed (each needs Maxim):** 0026 on prod + deploy (also ships #439/#440, not live in prod today);
 3.0.7 build; update reminder once 3.0.7 is at 100%. Old builds can't be fixed from the server.
+
+## 2026-10-16 — Drop deadline from the saving, drops-only receipt, alerts open their receipt, a deleted receipt restored
+
+- **Asked:** shopper `000488.…0338` deleted the Oct 9 receipt they saw twice (the duplicate `w0dv6` had already been removed server-side), so both were gone in *View as* on 3.1.0. Restore one. ALLEGRO
+  shows 18 days although its saving ends Oct 18. Remove *"Nous ne savons pas quand ce rabais se termine"*. Every
+  unverified or missing saving date goes to Admin · Saving dates. Mid-task: no window on products without a drop.
+  A price-drop notification always opens its receipt. A receipt with drops opens on the dropped products only.
+  "On main": branch **`fix/drop-deadline-receipt-view` off `main` (d8498dc)** → PR into `main`.
+- **Prod (done):** `r_1791776785814_3mq8x` (the repaired keeper; `w0dv6` was the 10-13 duplicate) restored:
+  `deleted_at` cleared on the receipt and its 29 lines, guarded on the shopper's 2026-10-16 21:43:08.037 delete
+  stamp. Its price points were never touched (soft delete keeps them).
+- **Done (code):** see `Technical/Price_Drop_Delivery_To_The_App.md` § 2026-10-16 and Bugs #325.
+- **Decisions I made (flag to Maxim):** "unverified" = a date known only from a social-post tag import; the
+  admin's date now outranks it. Claimed lines stay in the drops-only view. The reminder opens the receipt whose
+  drop runs out first. The push copy "Claim soon: Costco only adjusts while the saving runs" is kept.
+- **Status:** PR #446 (app), docs PR.

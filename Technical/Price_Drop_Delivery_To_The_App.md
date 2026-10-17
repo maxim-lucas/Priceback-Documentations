@@ -99,3 +99,31 @@ gets an "update PriceBack" push. 3.0.6 and older can't be force-updated, because
 - `priceDropQueueDb` (push carries `position`), `shopperPreviewRouteDb`, `shopperPreview`, `appBuildStamp`.
 - Mobile: `releasedDrops`, `dropLock`, `syncService`, `notificationRouting`, `adminAccountActions`,
   `shopperPreviewSession`, new `detailScreenRefreshDrops` (a mutation turning off the alert refresh makes 2 of its 3 tests fail).
+
+## 2026-10-16 — the drop's own deadline, a drops-only receipt, every alert opens its receipt
+
+Seen on `000488.…0338` (3.1.0, *View as*): ALLEGRO 9% (Oct 4 receipt, QC) showed **"18d left"** and the
+sentence *"Nous ne savons pas quand ce rabais se termine…"*, although its saving ends **Oct 18**
+(a social-post tag deal, `price_points` 14257, `valid_until` 2026-10-18).
+
+**Root cause.** The server knew the end (`priceDropRepo.savingEndsJoin` → the push, the sweep, the reminder),
+but `releasedDrops` items carried only `{receiptId, position, price, locked}`. `applyReleasedDrops` kept
+whatever the phone's own price check had stored, and on iOS that check barely runs. So the chip fell back to the 30-day receipt
+window and said "end unknown". *View as* had the same gap (`lib/shopperPreview.js` passed `savingEnds: null`).
+
+| Change | Where | Old builds |
+|---|---|---|
+| Released items carry `savingEnds` (null = unknown) | `priceDropQueueRepo.releasedForUser`, `server.js _releasedDropsPayload` | additive, ignored |
+| The app dates the chip from it; null keeps the phone's value | `services/releasedDrops.js` | 3.1.1+ |
+| *View as* counts each drop on its own window (`drop.savingEnds`, `drop.daysLeft`, `open`) | `lib/shopperPreview.js`, `services/adminShopperPreview.js` | admin `open` is now right on every build |
+| No "we don't know when it ends" wording: an unknown end shows the store window alone | `ClaimDeadlineChip` (keys `claimDeadline.endUnknown*` removed) | 3.1.1+ |
+| End-date precedence is **flyer → printed tag → admin → social post → unknown**. A social-post date is *unverified* (`se.unverified`) | `priceDropRepo._socialEnd`, `_savingEndsJoin` | server-side |
+| Admin · Saving dates lists unknown **and** unverified ends (told, queued, potential), pre-filled with the post's window | `savingDatesRepo.listMissing`, `server.js` saving-dates route, `AdminSavingDatesScreen.unverifiedText` | the pre-fill rides `estimate`, so 3.0.7+ admin screens show it |
+| No countdown on a product without a drop (Home, Tracking › Products) | `HomeScreen`, `ReceiptsScreen` | 3.1.1+ |
+| A receipt with drops opens on the dropped lines (claimed ones too, and the tapped line). "Show all N items" shows the whole receipt | `DetailScreen` (`detail.showAllItems`, `detail.showDropsOnly`) | 3.1.1+ |
+| The "drops to claim" reminder names the receipt whose drop runs out first; the tap opens it | `jobs/pendingClaimsReminder`, `notificationRouting` | additive; ≤3.1.0 still open the list |
+| **Cold-start tap bug:** a tap that launched the app was dropped when the alert had been *delivered* more than 5 minutes earlier. The app opened Home, not the receipt. Now the last handled response id is persisted, with a 3-day backstop | `notificationService.getColdStartNotificationData` | 3.1.1+ |
+
+**Not fixable from the server for installed builds (≤3.1.0):** the chip's end date, the removed sentence and
+the drops-only view. Each ships in the binary. The admin side, the precedence and the reminder's
+`receiptId` are live as soon as the backend deploys.
