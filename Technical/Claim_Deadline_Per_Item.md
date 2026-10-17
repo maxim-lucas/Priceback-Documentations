@@ -69,6 +69,42 @@ province sweep. `POST /api/admin/saving-dates/lookup {sku}` reads the Costco Sam
 `valid_until` to the day) → `saleEnds`. A pre-fill only: Sameday is the online store; the admin confirms.
 The price-tag review's EXP edit is validated (real date) and writes `flags.expiryDate`.
 
+### 2026-10-16 — one card per SKU, sources, trusted dates hide a SKU, Sameday fixed
+
+Asked by Maxim before 3.1.1 (hotfix on `main`, branch `hotfix/admin-saving-dates-sameday`):
+
+- **One SKU = one date check.** The server still lists price groups (product · province · price —
+  unchanged, so older admin builds keep working). The 3.1.1 screen folds every group of a SKU into one
+  card (`groupBySku`), and *Save dates* sends the same `PUT` for each group. Trigger: SKU 1763195
+  (Sheep yogurt) was listed twice, QC $7.99 and ON $7.99, both dated only by social posts.
+- **A SKU a trusted source already dates is never listed** — a flyer window, a printed tag EXP or an
+  admin date, in **any province, at any price** (`savingDatesRepo.trustedWindows` +
+  `isCoveredByTrusted`), if that window can apply to the group's first purchase (ends on/after it,
+  starts within the 30-day store window). A social post's date doesn't count. Another run of the
+  offer (an old flyer that ended before the purchase) doesn't hide it.
+  ⚠️ **The list only.** The drop engine (`_savingEndsJoin`) still matches the end date on the same
+  province **and** price. So a QC drop hidden here because an ON flyer dates the SKU still gets the
+  receipt window ("claim soon") until a QC/same-price date exists. Carrying a date across provinces
+  into shopper deadlines is a separate decision (Maxim).
+- **Sources.** Every listed group carries `sources` (additive): one entry per source type, one per
+  social post with its link (`by`, `url`, https only), plus count, distinct shoppers, last sighting
+  and window. Labels are plain English (`SOURCE_LABELS`), never codes.
+- **Sameday lookup opened the wrong product.** Cause: `findSamedayUrlForSku` takes the *first*
+  Sameday product link in DuckDuckGo's `site:sameday.costco.ca <sku>` results. For a SKU it doesn't
+  know, that's a random product (reproduced: 1763195 → a Michelin wiper blade; Duracell batteries on
+  Maxim's phone). The route returned that URL even when the page failed the SKU check (and trusted a
+  page with no SKU code at all), and the app opened it with `Linking.openURL`, which hands
+  `sameday.costco.ca` to the Costco app. Fix: the route returns the product page **only** when its
+  `retailerReferenceCodeString` equals the SKU; otherwise `url` = `searchUrl` = a Sameday search by
+  the product's **name** (Sameday doesn't index warehouse SKUs). The app opens pages with
+  `expo-web-browser` (in-app browser), with `Linking` only as a fallback. `findSamedayUrlForSku` itself
+  is unchanged: check-price and the barcode harvester already reject a page that fails the SKU check.
+- **Province.** The card has a province picker (the 10 provinces with a warehouse). The lookup sends
+  `provinceCode`, and the server reads Sameday with that province's downtown postal code as the
+  delivery cookie (`PROVINCE_POSTAL_CODES` in `lib/costcoSameday.js`). Not yet proven: that Sameday
+  prices by that cookie from a data-centre IP. The page opened on the phone uses whatever address is
+  set in that browser, so the note tells the admin to set the province there.
+
 ## Correcting what shoppers were already told
 
 Before this fix, 7 shoppers got the reminder on 2026-10-14 20:37 UTC (it counted savings that ended Oct 11),

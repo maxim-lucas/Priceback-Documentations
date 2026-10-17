@@ -14120,6 +14120,15 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Files: shared/claimDeadline.js, backend/repos/priceDropRepo.js (`_savingEndsJoin`, `findNotifiable`, `pendingClaimRows`, `getLatestVerifiedPrice`), backend/lib/pendingClaims.js, backend/priceDropNotifier.js, backend/repos/pricesRepo.js (`applyTagExpiry`), backend/repos/savingDatesRepo.js, backend/lib/claimDeadlineCorrections.js, src/services/claimDeadline.js, src/components/ClaimDeadlineChip.js, src/services/notificationService.js (`receiptClaimReminder`).
 - Detect next time: `GET /api/admin/saving-dates` lists every saving a drop depends on with no end date; a push whose `data.endKnown` is false; `notification_history` bodies for `pending_claims_reminder`.
 - Prevent: priceDropWindowSourceDb (ended flyer gives way to a running tag; valid_until alone untrusted; tag > admin), pendingClaimsReminder (ended not waiting; per-item days), priceDropLockedPush, pricePointBusinessRules (applyTagExpiry scope), savingDatesDb, app claimDeadline/notificationService/dropLock tests. See `Technical/Claim_Deadline_Per_Item.md`.
+## 326. Admin · Saving dates: "Look up on Sameday" opened Duracell batteries, and one SKU was listed twice (2026-10-16)
+
+- Date: 2026-10-16 · Branch: `hotfix/admin-saving-dates-sameday` · PR #447 · Area: backend + admin screen
+- Symptom: the lookup always opened the Costco app on an unrelated product (Duracell batteries), never the SKU. SKU 1763195 (Sheep yogurt) had two cards, QC and ON.
+- Root cause: `findSamedayUrlForSku` takes the first Sameday product link in DuckDuckGo's results. For a SKU it doesn't know, that link is a random product (reproduced: 1763195 → a wiper blade). `POST /api/admin/saving-dates/lookup` returned that URL even when the page failed the SKU match, and `Linking.openURL` handed it to the Costco app. The list was keyed product · province · price, so one SKU got one card per province.
+- Fix: only a page whose `retailerReferenceCodeString` equals the SKU is returned; otherwise a Sameday search by name. Pages open in `expo-web-browser`. One card per SKU, and Save dates every group. A SKU dated by a flyer, a printed tag or an admin in any province or at any price is hidden. Each group lists its price sources with post links. The lookup takes a province (postal-code cookie).
+- Detect next time: the lookup's `found: false` with a `url` that isn't a search URL.
+- Prevent: `savingDatesDb.test.js` (stray page never returned; trusted date in another province hides; another run doesn't; sources), `savingDatesSources.test.js`, `adminSavingDatesScreen.test.js`. See `Technical/Claim_Deadline_Per_Item.md` § 2026-10-16.
+
 ## 325. A drop whose saving ends in 2 days said "18d left — we don't know when it ends" (2026-10-16)
 
 - **Date:** 2026-10-16 · **Area:** backend + app · `priceDropQueueRepo.releasedForUser`, `services/releasedDrops.js`,
