@@ -14120,6 +14120,29 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Files: shared/claimDeadline.js, backend/repos/priceDropRepo.js (`_savingEndsJoin`, `findNotifiable`, `pendingClaimRows`, `getLatestVerifiedPrice`), backend/lib/pendingClaims.js, backend/priceDropNotifier.js, backend/repos/pricesRepo.js (`applyTagExpiry`), backend/repos/savingDatesRepo.js, backend/lib/claimDeadlineCorrections.js, src/services/claimDeadline.js, src/components/ClaimDeadlineChip.js, src/services/notificationService.js (`receiptClaimReminder`).
 - Detect next time: `GET /api/admin/saving-dates` lists every saving a drop depends on with no end date; a push whose `data.endKnown` is false; `notification_history` bodies for `pending_claims_reminder`.
 - Prevent: priceDropWindowSourceDb (ended flyer gives way to a running tag; valid_until alone untrusted; tag > admin), pendingClaimsReminder (ended not waiting; per-item days), priceDropLockedPush, pricePointBusinessRules (applyTagExpiry scope), savingDatesDb, app claimDeadline/notificationService/dropLock tests. See `Technical/Claim_Deadline_Per_Item.md`.
+## 325. A drop whose saving ends in 2 days said "18d left — we don't know when it ends" (2026-10-16)
+
+- **Date:** 2026-10-16 · **Area:** backend + app · `priceDropQueueRepo.releasedForUser`, `services/releasedDrops.js`,
+  `ClaimDeadlineChip`, `notificationService.getColdStartNotificationData`
+- **Symptom.** ALLEGRO 9% (shopper `000488.…0338`, 3.1.0) showed "18 j restants" and *"Nous ne savons pas quand
+  ce rabais se termine"*; the saving ended Oct 18 (social-post tag deal on record).
+- **Root cause.** The released-drops list (the chips' source since 3.0.7) carried no saving end, so the chip
+  used whatever the phone's own price check had stored, and on iOS that check barely runs. The server already
+  counted the end for the push and the sweep.
+- **Fix.** `savingEnds` on every released item (additive), applied by 3.1.1+. The "end unknown" sentence and
+  suffix were removed. Social-post dates count as unverified and are listed on Admin · Saving dates for
+  confirmation; an admin date outranks them.
+- **Found on the way.** A cold-start tap was dropped when the alert had been *delivered* more than 5 minutes
+  before the tap. `notification.date` is the delivery time, so the app opened Home instead of the receipt. The
+  guard is now the persisted id of the last handled tap.
+- **Prevent.** `releasedDropsDb` › *each released drop carries its saving's last day*; `releasedDrops.test.js`;
+  `savingDatesDb` › *a social post's date is listed as unverified*; `notificationTapRouting.test.js` › *an alert
+  tapped an hour after it arrived still opens its receipt*.
+- **Rule.** Every server field the app *displays* must ride the payload the app actually reads. "The server
+  knows it" does not count when the field never reaches the phone.
+
+---
+
 ## 324. Charged price drops never showed in the app, and server-deleted receipts never left it (live since launch; fixed 2026-10-15)
 
 - Date: 2026-10-15 · PR: (fix/price-drops-not-shown) · Area: both (app 3.0.7 + backend + migration 0026)
