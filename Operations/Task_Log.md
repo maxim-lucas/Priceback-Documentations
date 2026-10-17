@@ -11162,3 +11162,11 @@ anyway).
   admin's date now outranks it. Claimed lines stay in the drops-only view. The reminder opens the receipt whose
   drop runs out first. The push copy "Claim soon: Costco only adjusts while the saving runs" is kept.
 - **Status:** PR #446 (app), docs PR.
+
+## 2026-10-16 — Admin hotfixes before 3.1.1: saving dates per SKU, Sameday lookup, "Open their app"
+
+- **Asked (Maxim):** hotfix on `main` before building 3.1.1. Admin · Saving dates: one SKU = one date check (SKU 1763195 Sheep yogurt was listed twice), show each price's source, never list a product another source (tag, flyer…) already dates. "Look up on Sameday" always opened the Costco app on Duracell batteries: fix it or force a browser, and add a province list. Put "Open their app — exact screens, read-only" on the Account page. Mid-task: the preview's admin banner is too big, so their screens get the full screen with a small way back. Optional, "if it won't cost much": a read-only / full-access toggle for "Open their app".
+- **Branch:** `hotfix/admin-saving-dates-sameday` off `main` (a8c2961) → PR #447 into `main`.
+- **Done:** see `Technical/Claim_Deadline_Per_Item.md` § 2026-10-16 and Bugs #326. The exit pill replaces the preview banner. A second "Open their app" button is on Admin · Account.
+- **Not done:** the full-access toggle. "Open their app" is read-only by construction (every API call refused locally, every storage write dropped). Editing as the shopper needs a server-side act-as-shopper path for admins, with an audit trail and a privacy-policy line. That is a security feature, not a hotfix toggle; it needs its own design and a go from Maxim.
+- **Regression risk:** low. Backend changes are additive: new `sources`, `searchUrl` and `provinceCode` fields, a new optional `name` field in the request, and the list only gets shorter. One behavior changes: a lookup page that doesn't prove its SKU is no longer returned. Admin-only surfaces.
