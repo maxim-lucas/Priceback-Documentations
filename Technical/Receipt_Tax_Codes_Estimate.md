@@ -1,8 +1,9 @@
 # Receipt tax codes → a separate tax reader (helper built; next steps planned)
 
-**Status:** 🟡 partly built. The helper is in draft Priceback PR #455 (2026-10-18), waiting for Maxim's review (Costco parser).
-Scope narrowed the same day by Monica (§0): the reader only fills a tax the scan missed. The two database features
-she added (§11) are planned, not built.
+**Status:** 🟡 built, in review. The helper is in draft Priceback PR #455 (2026-10-18), waiting for Maxim's review
+(Costco parser). Scope narrowed the same day by Monica (§0): the reader only fills a tax the scan missed. The two
+database features she added (§11) are built too: the per-line tax class on top of #455, and "Check price in
+database" on `main`.
 **What changed since #161:** the letters are lost *after* denoise, but the app still has them *before* denoise, in
 the OCR it received. A separate reader can take them from there without touching the parser. A prototype run on the
 committed corpus closes every readable, taxed Québec paper capture to the cent (§3).
@@ -33,6 +34,10 @@ golden snapshot changes on **one** fixture: `unlinked__c88`, tax none → 7.49 (
 Left as they are by the narrowing, because the parse read a tax: c85 and c86 (the validator back-computes 15.02 and
 37.51 over the paper's 22.52, RC-5) and c87 (the TVQ row read as the tax, 4.99 instead of 7.49). The reader reads the
 paper's tax on all three; using it there is P2 as first planned, if wanted later.
+
+With §11 A on top, the reader also runs when the parse read a tax, but only to give each line its tax class: the
+fill rule above is unchanged, and the class (one of four fixed codes) is the one thing besides a filled tax that
+leaves the received OCR.
 
 ## 1. The goal (Monica, 2026-10-18)
 
@@ -202,52 +207,81 @@ letter, so a `9.99 GP` line is dropped. Check the first receipt from those provi
 - `Technical/Backend_Backward_Compatibility.md`: P6 columns.
 - Roadmap: `Roadmap/FUTURE_ROADMAP.md` → *Per-item tax estimate from receipt tax codes*.
 
-## 11. Next, planned and not built: product tax class and "Check price in database" (Monica, 2026-10-18)
+## 11. Product tax class and "Check price in database" (Monica, 2026-10-18): built, in review
 
 ### A. Save each line's tax class, so the database learns each product's tax per province
 
 > "save the tax for every product … check the taxes in the database if its provincial, federal or both"
 
+Built on top of #455 (it needs the reader), branch `claude/product-tax-class`.
+
 - **Classes:** `both` (QC `FP`, ON `H`, digital `B`/`Y`: federal and provincial, or HST), `federal` (QC `F`,
-  ON `G`), `provincial` (QC `P`), `none` (no code, digital `N`).
-- **Source:** the reader's per-line reading, only when it closes with a single set of lines (§0). To have it on every
-  receipt, the reader has to run on every Costco scan, not only when the tax is missing. Cost in Node on the corpus:
-  median under 1 ms, up to about 150 ms on a tilted photo (one more geometry pass, on the received words). It changes
-  nothing in the parse.
-- **Line → item:** each coded amount goes to the item with that full price (before coupons), and coupons follow
-  their item. When two items share a full price but not a class, or a quantity line was merged, those items get no
-  class (null). Never a guess.
-- **App:** `taxClass` added to each item in `toApiBody` (`src/services/receiptSyncService.js`, an allow-list).
-- **Backend:** `POST /api/receipts` accepts an optional `items[].taxClass`, and `persistReceiptItems` writes it. An
-  unknown or missing value is stored as null.
-- **Database:** a lookup table `tax_classes` (id, code, label; codes seeded, design rules 4 and 8) and a nullable
-  `receipt_items.tax_class_id`, in migration `0028` (additive, applied to prod by hand before the deploy, like `0027`).
-- **Readers from day one (design rule 5):** a tax chip on each line in Admin · Receipt detail, and a product ×
-  province summary (classes seen, with counts) for the admin. Later, a product's known class can estimate the tax of
-  a receipt whose codes can't be read.
-- **Old builds** send no `taxClass`; their lines stay null.
+  ON `G`), `provincial` (QC `P`), `none` (a bare amount, digital `N`).
+- **Source:** the reader's reading, only when it closes with a single set of lines (§0), every code read without
+  doubt (one reading each), and never on a refund. Kanata #541 shows why misread codes are out: with nine `H` read
+  as `F` and two coupons read without their minus, the reading that closes on the printed HST leaves GAIN LIQUID
+  untaxed. Right for the tax, wrong for a line.
+- **Every Costco scan, at little cost:** the reader now runs on every warehouse receipt. When the parse read a tax,
+  only the classes are at stake, so it reads the rows as they lie, without the skew correction that cost up to half
+  a second on a tilted photo (Node). On the corpus, 32 of the 36 receipts that get classes keep them, never a
+  different class, in a tenth of the time (0.4 s against 4.6 s for the 36). A missing tax is read exactly as in #455.
+- **Line → item, changed from the plan:** an item takes a class only from a row that prints **its own item number**
+  (the only one on the row), its full price (before coupons) and the code, or the price bare (untaxed). Never by
+  price alone: Boisbriand #546's first pass (c87) pairs item numbers with their neighbours' prices (HUITRE FUMES at
+  OLIVE HUMMUS's 12.49) and still adds up to its total, and Laval #505's photo prints each price beside the next
+  item's number. Matching by price would have filed those classes under the wrong products. Also no class for an
+  amount under 20¢ (at 5% it can hide in the rounding), a line without a SKU (eco fee, deposit), a row that names
+  another item, two rows that disagree, or a parse that doesn't close to its printed total.
+- **Corpus:** 37 receipts, 303 lines get a class (196 `none`, 104 `both`, 3 `federal`), pinned per fixture in
+  `costcoTaxReader.corpus.test.js`. Against the price-only rule first planned: 275 the same, **0 different**, 46
+  dropped (no SKU, shifted or merged rows, c87), 28 gained (two products at one price, which price-only refused).
+  A product can differ by province, which is the point of keying by province: ORG PMPKN is HST in Gloucester (ON),
+  CITROUILLE is TPS only in Pointe-Claire (QC). The parse is otherwise unchanged (golden snapshot: 138 pass).
+- **App:** each item carries `taxClass` (`stampItemTaxClasses`), and `toApiBody` sends it when it is one of the four
+  classes. A SKU the shopper types in the review drops the class: another SKU is another product.
+- **Backend:** `POST /api/receipts` files an optional `items[].taxClass` in `receipt_items.tax_class_id` when the
+  `tax_classes` table holds it. Anything else, and every older build, files NULL; a class never refuses a receipt.
+- **Database:** migration `0029_receipt_item_tax_class`: lookup `tax_classes` (codes seeded by `db/seed.js`, RLS on)
+  and a nullable `receipt_items.tax_class_id`. Additive, applied to prod by hand before the deploy, like `0027`.
+  B's migration is `0028`: merge B first. If A goes first, B is renumbered after `0029`, since drizzle applies
+  migrations by timestamp.
+- **Readers from day one (design rule 5):** Admin · Receipt detail shows each line's class ("Federal + provincial
+  tax", "Federal tax only", "Provincial tax only", "Not taxed") and what the database has seen for that product in
+  the receipt's province (its warehouse's), across every live receipt: "Seen in QC: Federal + provincial tax on 12
+  lines · Not taxed on 1 line".
+- **Not carried:** the admin line editor and *Fix automatically* rewrite lines without their class (it becomes
+  NULL). The restore payload doesn't echo it: no screen on the phone reads it.
+- **Old builds** send no `taxClass`; their lines stay NULL.
+- **Later:** a product's known class in a province can estimate the tax of a receipt whose codes can't be read.
 
 ### B. "Check price in database" in the scan review
 
 > "when a product is detected on a receipt (by sku) we can fill product name and price from the database based on
 > the province … reviewed and flagged so the admin can check it"
 
+Built on `main`, branch `claude/check-price-in-database`.
+
 - **Where:** a link-style button on each line that has a SKU, in the review step (`ScanScreen`), next to
   "+ Add discount". English "Check price in database", French "Vérifier le prix dans la base de données".
-- **What it fills:** the price the database shows today for that SKU in the shopper's province (warehouse first,
-  then the profile), through the existing `POST /api/check-price`. The name is filled only when the scan couldn't
-  read it (empty, or "Item #SKU"); a printed name is never overwritten.
+- **What it fills:** the price the database shows today for that SKU in the receipt's province (warehouse first,
+  then the profile), through the existing `POST /api/check-price`, times the line's quantity. The regular price
+  instead when only it closes the receipt's printed total (bought before the sale), and a line showing an instant
+  saving keeps it. The name is filled only when the scan couldn't read it (empty, or "Item #SKU"); a printed name is
+  never overwritten.
 - **What the shopper sees:** a hint under the line, "Price from the database: check it against your receipt"
   (French "Prix tiré de la base de données : vérifiez-le sur votre reçu"). Typing a price clears it, like the
   guessed-quantity hint. When nothing is found: "No price in the database for this item" (French "Aucun prix dans la
   base de données pour cet article").
 - **Flag for the admin:** the line is saved with `priceFromDatabase: true` (a new optional item field, stored in
-  `receipt_items.price_from_database`, same migration as A). The receipt desk gets a "Database prices" filter (a
-  flagged line, receipt not reviewed yet) and a home counter, and "Mark reviewed" takes the receipt off the queue.
+  `receipt_items.price_from_database`, migration `0028`). The receipt desk gets a "Database prices" filter (a
+  flagged line, receipt not reviewed yet), a home counter and a line chip, and "Mark reviewed" takes the receipt off
+  the queue. Restore keeps the flag.
 - **Price pool:** a flagged line never becomes a `receipt_ocr` price point or a `/api/watch` crowd observation. It
-  came from the database, so it would only confirm itself (the same rule as §7 for rebuilt prices).
+  came from the database, so it would only confirm itself (the same rule as §7 for rebuilt prices). The line is
+  still watched for a drop.
 - **Old builds:** no button and no field, so nothing changes for them.
 
 Defaults picked until someone says otherwise: the price filled is today's price in the province, sale price
-included, and a filled price stays out of the crowd price pool, even after the admin review.
-
+included, and a filled price stays out of the crowd price pool after "Mark reviewed". An admin who corrects the
+lines in the line editor rewrites them as the desk's own: the flag drops and the price is filed like any repaired
+line.
