@@ -14120,6 +14120,60 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Files: shared/claimDeadline.js, backend/repos/priceDropRepo.js (`_savingEndsJoin`, `findNotifiable`, `pendingClaimRows`, `getLatestVerifiedPrice`), backend/lib/pendingClaims.js, backend/priceDropNotifier.js, backend/repos/pricesRepo.js (`applyTagExpiry`), backend/repos/savingDatesRepo.js, backend/lib/claimDeadlineCorrections.js, src/services/claimDeadline.js, src/components/ClaimDeadlineChip.js, src/services/notificationService.js (`receiptClaimReminder`).
 - Detect next time: `GET /api/admin/saving-dates` lists every saving a drop depends on with no end date; a push whose `data.endKnown` is false; `notification_history` bodies for `pending_claims_reminder`.
 - Prevent: priceDropWindowSourceDb (ended flyer gives way to a running tag; valid_until alone untrusted; tag > admin), pendingClaimsReminder (ended not waiting; per-item days), priceDropLockedPush, pricePointBusinessRules (applyTagExpiry scope), savingDatesDb, app claimDeadline/notificationService/dropLock tests. See `Technical/Claim_Deadline_Per_Item.md`.
+## 334. A drop test failed 1 run in 3 on `main`: the server's own sweep parked the drop it was waiting for (2026-10-17)
+
+- Date: 2026-10-17 · Branch: `fix/drops-audit-3.1.2` · Area: backend tests · `tests/priceDropPipelineE2E.test.js`
+- Symptom: "the third device verifies the drop — exact Expo payload" → `0 !== 1`, and the next test missing "1 more claim is waiting". Reproduced on an untouched `origin/main` worktree: 1 run in 3.
+- Root cause: every tag POST schedules the server's own region sweep 4 s later (`server.js scheduleVerifiedDropSweep`), with the REAL notification gate — this test buyer's is off. When it ran first it either still held the "SK" key (the test's sweep returned `skipped: already_running`) or had parked the drop with a retry back-off (`priceDropQueueRepo.release`), so the test's sweep found nothing to drain.
+- Fix: the test's `sweepSK` clears the buyer's back-off and retries while the region is busy. No product change.
+- Prevent: when a test drives a sweep that a route also schedules, wait for the route's sweep or neutralise it; never assume the test's call is the only one.
+
+## 333. Duplicate receipts were never flagged (2026-10-17)
+
+- Date: 2026-10-17 · Branch: `fix/drops-audit-3.1.2` · Area: both · migration none
+- Symptom: prod held 3 live pairs of the same paper for one shopper (same store, date, total, tax, line count). Nothing flagged them; a drop on one of their lines would be charged and pushed on both copies.
+- Fix (Maxim: flag in the admin console, ask the shopper to delete; no detection change): `lib/duplicateReceipt.isEarlierCopySql` — same shopper, store, purchase date, total, tax (so subtotal), warehouse and live line count; the copy saved first is the original. `duplicateOf` on every receipt of the bootstrap / receipt list (additive, looked up for the page's receipts only) and on Admin · Receipt; `duplicate_receipt_review` admin alert (Admin alerts switch, an admin's own copies left out); 3.1.2 shows a banner with "Delete this copy" (en + fr) — only while the original is still on the phone, or it would offer to delete the last copy.
+- Files: backend/lib/duplicateReceipt.js, repos/receiptsRepo.js (`duplicateMapForUser`, `listForUserWithItems`, `getForAdmin`), repos/adminAlertsRepo.js, jobs/adminAlerts.js, shared/notificationCategories.js, src/services/{syncService,notificationRouting,adminReceiptView}.js, src/screens/{DetailScreen,AdminReceiptDetailScreen}.js, src/services/i18n.js
+- Prevent: `adminAlertsRepoDb` › duplicates (tax / line count / other shopper / deleted original), `adminAlertsJob` › duplicate receipts, `detailScreenDropsOnly` › duplicate receipt, `syncService` duplicateOf, `adminReceiptDetailScreen`, `notificationRouting` (35 types).
+
+## 332. An expired drop stayed "claimable" — and on a locked account asked to be paid for (2026-10-17)
+
+- Date: 2026-10-17 · Branch: `fix/drops-audit-3.1.2` · Area: both · migration 0027
+- Symptom: `releasedForUser` lists a charged drop until it is claimed or deleted, with no window check. Past the 30-day window the app's own expiry cleared the chip and the next sync put it back: a Claim button on a closed receipt; on a locked account a "Hidden price drop · Unlock" row for a drop no till would honour. Prod on 2026-10-17: 6 such lines, 4 shoppers, $17.00.
+- Fix (Maxim: expired drops count as saved, locked ones included): the price sweep flags a charged, unclaimed drop whose store window passed as claimed — `claimed_savings` = what the shopper was told, the watch ends, `claim_source = 'expired'` (new lookup `claim_sources`, migration 0027), the receipt files under claimed. Shopper claims are stamped `'shopper'`. Switch `AUTO_CLAIM_EXPIRED_DROPS` (default on). App: the lock marks only OPEN drops (`maskReceiptForLock`); the receipt hero counts claimed lines as saved; Admin · Receipt says "Closed automatically when the window ended".
+- Files: backend/db/migrations/0027_receipt_item_claim_source.sql, db/schema.js, db/seed.js, repos/receiptsRepo.js (`autoClaimExpiredDrops`, `claimItemByIndex`, `getForAdmin`), server.js (sweep), config/defaults.js, lib/dataCleanup.js; src/services/{dropLock,adminReceiptView}.js, src/screens/{DetailScreen,AdminReceiptDetailScreen}.js
+- Prevent: `autoClaimExpiredDropsDb` (7), `dropLock` › stripped not marked, `detailScreenDropsOnly` › no Unlock row / hero counts claimed lines, `adminReceiptDetailScreen`.
+
+## 331. Charged drops vanished whenever one bootstrap came back without them (2026-10-17)
+
+- Date: 2026-10-17 · Branch: `fix/drops-audit-3.1.2` · Area: app (3.1.2)
+- Symptom (code reading, 3.1.0–3.1.1): `mergeServerIntoLocal` wipes any drop checked > 48 h ago on every sync; `applyReleasedDrops` puts it back only when the bootstrap carries `releasedDrops`, which the server leaves out on any error (fail-soft). One failed read took every charged drop older than two days off the screen until the next good sync.
+- Fix: the merge keeps a `released` drop (the server's, charged) on the SAME product (product id, else SKU); only the released list withdraws it. A shifted line falls back to the 48 h rule.
+- Also (B6): every receipt-line read on the server orders by `(position, id)` — the order every line index the app receives is counted in.
+- Prevent: `syncService` › keeps a RELEASED priceDrop however old.
+
+## 330. A locked shopper saw the dropped item: the lock read a stale balance (2026-10-17)
+
+- Date: 2026-10-17 · Branch: `fix/drops-audit-3.1.2` · Area: app (3.1.2)
+- Symptom (code reading, 3.1.0–3.1.1): `useDropLock` reads purchaseService's last-known balance; nothing on the opening / foreground path refreshed it (only Home focus, Scan, a purchase). A shopper whose last read was +5 before a charge took them to −5 tapped the locked alert and the receipt opened UNLOCKED — name, new price, Claim button. Older than 7 days = unknown = unlocked too. The hook also mounted unlocked, so the first frame could show the item.
+- Fix: the bootstrap's `credits.balance` is stored as the snapshot (`noteServerBalance`); a LOCKED alert (`data.locked`) opens with `lockedAlert` and holds the lock until the server speaks again — a live `/api/me/credits` read (retried on every focus), any fresh balance or subscription written meanwhile, or an active subscription; the hook mounts with the last computed state and the read that started last wins (a stale read finishing late used to overwrite a fresher answer).
+- Prevent: `syncServiceHydrate` › bootstrap balance, `dropLock` › assumeLocked (4) + memo (2), `purchaseService` › noteServerBalance, `notificationRouting` › locked alert.
+
+## 329. A locked drop could still be pointed at (#450 bypasses) (2026-10-17)
+
+- Date: 2026-10-17 · Branch: `fix/drops-audit-3.1.2` · Area: both
+- Symptom: after #450 the drops view hid the locked line, but (1) the locked push carried `position`, so the alert opened the receipt ON the hidden line; (2) tapping a locked product from Home showed "Hidden price drop" alone where any other product showed by name; (3) the hidden row sat in the line's own place, between named lines; (4) the focus ring skipped a locked line, so "no ring" meant "this one".
+- Fix: no `position` on a locked push (server) and none honoured on a locked alert (app); hidden rows grouped above the named lines; a tapped line always shows by name, unmarked, beside them; the focus ring ignores the lock; one Detail screen per receipt (`getId`), so a second alert never inherits the first receipt's state. Elimination on a 1–2 line receipt stays inherent.
+- Prevent: `priceDropLockedPush` › a locked alert names no line, `priceDropPipelineE2E` (locked payload `position: null`), `detailScreenDropsOnly` › a tapped locked line looks exactly like any other / hidden rows first.
+
+## 328. A drop could be shown without being charged — free, and unlocked below zero (2026-10-17)
+
+- Date: 2026-10-17 · Branch: `fix/drops-audit-3.1.2` · Area: backend
+- Symptom (code reading; 0 cases in prod today): `releasedForUser` listed approved-but-undelivered queue rows. A shopper with drop alerts muted was never charged (`_deliver` elected only a deliverable push) yet saw the drop; claiming it in the app closed it unbilled. The item `locked` flag only reflected a charge, so on an account below zero that drop showed UNLOCKED. A shopper with no push token got no drop at all.
+- Fix (Maxim: "a drop = charge user"): released = charged (`price_drop_notifications`); a drop is recorded and charged whatever the alert settings, pushed only when deliverable; detection reaches `push_token IS NOT NULL OR app_build ≥ 50`. Old-build guard: a shopper on build < 50 or unreported keeps the push-only rule (they could not see an in-app drop).
+- Files: backend/repos/priceDropRepo.js (`findNotifiable` reach, `appBuild`), repos/priceDropQueueRepo.js (`releasedForUser`, `DETAIL_SELECT.appBuild`), priceDropNotifier.js (`_deliver`), lib/appBuildStamp.js (`showsReleasedDrops`), server.js, repos/adminConsoleRepo.js
+- Prevent: `releasedDropsDb` (released = charged; lock-bypass line absent; fee-row index), `priceDropDrainControl` › 3.1.0+ charged without a push / older build not, `priceDropReachableDb` (3), `recordNotifiedConcurrencyDb` (racing sweeps charge once).
+
 ## 327. A locked drop's product was named on screen: the drops-only view pointed straight at it (3.1.1, fixed 2026-10-17)
 
 - Date: 2026-10-17 · Branch: `fix/locked-drop-line-hidden` · Area: app · `src/screens/DetailScreen.js` (drops-only filter, #446)
