@@ -89,8 +89,19 @@ Nothing about the shopper (name, email, member number) is sent.
 
 | Setting | Where | Default |
 |---|---|---|
-| `GEMINI_API_KEY` | Railway variables (already set for `/api/ocr-llm`) | — unset → the button answers *"not configured"* (503) |
-| `GEMINI_RECEIPT_FIX_MODEL` | Railway variables (optional) | `gemini-2.0-flash` (the model `/api/ocr-llm` uses) |
+| `GEMINI_API_KEY` | Railway variables (already set for `/api/ocr-llm`) | — primary key |
+| `GEMINI_API_KEY_FREE` | Railway variables | — the **free backup**: a key from an AI Studio project with **no billing attached** (it can never charge). Tried when the primary has no credit (402) or is over quota. Neither key set → *"not configured"* (503) |
+| `GEMINI_RECEIPT_FIX_MODEL` / `GEMINI_MODEL` | Railway variables (optional) | unset = **automatic**: the newest stable `gemini-N.M-flash` the key lists, then the newest `-flash-lite` |
+
+**The model is picked automatically** (`backend/lib/gemini.js`, shared with `/api/ocr-llm` and the flyer fallback):
+the key's model list is read (cached 6 h), and the newest stable flash wins; preview / image / tts variants are never
+picked. A retired model (404) is skipped and the next-newest is tried in the same request; a quota hit (429/503) moves
+to the next model (flash-lite has its own free quota); no credit (402) moves to the free backup key and pauses the
+primary for an hour. A pinned model that Google retires falls through to the automatic pick. Nothing to edit when
+Google retires a model — this is what broke on 2026-10-17 (Bugs #335).
+
+**Free tier caveat:** on a key with no billing, Google may use what it is sent (receipt photo + OCR text) to improve
+its products. `/health?token=` → `ocrLlm.lastCall` shows which model and key last answered, or every refusal.
 
 Each tap is **one** Gemini request counted against the shared daily Gemini budget (`LLM_GLOBAL_DAILY_LIMIT`, the same
 counter as `/api/ocr-llm`); when it is spent the button says so and the admin edits by hand. Admin-only, under the
@@ -104,7 +115,9 @@ desk's rate limit (`ADMIN_DESK_RL`).
 | *Checks passed, but the save would be refused: … claimed …* | a line has a claim / a charged push | runbook §2 `keepItemIds` (CLI) |
 | *Gemini found nothing it could prove* | no change it could back with printed numbers | bad photo? → runbook (bad scan) |
 | *not configured* / *daily capacity* / *rate limit* | key unset / budget spent / Gemini 429 | edit by hand, or try later |
-| *Gemini could not read this receipt* | upstream error | edit by hand |
+| *Gemini has no credit left and no free backup key answered* | every key answered 402 | set / fix `GEMINI_API_KEY_FREE`, or top up; edit by hand meanwhile |
+| *No Gemini model is available to this key* | every model tried answered 404 | check the key's project in AI Studio |
+| *Gemini could not read this receipt* | other upstream error (5xx, bad answer) | edit by hand; Railway log line `[admin] receipt auto-fix failed:` lists every attempt |
 
 A **bad photo** (unreadable, crumpled) is still the runbook's job: the button can only prove numbers the OCR text
 holds.

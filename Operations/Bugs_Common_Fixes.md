@@ -14387,3 +14387,12 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
   drop the rows after it*.
 
 ---
+
+## 335. "Fix automatically" always failed — Gemini retired the hard-coded model, and the prepaid key was out of credit (2026-10-17)
+
+- Date: 2026-10-17 · Branch: `fix/receipt-desk-repair` · Area: backend · `lib/gemini.js` (new), `lib/receiptAutoFix.js`, `server.js` (`/api/ocr-llm`, `/api/admin/receipts/:id/auto-fix`, `/health`), `services/flyerScanService.js`
+- Symptom: every press of Admin · Receipt → **Fix automatically** answered *"Gemini could not read this receipt. Fix the lines by hand."* Railway: `[admin] receipt auto-fix failed: Gemini HTTP 404` on every call. The shopper LLM fallback (`/api/ocr-llm`) and the flyer image fallback used the same model and were down too; `/health` still said `ocrLlm: configured`.
+- Root cause: three callers hard-coded `gemini-2.0-flash`; Google retired it (404 *"no longer available… use gemini-3.8-flash"*; `gemini-2.5-flash` is closed to new users). Second, independent: the key's project is on **prepay with depleted credits** — every current model answers **402** *"Your prepayment credits are depleted"*. PriceBack's own daily budget (`LLM_GLOBAL_DAILY_LIMIT`, Admin console "3 / 1400") is our counter, not Google's billing, so it showed nothing wrong. The route mapped every error to "could not read", which hid both.
+- Fix: one client, `lib/gemini.js`. Model picked from the key's model list (newest stable `gemini-N.M-flash`, then `-flash-lite`; cached 6 h; `GEMINI_MODEL` pins the first try). 404 → model retired, next-newest tried in the same request; 429/500/503 → next model; 402/401/403 → next key. Keys: `GEMINI_API_KEY`, then **`GEMINI_API_KEY_FREE`** (Maxim: "always a free version as a backup") — a key from an AI Studio project with no billing; a 402 key is paused 1 h. The auto-fix route now says which problem it is (`NO_CREDIT`, `NO_MODEL`, quota). `/health?token=` gains `ocrLlm.keys` + `ocrLlm.lastCall`.
+- Detect next time: `/health?token=` → `ocrLlm.lastCall.ok === false` with its `attempts`; Railway `[admin] receipt auto-fix failed:` now logs every attempt (key label, model, status).
+- Prevent: `tests/gemini.test.js` (new models picked with no code change, retired → next-newest, 402 → free key + pause, 400 not retried), `receiptAutoFix.test.js` › failureResponse. Never hard-code a model id again — call `lib/gemini.generateContent`.

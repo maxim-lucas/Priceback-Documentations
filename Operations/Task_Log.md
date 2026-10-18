@@ -11201,3 +11201,12 @@ anyway).
 - **Plan:** `Technical/Price_Drop_Audit_3.1.2.md` (findings B1–B6 backend, A1–A9 app, documented-only list).
 - **Status:** fixes committed, PR #451 into `main` (not merged). Verified on the final tree: mobile Jest 353/9776 green; backend c8 2711 pass, cov 95.36/82.76/95.86/95.36 (6 reds = a mid-run DNS drop in `adminCreditsRoutesDb`, 16/16 alone); i18n 1742/1742.
 - **Owed (Maxim's go):** apply 0027 to prod + ledger row, then merge #451 (merge = Railway deploy). Then the 3.1.2 bump/tag/build.
+
+## 2026-10-17 — Receipt desk: "Fix automatically" always failed; manual line editor refuses the total
+
+- **Asked (Maxim):** the Gemini *Fix automatically* button always says "Gemini could not read this receipt"; fixing by hand also always fails because the calculated total is more than the total typed. Branch not named → asked → **`fix/receipt-desk-repair` off `main` (2ae11f3)**. Then: *"use gemini-3.8-flash, or newer versions, try to have it automated so we dont have to change anything"* and *"i need always a free version as a backup, i wont pay for now"*.
+- **Found:** Gemini 404 on every call (`gemini-2.0-flash` retired), and the key's prepaid credits are depleted (402 on every current model). Same model in `/api/ocr-llm` and the flyer fallback → both down. See Bugs #335.
+- **Done:** `lib/gemini.js` — automatic model pick + fallback chain + free backup key `GEMINI_API_KEY_FREE`; clear auto-fix error codes; `/health` last call. Runbook `Operations/Receipt_Auto_Fix_Admin_Button.md` §4–5 updated.
+- **Free key:** Maxim set `GEMINI_API_KEY_FREE` on Railway. Live test (prod keys, synthetic receipts): paid 402 → free key; ocr-llm, auto-fix (applicable, coupon found) and flyer all answer; free `gemini-3.8-flash` sometimes 503 → `gemini-3.5-flash-lite`. PR #452 into `main` (not merged).
+- **Owed:** merge #452 (= Railway deploy) after Maxim confirms the privacy policy covers free-tier Gemini; the manual line editor — no code fault found yet (client and server both check Σ amount paid + tax = total), needs a failing receipt id.
+- **Regression risk:** see the PR.
