@@ -1,9 +1,10 @@
 # Receipt tax codes → a separate tax reader (helper built; next steps planned)
 
-**Status:** 🟡 built, in review. The helper is in draft Priceback PR #455 (2026-10-18), waiting for Maxim's review
-(Costco parser). Scope narrowed the same day by Monica (§0): the reader only fills a tax the scan missed. The two
-database features she added (§11) are built too: the per-line tax class on top of #455, and "Check price in
-database" on `main`.
+**Status:** 🟡 helper merged, the two database features in review. The helper is Priceback PR #455, merged
+2026-10-18 (it reaches phones with the next build). Scope narrowed the same day by Monica (§0): the reader only fills
+a tax the scan missed. The two database features she added (§11) are built: "Check price in database" is PR #456,
+and the per-line tax class goes in right after it (its migration 0029 follows #456's 0028). Each merge deploys the
+backend, so each waits for its migration on dev and prod first.
 **What changed since #161:** the letters are lost *after* denoise, but the app still has them *before* denoise, in
 the OCR it received. A separate reader can take them from there without touching the parser. A prototype run on the
 committed corpus closes every readable, taxed Québec paper capture to the cent (§3).
@@ -213,7 +214,7 @@ letter, so a `9.99 GP` line is dropped. Check the first receipt from those provi
 
 > "save the tax for every product … check the taxes in the database if its provincial, federal or both"
 
-Built on top of #455 (it needs the reader), branch `claude/product-tax-class`.
+Built on #455's reader and on top of B (#456), so its migration `0029` follows B's `0028`.
 
 - **Classes:** `both` (QC `FP`, ON `H`, digital `B`/`Y`: federal and provincial, or HST), `federal` (QC `F`,
   ON `G`), `provincial` (QC `P`), `none` (a bare amount, digital `N`).
@@ -243,8 +244,7 @@ Built on top of #455 (it needs the reader), branch `claude/product-tax-class`.
   `tax_classes` table holds it. Anything else, and every older build, files NULL; a class never refuses a receipt.
 - **Database:** migration `0029_receipt_item_tax_class`: lookup `tax_classes` (codes seeded by `db/seed.js`, RLS on)
   and a nullable `receipt_items.tax_class_id`. Additive, applied to prod by hand before the deploy, like `0027`.
-  B's migration is `0028`: merge B first. If A goes first, B is renumbered after `0029`, since drizzle applies
-  migrations by timestamp.
+  B's migration is `0028` (#456), so B merges first: drizzle applies migrations by timestamp.
 - **Readers from day one (design rule 5):** Admin · Receipt detail shows each line's class ("Federal + provincial
   tax", "Federal tax only", "Provincial tax only", "Not taxed") and what the database has seen for that product in
   the receipt's province (its warehouse's), across every live receipt: "Seen in QC: Federal + provincial tax on 12
@@ -259,7 +259,7 @@ Built on top of #455 (it needs the reader), branch `claude/product-tax-class`.
 > "when a product is detected on a receipt (by sku) we can fill product name and price from the database based on
 > the province … reviewed and flagged so the admin can check it"
 
-Built on `main`, branch `claude/check-price-in-database`.
+Built on `main`: Priceback PR #456.
 
 - **Where:** a link-style button on each line that has a SKU, in the review step (`ScanScreen`), next to
   "+ Add discount". English "Check price in database", French "Vérifier le prix dans la base de données".
