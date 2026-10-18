@@ -166,6 +166,13 @@ existed).
 
 ### 🔵 Other parked ideas
 
+#### 🔵 Per-item tax estimate from receipt tax codes (2026-10-18)
+- Costco prints a tax letter per line (`H`, `G`, `F`, `FP`, `GP`, …; it means something different in each
+  province). It could give each line an estimated tax, checked against the printed `TAX` row.
+- **Parked:** the parser rewrites the letters during denoise (QC `FP` → `F`, strays → `F`) and drops them during
+  extraction, so they aren't available after the noise is removed. Full analysis, prod corpus counts and the
+  build plan: `Technical/Receipt_Tax_Codes_Estimate.md`. Needs Maxim's go-ahead (Costco + shared parser).
+
 #### 🔵 Flyer parser — "SAVE $N"-only banner tiles
 - The geometry flyer parser (`backend/services/flyerTextParser.parseFlyerWords`,
   shipped 2026-06-26) extracts every tile that has an item number **and** a

@@ -16,6 +16,13 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-18 — Validate + merge PR #453 (line editor price/discount); receipt tax codes → tax estimate (documented only)
+
+- **Asked:** *"validate the last PR 453 and make sure the discount field is correctly wired and there is no bug, once done merge the PR and start a new one from main branch and handle this in the receipts so we can have an estimate of the taxes … but if these codes are cleaned up and we dont have access on them after removing the noise dont implement it just document it to be done later"*; *"and mention it in the roadmap docs"*.
+- **#453:** reviewed. Editor fields price/discount → `/lines` body `lineTotal = price − discount`, `originalPrice = price` only with a discount (line totals, same as the stored model and `badScanRepair`). 63 Jest + 63 backend tests pass, i18n in sync. Squash-merged as `2aac992`.
+- **Tax codes:** not available after denoise. `collapseBothTaxesFlag` (QC `FP` → `F`, since v3.0.5) and `normalizeStrayTaxFlags` (strays → `F`) rewrite them; `tryExtractItem` drops the flag; `receipt_items` has no tax column. Per Maxim's condition, **not implemented.** Written up in `Technical/Receipt_Tax_Codes_Estimate.md` (prod `raw_ocr` letter counts, BC/MB/SK `GP` side finding, build plan) + `Roadmap/FUTURE_ROADMAP.md` entry. Parser untouched.
+- **Status:** done — docs PR.
+
 ### 2026-10-14 — Claim deadline per item: the saving's validity window ∩ the 30-day store window (hotfix)
 
 - **Asked (/goal):** *"the reminders say remaining 21 days to claim or more, this is not usualy possible … you can only claim in the savings validity window … the client has only 1 week left for this specific item but still 28 remaining days for the rest of the items"*; mention that a claim after the saving ended *"would most likely be refused"*; perishables (meat, chicken, fruit): *document only*, to be confirmed with Costco customer service. *"Everything should be updated to make sense (Notification, Price Drops, claim window, website, app, legal text)"*. Hotfix on `main` → **`hotfix/claim-window-per-item` off `origin/main` (226a216)**.
