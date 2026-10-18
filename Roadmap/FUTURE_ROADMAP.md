@@ -166,16 +166,18 @@ existed).
 
 ### 🔵 Other parked ideas
 
-#### 🟡 Tax reader: rebuild missed tax, totals and prices from receipt tax codes (2026-10-18)
+#### 🟡 Tax reader: fill a missing tax from receipt tax codes (2026-10-18)
 - Costco prints a tax letter per line (`FP`/`F` in QC, `H`/`G` in ON, `Y`/`B`/`N` on digital receipts), and the
-  receipt prints each tax separately. A separate reader takes the letters from the OCR **before** denoise (the parser
-  loses them during it), checks them against the printed taxes, and uses that to fix a misread tax, confirm a total,
-  and rebuild one price the photo lost. The per-item tax estimate becomes a by-product.
-- **Prototype on the corpus:** every readable, taxed Québec paper capture closes to the cent (17/17), and the reader
-  reads the paper's tax on all 4 QC `parser_gap` captures where the app stores a wrong one. Never a false answer.
-- **Plan ready, not started:** six phases, starting with a shadow mode that changes nothing the shopper sees:
-  `Technical/Receipt_Tax_Codes_Estimate.md`. Needs Maxim's go-ahead (Costco, shared validator in phase 2, design
-  rule 5 for the price rebuild).
+  receipt prints each tax separately. A separate reader takes the letters from the OCR as received (the parser loses
+  them during denoise) and checks them against the printed taxes.
+- **Scope (Monica, 2026-10-18):** only a helper. When the scan read no tax (missing, or 0 while a line carries a
+  code), the reader fills the printed tax the codes confirm, or the tax the codes give when no printed tax can be
+  read. A tax the scan read is never replaced.
+- **Built:** draft Priceback PR #455, waiting for Maxim's review (Costco parser). On the corpus it closes on 56 of
+  138 fixtures, always on the paper's tax; one golden fixture changes (c88: no tax → 7.49, the paper's).
+- **Next, planned:** save each line's tax class (federal, provincial, both, none) so the database learns each
+  product's tax per province, and a "Check price in database" button in the scan review that fills a line from the
+  database and flags it for the admin. Plan: `Technical/Receipt_Tax_Codes_Estimate.md` §0 and §11.
 
 #### 🔵 Flyer parser — "SAVE $N"-only banner tiles
 - The geometry flyer parser (`backend/services/flyerTextParser.parseFlyerWords`,

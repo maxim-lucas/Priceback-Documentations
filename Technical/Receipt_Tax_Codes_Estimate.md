@@ -1,10 +1,38 @@
-# Receipt tax codes → a separate tax reader (plan)
+# Receipt tax codes → a separate tax reader (helper built; next steps planned)
 
-**Status:** 🟡 plan, **not implemented**. Revised 2026-10-18 (was 🔵 parked the same morning, #161). Needs Maxim's
-go-ahead: it is Costco code, and phase 2 touches the shared validator.
+**Status:** 🟡 partly built. The helper is in draft Priceback PR #455 (2026-10-18), waiting for Maxim's review (Costco parser).
+Scope narrowed the same day by Monica (§0): the reader only fills a tax the scan missed. The two database features
+she added (§11) are planned, not built.
 **What changed since #161:** the letters are lost *after* denoise, but the app still has them *before* denoise, in
 the OCR it received. A separate reader can take them from there without touching the parser. A prototype run on the
 committed corpus closes every readable, taxed Québec paper capture to the cent (§3).
+
+## 0. Decision 2026-10-18 (Monica): a helper for a missing tax, built
+
+> "the parser should be only a helper to recalculate the tax if the tax is missing or detected as 0"
+
+What Priceback #455 does:
+- `src/services/costcoTaxReader.js` reads the codes and checks them against the printed taxes (§5, steps 1 to 5;
+  no findings step). It runs **only when the parse has no tax** (missing, or 0). A tax the parse read is never
+  replaced, and a 0 tax stays 0 when no line carries a tax code.
+- The tax it fills is the printed tax the codes confirm. When no printed tax was read at all, it fills the tax the
+  codes give on their own (`round(rate × base)` per tax, only when no code is in doubt), marked
+  `taxCheck.filled = "computed"`. That one is calculated, not printed: it goes past §4's last row, at Monica's request.
+- Input: the OCR **as received, before the compliance cleanup**, not just before localization as §5 said. On
+  `p2s1a` the cleanup drops rows that carry items (RC-13), and with the cleaned text the reader can't close c87/c88.
+  The scan pipeline passes the received OCR to the store parser as an optional third argument. Only numbers come
+  out of it; nothing is shown or stored.
+- Two refinements over the prototype: two readings that land on the same printed taxes count as one answer (Kanata
+  c38 now closes on the paper's 24.43), and a receipt whose TAX row wasn't read closes when every tax matches its own
+  printed row.
+
+On the 138 fixtures, the reader closes on 56, gives no answer on 15 and finds no codes on 67. Whenever it closes on a
+capture whose paper tax is known, it gives the paper's tax; that is now a test in `receiptProdCaptures.test.js`. The
+golden snapshot changes on **one** fixture: `unlinked__c88`, tax none → 7.49 (the paper's).
+
+Left as they are by the narrowing, because the parse read a tax: c85 and c86 (the validator back-computes 15.02 and
+37.51 over the paper's 22.52, RC-5) and c87 (the TVQ row read as the tax, 4.99 instead of 7.49). The reader reads the
+paper's tax on all three; using it there is P2 as first planned, if wanted later.
 
 ## 1. The goal (Monica, 2026-10-18)
 
@@ -120,6 +148,10 @@ included, as if the photo angle lost it:
 | P5 Rebuild | one lost price, under the §4 conditions | Yes: a *rebuilt* line | Design rule 5 amended by Maxim first; corpus + the §3 C simulation as a test |
 | P6 Estimate | optional per-item tax (the #161 idea): nullable `receipt_items.tax_code` / `tax_estimate` | Yes, translated | Migration before the backend; old builds never send or read them |
 
+**After §0:** P1 is built (the reader, a corpus snapshot of what it reads; it runs only when the parse has no tax).
+P2 is built in its narrowed form: it fills a missing or zero tax only. P3, P4 and P5 are parked by the decision. P6
+is replaced by §11 A.
+
 ## 7. Regression guards and rules
 
 - **Nothing in the parser changes in P1**, except keeping the original input. The golden snapshot is the
@@ -169,3 +201,53 @@ letter, so a `9.99 GP` line is dropped. Check the first receipt from those provi
 - `Technical/Receipt_Parser_Root_Causes.md`: RC-3, RC-5 (tax back-computed), RC-7, O-3.
 - `Technical/Backend_Backward_Compatibility.md`: P6 columns.
 - Roadmap: `Roadmap/FUTURE_ROADMAP.md` → *Per-item tax estimate from receipt tax codes*.
+
+## 11. Next, planned and not built: product tax class and "Check price in database" (Monica, 2026-10-18)
+
+### A. Save each line's tax class, so the database learns each product's tax per province
+
+> "save the tax for every product … check the taxes in the database if its provincial, federal or both"
+
+- **Classes:** `both` (QC `FP`, ON `H`, digital `B`/`Y`: federal and provincial, or HST), `federal` (QC `F`,
+  ON `G`), `provincial` (QC `P`), `none` (no code, digital `N`).
+- **Source:** the reader's per-line reading, only when it closes with a single set of lines (§0). To have it on every
+  receipt, the reader has to run on every Costco scan, not only when the tax is missing. Cost in Node on the corpus:
+  median under 1 ms, up to about 150 ms on a tilted photo (one more geometry pass, on the received words). It changes
+  nothing in the parse.
+- **Line → item:** each coded amount goes to the item with that full price (before coupons), and coupons follow
+  their item. When two items share a full price but not a class, or a quantity line was merged, those items get no
+  class (null). Never a guess.
+- **App:** `taxClass` added to each item in `toApiBody` (`src/services/receiptSyncService.js`, an allow-list).
+- **Backend:** `POST /api/receipts` accepts an optional `items[].taxClass`, and `persistReceiptItems` writes it. An
+  unknown or missing value is stored as null.
+- **Database:** a lookup table `tax_classes` (id, code, label; codes seeded, design rules 4 and 8) and a nullable
+  `receipt_items.tax_class_id`, in migration `0028` (additive, applied to prod by hand before the deploy, like `0027`).
+- **Readers from day one (design rule 5):** a tax chip on each line in Admin · Receipt detail, and a product ×
+  province summary (classes seen, with counts) for the admin. Later, a product's known class can estimate the tax of
+  a receipt whose codes can't be read.
+- **Old builds** send no `taxClass`; their lines stay null.
+
+### B. "Check price in database" in the scan review
+
+> "when a product is detected on a receipt (by sku) we can fill product name and price from the database based on
+> the province … reviewed and flagged so the admin can check it"
+
+- **Where:** a link-style button on each line that has a SKU, in the review step (`ScanScreen`), next to
+  "+ Add discount". English "Check price in database", French "Vérifier le prix dans la base de données".
+- **What it fills:** the price the database shows today for that SKU in the shopper's province (warehouse first,
+  then the profile), through the existing `POST /api/check-price`. The name is filled only when the scan couldn't
+  read it (empty, or "Item #SKU"); a printed name is never overwritten.
+- **What the shopper sees:** a hint under the line, "Price from the database: check it against your receipt"
+  (French "Prix tiré de la base de données : vérifiez-le sur votre reçu"). Typing a price clears it, like the
+  guessed-quantity hint. When nothing is found: "No price in the database for this item" (French "Aucun prix dans la
+  base de données pour cet article").
+- **Flag for the admin:** the line is saved with `priceFromDatabase: true` (a new optional item field, stored in
+  `receipt_items.price_from_database`, same migration as A). The receipt desk gets a "Database prices" filter (a
+  flagged line, receipt not reviewed yet) and a home counter, and "Mark reviewed" takes the receipt off the queue.
+- **Price pool:** a flagged line never becomes a `receipt_ocr` price point or a `/api/watch` crowd observation. It
+  came from the database, so it would only confirm itself (the same rule as §7 for rebuilt prices).
+- **Old builds:** no button and no field, so nothing changes for them.
+
+Defaults picked until someone says otherwise: the price filled is today's price in the province, sale price
+included, and a filled price stays out of the crowd price pool, even after the admin review.
+
