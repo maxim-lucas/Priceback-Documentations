@@ -11193,3 +11193,11 @@ anyway).
 - **Backend answer:** a new build is needed. The masking and the filter both run in the 3.1.1 binary. The only server-side lever for 3.1.1 phones would be to leave locked drops out of `/api/me/drops` (with the gate on, the phone then strips them). That hides the product, but it also removes the "a drop was found, unlock" card, so it was not done without Maxim's go.
 - **Regression risk:** low. Display only, locked accounts only. Unlocked shoppers and paid drops (`revealLocked: false`) are unchanged.
 
+
+## 2026-10-17 — Price-drop audit before 3.1.2: drops, charges, locks, notifications
+
+- **Asked (Maxim, /goal):** *"run a full audit to make sure that all the price drops, notification, locked price drops, ...etc all this logic has everything covered to avoid problems in the production … i want to ship the 3.1.2 today stable version. the 3.1.1 is already shipped"*. Branch not named → asked → **`fix/drops-audit-3.1.2` off `main` (2ae11f3)**; docs PR #158 merged first; scope = audit + fixes merged to `main` (no bump/tag/build).
+- **Maxim's decisions:** *"any drop should be always approved by the admin or based on the admin console settings, any drop always should be charged (not depending on user preference). a drop = charge user."* — reverses the 2026-06-15 rule "a muted shopper's drop stays pending". *"a claimed price drop and expired price drop should be flagged claimed so the hero card in the app show that this drops has been saved"* — locked ones included (a locked drop is paid → unlocked, or never paid → still counts); auto claims marked (`claim_source='expired'`, migration 0027). Duplicate receipts (same total, date, tax, subtotal, item count, warehouse): flagged in the admin console + in-app banner asking the shopper to delete; no push; no detection change (both copies can drop until one is deleted).
+- **Plan:** `Technical/Price_Drop_Audit_3.1.2.md` (findings B1–B6 backend, A1–A9 app, documented-only list).
+- **Status:** fixes committed, PR #451 into `main` (not merged). Verified on the final tree: mobile Jest 353/9776 green; backend c8 2711 pass, cov 95.36/82.76/95.86/95.36 (6 reds = a mid-run DNS drop in `adminCreditsRoutesDb`, 16/16 alone); i18n 1742/1742.
+- **Owed (Maxim's go):** apply 0027 to prod + ledger row, then merge #451 (merge = Railway deploy). Then the 3.1.2 bump/tag/build.
