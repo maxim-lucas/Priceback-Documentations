@@ -166,12 +166,16 @@ existed).
 
 ### 🔵 Other parked ideas
 
-#### 🔵 Per-item tax estimate from receipt tax codes (2026-10-18)
-- Costco prints a tax letter per line (`H`, `G`, `F`, `FP`, `GP`, …; it means something different in each
-  province). It could give each line an estimated tax, checked against the printed `TAX` row.
-- **Parked:** the parser rewrites the letters during denoise (QC `FP` → `F`, strays → `F`) and drops them during
-  extraction, so they aren't available after the noise is removed. Full analysis, prod corpus counts and the
-  build plan: `Technical/Receipt_Tax_Codes_Estimate.md`. Needs Maxim's go-ahead (Costco + shared parser).
+#### 🟡 Tax reader: rebuild missed tax, totals and prices from receipt tax codes (2026-10-18)
+- Costco prints a tax letter per line (`FP`/`F` in QC, `H`/`G` in ON, `Y`/`B`/`N` on digital receipts), and the
+  receipt prints each tax separately. A separate reader takes the letters from the OCR **before** denoise (the parser
+  loses them during it), checks them against the printed taxes, and uses that to fix a misread tax, confirm a total,
+  and rebuild one price the photo lost. The per-item tax estimate becomes a by-product.
+- **Prototype on the corpus:** every readable, taxed Québec paper capture closes to the cent (17/17), and the reader
+  reads the paper's tax on all 4 QC `parser_gap` captures where the app stores a wrong one. Never a false answer.
+- **Plan ready, not started:** six phases, starting with a shadow mode that changes nothing the shopper sees:
+  `Technical/Receipt_Tax_Codes_Estimate.md`. Needs Maxim's go-ahead (Costco, shared validator in phase 2, design
+  rule 5 for the price rebuild).
 
 #### 🔵 Flyer parser — "SAVE $N"-only banner tiles
 - The geometry flyer parser (`backend/services/flyerTextParser.parseFlyerWords`,
