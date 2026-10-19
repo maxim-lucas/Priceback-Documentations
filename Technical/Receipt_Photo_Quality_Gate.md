@@ -35,7 +35,7 @@ receipts:
 | Defect | Example | What it did |
 |---|---|---|
 | **Zoomed out**: the receipt fills a small part of the frame | mebfs (Brossard #521) ≈ 20% of the frame width; 3mq8x ≈ 28% | 1200 px leaves the glyphs ~12 px tall; digits drop (`991230` for `9911230`), slashes vanish |
-| **Tilt** | p2s1a ≈ 8°, ec7p8 ≈ 12° + curl | every price a row off its item (RC-12) |
+| **Tilt** | p2s1a ≈ 8°, ec7p8 ≈ 12° + curl | every price a row off its item (ec7p8, Bugs #314). For p2s1a the remaining mispairing is in the flat-text candidate on every build, not the tilt gate: see RC-12 in `Receipt_Parser_Root_Causes.md` (proof owed) |
 | **Fold / crease** | p2s1a, middle rows | faint rows, Vision reads no amount for 4 rows |
 | **Sideways / cut off** | 8y5tt c44/c45 (sideways), c42/c43 (cropped above the totals) | no totals to check against |
 | **Faded thermal paper** | 6wd4e (top half printed white) | lines missing, the subtotal can't close |

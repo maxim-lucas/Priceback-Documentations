@@ -28,7 +28,7 @@ survive that one shape:
 | A tender line (`Comptant`) and the stamp | ended the totals block early | `8y5tt` |
 | A mid-receipt `SOUS-TOTAL / TAXE / TOTAL / Comptant 0,00` block | stopped item extraction at the first total | `mebfs`, `p2s1a` (RC-7) |
 | `**KS TOWEL**` asterisks | the item read as banner noise → "Unknown item" | `szw1y` (3.0.6) |
-| `Compte bas du panier` / `Bottom of Basket` / `BOB Count` | coupon dropped with the row it was welded to | `p2s1a` (RC-13) |
+| `Compte bas du panier` / `Bottom of Basket` / `BOB Count` | coupon dropped with the row it was welded to | `4qp2s` (RC-13: the French `Compte` only, which trips the `account` noise rule; `p2s1a` proof owed) |
 | Payment block amounts (`MONTANT`, `AMOUNT`, card lines) | the payment stored as an item | `8y5tt`, `be1p8` |
 
 Every one of these was fixed as its own special case. The rule replaces that with **one pipeline**: the noise never
