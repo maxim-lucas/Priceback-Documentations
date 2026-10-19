@@ -16,6 +16,12 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-19 — Root-cause register: full sections RC-4 … RC-14
+
+- **Asked (relayed by the coordinating session):** write the owed full sections RC-4 … RC-14 in `Technical/Receipt_Parser_Root_Causes.md` (shape, code, proof by replay + neutralisation, prod blast radius, cases, fix or proposed change); docs only, read-only prod SELECTs.
+- **Done:** the reconstructed index replaced by an index + eleven sections, from replays of the committed captures (c72, c81–c88) and `t09q9`'s text on v3.0.6, #427 and `main`. Proven: RC-4, 5, 6, 8, 9, 10, 11, 13 (`4qp2s`), 14. Owed: RC-7's closure on `p2s1a`, RC-12 for every case, RC-13 on `p2s1a`. Corrections to the old index: RC-8 is the pass-2 fold of coupon rows and is still live on `main` below the 0.02 gate (c84); `3mq8x` closes with no straightening once the fold is neutralised (not an RC-12 loss); `p2s1a`'s mispairing is in the flat candidate on every build; RC-13 is French-only; the cleanup drops the `Entr:` line before RC-10's reader sees it. No parser, app or database change.
+- **Status:** done — docs commit on `claude/rc-4-14-sections`, not pushed.
+
 ### 2026-10-18 — Validate + merge PR #453 (line editor price/discount); receipt tax codes → tax estimate (documented only)
 
 - **Asked:** *"validate the last PR 453 and make sure the discount field is correctly wired and there is no bug, once done merge the PR and start a new one from main branch and handle this in the receipts so we can have an estimate of the taxes … but if these codes are cleaned up and we dont have access on them after removing the noise dont implement it just document it to be done later"*; *"and mention it in the roadmap docs"*.
