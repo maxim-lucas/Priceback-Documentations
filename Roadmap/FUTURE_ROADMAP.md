@@ -166,18 +166,19 @@ existed).
 
 ### 🔵 Other parked ideas
 
-#### 🟡 Tax reader: fill a missing tax from receipt tax codes (2026-10-18)
+#### ✅ Tax reader: fill a missing tax from receipt tax codes, product tax class, price check — MERGED 2026-10-19
 - Costco prints a tax letter per line (`FP`/`F` in QC, `H`/`G` in ON, `Y`/`B`/`N` on digital receipts), and the
   receipt prints each tax separately. A separate reader takes the letters from the OCR as received (the parser loses
   them during denoise) and checks them against the printed taxes.
 - **Scope (Monica, 2026-10-18):** only a helper. When the scan read no tax (missing, or 0 while a line carries a
   code), the reader fills the printed tax the codes confirm, or the tax the codes give when no printed tax can be
   read. A tax the scan read is never replaced.
-- **Built:** draft Priceback PR #455, waiting for Maxim's review (Costco parser). On the corpus it closes on 56 of
-  138 fixtures, always on the paper's tax; one golden fixture changes (c88: no tax → 7.49, the paper's).
-- **Next, planned:** save each line's tax class (federal, provincial, both, none) so the database learns each
-  product's tax per province, and a "Check price in database" button in the scan review that fills a line from the
-  database and flags it for the admin. Plan: `Technical/Receipt_Tax_Codes_Estimate.md` §0 and §11.
+- **Merged:** Priceback PR #455 (2026-10-18). On the corpus it closes on 56 of 138 fixtures, always on the paper's
+  tax; one golden fixture changes (c88: no tax → 7.49, the paper's).
+- **Merged 2026-10-19:** each line's tax class (federal, provincial, both, none) is saved, so the database learns each
+  product's tax per province (PR #467, migration `0029`), and a "Check price in database" button in the scan review
+  fills a line from the database and flags it for the admin (PR #456, migration `0028`). Design:
+  `Technical/Receipt_Tax_Codes_Estimate.md` §0 and §11. The app side ships with the next build.
 
 #### 🔵 Flyer parser — "SAVE $N"-only banner tiles
 - The geometry flyer parser (`backend/services/flyerTextParser.parseFlyerWords`,

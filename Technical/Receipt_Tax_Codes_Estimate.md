@@ -1,10 +1,10 @@
-# Receipt tax codes → a separate tax reader (helper built; next steps planned)
+# Receipt tax codes → a separate tax reader (helper, product tax class and price check merged)
 
-**Status:** 🟡 helper merged, the two database features in review. The helper is Priceback PR #455, merged
-2026-10-18 (it reaches phones with the next build). Scope narrowed the same day by Monica (§0): the reader only fills
-a tax the scan missed. The two database features she added (§11) are built: "Check price in database" is PR #456,
-and the per-line tax class goes in right after it (its migration 0029 follows #456's 0028). Each merge deploys the
-backend, so each waits for its migration on dev and prod first.
+**Status:** ✅ merged. The helper is Priceback PR #455, merged 2026-10-18. Scope narrowed the same day by Monica
+(§0): the reader only fills a tax the scan missed. The two database features she added (§11) merged on 2026-10-19:
+"Check price in database" is PR #456 (`c8adff6`, migration `0028`) and the per-line tax class is PR #467
+(`5065cde`, migration `0029`), each migration applied by hand to dev and prod before its merge (Monica's go-ahead,
+2026-10-19). The server side is live; the app side of all three reaches phones with the next build.
 **What changed since #161:** the letters are lost *after* denoise, but the app still has them *before* denoise, in
 the OCR it received. A separate reader can take them from there without touching the parser. A prototype run on the
 committed corpus closes every readable, taxed Québec paper capture to the cent (§3).
@@ -206,15 +206,16 @@ letter, so a `9.99 GP` line is dropped. Check the first receipt from those provi
 - `Technical/Receipt_Parser_Design_Rules.md`: step 5 already lists *tax bases* as a check; this implements it.
 - `Technical/Receipt_Parser_Root_Causes.md`: RC-3, RC-5 (tax back-computed), RC-7, O-3.
 - `Technical/Backend_Backward_Compatibility.md`: P6 columns.
-- Roadmap: `Roadmap/FUTURE_ROADMAP.md` → *Per-item tax estimate from receipt tax codes*.
+- Roadmap: `Roadmap/FUTURE_ROADMAP.md` → *Tax reader: fill a missing tax from receipt tax codes, product tax class, price check*.
 
-## 11. Product tax class and "Check price in database" (Monica, 2026-10-18): built, in review
+## 11. Product tax class and "Check price in database" (Monica, 2026-10-18): merged 2026-10-19
 
 ### A. Save each line's tax class, so the database learns each product's tax per province
 
 > "save the tax for every product … check the taxes in the database if its provincial, federal or both"
 
-Built on #455's reader and on top of B (#456), so its migration `0029` follows B's `0028`.
+Priceback PR #467, merged 2026-10-19 (`5065cde`). Built on #455's reader and on top of B (#456), so its migration
+`0029` follows B's `0028`.
 
 - **Classes:** `both` (QC `FP`, ON `H`, digital `B`/`Y`: federal and provincial, or HST), `federal` (QC `F`,
   ON `G`), `provincial` (QC `P`), `none` (a bare amount, digital `N`).
@@ -243,7 +244,8 @@ Built on #455's reader and on top of B (#456), so its migration `0029` follows B
 - **Backend:** `POST /api/receipts` files an optional `items[].taxClass` in `receipt_items.tax_class_id` when the
   `tax_classes` table holds it. Anything else, and every older build, files NULL; a class never refuses a receipt.
 - **Database:** migration `0029_receipt_item_tax_class`: lookup `tax_classes` (codes seeded by `db/seed.js`, RLS on)
-  and a nullable `receipt_items.tax_class_id`. Additive, applied to prod by hand before the deploy, like `0027`.
+  and a nullable `receipt_items.tax_class_id`. Additive, applied by hand to dev and prod (with its ledger row) on
+  2026-10-19 before the merge, like `0027`. The server's boot seed fills the four codes.
   B's migration is `0028` (#456), so B merges first: drizzle applies migrations by timestamp.
 - **Readers from day one (design rule 5):** Admin · Receipt detail shows each line's class ("Federal + provincial
   tax", "Federal tax only", "Provincial tax only", "Not taxed") and what the database has seen for that product in
@@ -259,7 +261,7 @@ Built on #455's reader and on top of B (#456), so its migration `0029` follows B
 > "when a product is detected on a receipt (by sku) we can fill product name and price from the database based on
 > the province … reviewed and flagged so the admin can check it"
 
-Built on `main`: Priceback PR #456.
+Priceback PR #456, merged 2026-10-19 (`c8adff6`); migration `0028` applied to dev and prod before the merge.
 
 - **Where:** a link-style button on each line that has a SKU, in the review step (`ScanScreen`), next to
   "+ Add discount". English "Check price in database", French "Vérifier le prix dans la base de données".

@@ -16,6 +16,12 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-18/19 — Costco tax codes: a helper for a missing tax (#455), "Check price in database" (#456), product tax class (#467)
+
+- **Asked (Monica):** *"the parser should be only a helper to recalculate the tax if the tax is missing or detected as 0"*; save each product's tax (*"check the taxes in the database if its provincial, federal or both"*); a *"Check price in database"* button that fills a line from the database by province, *"reviewed and flagged so the admin can check it"*; *"when you finish merge all prs and continue"*; 2026-10-19 *"continue on the database changes and branches"* (the go-ahead for the dev + prod migrations and both merges).
+- **Done:** #455 merged 2026-10-18 (`6709fbe`). #456 merged 2026-10-19 (`c8adff6`) after migration `0028` on dev + prod. #467 merged 2026-10-19 (`5065cde`) after migration `0029` on dev + prod; the boot seed fills `tax_classes`. Costco parser change: Monica's go-ahead stood in for Maxim's (shared-parser rule). Design: `Technical/Receipt_Tax_Codes_Estimate.md` §0, §11.
+- **Status:** done. Server side live; the app side ships with the next build.
+
 ### 2026-10-18 — Validate + merge PR #453 (line editor price/discount); receipt tax codes → tax estimate (documented only)
 
 - **Asked:** *"validate the last PR 453 and make sure the discount field is correctly wired and there is no bug, once done merge the PR and start a new one from main branch and handle this in the receipts so we can have an estimate of the taxes … but if these codes are cleaned up and we dont have access on them after removing the noise dont implement it just document it to be done later"*; *"and mention it in the roadmap docs"*.
