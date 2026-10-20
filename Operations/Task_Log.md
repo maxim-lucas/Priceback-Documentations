@@ -16,6 +16,13 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-19 — Root-cause register: full sections RC-4 … RC-14
+
+- **Asked (relayed by the coordinating session):** write the owed full sections RC-4 … RC-14 in `Technical/Receipt_Parser_Root_Causes.md` (shape, code, proof by replay + neutralisation, prod blast radius, cases, fix or proposed change); docs only, read-only prod SELECTs.
+- **Done:** the reconstructed index replaced by an index + eleven sections, from replays of the committed captures (c72, c81–c88) and `t09q9`'s text on v3.0.6, #427 and `main`. Proven: RC-4, 5, 6, 8, 9, 10, 11, 13 (`4qp2s`), 14. Owed: RC-7's closure on `p2s1a`, RC-12 for every case, RC-13 on `p2s1a`. Corrections to the old index: RC-8 is the pass-2 fold of coupon rows and is still live on `main` below the 0.02 gate (c84); `3mq8x` closes with no straightening once the fold is neutralised (not an RC-12 loss); `p2s1a`'s mispairing is in the flat candidate on every build; RC-13 is French-only; the cleanup drops the `Entr:` line before RC-10's reader sees it. No parser, app or database change.
+- **Follow-up (same day):** the three 2026-10-12 repairs (`3mq8x`, `mebfs`, `p2s1a`) added to the repair runbook's log, which never had them; `mebfs` added to RC-2's case table; `w0dv6`'s "closed by RC-12" reasoning, the quality-gate page's p2s1a → RC-12 and the design rules' BOB → RC-13 attributions corrected to what the replays show.
+- **Status:** done — docs PR #163 (`claude/rc-4-14-sections`).
+
 ### 2026-10-18/19 — Costco tax codes: a helper for a missing tax (#455), "Check price in database" (#456), product tax class (#467)
 
 - **Asked (Monica):** *"the parser should be only a helper to recalculate the tax if the tax is missing or detected as 0"*; save each product's tax (*"check the taxes in the database if its provincial, federal or both"*); a *"Check price in database"* button that fills a line from the database by province, *"reviewed and flagged so the admin can check it"*; *"when you finish merge all prs and continue"*; 2026-10-19 *"continue on the database changes and branches"* (the go-ahead for the dev + prod migrations and both merges).
