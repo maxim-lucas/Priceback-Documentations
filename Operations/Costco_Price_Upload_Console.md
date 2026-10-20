@@ -13,15 +13,15 @@ Code (Priceback repo):
 | Routes | `backend/server.js`: `/admin-console`, `POST /api/admin/costco-import/preview`, `POST /api/admin/costco-import/apply`, `PUT /api/admin/product-images/:store/:sku`, `GET /api/product-images/:store/:sku` |
 | Tests | `backend/tests/costcoPriceUpload.test.js` |
 
-Needs migration `0030_product_online_price` (the online price columns on `products`) applied first.
+Needs migration `0030_product_price_sameday` (`products.price_sameday`, Priceback #469) applied first.
 
 ## Rules
 
-The same rules the `costco-region-2026-10-19` import was written with; uploading that file through the console reproduces it row for row (340 SKUs, 1,082 price points, 279 online prices).
+The same rules the `costco-region-2026-10-19` import was written with; uploading that file through the console reproduces it row for row (340 SKUs, 1,345 price points, 279 Same-Day regular prices).
 
 - **Every SKU** becomes a Costco product if missing (`display_name = product_name`). An existing product keeps its name.
 - **Warehouse prices** (`price_type: "warehouse"`) become price points, one per province in `provinces[]` (else the region key), province-wide (`warehouse_id NULL`): source `price_tag_scan`, `verified = true`, device hash `d8c1b0f3a9e44d27` (no devices row, so no tag credits), `source_ref = <batch>:<price in cents>`, `flags.sourceKind = "social_price_tag"`, `flags.importBatch = <batch>`, plus posts, locations, platform and recency. `regular = regular_price`, or the price itself when missing or lower.
-- **Same-Day prices** (`price_type: "sameday_delivery"`) never become price points: they fill `products.online_price`, `online_regular_price`, `online_price_valid_until`, `online_price_url` and `online_price_updated_at` (latest upload wins).
+- **Same-Day prices** (`price_type: "sameday_delivery"`) set `products.price_sameday`, the online REGULAR price (`regular_price`, or `price_discounted` when none is printed; latest upload wins). A Same-Day item on sale (regular > discounted) is also a price point for its province, `source_ref = <batch>:sameday:<cents>`, `flags.priceType = "sameday_online"`, posted by `sameday.costco.ca`.
 - A Same-Day item's `warehouse_price_discounted` becomes a price point for its province (regular = price, until = `warehouse_expiry_date`).
 - **Start date**: `item.start_date`, else the date picked on the page, which defaults to the file's `start_date`, else its `generated` date.
 - **Batch**: defaults to `costco-region-<generated>`, so the same file uploaded twice upserts the same rows and changes nothing. A corrected price gets a new `source_ref` (the cents change) and is added beside the old one.
