@@ -5,6 +5,13 @@ add the next one. **Store-neutral by design** — per-retailer specifics live in
 that retailer's own folder (`Technical/BestBuy/`, `Technical/Abercrombie/`),
 never here.
 
+> **Status 2026-10-20: not on `main`.** Everything this page describes in code
+> (the Best Buy adapter, the adapter registry, the daily refresh job, the
+> `NATIONAL` province and its migration) exists only on `development`, on hold
+> since 2026-10-20, and on `merge/main-and-development` (`48db6a3`). Neither
+> merged: `main` and `main-test-features` have none of these files, and `main`'s
+> migration `0013` is the price-drop review queue.
+
 Companion to `Receipt_Parser_Registry_And_Store_Parsers.md` (the receipt half),
 `Flyer-ingestion.md` (Costco's price half) and `priceDrop.md` (what a price
 becomes once it is stored).
