@@ -16,6 +16,24 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-20 — Priceback branches: `main-test-features` for features, `main` for hotfixes only
+
+- **Asked (Monica):** *"for priceback github, i want you to create a new permanent branch for testing new features on the dev branch using the dev database, dev railway and so i can use it to have a parallel branch to main. main will be for hotfix only, the new branch for new features and developpement branch is on hold for now. add these to claude rules in the claude configuration repo. create a new branch Name it main-test-features, then merge all of them in the new branch"*.
+- **Done:** `main-test-features` created from `main` `5065cde`, and the eleven PRs squash-merged into it the same day: #457–#466 in order, then #468 (head `4f8a89a`). `main` is unchanged at `5065cde`, and `development` gets nothing new. Rules: `maxim-lucas/claude-config#1` (merged; `memory/priceback/branch-model-main-test-features.md`). Docs: PR #164 (`Release_Tagging_And_Repo_Management.md` §6a, `Branch_And_PR_Policy_All_Repos.md`).
+- **Status:** open — Monica to switch the `priceback-development` Railway service's source branch to `main-test-features` (Railway is out of a Claude session's reach). Until then the dev backend runs its old code.
+
+### 2026-10-19/20 — Admin console: run the price checks on demand; price lookup and price history
+
+- **Asked (Monica):** *"i also want in the admin console to force a price refresh or price drop checks to run on demand"*; *"also add a screen to check a price for a given product by name or sku, province, warehouse, ...etc search fields filters to track the last price and the price history"*.
+- **Done:** PR #468 (`claude/admin-price-tools`), squash-merged into `main-test-features` on 2026-10-20 as `4f8a89a`: Admin · **Price checks** (Run now for the price refresh and the price-drop check, every province or one; `GET /api/admin/price-jobs`, `POST /api/admin/price-jobs/:job/run`) and Admin · **Price lookup** → **Price history** (`GET /api/admin/prices/filters|search|history`). Five new admin-only routes. No migration, no shopper-facing change, no existing route changed. Docs: `Admin_Console_And_Data_Cleanup.md` § Price checks and price lookup, `Admin_Console_Triage_Rework.md` §4, `DEPLOYMENT.md`, `priceDrop.md` §1/§5 (docs PR #165).
+- **Status:** done on `main-test-features` (the dev backend and dev database, once the `priceback-development` service follows that branch). Production only when that branch is promoted to `main`.
+
+### 2026-10-18/20 — Roadmap and speed work: ten PRs (#457–#466)
+
+- **Asked (Monica):** *"continue working on the roadmap tasks and optimize the app"* (2026-10-18); one branch and one PR per task (2026-10-19).
+- **Done:** squash-merged into `main-test-features` on 2026-10-20, in order (`59d8640` … `f7f360e`): #457 Unlimited's "Priority price checking (every 2 h)" runs; #458 a saved push token leaves every other account, and Expo's tickets and receipts clear dead tokens; #459 one bad flyer row no longer stops its province, and a partial import is a failed `flyerImportPersist` job (Bugs #300); #460 an unchanged watch list is not re-processed, or re-sent by the next app build; #461 `npm test` runs the translation check; #462 responses over 1 KB are compressed; #463 the background price check skips its per-line calls when drops are gated; #464 Home reads the receipts once per visit; #465 database connections stay open 10 minutes between visits; #466 an unchanged account is answered from one read, and a price-drop trigger that lands mid-check runs again (Bugs #336). One combined CI run of all ten on `main` `5065cde`, green on the third try (run 39358511006) after the fixes for Bugs #336 and #337. Docs: docs PR #165 (the price-drop, coupons and i18n roadmaps, `priceDrop.md`, `Price_Drop_Delivery_To_The_App.md`, `Parked_Features.md`, `DEPLOYMENT.md`, `PERFORMANCE_REVIEW.md`, Bugs #300 and the outage check's `updated_at`).
+- **Status:** done on `main-test-features`. Reaches shoppers only when that branch is promoted to `main`; the app changes (#460's client half, #463, #464) also need the next store build. Left for Maxim: storing a national offer once (`48db6a3`, on `merge/main-and-development` only).
+
 ### 2026-10-19 — Root-cause register: full sections RC-4 … RC-14
 
 - **Asked (relayed by the coordinating session):** write the owed full sections RC-4 … RC-14 in `Technical/Receipt_Parser_Root_Causes.md` (shape, code, proof by replay + neutralisation, prod blast radius, cases, fix or proposed change); docs only, read-only prod SELECTs.

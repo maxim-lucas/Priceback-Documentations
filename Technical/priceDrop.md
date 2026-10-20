@@ -53,10 +53,17 @@ There are **three independent triggers** that can populate a drop:
    floor and on app resume (`notificationService.js`), over **active receipts only**
    (non-expired, non-claimed, watchable). It writes a `priceDrop` when a real drop is found,
    **clears any stale `priceDrop` when a check finds none**, and fires a **local** notification
-   on a new drop.
+   on a new drop. On `main-test-features` since 2026-10-20 (Priceback #463, an app change,
+   so shoppers get it with the first store build after that branch is promoted to `main`):
+   when the released-drops list on file is gated, the background task skips the per-line
+   checks and only re-reads the list (one `GET /api/me/drops`, or the cached list when
+   offline). The manual check is unchanged.
 3. **Server sweep** — `priceDropNotifier.js` runs on a cron and immediately after each
    weekly flyer import, and sends a **server push** for *verified* drops. This is also
-   where the **commission is charged**.
+   where the **commission is charged**. On `main-test-features` since 2026-10-20 (in
+   production once that branch is promoted to `main`), it also runs on demand from
+   Admin · Price checks (Priceback #468), and every 2 hours for each shopper whose plan
+   includes priority price checking (Unlimited; Priceback #457). See §5.
 
 ---
 
@@ -166,6 +173,13 @@ primary price source, crowdsourcing complements it (see memory `flyer_primary_pr
 Registers lines for the sweep; consent-gated crowd ingestion into `price_points` via
 `crowdRepo` (non-TPD lines only).
 
+On `main-test-features` since 2026-10-20 (Priceback #460; production once that branch is
+promoted to `main`): a repeat of a phone's last complete registration within 24 hours
+(`WATCH_REPEAT_TTL_MS`) is answered at once with the same answer shape, and none of the
+work is redone. A post whose crowd write failed is not remembered and answers
+`retry: true`. The next app build also stops re-sending a list the server already
+accepted (`priceWatchLastSent` in AsyncStorage).
+
 ### `POST /api/observations/tag`
 Single in-warehouse price-tag scan upload (consent-gated), with a scan-credit reward.
 
@@ -173,7 +187,20 @@ Single in-warehouse price-tag scan upload (consent-gated), with a scan-credit re
 
 ## 5. Verified-drop sweep + commission (`backend/priceDropNotifier.js`, `priceDropRepo.js`)
 
-Runs on a cron and immediately after each flyer import.
+Runs on a cron and immediately after each flyer import. On `main-test-features` since
+2026-10-20 (in production once that branch is promoted to `main`):
+
+- **On demand** from Admin · Price checks: Run now on the price refresh or the
+  price-drop check, for every province or one (Priceback #468; see
+  `Operations/Admin_Console_And_Data_Cleanup.md` § Price checks and price lookup).
+- **Every 2 hours for each Unlimited buyer:** `jobs/priorityPriceCheck.js` runs the
+  same user-scoped sweep as "Refresh prices" for each shopper whose plan in force
+  includes `priority_price_check` (`PRIORITY_PRICE_CHECK_INTERVAL_MINUTES`, default
+  120; kill switch `PRIORITY_PRICE_CHECK_ENABLED`; a `priorityPriceCheck` row in
+  `job_runs`; Priceback #457).
+- **A trigger that lands mid-sweep is no longer lost:** a province or all-provinces
+  trigger that the in-flight guard blocks makes the running sweep take another pass
+  when it finishes, up to three, then a follow-up run (Priceback #466, Bugs #336).
 
 1. **Find verified drops** — `priceDropRepo.findNotifiable()` returns the *lowest verified
    price* per (product, province) from `price_points`, applying the **rule-of-3** (≥

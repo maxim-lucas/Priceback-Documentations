@@ -62,3 +62,12 @@ Before, both databases carried the pre-launch row: the bullets included PDF
 export and family sharing, there was no Price Checker bullet, and the keys
 included `pdf_export` and `family_sharing` but **not** `barcode_scan`. Rollback
 values are in the task-log entry for that day.
+
+> **Bullet 6 had no code behind it until Priceback #457** (merged into
+> `main-test-features` on 2026-10-20; shoppers get it when that branch is promoted to
+> `main`). Nothing read `priority_price_check`, so an Unlimited buyer's drops waited for
+> the daily sweep like everyone else's. `backend/jobs/priorityPriceCheck.js` now runs the
+> verified-drop sweep for each shopper whose plan in force carries the key, every
+> `PRIORITY_PRICE_CHECK_INTERVAL_MINUTES` (default 120, floor 15), with the kill switch
+> `PRIORITY_PRICE_CHECK_ENABLED`. Both are `app_config` knobs seeded on boot; no
+> migration.

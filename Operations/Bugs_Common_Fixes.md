@@ -7850,6 +7850,13 @@ bootstrap:
 select max(updated_at) from priceback.users;   -- frozen 4 days = total outage
 ```
 
+> **Since Priceback #466** (merged into `main-test-features` on 2026-10-20; production
+> once that branch is promoted to `main`): an opening that changes nothing is answered
+> from one read, and `updated_at` moves on every sign-in and at least once an hour for an
+> account in use (`usersRepo._touchUpdatedAt`), not on every bootstrap. So
+> `max(updated_at)` can trail the last authenticated request by up to an hour; a value
+> frozen for days still means nothing authenticated got through.
+
 Cross-check `devices.last_seen` and `consent_events.occurred_at`. All three
 freezing at the same minute means auth, not a per-account state. Then bracket the
 deploy by probing routes added in known PRs — `401` means the route exists,
@@ -14385,6 +14392,15 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
   `Roadmap/Costco_Coupons_Ingestion_Roadmap.md` §2. Re-importing is safe (idempotent upserts).
 - **Prevent.** `costcoNationalOfferDb.test.js` › *one bad row in a bulk flyer write does not
   drop the rows after it*.
+- **Status, 2026-10-20.** `merge/main-and-development` never merged, so this fix never
+  reached `main` or production. Priceback #459 (merged into `main-test-features` on
+  2026-10-20; production once that branch is promoted to `main`) brings the row isolation
+  and `describeError` there (`pricesRepo.recordPricePointsBulkDetailed` returns
+  `{ written, skipped, failed }`), without the national storage, which is left for Maxim.
+  It also closes **Still open**: each import's write is a `flyerImportPersist` job run
+  (Admin · Incidents · Scheduled jobs) that fails naming each province's failed rows.
+  Tests there: `flyerImportDedupeDb.test.js` › *one bad row costs only itself*,
+  `flyerImportPersistDb.test.js`.
 
 ---
 

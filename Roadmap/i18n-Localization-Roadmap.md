@@ -62,6 +62,16 @@ quietly reintroduce blank labels.
 dirty working tree, so the hook wasn't added to avoid conflicting with that
 change.
 
+> **Done on `main-test-features` (Priceback #461, merged 2026-10-20; on `main` once
+> that branch is promoted).** `npm test` runs the same checks
+> (`__tests__/i18nCheck.test.js` calls `checkI18n()`, which `scripts/checkI18n.js` now
+> exports), and CI's mobile job runs `npm test`, so drift fails the test suite and CI
+> without touching `test.yml`. The test also plants one of each kind of drift to prove
+> each one fails. The checker runs five checks, not the four listed above: key parity
+> (a key missing in either direction), empty values (the base language included),
+> undefined `t()` keys, the banned `t("key") || "literal"` crutch, and placeholder
+> parity (a translation keeps every `{placeholder}` of the base).
+
 ---
 
 ## 2. What was fixed (2026-07-29)
@@ -234,7 +244,9 @@ insertions / 129 deletions) from separate in-flight work.
 2. **Add `*_fr` columns to `subscription_tiers` / `credit_packs`** and serve them
    in `pricing.json`. The client resolver already consumes them; unlocks
    translating new SKUs without an app release.
-3. **Wire `npm run i18n:check` into CI** once the `test.yml` rewrite lands.
+3. ✅ **Wire `npm run i18n:check` into CI** — done on `main-test-features` (Priceback
+   #461, merged 2026-10-20): `npm test` runs the same checks, and CI's mobile job runs
+   `npm test`. On `main` once that branch is promoted.
 4. **Emit `note_code` on credit-ledger rows** instead of English prose.
 5. Consider extracting the i18n bundle out of one ~3100-line JS file into
    per-locale JSON if a third language is ever added. The tooling is already
