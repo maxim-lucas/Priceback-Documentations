@@ -191,41 +191,60 @@ you un-ship a binary.
 
 ## 6. Branch & PR conventions in force
 
-### 6a. The two long-lived branches
+### 6a. The long-lived branches
 
-Added 2026-08-30. Before this, every branch targeted `main`, which made
-"is this merged?" and "is this shippable?" the same question — so anything real
-but not store-ready had to be kept out of production by the **lab lane**
-instead, a build-time switch that strips the code from the binary. The lane
-still exists and still earns its keep, but it is no longer the only place to
-put unfinished work.
+Changed **2026-10-20** (Monica): *"create a new permanent branch for testing new
+features ... using the dev database, dev railway ... main will be for hotfix
+only, the new branch for new features and developpement branch is on hold for
+now."* The model it replaces is kept at the end of this subsection.
 
-| branch | cut from | merges into | built with | tagged |
-| --- | --- | --- | --- | --- |
-| `feat/…` `fix/…` `chore/…` | `development` (or `main` for a hotfix) | `development` | — | no |
-| **`development`** | `main` | `main`, when stable | `eas build --profile lab` | **no** |
-| **`main`** | — | — | `eas build --profile production` | **yes** — annotated `vX.Y.Z` + GitHub release |
+| branch | cut from | merges into | runs on | built with | tagged |
+| --- | --- | --- | --- | --- | --- |
+| `feat/…` `fix/…` `chore/…` `claude/…` | `main-test-features` (`main` for a hotfix) | `main-test-features` (a hotfix: `main`) | — | — | no |
+| **`main-test-features`** | `main` (`5065cde`, 2026-10-20) | `main`, only when Monica or Maxim asks | `priceback-development` Railway + dev Supabase `gnedluuylimjwdmtvswl` | `eas build --profile lab` | **no** |
+| **`main`** | — | — | production Railway + prod Supabase `xjfrlzwonyaorwktnkpj` | `eas build --profile production` | **yes** — annotated `vX.Y.Z` + GitHub release |
+| `development` | — | nothing: **on hold** | — | — | no |
 
-- **`development` is the integration branch.** Feature branches cut from it and
-  merge back into it. It is promoted to `main` in one PR once the work on it is
-  stable, and that PR is what §4's release sequence then acts on.
-- **`development` is never tagged and never built for a store.** Tags exist to
-  pin the commit a store artifact was built from (§1); a branch no store binary
-  comes from has nothing to pin. Every store release still cuts from `main`.
-- **`development` is never force-pushed and never reset.** It is shared, and a
-  rewritten history there silently detaches every feature branch cut from it.
-  Superseded work is reverted forward, exactly as tags are (§5).
-- **Hotfixes may branch from `main` directly** when production is broken and
-  `development` carries work that is not ready to ride along. Merge the hotfix
-  to `main`, then merge `main` back down into `development` in the same sitting
-  — a hotfix that lives only on `main` is a regression waiting for the next
-  promotion to undo it.
-- **Development builds use the `lab` EAS profile**, not the profile named
+- **`main-test-features` is the integration branch.** Feature branches are cut
+  from it and merge back into it by PR. A merge there reaches the development
+  Railway service and the dev database, never production, so a feature is tried
+  end to end before it can reach shoppers. It is promoted to `main` only when
+  Monica or Maxim asks, and that promotion is what §4's release sequence then
+  acts on. First merges: Priceback #457–#466 and #468, on 2026-10-20.
+- **`main` takes hotfixes only.** A hotfix branches from `main` and lands on
+  `main` by PR (that merge deploys production, so it needs the owner's go).
+  Merge `main` back into `main-test-features` in the same sitting: a hotfix that
+  lives only on `main` is a regression waiting for the next promotion to undo it.
+- **Never a long-lived branch as a PR head.** GitHub's automatic deletion of
+  head branches is on (since 2026-10-15) and this plan has no branch protection,
+  so merging a PR whose head is `main-test-features` deletes it. Promote through
+  a branch cut from it (`promote/main-test-features-YYYY-MM-DD`), and merge a
+  hotfix back through a branch cut from `main`
+  (`sync/main-into-main-test-features-YYYY-MM-DD`).
+- **`main-test-features` is never tagged, never force-pushed, never reset and
+  never deleted.** Tags pin the commit a store binary was built from (§1), and
+  none is built from here. A rewritten history would detach every feature branch
+  cut from it; superseded work is reverted forward (§5).
+- **`development` is on hold.** As of 2026-10-20 it carries 300 commits `main`
+  lacks. Nothing new lands there, and it is still never deleted or promoted.
+- **The development Railway service follows `main-test-features`.** Which branch
+  a Railway service deploys is a Railway setting (service → Settings → Source),
+  not something in this repo; switching `priceback-development` to
+  `main-test-features` was requested on 2026-10-20.
+- **Test builds use the `lab` EAS profile**, not the profile named
   `development` in `eas.json`. That one is a dev-client build, and dev-client
   builds are not used for device testing here (they need Metro and do not
   exercise the release configuration where R8 stripping shows up). `lab` is
   standalone, points at the development Railway backend, and sets
   `LAB_ENABLED=true` so lane-gated work is actually present in the binary.
+
+The model before 2026-10-20 (added 2026-08-30): features were cut from and merged
+into `development`, which was promoted to `main` in one PR once stable. Before
+that, every branch targeted `main`, which made "is this merged?" and "is this
+shippable?" the same question, so anything real but not store-ready had to be
+kept out of production by the **lab lane**, a build-time switch that strips the
+code from the binary. The lane still exists.
+
 - **CI runs ON DEMAND, ON `main`, AND NOWHERE ELSE** (dispatch-only since
   2026-09-10 / PR #327; narrowed to `main` the same day on Maxim's instruction).
 
@@ -233,10 +252,12 @@ put unfinished work.
 
   1. `.github/workflows/test.yml` has **no automatic trigger on any branch** — no
      `push`, no `pull_request`, no `schedule`.
-  2. **Every job** carries `if: github.ref == 'refs/heads/main'`. A dispatch can
-     name any ref, so lock 1 alone caps *when* the suite runs but not *where*.
-     A job whose `if` is false is skipped before a runner is allocated, so a
-     mis-aimed dispatch costs ~0 minutes instead of ~30.
+  2. ~~**Every job** carries `if: github.ref == 'refs/heads/main'`.~~ No longer:
+     as of 2026-10-20 no job in `test.yml` has a ref guard, and
+     `__tests__/ciTriggerPolicy.test.js` pins only the trigger list. A dispatch
+     therefore runs the full suite on whatever ref it names, `main-test-features`
+     included, and bills the full ~30 minutes. Only lock 1 and the rule below
+     remain: dispatch when asked, and verify every other branch locally.
 
   ```
   gh workflow run Tests --ref main         # `main` only, and only when Maxim asks
@@ -312,9 +333,9 @@ put unfinished work.
      a release tag; that dispatch *is* the gate, and nobody else will trigger it.
 
   `[skip ci]` no longer does anything, because nothing starts a run but you.
-  `__tests__/ciTriggerPolicy.test.js` pins **both** locks — the trigger list and
-  the per-job ref guard — so widening either back has to be a deliberate edit to
-  that test with a reason written down.
+  `__tests__/ciTriggerPolicy.test.js` pins the trigger list (it pinned the
+  per-job ref guard too, until that guard was removed), so adding a trigger back
+  has to be a deliberate edit to that test with a reason written down.
 
 ### 6b. Conventions
 
