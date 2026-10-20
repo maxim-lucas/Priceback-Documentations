@@ -229,7 +229,6 @@ quota block is admin-only and the gate fails **silently**, see
 |---|---|---|
 | `GET /health` | Liveness + dependency diagnostics. Always HTTP 200 while up — read the body's `healthy`/`checks`. **Pass the admin token for the full detail (masked DB host, `quotas`).** | `?token=<FLYER_ADMIN_TOKEN>` or `x-admin-token` header → admin view |
 | `POST /api/check-price` | Check current price at a store | body: `{ store, url \| query }` |
-| `POST /api/check-all` | Trigger a manual price sweep | — |
 | `POST /api/ocr` | Google Vision OCR proxy | body: `{ image }` (base64) |
 | `POST /api/ocr-llm` | LLM line-item reconciliation proxy (needs `GEMINI_API_KEY`) | body: OCR text/items |
 | `POST /api/watch` | Register items for background monitoring | body: `{ deviceId, items }` |
@@ -272,6 +271,7 @@ quota block is admin-only and the gate fails **silently**, see
 | Method & path | Purpose |
 |---|---|
 | `POST /api/flyer/import` | Bulk-import the weekly Costco flyer |
+| `POST /api/check-all` | Run the all-provinces verified-drop check now, in the background (untracked: no `job_runs` row). Admin · Price checks → Run now is the tracked way (Priceback #468, on `main-test-features` since 2026-10-20). |
 | `POST /api/admin/price-tag-credits/revoke` | Revoke fraudulent tag-scan credits |
 | `POST /api/admin/users/:sub/flag` · `DELETE …/flag` | Flag / unflag a user |
 | `POST /api/admin/price-points/:id/verify` | Manually verify a price point |
@@ -404,8 +404,11 @@ only to **pin** a value. Defaults shown in parentheses.
 | Variable | Effect |
 |---|---|
 | `DB_POOL_MAX` (`5`) | Per-process `pg` pool cap. CI uses `3` (pooler ceiling). |
+| `DB_POOL_IDLE_MS` (`600000`) | How long an unused pool connection stays open (10 min; each is also replaced after an hour). Env only, read at boot. Priceback #465, on `main-test-features` since 2026-10-20; before it, a fixed 30 s. |
 | `DATA_DIR` | Path for legacy JSON pools / volume mount (e.g. `/data`). |
-| `PRICE_SWEEP_INTERVAL_MINUTES` (`1440`) | Minutes between scheduled price sweeps (floor 15). |
+| `PRICE_SWEEP_INTERVAL_MINUTES` (`1440`) | Minutes between scheduled price sweeps (floor 15). To run one now without changing the cadence: Admin · Price checks → **Run now** (shares the timer's overlap guard; recorded in `job_runs`; Priceback #468, on `main-test-features` since 2026-10-20). |
+| `PRIORITY_PRICE_CHECK_INTERVAL_MINUTES` (`120`) | Minutes between priority price checks: the verified-drop sweep for each shopper whose plan in force includes `priority_price_check`, Unlimited's "every 2 h" (floor 15; keep it at or below 120). Priceback #457, on `main-test-features` since 2026-10-20. |
+| `PRIORITY_PRICE_CHECK_ENABLED` (`true`) | Kill switch for the priority price check: `false` skips it from the next tick. |
 | `DEFAULT_PROVINCE` (`ON`) | Fallback province for price lookups. |
 | `REFERRAL_REFERRER_CREDITS` / `REFERRAL_REFEREE_CREDITS` | Credits granted on referral. |
 | `ALERT_COOLDOWN_MS` (`3600000`) | Min gap between repeat ops alerts. |

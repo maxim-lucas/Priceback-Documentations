@@ -158,6 +158,12 @@ Refusal codes: `409 SCAN_REQUIRED` / `SCAN_STALE` / `SCAN_EXPIRED`,
 is a **200** with the group named in `refused` — the rest of the selection still
 runs.
 
+> **Five more routes (Priceback #468, merged into `main-test-features` on
+> 2026-10-20; production gets them when that branch is promoted to `main`):**
+> Admin · Price checks and Admin · Price lookup, behind the same gate (the account
+> plus the `ADMIN_USER_SUBS` allow-list, never `x-admin-token`). See **Price checks
+> and price lookup** below.
+
 ---
 
 ## Adding a classifier when a table is added
@@ -277,3 +283,147 @@ deep-link still lands.
 > being counted as work. See **`Admin_Console_Triage_Rework.md`** for what the
 > console now says and why. The cleanup registry, its ten safety properties and
 > every route above are unchanged.
+
+---
+
+## Price checks and price lookup (2026-10-20)
+
+**Status:** merged into `main-test-features` on 2026-10-20 (Priceback #468). It runs
+on the dev backend and the dev database once the `priceback-development` Railway
+service deploys that branch, and reaches production only when `main-test-features`
+is promoted to `main`.
+
+Two screens in the **Product** group of the console, for two asks of 2026-10-19:
+
+- *"force a price refresh or price drop checks to run on demand"* → **Price checks**
+  (after Saving dates)
+- *"a screen to check a price for a given product by name or sku, province,
+  warehouse, ...etc search fields filters to track the last price and the price
+  history"* → **Price lookup** (after Price-tag settings), which opens **Price
+  history** for one product
+
+Both are admin-only and English-only, like every `Admin*` screen.
+
+### Price checks: Run now
+
+There are two jobs, one card each:
+
+| Job (`:job`) | On the card | What it runs |
+|---|---|---|
+| `priceSweep` | **Price refresh** | The scheduled sweep itself: every province's verified-drop check, the price-tag credit settlement (`tagCreditsRepo.settleAllVerified`) and the receipt status heal (expired drops flagged claimed, then overdue statuses recomputed). |
+| `priceDropCheck` | **Price-drop check** | The verified-drop check alone (`runVerifiedDropSweep`), for every province or for one. |
+
+Each card shows whether the job is running, since when, and who started it (the
+schedule, the boot catch-up or the console). It also shows the job's last finished
+run from `job_runs` (when it ran, how long it took, whether it failed) and what the
+last run did, in plain English: how many price drops it found, how many went to the
+review queue and how many were sent, the price-tag credits it paid, and the receipts
+it updated. Above the cards the screen says **where found drops go** before anything
+runs, read from the review-queue switches: held for review, sending paused, or
+*"charged and sent to shoppers right away"*. That line links to Admin · Price-drop
+queue. The confirmation dialog repeats it. While a job runs, the screen re-reads the
+status every 3 seconds. It stops when the job finishes or the screen loses focus.
+
+**One guard for every trigger.** The sweep scheduler is now built at module scope in
+`server.js`. **Run now** fires the *same* scheduler as the timer and the boot catch-up
+(trigger `admin`), so the three share one overlap guard. `startServer()` still starts
+the timer. Building the scheduler starts nothing, so `require("./server")` in a test
+schedules no sweep. A scheduled tick that lands while a Run now sweep is running is
+skipped as an overlap, just as it would be behind a slow scheduled sweep. The admin's
+run has just done the same work.
+
+**Refused, never skipped silently.** A sweep takes minutes (prod `job_runs`: 80 s on
+average, 451 s at worst), so the POST starts the job in the background and answers
+`202`. A second press while the job runs gets `409 already_running` with a sentence
+the screen shows ("A price refresh is already running. Try again when it has
+finished."). The drop check is also refused while the notifier's own in-flight guard
+would block it (`priceDropNotifier.sweepInFlight`): the all-provinces check inside a
+running price refresh, a flyer import's province sweep, or the sweep a fresh receipt
+schedules. The refresh is refused while an all-provinces drop check runs outside it,
+because its main leg would skip and it would report a run that checked no price. Only
+one on-demand drop check runs at a time. Like the scheduler's guard, these guards are
+per server process.
+
+Since Priceback #466 (also on `main-test-features`), the notifier no longer drops a
+province or all-provinces trigger that its guard blocks: the running check makes
+another pass when it finishes, up to three, then a follow-up run (Bugs #336). Run now
+does not take that path. It is refused before it reaches the notifier and queues
+nothing, so press it again when the running check has finished.
+
+**What is durable.** Every run, from any trigger, writes a `job_runs` row:
+`priceSweep` for the refresh, plus a new job name, `priceDropCheck`, for an
+on-demand drop check. The card's "last run" line reads `job_runs`. The detail of what
+a run did ("3 found, 2 sent") is held in memory, so a restart or a redeploy forgets
+it, and the card then shows only the `job_runs` line.
+
+**The operator's curl is unchanged.** `POST /api/check-all` (with `x-admin-token`) still
+fires an untracked all-provinces drop check. Run now is the tracked way, and it is
+reachable from the phone.
+
+### Price lookup and price history
+
+**Price lookup** searches by name (English or French, *contains*), SKU (exact or by
+prefix, real SKUs only) or barcode (exact). The filters are province, warehouse
+(picked through its province, then applied on its own: a receipt price carries the
+shopper's province, so a Gatineau shopper at an Ottawa warehouse still shows under
+that warehouse), store (shown only when more than one store has products), source,
+period (all, 7, 30 or 90 days, counted from the start of that UTC day) and *verified
+only*. Exact SKU and barcode matches come first, then the products with the most
+recent matching price. With no search text, the screen lists the products with the
+most recent prices under the filters. Each row shows the product's **last price under
+those filters**, where and when it was seen, the source, and how many prices match.
+
+Tapping a row opens **Price history** with the same filters. It has a chart (drawn
+when there are two usable prices or more), the last, lowest and highest price, the
+date first seen (the earliest `LEAST(observed_at, created_at)`: a re-observation moves
+`observed_at` forward, `created_at` keeps the first write), the provinces, and every
+price newest first. A receipt price has **Open the receipt** (→ Admin · Receipt
+detail). **Show every price** drops the filters and shows the product's whole history.
+
+The rules, enforced in `repos/adminPriceLookupRepo.js`:
+
+- **Excluded prices never count.** A price point an admin excluded
+  (`flags.excluded`: a rejected potential drop, a revoked tag credit, a rejected tag
+  review) is never counted as the last price, the lowest or highest, or a match. The
+  history still lists it, marked with the reason, so the admin can see why a price is
+  missing.
+- **Only a real SKU is a SKU** (3–12 digits). The synthetic keys (`ln:…`, `bc:…`) come
+  back as "No SKU".
+- **Verified means what the drop sweep trusts on its own** (`priceDropRepo`'s admin
+  bypass): the `verified` flag, the weekly flyer, a point flagged `adminVerified` (an
+  admin's tag scan or receipt-derived price), or a line of an admin account's own
+  receipt. The *verified only* filter and the price's "Verified" tag are one SQL
+  expression (`_verifiedExpr`), so the flyer price the sweep acts on never hides
+  behind the filter: flyer rows are written with `verified = false`. A crowd price
+  verified by the rule of N is a property of the price group, not of one point, so it
+  is not tagged here.
+- **Never returned:** `device_hash`, `source_ref` (a crowd ref embeds the device
+  hash), or the sub of the admin who excluded a price. A receipt's id is parsed from
+  its `source_ref` server-side, and only when that receipt row exists.
+- **An unknown filter code is a `400`** with a plain message, never an empty result
+  that would look like "no price". Every store, province, warehouse and source code is
+  checked against the database first.
+- **Source names an admin can read.** `flyer_user_scan` rows are crowd prices from a
+  shopper's receipt (`crowdRepo`, `flags.obsSource = "receipt"`), so the screen calls
+  them *"Shared from a shopper's receipt"*. Old tag scans written before
+  `price_tag_scan` existed carry `obsSource = "tag"` and read as *"Shared price tag"*.
+  Note: some older admin screens still call `flyer_user_scan` a flyer photo. They were
+  not changed here.
+
+There is no migration and no new index. The per-product reads use
+`price_points_product_date_idx`. The name search scans `products`, which an
+admin-only search can afford.
+
+### Routes
+
+All five are `requireAuth` + `requireDb` + the allow-list. The rate limit is charged
+**after** the admin check, so a non-admin cannot drain an admin's budget. Each route
+group has its own bucket at 120 requests per window (`ADMIN_DESK_RL`).
+
+| Route | Bucket | What it does |
+|---|---|---|
+| `GET /api/admin/price-jobs` | `admin-price-jobs` | For each job: `running`, `startedAt`, `trigger` / `province`, `blocked` (Run now would be refused), `lastRun` (from `job_runs`), `lastResult` (in memory). The refresh also gets `intervalMinutes`. Plus `settings` (the review-queue switches), `provinces` (`{code, name}`) and `target`. |
+| `POST /api/admin/price-jobs/:job/run` | `admin-price-jobs-run` | `:job` is `priceSweep` or `priceDropCheck`. Body for the drop check only: `{ province? }`, a 2-letter code, or omitted for every province. Answers `202 { started: true, startedAt, province }`, `409 already_running` (with `message`, `running`, `startedAt`, `trigger`, `province`), `404 not_found` for any other job, or `400 validation_failed` for a province on the refresh or an unknown province. |
+| `GET /api/admin/prices/filters` | `admin-prices` | Provinces (with names), stores that have products, sources (`code` + `label`) and warehouses (number, name, city, province, store). |
+| `GET /api/admin/prices/search` | `admin-prices` | `?q=&store=&province=&warehouse=&source=&verified=&since=&limit=`. Products, each with its `last` price under the filters, `matchCount`, `excludedCount` and `exact`. `limit` defaults to 50 (max 200). `q` is at most 100 characters. `since` takes `YYYY-MM-DD` (UTC midnight) or an ISO time with a zone. |
+| `GET /api/admin/prices/history` | `admin-prices` | `?productId=&province=&warehouse=&source=&verified=&since=&limit=` (no store and no `q`: a product belongs to one store). Returns `product`, `points` (newest first, excluded ones marked), `hasMore`, and `summary` (`count`, `excludedCount`, `last`, `lowest`, `highest`, `firstSeen`, `provinces`). `limit` defaults to 200 (max 500). Answers `404 not_found` for an unknown product and `400` for a bad id. |

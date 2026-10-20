@@ -193,6 +193,14 @@ most-used group first.
 | 4 | **Reports & upkeep** | Shopper report · Data cleanup · Quotas |
 | 5 | **Health & incidents** | Service health · Incidents |
 
+> **2026-10-20, on `main-test-features` (Priceback #468; production once that branch
+> is promoted to `main`):** two more **Product** rows: **Price checks** (after Saving
+> dates; runs the price refresh or a price-drop check now) and **Price lookup** (after
+> Price-tag settings; a product's last price and price history). See
+> `Admin_Console_And_Data_Cleanup.md` § Price checks and price lookup. The table above
+> is the 2026-09-11 grouping; `TOOL_SECTIONS` in `AdminHomeScreen.js` has the
+> current rows.
+
 Above them, unchanged, the verdict card and the **Needs action** block — the
 reason the console exists.
 

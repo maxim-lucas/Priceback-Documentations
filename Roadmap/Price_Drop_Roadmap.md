@@ -50,6 +50,15 @@ rewards but nothing reverses a `price_drop_charge`.
 compensating credit (idempotent on the same `drop:item:cents` ref).
 
 ### 2. No Expo receipt/ticket polling — dead tokens never reaped
+
+> **Done on `main-test-features` (Priceback #458, merged 2026-10-20; production once
+> that branch is promoted to `main`), except the chunk retry.** Both send sites read
+> Expo's tickets (`lib/pushTickets`): only an accepted push counts as sent, and a
+> `DeviceNotRegistered` ticket clears the token at once. A `*/15` cron
+> (`lib/pushReceipts`) fetches the receipts of pushes at least 15 minutes old and clears
+> the tokens they report dead. Saving a token also takes it off every other account.
+> Still open: the one-shot retry of a failed chunk.
+
 `priceDropNotifier` sends pushes but never polls Expo **receipts**, so
 `DeviceNotRegistered` / invalid-token tickets are silently dropped and stale
 `users.push_token` values accumulate (wasted sends, skewed "N shoppers" nothing
@@ -89,6 +98,22 @@ when the DB leg didn't run (asserts `HAS_DB` in the CI environment).
     clearing, `BackgroundFetchResult` mapping); claim-from-Detail/Home
     (`markItemClaimed` confirm → claimed banner); `getPrefs` merge for older
     installs missing granular keys; offline `checkPrice` synthetic-result path.
+
+---
+
+## Landed on `main-test-features`, 2026-10-20 (production once that branch is promoted to `main`)
+
+- **Unlimited's "Priority price checking (every 2 h)" runs** (Priceback #457). The plan
+  sold it, but nothing read `priority_price_check`, so every buyer's drops waited for
+  the daily sweep. A second scheduler now runs the user-scoped sweep every 2 hours for
+  each shopper whose plan in force carries the key
+  (`PRIORITY_PRICE_CHECK_INTERVAL_MINUTES`, kill switch `PRIORITY_PRICE_CHECK_ENABLED`).
+  Review, the push switch and the charge rules are the daily sweep's own.
+- **A trigger that lands mid-sweep is no longer lost** (Priceback #466, Bugs #336). A
+  province or all-provinces trigger that the in-flight guard blocks makes the running
+  sweep take another pass, up to three, then a follow-up run. A flyer import that lands
+  behind an observation sweep no longer waits for the next trigger or the daily sweep.
+- **Dead push tokens are cleared** (Priceback #458): see §2.
 
 ---
 
