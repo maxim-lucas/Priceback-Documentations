@@ -114,3 +114,8 @@ The current Costco pipeline already has the pieces — `shared/ocrCleanup.cleanR
 still reaches extraction (§1 table) and is scrubbed from names afterwards (rule 3). The rework planned for the next
 days consolidates them into the order above. The open cases it must close are listed in
 `Technical/Receipt_Parser_Root_Causes.md`, *Open cases*.
+
+**Gemini follows the same rules (2026-10-21).** The server's two Gemini paths — the admin *Fix automatically* button and
+`/api/ocr-llm` — read the OCR denoised with the parser's own vocabulary and their answers are cleaned and grouped by
+the parser's rules (`backend/lib/receiptLlmRules.js`, Bugs #338). An LLM reads a receipt better than OCR + regex; it
+must not read it differently.
