@@ -70,15 +70,21 @@ number at all — which is why the unit tests of both rules passed: each was tes
 
 | Receipt | Store | Scanned | Build | Lost | Status |
 |---|---|---|---|---|---|
-| `r_1791169321759_5clwk` | Vaudreuil #1213 | 2026-10-05 | before 3.0.5 (no MULTIPLE rule yet) | `391313/MULTIPLE 2.50-` (FLEECY FRESH) | Repaired 2026-10-08 by spec (Bugs #311). Re-scanned today it would still lose it (RC-1). |
-| `r_1791169282395_qvs25` | Vaudreuil #1213 | 2026-10-05 | before 3.0.5 | 2 × `392541/MULTIPLE 2.00-` (muffins) | Repaired 2026-10-08 by spec (Bugs #311). Same. |
-| `r_1791693864226_r06sa` | Vaudreuil #1213 | 2026-10-11 | 3.0.5 / 3.0.6 | 5 coupons, 25.00: LOLE JOGGER 5.00, PEPSI 32 PK 3.50, PORK LOIN 6.00, CRUSH 32 PK 3.50, LOLE FZIP 7.00 | Repaired 2026-10-11 (in-place SQL, spec committed). |
+| `r_1791169321759_5clwk` | Vaudreuil #1213 | 2026-10-05 | before 3.0.5 (no MULTIPLE rule yet) | `391313/MULTIPLE 2.50-` (FLEECY FRESH) | Repaired 2026-10-08 by spec (Bugs #311); *covered by #476* |
+| `r_1791169282395_qvs25` | Vaudreuil #1213 | 2026-10-05 | before 3.0.5 | 2 × `392541/MULTIPLE 2.00-` (muffins) | Repaired 2026-10-08 by spec (Bugs #311); *covered by #476* |
+| `r_1791693864226_r06sa` | Vaudreuil #1213 | 2026-10-11 | 3.0.5 / 3.0.6 | 5 coupons, 25.00: LOLE JOGGER 5.00, PEPSI 32 PK 3.50, PORK LOIN 6.00, CRUSH 32 PK 3.50, LOLE FZIP 7.00 | Repaired 2026-10-11 (in-place SQL, spec committed); *covered by #476* (c67–c70 close to the cent) |
 
 **Proposed parser change (not applied — Maxim, 2026-10-11: document only).** In `unweldSkuSlashName`, never rewrite
 a line whose word after the slash is a coupon keyword: add a negative lookahead `(?!MULTIPLES?\b|TPD\b|CPN\b)`. A
 SKU/name weld whose item is literally named "MULTIPLE…" does not exist on any Costco receipt seen so far. Pin with
 the three cases above plus Gatineau's `8721334/TAPIS NORDIC` (must still un-weld) and both 10-digit and number-less
 MULTIPLE forms (must stay coupons).
+
+**Fix (applied, 2026-10-21 — Maxim asked for the parser optimisation).** Exactly the proposal, in the Costco parser PR of 2026-10-21 (Priceback #476, `fix/costco-parser-open-root-causes`):
+`unweldSkuSlashName` has the negative lookahead `(?!MULTIPLES?\b|TPD\b|CPN\b)`. `8721334/TAPIS NORDIC` still un-welds;
+both other MULTIPLE forms stay coupons. With RC-2's fix as well, the four `r06sa` captures (c67–c70) close to the cent,
+480.15, confidence 1, and moved from `parser_gap` to `ok` in `receiptProdCaptures.test.js`. All three cases *covered by
+#476* (builds from the next release; 3.1.2 and older keep the defect — client code).
 
 ---
 
@@ -105,15 +111,30 @@ two references (`395191/27003`, `394821/67237`) closes it to the cent: 458.76 + 
 
 | Receipt | Store | Scanned | Build | Lost | Status |
 |---|---|---|---|---|---|
-| `r_1791693864226_r06sa` | Vaudreuil #1213 | 2026-10-11 | 3.0.5 / 3.0.6 | 2 coupons, 4.00: STRAWBERRIES (`39519127003 2.00-`), CANTALOUPE (`39482167237 2.00-`) | Repaired 2026-10-11. |
-| `r_1791853258418_xzw9x` | Nepean #540 | 2026-10-13 | Android 3.0.6 | DUBLINER's `0000391925 / 33991 2.50-` read `0000391925 33991` (a pen stroke crosses the slash); the geometry pass then merged it into DUBLINER's row (`0000391925 33991 DUBLINER 33991 10.99 2.50-`). Variant: number and SKU **space**-separated, not fused. Proof: with RC-15 neutralised, writing the slash back restores exactly −2.50 | Repaired 2026-10-13 (spec). |
-| `r_1791777296528_mebfs` | Brossard #521 | 2026-10-12 | iOS 3.0.6 | SWEETSIXTEEN's 2.50-: the reference read `P 1448438 2.50 - FP D`, slash lost and the bare coupon number deleted by the cleanup (spaced variant), with two margin marks on the row (RC-14). Proof: see RC-14, both shapes must be neutralised | Repaired 2026-10-12 (spec); still lost on `main` |
+| `r_1791693864226_r06sa` | Vaudreuil #1213 | 2026-10-11 | 3.0.5 / 3.0.6 | 2 coupons, 4.00: STRAWBERRIES (`39519127003 2.00-`), CANTALOUPE (`39482167237 2.00-`) | Repaired 2026-10-11; *covered by #476* |
+| `r_1791853258418_xzw9x` | Nepean #540 | 2026-10-13 | Android 3.0.6 | DUBLINER's `0000391925 / 33991 2.50-` read `0000391925 33991` (a pen stroke crosses the slash); the geometry pass then merged it into DUBLINER's row (`0000391925 33991 DUBLINER 33991 10.99 2.50-`). Variant: number and SKU **space**-separated, not fused. Proof: with RC-15 neutralised, writing the slash back restores exactly −2.50 | Repaired 2026-10-13 (spec); *covered by #476* (the spaced shape, unit-tested; capture not committed) |
+| `r_1791777296528_mebfs` | Brossard #521 | 2026-10-12 | iOS 3.0.6 | SWEETSIXTEEN's 2.50-: the reference read `P 1448438 2.50 - FP D`, slash lost and the bare coupon number deleted by the cleanup (spaced variant), with two margin marks on the row (RC-14). Proof: see RC-14, both shapes must be neutralised | Repaired 2026-10-12 (spec); *covered by #476* |
 
 **Proposed parser change (not applied).** A line that is *only* a digit run of 9–14 digits followed by a negative
 amount (same row or next line) is a coupon when its **tail** is the SKU of an item parsed above it **and** its head is
 6 digits starting `39`; apply it to that item only if the item is priced above the amount. Both guards are needed:
 without the SKU-tail check a UPC-only line would be read as a coupon; without the `39…` head check a 4-digit SKU
 could match the tail of an unrelated number.
+
+**Fix (applied, 2026-10-21).** In the Costco parser PR of 2026-10-21 (Priceback #476, `fix/costco-parser-open-root-causes`), a normalisation step before extraction (`resolveSlashlessCouponRefs`, Costco
+preprocess) puts the slash back when the coupon number has a coupon's shape (6 digits starting `39`, or `0000` + 6), the
+rest is an item number printed on an item row of the same receipt, and the amount (on the row or the next) has a minus.
+Two more shapes, from the same root:
+
+- **The geometry never saw it.** `shared/ocrCleanup` deleted `39519127003` from the word list (every 10+-digit word is
+  dropped as possibly sensitive), so the phone's rows read a bare `2.00-`. A fused `39…` reference is now kept on a
+  coupon row (a minus on the row or the next row); the fixture scrub keeps the same shape, and the four `r06sa` fixtures
+  were un-masked from their envelopes (only those words changed).
+- **Number and slash both gone** (`mebfs` c85): `1448438 2.50 - FP` under `1448438 SWEETSIXTEEN` reads as that item's
+  coupon (`BARE_SKU_COUPON_ROW`), only when the item is printed above.
+
+`r06sa` ×4 and `mebfs` c85 close to the cent; `xzw9x`'s spaced shape is pinned by a unit test (its capture isn't
+committed). Cases *covered by #476*.
 
 ---
 
@@ -164,16 +185,16 @@ parse of that pass.
 | RC | Shape | Cases | Status |
 |---|---|---|---|
 | RC-4 | The cleanup leaves a lone `-` under `**** TOTAL 445.23`, and `detectRefund` reads it as a refund total | `3mq8x` | Fixed #427 (v3.1.0) · proven |
-| RC-5 | The validator replaces the TAXE it read with printed TOTAL − Σ lines, so lost lines look closed | `mebfs`, `w0dv6`, `ejx4g`, `t09q9` | Open · proven (`mebfs`, `t09q9`) |
-| RC-6 | A coupon reference with one SKU digit dropped matches no item | `mebfs` | Open · proven |
+| RC-5 | The validator replaces the TAXE it read with printed TOTAL − Σ lines, so lost lines look closed | `mebfs`, `w0dv6`, `ejx4g`, `t09q9`, `afuor` | Fixed #476 (client) · proven (`mebfs`, `t09q9`) |
+| RC-6 | A coupon reference with one SKU digit dropped matches no item | `mebfs` | Fixed #476 · proven |
 | RC-7 | A mid-receipt `SOUS-TOTAL / TAXE / TOTAL / Comptant 0,00` block ends item extraction | `mebfs`, `p2s1a` | Fixed #427 · effect proven; `p2s1a` closure owed |
 | RC-8 | A coupon row with no two-letter word is folded into an item row on a page that wasn't straightened | `3mq8x` c83, c84 | Open on `main` (c84); c83 *covered by #427* · proven |
 | RC-9 | The fixture PII scrub deleted words, so fixtures did not parse like the phone | corpus: `3mq8x` c83, `8y5tt` c47 | Fixed #427 · proven |
 | RC-10 | The warehouse is read from the header before the register footer; the cleanup drops `Entr:` | `p2s1a`, `zm6h2`, `8y5tt` | Fixed #427 · proven |
-| RC-11 | The cleanup deletes a coupon number that Vision returned as its own word, which defeats the minus-less coupon rule | `3hhhj` c81 | Open (no prod damage) · proven |
+| RC-11 | The cleanup deletes a coupon number that Vision returned as its own word, which defeats the minus-less coupon rule | `3hhhj` c81 | Fixed #476 · proven |
 | RC-12 | The tilt gate reads the page median, so a curled band is not straightened | `3mq8x`, `p2s1a`, `w0dv6`, `7yckq` | Gate fixed #427 · proof owed for every case |
 | RC-13 | The `account` noise rule drops a tilted row carrying the word `Compte` of the bottom-of-basket banner | `p2s1a`, `4qp2s` | Open · proven (`4qp2s`); `p2s1a` owed |
-| RC-14 | Margin marks read as 1–2-character words join item and coupon rows | `3mq8x` c84, `mebfs` c85 | Open · proven |
+| RC-14 | Margin marks read as 1–2-character words join item and coupon rows | `3mq8x` c84, `mebfs` c85 | Fixed #476 · proven |
 
 ## RC-4 · The cleanup leaves a lone `-` under the TOTAL, and the purchase is saved as a refund
 
@@ -279,12 +300,22 @@ tax equal the stored total, are this root cause.
 
 | Receipt | Store | Scanned | Build | Lost | Status |
 |---|---|---|---|---|---|
-| `r_1791777296528_mebfs` | Brossard #521 | 2026-10-12 | iOS 3.0.6 | Tax saved as 15.02 for the printed 22.52; two coupons lost (RC-6; RC-2 + RC-14) | Repaired 2026-10-12 (spec) |
+| `r_1791777296528_mebfs` | Brossard #521 | 2026-10-12 | iOS 3.0.6 | Tax saved as 15.02 for the printed 22.52; two coupons lost (RC-6; RC-2 + RC-14) | Repaired 2026-10-12 (spec); *covered by #476* |
 | `r_1791823503830_w0dv6` | Sherbrooke #1367 | 2026-10-12 | iOS 3.0.6 | Tax 34.87 for 13.39 (= 445.23 − the 410.36 of stored lines) | Duplicate soft-deleted 2026-10-13 |
 | `r_1791853201148_ejx4g` | Barrhaven #1263 | 2026-10-13 | Android 3.0.6 | Tax 13.98 for 0.00 | Repaired 2026-10-13 (spec); `main` still reads tax 7 (O-3) |
 | `r_1791933708024_t09q9` | Gloucester #1362 | 2026-10-13 | iOS ≤ 3.0.6 | Tax 4.23 for 19.23 (FLATWRE's 15.00 coupon lost, RC-20) | Repaired 2026-10-14 (SQL); the RC-20 trigger *covered by #432* |
+| `r_1792607830954_afuor` | Nepean #540 | 2026-10-21 | not recorded | Tax 1.81 for the printed 5.81 (= 160.67 − the 158.86 of stored lines): CRMYDILLPCKL's `0000396742 / 1647794` 4.00- coupon lost (O-4) | Not repaired yet |
 
 **Proposed parser change (not applied).** In step 2:
+
+**Fix (applied, 2026-10-21, client).** In the Costco parser PR of 2026-10-21 (Priceback #476, `fix/costco-parser-open-root-causes`), `validateReceipt` step 2 keeps a tax that was read
+(positive, within the province cap) and flags the receipt `printedTotalMismatch` instead of booking the gap as tax; the
+total stays the printed one, so the review screen's existing *"the lines add up to … but the receipt's total is …"*
+warning shows. The tax is still derived when none was read or it read 0.00 (the pinned "missing tax" shape), when it is
+over the cap (a mispaired column), when the printed SUBTOTAL proves the lines right, or when the printed SUBTOTAL and
+the read tax do not make the printed TOTAL. Corpus: one golden moves, `3mq8x` c84 (tax 11.39 → the paper's 13.39). The
+confidence score is computed before the validator, so no flag changes. New case: `afuor` (2026-10-21, tax 1.81 for 5.81).
+Builds up to 3.1.2 keep the old behaviour.
 
 - Keep a tax that was read and is within the province cap.
 - When Σ lines + the tax read is not the printed total, flag the parse (`printed_total_mismatch`) and leave the tax as
@@ -325,11 +356,18 @@ and `0l4w3` (1), which were not checked.
 
 | Receipt | Store | Scanned | Build | Lost | Status |
 |---|---|---|---|---|---|
-| `r_1791777296528_mebfs` | Brossard #521 | 2026-10-12 | iOS 3.0.6 | The second TH CHAUS.8PQ coupon, 5.00- | Repaired 2026-10-12 (spec); still lost on `main` |
+| `r_1791777296528_mebfs` | Brossard #521 | 2026-10-12 | iOS 3.0.6 | The second TH CHAUS.8PQ coupon, 5.00- | Repaired 2026-10-12 (spec); *covered by #476* |
 
 **Proposed parser change (not applied).** Teach the same normalisation step (denoise, before extraction) the deletion
 case. Rewrite a reference that is one digit shorter than an item number on the receipt, and equals it with one digit
 deleted, to that item number, only when all of these hold:
+
+**Fix (applied, 2026-10-21).** In the Costco parser PR of 2026-10-21 (Priceback #476, `fix/costco-parser-open-root-causes`), `resolveDigitMisreadCouponRefs` learned the deletion: exactly one item number
+equals the reference with one digit put back, the item is printed above the coupon, and — when both amounts are on the
+rows — priced above it (a labels-first Quebec page prints neither on the item row, so the price guard applies only when
+it can be read). A substitution candidate still wins. Pinned: `mebfs` c85 (−5.00, then closes with RC-2 + RC-14),
+`vf7c7`'s `/38342` → 438342 and `/670109` → 1670109, and the RC-16 / RC-20 substitutions unchanged. *Covered by
+#476*.
 
 - that item number is the only candidate;
 - the item is printed above the coupon;
@@ -560,9 +598,21 @@ captures show: not measured.
 
 | Receipt | Store | Scanned | Build | Lost | Status |
 |---|---|---|---|---|---|
-| `r_1791753175518_3hhhj` (c81, 1200px, not adopted) | Gloucester #1362 | 2026-10-11 | Android 3.0.6 | FERRERO's 5.00- unapplied, and a positive 5.00 "Unknown item" | Nothing stored (c82 adopted, right against the paper); still on `main` |
+| `r_1791753175518_3hhhj` (c81, 1200px, not adopted) | Gloucester #1362 | 2026-10-11 | Android 3.0.6 | FERRERO's 5.00- unapplied, and a positive 5.00 "Unknown item" | Nothing stored (c82 adopted, right against the paper); *covered by #476* |
 
 **Proposed parser change (not applied).** Two changes:
+
+**Fix (applied, 2026-10-21).** In the Costco parser PR of 2026-10-21 (Priceback #476, `fix/costco-parser-open-root-causes`), both halves, narrowed by the corpus:
+
+- **Keep Costco's coupon number** only when its row reads as the coupon: the number first, then `/ <sku>` or
+  `/ MULTIPLE` (`COUPON_REFERENCE_ROW_RE`). Kept on any row, it landed in front of item names on `3mq8x` c84's tilted
+  band and was read as ALLEGRO's SKU; the Costco preprocess also drops a coupon number that an item number and more text
+  follow (`dropCouponNumberBeforeSku`), never one followed by its slash (`0000389137 / PUREX` stays a coupon). #413's rule
+  (a minus-less coupon needs its barcode) is unchanged — it is the barcode that now survives.
+- **Respect the totals block** for a SUBTOTAL / TAX / TOTAL row that already carries its amount. A totals label with no
+  amount still takes the fold: the unreadable `5pg85` is flagged through it.
+
+`3hhhj` c81 now reads 22 lines, 627.58 + 68.92 = 696.50, confidence 0.95 (no date — as c82): `parser_gap` → `ok`.
 
 - **Keep Costco's coupon number.** Exempt `^0{3,4}3\d{5}$`, the shape #427's fixture scrub already keeps verbatim,
   from the cleanup's sensitive-word deletion. It is a public promotion code, not PII.
@@ -706,12 +756,20 @@ character words outside the item columns' x-span, which a cloud session cannot r
 
 | Receipt | Store | Scanned | Build | Lost | Status |
 |---|---|---|---|---|---|
-| `r_1791776785814_3mq8x` (c84, 2000px, not adopted) | Sherbrooke #1367 | 2026-10-12 | iOS 3.0.6 | NESTLE's 6.50- (`1 '`), KS BEUR.NOIX 9.99 (`=`), CREVETTES's 4.00- (`9`) | Nothing stored; still on `main` |
-| `r_1791777296528_mebfs` (c85, 1200px, adopted) | Brossard #521 | 2026-10-12 | iOS 3.0.6 | SWEETSIXTEEN's 2.50- (with RC-2) | Repaired 2026-10-12 (spec); still on `main` |
+| `r_1791776785814_3mq8x` (c84, 2000px, not adopted) | Sherbrooke #1367 | 2026-10-12 | iOS 3.0.6 | NESTLE's 6.50- (`1 '`), KS BEUR.NOIX 9.99 (`=`), CREVETTES's 4.00- (`9`) | Nothing stored; *covered by #476* (all three; ALLEGRO's coupon remains, RC-8) |
+| `r_1791777296528_mebfs` (c85, 1200px, adopted) | Brossard #521 | 2026-10-12 | iOS 3.0.6 | SWEETSIXTEEN's 2.50- (with RC-2) | Repaired 2026-10-12 (spec); *covered by #476* |
 
 **Proposed parser change (not applied).** Treat this as an image problem, handled in geometry (design rules): before
 rows are built, drop any word of one or two characters whose box lies wholly outside the item block's x-span by more
 than one median glyph height. Height is not a criterion, since c84's `9` is smaller than the print.
+
+**Fix (applied, 2026-10-21).** In the Costco parser PR of 2026-10-21 (Priceback #476, `fix/costco-parser-open-root-causes`), `dropMarginMarks` (`receiptGeometry.js`, before rows are built):
+a 1–2 character word wholly outside the 2nd–98th percentile x-span of the 3+-character words is dropped when it is more
+than **3** median glyph heights away (the documented marks sit 9.7–31 away) or over 3× the print's height (`mebfs`'s
+`D`). The corpus forced both thresholds: at one glyph height it dropped a tax flag on `4qp2s` c72 (`ER`, 1.2 away) and the
+`2 @` quantities of the `i7aiw` PDF. PDF coordinates (normalised) are skipped. `mebfs` c86 closes to the cent; `3mq8x`
+c84 goes from 21.06 short to 2.00 over (NESTLE's coupon, KS BEUR.NOIX, CREVETTES's coupon recovered; ALLEGRO's 2,00- is
+still lost to the tilted band — RC-8) and stays flagged.
 
 - **Measuring the span.** The span comes from the rows that carry an item number and an amount, by percentiles. The
   marks themselves sit on item rows, so a plain minimum and maximum would include them.
@@ -783,6 +841,31 @@ build that scanned both, per the capture envelope) and reproduced exactly before
 adding the missing `COSTCO` line alone → all 11 items with the right prices (Σ 134.09), still no coupon; then each
 coupon reference repaired alone restores exactly its own coupon (`/2158319`→`/2158349` −3.00, `33991`→`/33991` −2.50,
 `/FULL ZIP`→`/203764` −6.00); all four together close to the cent: 122.59 + 7.15 = 129.74.
+
+## 2026-10-21 · `afuor` (Nepean #540) — cases
+
+Reported by Maxim minutes after the scan: *"PAY STATION"* in a product name, and the admin desk's *Fix automatically*
+proposed merging the two `39602 PICKEREL` lines.
+
+| Printed (paper) | Stored | Cause |
+|---|---|---|
+| `*** PAY STATION ***` banner, then `39602 PICKEREL 23.30` | line 1 named `PAY STATION PICKEREL` | RC-18 (the banner is in no vocabulary) |
+| `1647794 CRMYDILLPCKL` `2 @ 8.99` `17.98`, `2 @ 2.00`, `0000396742 / 1647794` `4.00-` | 17.98, no coupon | **O-4**, open |
+| SUBTOTAL 154.86, TAX 5.81, TOTAL 160.67 | lines 158.86, tax **1.81**, total 160.67 | RC-5 (the 4.00 booked as tax) |
+| two packs of `39602 PICKEREL`: 23.30 and 20.85 | two lines (right) | — the parser folds a repeated SKU only at the same unit price |
+
+**Not the parser — the admin button (Bugs #338, Priceback #475).** Gemini's proposal folded the two PICKEREL packs into one
+"quantity 2" line: `receiptAutoFix.groupQuantities` folded every repeat of an item number, whatever its price, and its
+prompt said *"ALWAYS group a quantity on ONE line"*. The same proposal kept the stored `PAY STATION PICKEREL` (a known
+SKU keeps its stored name), and `readPrintedFigures` read this receipt's labels-first totals block as TOTAL **154.86**,
+so even a right proposal would have been refused (`total_on_paper`).
+
+**O-4 · open — reproduced: no.** The flat replay of `raw_ocr` through `main` **applies** the 4.00 coupon (13.98), so the
+loss is on the geometry path the phone ran; the capture (R2) could not be pulled from this session (`railway run` was
+refused by the permission classifier). Next step: `railway run -e production node scripts/exportOcrCaptures.js
+--receipt r_1792607830954_afuor`, replay `<receipt>__c<id>`, and neutralise. Suspects, unproven: the `2 @ 2.00` multi-unit
+coupon line printed between the item and its reference; the coupon number (10 digits) deleted by the cleanup, leaving
+`/ 1647794` + `4.00-`.
 
 ## RC-15 · Store not detected when the COSTCO logo is cut off the photo
 
@@ -870,10 +953,18 @@ pre-scan banner welded into `2974611` on `eql4t` (3.0.5, covered by 3.0.6's scru
 
 | Receipt | Store | Scanned | Build | Lost | Status |
 |---|---|---|---|---|---|
-| `r_1791723518253_4qp2s` | Sherbrooke #1367 | 2026-10-11 | iOS 3.0.6 | Catalogue name of 1119338 | Repaired 2026-10-13 (spec renamed it) |
+| `r_1791723518253_4qp2s` | Sherbrooke #1367 | 2026-10-11 | iOS 3.0.6 | Catalogue name of 1119338 | Repaired 2026-10-13 (spec renamed it); *covered by Priceback #475* (c72 now reads `BATTERIE KS`) |
+| `r_1792607830954_afuor` | Nepean #540 | 2026-10-21 | not recorded | `*** PAY STATION ***` (an English lane marker in no vocabulary) welded into the first item: line stored `PAY STATION PICKEREL`. The same banner is on `t09q9` (Gloucester #1362), whose first name was not hit | **Not repaired yet** (Maxim's call); *covered by Priceback #475* (2026-10-21 hotfix) |
 
 **Proposed parser change (not applied).** Denoise first (design rules, step 2): a row whose text is bounded by
 `*{3,}` runs is a banner, whatever words it holds, and is removed as a row before item extraction — in both languages.
+
+**Fix (applied, 2026-10-21, shared cleanup, Priceback #475 — Maxim asked for it).** `shared/ocrCleanup.js`: a `***…***` span with letters
+and no digit is banner noise in any language (line, inline, and as a word span on a geometry row:
+`framedBannerWordIndexes`), and `PAY STATION` joins the English vocabulary for when Vision loses the asterisks. A
+priced item never matches (no digit inside the frame) and the two-asterisk `**KS TOWEL**` item stays an item. Golden
+corpus: 6 captures lose only their banner line from the persisted text; c72's name becomes `BATTERIE KS`; nothing else
+moves. The server's Gemini paths use the same list (`backend/lib/receiptLlmRules.js`).
 
 ## RC-19 · `cleanItemName` strips the `T` of a geometry-spaced `T-FAL`
 

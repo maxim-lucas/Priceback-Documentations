@@ -53,7 +53,7 @@ Gemini's answer is treated as a claim. The server computes these itself (`checkP
 | Check | Rule |
 |---|---|
 | Lines + tax add up to the total | Σ lineTotal + tax = total, to the cent — the repair tool's own rule |
-| Total is the one printed | the total equals the `TOTAL` read from the OCR text (or, if no TOTAL label was read, the amount is at least printed) |
+| Total is the one printed | the total equals the `TOTAL` read from the OCR text (or, if no TOTAL label was read, the amount is at least printed). A labels-first block (`SUBTOTAL` / `TAX` / `**** TOTAL`, then the three amounts) is zipped in order (2026-10-21) |
 | Lines add up to the printed subtotal | when a `SUBTOTAL` / `SOUS-TOTAL` / `TOTAL PARTIEL` was read |
 | Tax is the one printed | when a `TAX` / `TAXES` amount was read |
 | Every item number is printed | each SKU is a digit run of the OCR, or the tail of one (a coupon ref that lost its slash, `39519127003`) |
@@ -72,12 +72,27 @@ make a receipt add up to anything but its printed total.
 Only a line the scan lost entirely takes the name Gemini read; a fee name (DEPOSIT, CONSIGNE, ECO FEE, ECOFRAIS,
 ENVIRO FEE) is filed as a fee.
 
+**The parser's rules apply to Gemini (2026-10-21, Bugs #338).** `backend/lib/receiptLlmRules.js`, shared with
+`/api/ocr-llm`, enforces them in code, not only in the prompt:
+
+- every name, stored or read, goes through the parser's banner scrub: a stored `PAY STATION PICKEREL` is proposed as
+  `PICKEREL`;
+- a line that is noise or a totals label (`SUBTOTAL`, `TAX`, a banner) is dropped, unless the receipt already stores it
+  under an item number;
+- a repeated item number is **one line only when every unit cost the same** (the parser's `pushOrMergeItem` rule). Two
+  packs of a weighed item at different prices (`39602 PICKEREL` 23.30 and 20.85) stay two lines; a proposal that merges
+  them fails *Every price is printed* (44.15 is not on the paper).
+
 ## 3. What Gemini gets
 
 - The receipt **file** inline (the photo, or the PDF) when it is stored and ≤ 8 MB — so it reads the paper, not only
   our OCR of it. Otherwise text only (the panel says which).
-- The raw OCR text and the header OCR (`receipts.raw_ocr` / `header_ocr`, already PII-scrubbed on the phone).
+- The OCR text **with the parser's noise removed** (`receiptLlmRules.denoiseReceiptText`: the shared EN cleanup incl.
+  `***…***` banners, then Costco's French banner list) and the header OCR. The checks still read the full stored OCR.
 - The stored lines (SKU, name, quantity, paid, pre-coupon, fee flag) and the stored total/tax.
+- The parser's rules (`PARSER_RULES_PROMPT`: denoise first, only the item and totals blocks, a name is only the words
+  after its item number, same SKU + same unit price = one line, different amounts = separate lines, never compute a
+  tax or a total).
 - A system prompt with the Costco coupon shapes (`/<sku>`, `/MULTIPLE`, a slash-less ref, `TPD/`), the `N @ price`
   quantity line, fee lines, tax flags, and the hard rules (every number printed; lines = SUBTOTAL; SUBTOTAL + TAX =
   TOTAL; unreadable → keep the stored line).
