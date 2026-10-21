@@ -16,6 +16,13 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-21 — Waiting-claims nudge for inactive shoppers (query + daily draft job)
+
+- **Asked:** a SQL query listing shoppers with claims waiting (sub, name, alerts, last alert, nearest end, scan credit, tier, last seen, version, OS, device), then a short, localized, single-language reminder for those not active since their last alert — shown in chat first, then loaded on the notification review screen; saved as a reusable template and run daily. Due on the 4th day after the last alert with no app opening, or the 2nd day when a drop has < 5 days left; never the same day as another claim push, always 2 days apart.
+- **Decisions / constraints:** figures = the APP's (`shopperPreview`), locked drops included, never skip a negative balance; "last seen" = `users.app_seen_at` (what the admin screen shows), NULL = inactive, last known activity only as the date to quote; copy asks for nothing (title: total + days left; body: what was already missed, else "away since"); no mention of credits/plans. Uses the hotfix branch. Docs: `Waiting_Claims_Nudge_Template.md`.
+- **Files / areas:** `backend/lib/inactiveClaimsNudge.js`, `backend/jobs/inactiveClaimsNudge.js` (18:30 UTC, `INACTIVE_CLAIMS_NUDGE_ENABLED` default OFF), new approval kind `inactive_claims_nudge` (seed, repo, server.js `APPROVAL_PUSH_DATA`, pushI18n en+fr), `backend/tests/inactiveClaimsNudge.test.js`.
+- **Status:** built + tested on `hotfix/topup-negative-balance` (not pushed/merged). Notices can be drafted in prod only AFTER this deploys (the kind is seeded at boot); then switch the setting on.
+
 ### 2026-10-18 — Validate + merge PR #453 (line editor price/discount); receipt tax codes → tax estimate (documented only)
 
 - **Asked:** *"validate the last PR 453 and make sure the discount field is correctly wired and there is no bug, once done merge the PR and start a new one from main branch and handle this in the receipts so we can have an estimate of the taxes … but if these codes are cleaned up and we dont have access on them after removing the noise dont implement it just document it to be done later"*; *"and mention it in the roadmap docs"*.
