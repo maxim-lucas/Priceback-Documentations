@@ -16,6 +16,12 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-21 — Waiting-claims nudge for inactive shoppers (query + daily draft job)
+
+- **Asked:** a SQL query listing shoppers with claims waiting (sub, name, alerts, last alert, nearest end, scan credit, tier, last seen, version, OS, device), then a short, localized, single-language reminder for those not active since their last alert — shown in chat first, then loaded on the notification review screen; saved as a reusable template and run daily. Due on the 4th day after the last alert with no app opening, or the 2nd day when a drop has < 5 days left; never the same day as another claim push, always 2 days apart.
+- **Decisions / constraints:** figures = the APP's (`shopperPreview`), locked drops included, never skip a negative balance; "last seen" = `users.app_seen_at` (what the admin screen shows), NULL = inactive, last known activity only as the date to quote; copy asks for nothing (title: total + days left; body: what was already missed, else "away since"); no mention of credits/plans. Uses the hotfix branch. Docs: `Waiting_Claims_Nudge_Template.md`.
+- **Files / areas:** `backend/lib/inactiveClaimsNudge.js`, `backend/jobs/inactiveClaimsNudge.js` (18:30 UTC, `INACTIVE_CLAIMS_NUDGE_ENABLED` default OFF), new approval kind `inactive_claims_nudge` (seed, repo, server.js `APPROVAL_PUSH_DATA`, pushI18n en+fr), `backend/tests/inactiveClaimsNudge.test.js`.
+- **Status:** built + tested on `hotfix/topup-negative-balance` (not pushed/merged). Notices can be drafted in prod only AFTER this deploys (the kind is seeded at boot); then switch the setting on.
 ### 2026-10-20 — Priceback branches: `main-test-features` for features, `main` for hotfixes only
 
 - **Asked (Monica):** *"for priceback github, i want you to create a new permanent branch for testing new features on the dev branch using the dev database, dev railway and so i can use it to have a parallel branch to main. main will be for hotfix only, the new branch for new features and developpement branch is on hold for now. add these to claude rules in the claude configuration repo. create a new branch Name it main-test-features, then merge all of them in the new branch"*.
@@ -11248,3 +11254,20 @@ anyway).
 - **Free key:** Maxim set `GEMINI_API_KEY_FREE` on Railway. Live test (prod keys, synthetic receipts): paid 402 → free key; ocr-llm, auto-fix (applicable, coupon found) and flyer all answer; free `gemini-3.8-flash` sometimes 503 → `gemini-3.5-flash-lite`. PR #452 into `main` (not merged).
 - **Owed:** merge #452 (= Railway deploy) after Maxim confirms the privacy policy covers free-tier Gemini; the manual line editor — no code fault found yet (client and server both check Σ amount paid + tax = total), needs a failing receipt id.
 - **Regression risk:** see the PR.
+
+## 2026-10-18 — Release 3.1.2 (build 52)
+
+- **Asked (Maxim):** bump the version, tag + release before the builds, build both platforms.
+- **Done:** PR #454 (app.json, package.json, `KNOWN_BUILDS[52]` + test) squash-merged → `fe4b90a`. Tag `v3.1.2` (annotated, pushed), GitHub release with store copy (en + fr). EAS production builds from the tag: Android `35173d7e-bd78-49d7-8ce7-a1c0549a11d6`, iOS `c0932735-457e-4935-b69e-00420d2d27dd`.
+- **Not done:** store submission; device smoke test; confirm migration 0027 is applied to prod.
+- **Regression risk:** low for the bump itself; the release carries the drops audit (#451) — a drop is now always a charge.
+
+## 2026-10-20 — Hotfix: a pack bought on a negative balance granted +370 instead of +250
+
+- **Asked (Maxim, /goal):** user `103817226358249454103` was negative, bought the Starter pack (250); the negative balance was ignored and the pack "adjusted itself" to 370 so the final balance was 250. Find the root cause, datafix prod first, then fix — on `main` as a hotfix. Also: the credit drift check should have seen it.
+- **Branch:** `hotfix/topup-negative-balance` off `main` (`78f34c9`) → **PR #473** into `main` (open — merge = Railway deploy, owed to Maxim).
+- **Datafix (prod, done first):** ledger 13960 + `topup_refs` 10 → +250 / 130; balance 250 → 130. Verified balance = ledger sum = 130. See Bugs #336.
+- **Root cause:** webhook grant = floored-balance difference (`Math.max(0, -120) + 250 - (-120)` = 370). Drift sweep only checks balance == ledger sum, which the over-grant satisfied.
+- **Done:** webhook grants the pack's catalog credits; `applyEvent` no longer floors; sweep flags any top-up above its pack's credits and Apply reverses the excess append-only.
+- **Regression risk:** low. Old builds unaffected (webhook is server-to-server; the sweep response only gains `topupOvergrants`; the case shape is unchanged). A shopper with a negative balance now gets the pack minus the debt — intended.
+- **Verified:** full backend c8 run 2736/2739 (2 reds = dev-DB tables from #471, base was stale); after rebase on `78f34c9` the affected files are 142/143 — the one red, `rowLevelSecurityDb` (`pending_price_savings` has no RLS, migration 0031), fails identically on clean `main`. **Owed separately:** enable RLS on `pending_price_savings`.
