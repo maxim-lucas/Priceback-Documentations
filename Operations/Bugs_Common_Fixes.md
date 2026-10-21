@@ -7850,6 +7850,13 @@ bootstrap:
 select max(updated_at) from priceback.users;   -- frozen 4 days = total outage
 ```
 
+> **Since Priceback #466** (merged into `main-test-features` on 2026-10-20; production
+> once that branch is promoted to `main`): an opening that changes nothing is answered
+> from one read, and `updated_at` moves on every sign-in and at least once an hour for an
+> account in use (`usersRepo._touchUpdatedAt`), not on every bootstrap. So
+> `max(updated_at)` can trail the last authenticated request by up to an hour; a value
+> frozen for days still means nothing authenticated got through.
+
 Cross-check `devices.last_seen` and `consent_events.occurred_at`. All three
 freezing at the same minute means auth, not a per-account state. Then bracket the
 deploy by probing routes added in known PRs — `401` means the route exists,
@@ -14385,6 +14392,15 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
   `Roadmap/Costco_Coupons_Ingestion_Roadmap.md` §2. Re-importing is safe (idempotent upserts).
 - **Prevent.** `costcoNationalOfferDb.test.js` › *one bad row in a bulk flyer write does not
   drop the rows after it*.
+- **Status, 2026-10-20.** `merge/main-and-development` never merged, so this fix never
+  reached `main` or production. Priceback #459 (merged into `main-test-features` on
+  2026-10-20; production once that branch is promoted to `main`) brings the row isolation
+  and `describeError` there (`pricesRepo.recordPricePointsBulkDetailed` returns
+  `{ written, skipped, failed }`), without the national storage, which is left for Maxim.
+  It also closes **Still open**: each import's write is a `flyerImportPersist` job run
+  (Admin · Incidents · Scheduled jobs) that fails naming each province's failed rows.
+  Tests there: `flyerImportDedupeDb.test.js` › *one bad row costs only itself*,
+  `flyerImportPersistDb.test.js`.
 
 ---
 
@@ -14406,3 +14422,20 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Fix: `applyEvent` adds the pack to the balance as it is (negative included) and returns `topupCredits`; the webhook grants exactly `result.topupCredits` — never a balance difference. The sweep also checks every `topup_purchase` row against its pack's **catalog** credits (`findTopupOvergrants`, net of `topup-fix:<ref>` corrections): an over-grant opens a case whose `ledgerSum` is what the history *should* sum to, with a `topup_overgrant` breakdown line; **Apply** appends a `reconcile_adjust` row `-excess` (ref `topup-fix:<ref>`) plus the usual delta-0 audit row — the ledger stays append-only. Backend-only; the shipped admin screen renders the case unchanged.
 - Detect next time: Admin · Credit audit → a case with a `topup_overgrant` line; Railway `[reconcile] … (N over-granted top-up(s))`.
 - Prevent: `subscriptionGate.test.js` › negative balance (red on `main`), `topupNegativeBalanceDb.test.js` (webhook on -120 → +250 / 130; red on `main` with 250), `creditReconDb.test.js` › over-grant caught + reversed once, exact-pack top-up on a negative balance opens no case. Rule: a grant amount comes from the catalog, never from a balance difference.
+
+## 336. A flyer import's price-drop check was dropped while its province was mid-check (2026-10-19)
+
+- Date: 2026-10-19 · PR: Priceback #466 (`claude/account-check-read-first`) · Area: backend · `backend/priceDropNotifier.js`
+- Symptom: the combined CI run of the 2026-10-19 roadmap PRs (run 39325411939) failed *flyer import auto-fires a region-scoped background sweep* in `priceDropPipelineE2E.test.js`: the post-import push never came. Through a 32 ms latency proxy in front of a local Postgres it failed 2 runs in 6 on #466 alone and 0 in 6 on `main`.
+- Root cause: `runVerifiedDropSweep` skipped a trigger for a province that was already mid-sweep (`skipped: already_running`), and nothing ran it again. The server's own observation sweep (scheduled 4 s after a tag POST, `scheduleVerifiedDropSweep`) had read the prices before the flyer row was written, found nothing, and still held the "SK" key when the import's sweep arrived. Traced with temporary logging: the sweep in flight logged `found=0`, then the import's sweep logged `skipped already_running`. In production the same overlap leaves a flyer's drops, or an observation's, for the province's next trigger or the daily sweep. #466's faster account calls moved the test's timing onto the gap; the gap itself is older.
+- Fix: a blocked region or all-provinces trigger sets `_sweepAgain`, and the running sweep makes another pass when it finishes (at most 3), with a follow-up sweep for a trigger that lands during the last pass: the scheme `drainQueue` already used (`_drainAgain`). A pass reuses the running sweep's options, so it only answers a trigger with the same ones; only tests inject `expo`, `allowPush` or `now`, and they keep their own retry (see #334). A shopper's second "Refresh prices" is still collapsed into the first. A result over several passes sums them and carries `passes`.
+- Files: backend/priceDropNotifier.js (`runVerifiedDropSweep`, `_addSweepPass`, `_scheduleFollowUpSweep`), backend/tests/priceDropDrainControl.test.js.
+- Prevent: `priceDropDrainControl` › the sweep re-run cases (extra pass, all-provinces pass, follow-up after the last pass, a trigger with other options still skipped, a shopper's refresh collapsed). A guard that skips an overlapping run must remember the skipped request whenever the running one may already have read past its data.
+
+## 337. A test lost its buyer's push token to Expo's real answer (2026-10-19)
+
+- Date: 2026-10-19 · PR: Priceback #458 (`claude/push-token-hygiene`) · Area: backend tests · `tests/dropSweepResilienceDb.test.js`
+- Symptom: combined CI run 39325411939: B4 *still notifiable after the observations age out* → `0 !== 1`. Green locally, where Expo's API is out of reach.
+- Root cause: B3's `POST /api/me/check-drops` pushes through the server's own Expo client, which the file never stubbed, so CI reached Expo's real API. Expo answers `DeviceNotRegistered` for the made-up token, and #458 clears a token Expo calls dead (`lib/pushTickets`), so B4's buyer had no token and `findNotifiable`, which needs a token or a 3.1.0+ build, returned nothing.
+- Fix: stub `Expo.prototype.sendPushNotificationsAsync` for the whole file, as the other push tests do. Proven by answering `DeviceNotRegistered` from the stub: B4 fails; with accepted tickets B2 to B4 pass.
+- Prevent: no test talks to Expo. A test whose route can push stubs `Expo.prototype.sendPushNotificationsAsync` in `before` and restores it in `after`; since #458 a token Expo refuses is deleted, not just ignored.

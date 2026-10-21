@@ -127,3 +127,17 @@ window and said "end unknown". *View as* had the same gap (`lib/shopperPreview.j
 **Not fixable from the server for installed builds (≤3.1.0):** the chip's end date, the removed sentence and
 the drops-only view. Each ships in the binary. The admin side, the precedence and the reminder's
 `receiptId` are live as soon as the backend deploys.
+
+## 2026-10-20 — a push reaches only the signed-in account; the background check reads the list
+
+Merged into `main-test-features` on 2026-10-20. It reaches shoppers only when that branch
+is promoted to `main`; the app row also needs the next store build.
+
+| Change | Where | Old builds |
+|---|---|---|
+| Saving a push token takes it off every other account, so a phone gets only the drops and notices of the account signed in on it. Before, a sign-out left the token on the account, and the next account to sign in on that phone shared it (Priceback #458) | `usersRepo.updateProfile` (`_releasePushToken`) | every build back to v2.8.3 saves its token after sign-in, so it applies with no app change |
+| Only a push Expo accepted counts as sent and appears in the account's notification history in the admin console. A `DeviceNotRegistered` ticket clears the token at once, a receipt within about 30 minutes (a `*/15` cron, 15-minute delay). `sendUserPush` returns true only when Expo accepted the push (#458) | `lib/pushTickets`, `lib/pushReceipts`, `usersRepo.clearPushTokens`, `priceDropNotifier._deliver`, `server.js sendUserPush` | server-side; a pre-3.1.0 build left without a token gets no new drop charged until it saves one again |
+| Under the released-drops gate, the background task skips the per-line `/api/check-price` calls and only re-reads the released list (one `GET /api/me/drops`, or the cached list when offline). With the gate off, or before the phone has a list, it checks every line as before (Priceback #463) | `notificationService` background task, `releasedDrops.cachedReleasedDrops` / `isGatePayload` | the next app build; installed builds keep checking every line |
+
+**Not covered (#458):** signing out without another account signing in still leaves the
+token on the account. Clearing it on sign-out is an app change of its own.

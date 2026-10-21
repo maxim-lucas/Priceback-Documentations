@@ -6,6 +6,13 @@ three ways to feed it, all converging on the same `commitFlyerImport()` in
 via `pricesRepo.recordPricePointsBulk`, then the price-drop sweeps). A national
 batch is stored **once**, as `NATIONAL` — see §4.
 
+> **Status 2026-10-20: national-once storage is not on `main`.** Storing a
+> national batch once as `NATIONAL` (§4 and the lines that point to it) exists
+> only on `development`, on hold since 2026-10-20, and on
+> `merge/main-and-development` (`48db6a3`). Neither merged: `main` and
+> `main-test-features` still copy an `"ALL"` batch into each of the 13 provinces.
+> Left for Maxim: `Roadmap/Costco_Coupons_Ingestion_Roadmap.md` §1.
+
 ## 1. In-app admin Flyer Scan (fastest, interactive)
 
 Profile → **Admin → Flyer scan** (visible only to accounts in `ADMIN_USER_SUBS`).

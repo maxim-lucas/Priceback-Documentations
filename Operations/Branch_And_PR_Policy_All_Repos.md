@@ -3,7 +3,7 @@
 **Scope:** every GitHub repository under this project —
 `maxim-lucas/Priceback`, `maxim-lucas/Priceback-Documentations`,
 `maxim-lucas/Priceback-Website`, `maxim-lucas/social-media-manager`, and any
-repo added later. **Last updated:** 2026-09-07.
+repo added later. **Last updated:** 2026-10-20.
 
 ## The rule
 
@@ -15,21 +15,27 @@ default branch (`main` / `master`) by direct push, fast-forward by hand, or
    `polish/…`), never directly on the default branch even when it is checked
    out.
 2. Every branch is opened as a PR against the branch it is meant to land on
-   (`development` for Priceback features; the default branch elsewhere).
+   (for Priceback, `main-test-features` for features and `main` for a hotfix,
+   since 2026-10-20; the default branch elsewhere).
 3. The PR is **squash-merged** — one commit per PR on the target — and then the
    branch is **deleted**, local and remote.
 4. A branch with no PR is not "done." A merged PR whose branch still exists is
    not "done" either — delete it.
+5. Since 2026-10-15 GitHub deletes a merged PR's head branch by itself in
+   Priceback, so a long-lived branch (`main-test-features`, `main`) is never a PR
+   head: a promotion or a merge-back goes through a short-lived branch cut from
+   it (`Release_Tagging_And_Repo_Management.md` §6a).
 
 Priceback keeps its extra release machinery (annotated tag + GitHub release per
-store build, `development` → `main` promotion). That is layered *on top of* this
+store build, `main-test-features` → `main` promotion on request). That is layered *on top of* this
 rule, documented in `Release_Tagging_And_Repo_Management.md`. This file is the
 baseline that applies everywhere.
 
 ## Auditing stale branches
 
 When reviewing a repo's branches, for every branch that is not the default
-branch (and not Priceback's protected `development`):
+branch (and not Priceback's long-lived `main-test-features`, or `development`,
+which is on hold):
 
 1. Check whether its work is already merged — look for a merged PR with that
    `headRefName`, and confirm the content is on the default branch (squash

@@ -112,6 +112,8 @@ Scans **all** users with a non-null `push_token` and runs a `LATERAL` "latest ma
 
 `backend/db/client.js` sets `max: 5`, `idleTimeoutMillis: 30_000`, `connectionTimeoutMillis: 5_000`, and connects through Neon's **PgBouncer pooler** (`…-pooler…` host in `DATABASE_URL`). For a single Railway instance this is appropriate, and PgBouncer absorbs short connection bursts. The relevant interaction is with #1: a long receipt-create transaction holds one of the 5 client slots for its full duration, so reducing that duration (#1) directly increases effective write concurrency. Revisit `max` only when scaling Railway horizontally.
 
+> **Update, 2026-10-20 (Priceback #465, merged into `main-test-features`; production once that branch is promoted to `main`):** an unused connection is now kept 10 minutes (`DB_POOL_IDLE_MS` overrides it) and replaced after an hour (`maxLifetimeSeconds: 3600`), with TCP keep-alive after 60 s idle and `allowExitOnIdle`. `max` stays 5. Why: with the 30 s idle timeout, production opened about 940 new connections a day (`SET search_path`, which runs once per new connection, ran 114,184 times in the 121 days to 2026-10-18, `pg_stat_statements`), so most visits after a quiet spell paid the connection setup again. Through a proxy adding a 15 ms round trip, a query after 35 s idle went from 100 ms to 17 ms.
+
 ---
 
 ## 6. Test-suite reliability (Fixed in this pass)

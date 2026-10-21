@@ -3,7 +3,11 @@
 Roadmap items surfaced while importing the `costco-coupons-2026-09-14-ALL.json`
 batch (119 items × 13 provinces = 1,547 `price_points` rows, production,
 2026-09-27). A punch list, not a design doc. **Status 2026-09-28: §1 shipped,
-§2 partly** (on branch `merge/main-and-development`); §3–§5 open. See
+§2 partly** (on branch `merge/main-and-development`); §3–§5 open. **Status
+2026-10-20:** that branch never merged into `main`, so neither change reached
+production. Priceback #459 (merged into `main-test-features` on 2026-10-20; shoppers
+get it when that branch is promoted to `main`) does all of §2 there; §1 is still only
+on that branch, left for Maxim. See
 [[Flyer-ingestion]] and [[Costco_Flyer_Province_Comparison]] for the ingestion
 mechanism and crawl findings this work builds on.
 
@@ -11,6 +15,12 @@ mechanism and crawl findings this work builds on.
 
 ## 1. Use the `NATIONAL` province for `costco-coupons`, instead of fanning out to 13 rows
 
+> **Not on `main` (2026-10-20).** "Shipped" below means committed on
+> `merge/main-and-development` (`48db6a3`), which never merged: `main` and
+> `main-test-features` still copy an `"ALL"` import into all 13 provinces. Storing a
+> national offer once changes the query that matches drops to buyers, so it is left for
+> Maxim (Priceback #459).
+>
 > **✅ SHIPPED 2026-09-28** — with one deliberate difference from the plan
 > below. Maxim's rule was broader than this item: *"all national offers should
 > be stored as national not duplicated even for costco"*. So **every** import
@@ -90,12 +100,19 @@ standing rule (don't widen a store-gated branch to a set).
 
 ## 2. `commitFlyerImport`'s background DB persist silently loses rows under load
 
-> **◐ PARTLY DONE 2026-09-28.** `recordPricePointsBulk` now isolates each row —
-> a row that throws is logged and skipped, the rest are written — and both
-> failure logs use `describeError`, so the Postgres cause is printed. A national
-> batch is also 13× fewer writes (119 instead of 1,547 for this batch), which
-> removes most of the pool contention. **Still open:** surfacing a partial
-> persist somewhere visible (the third checkbox below).
+> **✅ DONE on `main-test-features`, 2026-10-20 (Priceback #459; production once that
+> branch is promoted to `main`).** `pricesRepo.recordPricePointsBulkDetailed` logs a
+> row that throws with the database's reason (`describeError`), counts it, and still
+> writes the rows after it. The background write runs as `persistFlyerRegions` under a
+> `flyerImportPersist` job run (Admin · Incidents · Scheduled jobs): a success when
+> every row was written or already on file, a failure that names each province and its
+> failed rows otherwise ("BC 2 of 119. Re-importing the batch is safe."). Both
+> failure logs, the province's `[Flyer] DB price_points write failed` and the
+> per-row `[Prices] bulk import: row skipped`, use `describeError`. Not done: the 13×
+> fewer writes of a national batch, which needs §1.
+>
+> The 2026-09-28 note this replaces described the same row isolation (plus §1's
+> national storage) on `merge/main-and-development`, which never merged into `main`.
 
 **Found live in production during this import.** `commitFlyerImport`
 (`backend/server.js`) persists each region's accepted offers via
@@ -126,12 +143,13 @@ site, so diagnosing this required a separate live investigation instead of
 reading the log.
 
 **Needed:**
-- [ ] Swap `console.warn(..., e.message)` → `console.warn(..., describeError(e))`
+- [x] Swap `console.warn(..., e.message)` → `console.warn(..., describeError(e))`
   at the two `[Flyer] DB price_points write failed` sites in `commitFlyerImport`.
-- [ ] Either wrap each region's bulk write in a transaction (all-or-nothing,
+- [x] Either wrap each region's bulk write in a transaction (all-or-nothing,
   simplest) or add per-row retry/catch so a single bad/contended row doesn't
-  silently drop every row behind it.
-- [ ] Surface partial persistence somewhere visible (the API response only
+  silently drop every row behind it. (Per-row catch, no retry: re-importing is
+  idempotent.)
+- [x] Surface partial persistence somewhere visible (the API response only
   reports the in-memory overlay's accept count, not what actually reached
   `price_points` — Phase 1 and Phase 2 can silently disagree, as they did
   here for ~2 minutes across 3 runs).
