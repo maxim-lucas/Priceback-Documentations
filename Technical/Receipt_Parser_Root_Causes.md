@@ -559,7 +559,7 @@ cases only:
 
 | Receipt | Store | Scanned | Build | Lost | Status |
 |---|---|---|---|---|---|
-| `r_1791814977185_p2s1a` | Boisbriand #546 | 2026-10-12 | Android 3.0.6 | Filed under Sainte-Foy #516 with its 27 price points and its watches | Repaired 2026-10-12 (guarded SQL: receipt and 27 price points moved to #546); *covered by #427* |
+| `r_1791814977185_p2s1a` | Boisbriand #546 | 2026-10-12 | Android 3.0.6 | Filed under Sainte-Foy #516 with its 27 price points and its watches | Repaired 2026-10-12 (guarded SQL: receipt and 27 price points moved to #546); *covered by #427*. **The shopper's phone still showed Sainte-Foy on 3.1.2 (reported 2026-10-21):** not this parser cause but a sync one: the hydrate merge never took the server's warehouse, so the phone's own 3.0.6 reading stayed. Fixed on the client (Bugs #340, `hotfix/sync-server-authoritative-header`) |
 | `r_1791125306407_zm6h2` (corpus) | Gatineau #542 | 2026-10-04 | not recorded | The replay read 3542; prod stored 542 | *Covered by #427* |
 | `r_1791573195154_8y5tt` c45 (corpus) | Boisbriand #546 | 2026-10-09 | Android 3.0.5 | The replay of the 2000px capture read 544; prod stored 546 | *Covered by #427* |
 
