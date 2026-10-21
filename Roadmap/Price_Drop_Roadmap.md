@@ -101,6 +101,26 @@ when the DB leg didn't run (asserts `HAS_DB` in the CI environment).
 
 ---
 
+## 🔴 Savings-only price drops ("Solution B") — CRITICAL, needs Monica's DOUBLE confirmation
+
+> **Do not start this without two separate, explicit confirmations from Monica** (her rule, 2026-10-20). It changes how every price-drop amount, commission and claim is computed.
+
+**Problem.** Some sources print only a *saving*, not a shelf price. The Québec Same-Day (sameday.costco.ca) weekly savings are the main case. Same-Day prices run above the warehouse shelf, so storing the Same-Day sale price as a price point gives wrong drop amounts. The detector today compares what the shopper paid (`receipt_items` unit price) with a stored price (`price_points.current_unit_price`, `priceDropRepo.findNotifiable`). It has no way to say "$200 off whatever you paid".
+
+**What runs today (Solution A, Priceback #471).** A Same-Day saving becomes a warehouse price: the item's known warehouse regular minus the saving. The regular comes from the same province in the DB, else the upload's warehouse rows, else any province. A saving with no known regular waits in `pending_price_savings` (migration 0031) and is checked by hand. The weakness: the result is only as right as the regular we pick, and a regional regular that differs from the one used gives a slightly wrong amount.
+
+**Solution B.** Store the saving itself and let detection apply it to each purchase:
+
+- A saving row (a new table, or a price-point kind) holds the product, province, saving amount, and valid_from / valid_until. It holds no price.
+- Detection: for a watched line bought **before** `valid_from` at the regular price, with the saving active and inside the line's claim window, `new_price = unit_paid - saving` and `drop = saving`. A line bought during the sale (already discounted, `unit_paid <= regular - saving`, or the receipt shows the TPD) is not a drop.
+- Needs a reliable "bought at regular" test per line. Candidates: no instant-savings line on the receipt for that SKU, or `unit_paid >=` the province's known regular.
+- Touches the money path: drop amount → commission at detection → push copy → claim assistant → Price-Drop Guarantee. Each needs tests, and the Rule-of-N / verified logic must treat a saving row as a verified source.
+- Backward compatibility: old app builds read `newPrice` / `savings` from the drop payload. Keep those fields' meaning: `newPrice = unit_paid - saving`.
+
+**When it is worth it.** When `pending_price_savings` keeps a large open backlog, or Solution A's derived prices disagree with scans often enough to matter.
+
+---
+
 ## Landed on `main-test-features`, 2026-10-20 (production once that branch is promoted to `main`)
 
 - **Unlimited's "Priority price checking (every 2 h)" runs** (Priceback #457). The plan

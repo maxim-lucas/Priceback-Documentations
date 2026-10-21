@@ -17,11 +17,33 @@ Needs migration `0030_product_price_sameday` (`products.price_sameday`, Pricebac
 
 ## Rules
 
-The same rules the `costco-region-2026-10-19` import was written with; uploading that file through the console reproduces it row for row (340 SKUs, 1,345 price points, 279 Same-Day regular prices).
+The same rules the `costco-region-2026-10-19` import was written with; uploading that file through the console reproduces it row for row (340 SKUs, warehouse rows and 279 Same-Day regular prices; the Same-Day savings depend on the regulars in the database at upload time).
 
 - **Every SKU** becomes a Costco product if missing (`display_name = product_name`). An existing product keeps its name.
 - **Warehouse prices** (`price_type: "warehouse"`) become price points, one per province in `provinces[]` (else the region key), province-wide (`warehouse_id NULL`): source `price_tag_scan`, `verified = true`, device hash `d8c1b0f3a9e44d27` (no devices row, so no tag credits), `source_ref = <batch>:<price in cents>`, `flags.sourceKind = "social_price_tag"`, `flags.importBatch = <batch>`, plus posts, locations, platform and recency. `regular = regular_price`, or the price itself when missing or lower.
-- **Same-Day prices** (`price_type: "sameday_delivery"`) set `products.price_sameday`, the online REGULAR price (`regular_price`, or `price_discounted` when none is printed; latest upload wins). A Same-Day item on sale (regular > discounted) is also a price point for its province, `source_ref = <batch>:sameday:<cents>`, `flags.priceType = "sameday_online"`, posted by `sameday.costco.ca`.
+- **Same-Day prices** (`price_type: "sameday_delivery"`) set `products.price_sameday`, the online REGULAR price (`regular_price`, or `price_discounted` when none is printed; latest upload wins). A Same-Day **saving** never carries the Same-Day price into the pool (online runs above the shelf; Monica, 2026-10-20). It becomes a warehouse price for its province: the item's known warehouse regular minus the saving (`discount_amount`, else regular − discounted). The regular comes from the latest price point for the SKU in the same province (last 180 days, Same-Day rows excluded), then this file's warehouse rows for the SKU (Ontario first), then the latest point in any province. `source_ref = <batch>:sameday:<cents>`, `flags.priceType = "sameday_saving"`, plus `flags.saving` and `flags.regularFrom`. A saving for a SKU and province the file already has a real warehouse price for is left out (the shelf price wins). With no known regular, the saving is kept in **`pending_price_savings`** (migration 0031: product, province, saving, Same-Day sale price for reference, window, `resolved_at`) and listed as a warning; a later upload that prices it marks it resolved. On the 2026-10-19 file: 225 of 263 priced (167 same province, 57 file, 1 any province), 12 left out for a shelf price in the file, 26 pending. Monica chose this (Solution A) on 2026-10-20; the savings-only alternative (Solution B) is in `Roadmap/Price_Drop_Roadmap.md` and needs her double confirmation.
+
+### Checking pending savings by hand
+
+Open savings that now have a warehouse regular in their province (run on prod, read-only):
+
+```sql
+SELECT pr.sku, pr.display_name, pv.code AS prov, ps.saving, ps.valid_until,
+       r.regular_unit_price AS regular, r.regular_unit_price - ps.saving AS warehouse_price
+  FROM priceback.pending_price_savings ps
+  JOIN priceback.products pr ON pr.id = ps.product_id
+  JOIN priceback.provinces pv ON pv.id = ps.province_id
+  JOIN LATERAL (
+    SELECT pp.regular_unit_price FROM priceback.price_points pp
+     WHERE pp.product_id = ps.product_id AND pp.province_id = ps.province_id
+       AND pp.observed_at > now() - interval '180 days'
+       AND (pp.source_ref IS NULL OR pp.source_ref NOT LIKE '%:sameday:%')
+     ORDER BY pp.observed_at DESC, pp.id DESC LIMIT 1) r ON true
+ WHERE ps.resolved_at IS NULL AND (ps.valid_until IS NULL OR ps.valid_until >= current_date)
+ ORDER BY ps.valid_until;
+```
+
+Re-uploading the same file through the console then prices these and marks them resolved.
 - A Same-Day item's `warehouse_price_discounted` becomes a price point for its province (regular = price, until = `warehouse_expiry_date`).
 - **Start date**: `item.start_date`, else the date picked on the page, which defaults to the file's `start_date`, else its `generated` date.
 - **Batch**: defaults to `costco-region-<generated>`, so the same file uploaded twice upserts the same rows and changes nothing. A corrected price gets a new `source_ref` (the cents change) and is added beside the old one.
