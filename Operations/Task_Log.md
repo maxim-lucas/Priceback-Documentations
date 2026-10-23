@@ -16,6 +16,13 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-22/23 — Sync-integrity audit; Gemini never merges different values; Gemini first (admin switch, daily-limit fallback)
+
+- **Asked (Maxim, /goal):** *"start a deep analysis on any data that could not sync correctly between the device and the server. also make sure that the Gemini LLM respect the main parser logic everytime, never merge 2 products having different values even if the sku is the same, make also Gemini LLM the primary parser that i can change by a switch in the admin panel and the fallback will kickoff after the limit of LLM (daily)"*. Branch not named → asked → **`main` as hotfixes** (one PR per task, merge = Railway deploy = Maxim's go). Planning: code + dev DB only (*"Resume, no production"*).
+- **Decisions (2026-10-22):** Gemini may use the free backup key, with a privacy disclosure; the server re-reads receipts from every build when the regression risk is acceptable (assessed moderate → own switch, default off; else roadmap); the reader is recorded per receipt; shopper corrections go to the server (store/warehouse admin-only; plan proposes the date too). Plan: `C:\Users\Sandr\.claude\plans\virtual-spinning-pizza.md`.
+- **Files / areas:** PR-1 `hotfix/sync-server-safety` (re-send never charges, restore paging, outbox at the account boundary, sign-out auto-reload, restored language); PR-2 never merge (`pushOrMergeItem`, drop chips, auto-fix pairing, `groupSameUnitPrice`); PR-3 `badScanRepair` modes; PR-4 Gemini first (0032 `receipt_readers`); PR-5 line identity + shopper edits (0033); PR-6 this hub (`Technical/Device_Server_Sync_Audit_2026-10-23.md`).
+- **Status:** in progress (worktrees `pb-sync-gemini`, `pbdocs-sync-gemini`).
+
 ### 2026-10-21 — Waiting-claims nudge for inactive shoppers (query + daily draft job)
 
 - **Asked:** a SQL query listing shoppers with claims waiting (sub, name, alerts, last alert, nearest end, scan credit, tier, last seen, version, OS, device), then a short, localized, single-language reminder for those not active since their last alert — shown in chat first, then loaded on the notification review screen; saved as a reusable template and run daily. Due on the 4th day after the last alert with no app opening, or the 2nd day when a drop has < 5 days left; never the same day as another claim push, always 2 days apart.
