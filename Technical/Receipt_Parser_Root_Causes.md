@@ -305,6 +305,7 @@ tax equal the stored total, are this root cause.
 | `r_1791853201148_ejx4g` | Barrhaven #1263 | 2026-10-13 | Android 3.0.6 | Tax 13.98 for 0.00 | Repaired 2026-10-13 (spec); `main` still reads tax 7 (O-3) |
 | `r_1791933708024_t09q9` | Gloucester #1362 | 2026-10-13 | iOS ≤ 3.0.6 | Tax 4.23 for 19.23 (FLATWRE's 15.00 coupon lost, RC-20) | Repaired 2026-10-14 (SQL); the RC-20 trigger *covered by #432* |
 | `r_1792607830954_afuor` | Nepean #540 | 2026-10-21 | not recorded | Tax 1.81 for the printed 5.81 (= 160.67 − the 158.86 of stored lines): CRMYDILLPCKL's `0000396742 / 1647794` 4.00- coupon lost (O-4) | Not repaired yet |
+| `r_1792728413893_vi24j` | Windsor #534 | 2026-10-23 | iOS 3.1.2 | Tax 19.86 for the printed 45.35 (= 796.14 − the 776.28 of stored lines; RC-26 to RC-29) | Repaired 2026-10-23 (spec); *covered by #476* (next binary) |
 
 **Proposed parser change (not applied).** In step 2:
 
@@ -657,6 +658,7 @@ rejects real pairs, and a page median hides a steep band:
 | `r_1791814977185_p2s1a` (c87) | Boisbriand #546 | 2026-10-12 | Android 3.0.6 | Not established: BATON CELERI lost, its 6.99 on CONCOMBRES (flat candidate) | Repaired 2026-10-12 (spec); the same pairing on #427 and `main`; proof owed |
 | `r_1791823503830_w0dv6` | Sherbrooke #1367 | 2026-10-12 | iOS 3.0.6 | 410.36 for 431.84 (CREVETTES, ALLEGRO and their coupons, AILES DE POU, BOUNTY's TPD) | Duplicate soft-deleted 2026-10-13; closes on `main`, *covered by #427* as a whole; cause not isolated |
 | `r_1791853110451_7yckq` | Barrhaven #1263 | 2026-10-13 | Android 3.0.6 | Every price a row off (2000px adopted), `/MULTIPLE 7.00-` lost | Spec 2026-10-13; on `main` the sum closes but the first two rows stay mispaired (O-1) |
+| `r_1792728211191_tv798` (c265, c266) | Windsor #534 | 2026-10-23 | iOS 3.1.2 | A curled photo: every coupon row welded onto the next item row (`0000394669 1931258 AVEENO / 97700 BW 40.00- 19.99 H`); 727.35 / 741.35 for 750.79 with #480 | Deleted by the shopper, who rescanned (`vi24j`, c268); both captures pinned `parser_gap` (flagged); proof owed |
 
 **Fix (applied).** #427 (first tag v3.1.0) makes three changes:
 
@@ -1159,6 +1161,151 @@ Priceback PR #436 (first merged as #435 into #432's branch after #432 had landed
 
 ---
 
+## 2026-10-23 · `vi24j` (Windsor #534) — two totals blocks — cases
+
+`r_1792728413893_vi24j`, Costco Windsor #534 (ON, English), bought 2026-10-03 16:46, scanned 2026-10-23 04:06 UTC on
+**iOS 3.1.2** (build 52), capture **c268** (1200px, the only pass). Stored **776.28 + 19.86 = 796.14** for the printed
+**750.79 + 45.35 = 796.14**. One purchase that prints **two** SUBTOTAL / TAX / TOTAL blocks:
+
+```
+2458554 TIDE ORIGNL       29.99 H     ← 8th line
+SUBTOTAL                 111.29
+TAX                        9.81
+**** TOTAL               121.10      ← white on black; Vision read "20"
+CASH                       0.00
+2040480 LOLE JOGGER       24.99 H     ← 20 more lines
+…
+SUBTOTAL                 750.79      ← covers all 28 items
+TAX                       45.35
+**** TOTAL               796.14
+```
+
+Proved on the paper: 20 lines = 750.79; H lines 348.83 × 13 % = HST 45.35; `TOTAL NUMBER OF ITEMS SOLD = 28`;
+`TOTAL DISCOUNT(S) $ 101.50` (the voided 4.00 netted out).
+
+**Reproduced.** The replay of c268 on `v3.1.2` (worktree at `fe4b90a`) gives exactly the stored 21 lines, Σ 776.28; the
+tax is RC-5's back-derivation (796.14 − 776.28). `main` before the fix (`8345bb0`) reads 768.28.
+
+**Neutralised one at a time** (input only): the VOID marker read right → −14.49 (the voided 3M scan) but its voided
+coupon becomes a 4.00 item (RC-27); `/MULTIPLE` with its slash → −7.00 (RC-28); `4 @` instead of `48` → the SKU comes
+back (RC-29). All of RC-26 to RC-30 fixed: 20 lines, **750.79 + 45.35 = 796.14**, 28 units, to the cent.
+
+The shopper's first attempt `r_1792728211191_tv798` (deleted by them 2 minutes later, c265 1200px + c266 2000px) was a
+curled photo: every coupon row welded onto the next item row (`0000394669 1931258 AVEENO / 97700 BW 40.00- 19.99 H`).
+That is RC-12's shape, not these; pinned as `parser_gap` (flagged) in `receiptProdCaptures.test.js`.
+
+**Blast radius (prod, 2026-10-23):** 4 receipts print two SUBTOTAL labels (`raw_ocr`): `mebfs`, `p2s1a` (RC-7, both
+repaired), `v3u8j` (#1720, parsed right) and `vi24j`. One prints a VOID block (`vi24j`); `tv798` too (deleted).
+
+## RC-26 · The VOID marker read `' OID`
+
+**Printed shape.** The English register prints `VOID` in double-size type against the left margin. Vision read it
+`'` + `OID` (`' OID` on the rows, `'OID` in the flat text) on both void lines of `vi24j`, and in `tv798`.
+
+**What goes wrong.** Nothing knows `' OID`, so the void block is read as purchases. Its rows then follow RC-27.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1792728413893_vi24j` | Windsor #534 | 2026-10-23 | iOS 3.1.2 | The void block (with RC-27): 3M SPONGEX24 billed twice (+14.49) and the voided coupon stored as `' OID Unknown item` 4.00 | Repaired 2026-10-23 (spec); *covered by #480* |
+
+**Fix (applied, Priceback #480).** `normalizeMangledVoidMarker` (Costco preprocess): a line that is only an optional
+quote/punctuation mark and `OID` becomes `VOID`. An item row starts with its number, so none can match.
+
+## RC-27 · An English VOID block cancels the item but bills its coupon reversal
+
+**Printed shape.**
+
+```
+1967168 3M SPONGEX24      18.49 H     ← scan 1
+0000392704/1967168         4.00- H    ← its coupon
+298801 POM JUICE          12.99
+VOID
+1967168 3M SPONGEX24      18.49- H    ← scan 1 voided
+VOID
+0000392704 / 1967168       4.00 H     ← its coupon voided (POSITIVE)
+1967168 3M SPONGEX24      18.49 H     ← scan 2
+0000392704 / 1967168       4.00- H
+```
+
+**What goes wrong.** The engine's English VOID handler (`receiptParsingShared.js`) removes the matching earlier item,
+but nothing reads a positive coupon reversal: it became an item (`Item #0000392704` 4.00 on `main`). The Quebec
+`ANNUL` block of exactly this shape has been handled since Sept 2026 by `cancelAnnulledLines`, which was gated to the
+French word (*"no English receipt reaches this pass changed"*). Its item pattern also wanted a name starting with a
+letter, so `3M SPONGEX24` could not match.
+
+**Proof.** With RC-26 neutralised (`VOID` read right): 3M is cancelled once (−14.49) and the coupon reversal is billed
+(+4.00), 754.79 for 750.79. With this fix too: 750.79.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1792728413893_vi24j` | Windsor #534 | 2026-10-23 | iOS 3.1.2 | The 4.00 coupon reversal (with RC-26: the whole void) | Repaired 2026-10-23 (spec); *covered by #480* |
+
+**Fix (applied, Priceback #480).** `cancelAnnulledLines` takes `VOID` as a marker too: each void removes the most
+recent line with the same SKU and amount (an item, or a coupon reversal of the same coupon) and its own block. An
+unmatched VOID is left as printed, so the engine's handler still sees it. A name may open with digits when its first
+word carries a letter (`3M`, `60PC`).
+
+## RC-28 · A MULTIPLE coupon read with no slash, its number dropped
+
+**Printed shape.** `0000390266 /MULTIPLE 7.00- H` under `2040560 LOLE FZIP 29.99 H`. Vision lost the slash: the flat
+text read `0000390266 MULTIPLE` over `7.00- H`, and on the rows the cleanup dropped the 10-digit number (no slash, so
+not a coupon reference by `COUPON_REFERENCE_ROW_RE`): `MULTIPLE 7.00- H`.
+
+**What goes wrong.** The MULTIPLE rule in `handleCostcoTpdLine` (#402) requires the slash. Same consequence as RC-1:
+the item keeps its full price (a fake-drop risk) and the lines run over the subtotal by 7.00.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1792728413893_vi24j` | Windsor #534 | 2026-10-23 | iOS 3.1.2 | LOLE FZIP's 7.00 coupon | Repaired 2026-10-23 (spec); *covered by #480* |
+
+**Fix (applied, Priceback #480).** `restoreSlashlessMultipleCoupon`: a line that is nothing but [a coupon-shaped
+number: `0000`+6 or 6 digits starting `3`] `MULTIPLE` [amount] gets its slash back when the amount, on the row or the
+next one, carries a minus. `2040560 MULTIPLE…` (an item number) and an item named `MULTIPLE VITAMIN` stay untouched.
+
+## RC-29 · `4 @ 4.79` read `48 4.79` and welded onto its item row
+
+**Printed shape.** The multi-buy marker `4 @ 4.79`, printed above `500666 KS WATR500** 19.16`. Vision read the `@` as
+`8`, and on the tilted page the geometry joined it to the item row: `48 4.79 500666 KS WATR500MM 19.16`.
+
+**What goes wrong.** No item pattern starts with `48 4.79`, so the line was stored SKU-less (`ln:<receipt>:1`, named
+`48 4.79 500666 KS WATR500MM`) with quantity 1 — its 19.16 would have been watched as one unit's price.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1792728413893_vi24j` | Windsor #534 | 2026-10-23 | iOS 3.1.2 | SKU 500666 and quantity 4 of the 19.16 line | Repaired 2026-10-23 (spec); *covered by #480* |
+
+**Fix (applied, Priceback #480).** `splitMultiBuyMarker`: a row `N[@|8] unit <sku> <name> amount` is split into
+`N @ unit` + the item row, and a lone `N8 unit` row over an item row becomes `N @ unit`, only when N ≥ 2 and
+N × unit is exactly the line amount.
+
+## RC-30 · The final TOTAL lost its stars, so the interim totals block was kept
+
+**Printed shape.** See the case header above. The final `**** TOTAL 796.14`: the photo is tilted (slope ≈ −0.05), so
+`796.14` sits 43 px above `****`.
+
+**What goes wrong.** Two steps:
+
+1. `cleanReceiptOcr` (`shared/ocrCleanup.js`) clusters words into rows anchored on the topmost word: `796.14` anchors
+   a row that takes `TOTAL` (34.5 px) but not `****` (43 px > 0.6 × the median glyph height, 35.4 px). The lone
+   `****` row matches the `separator` rule and is dropped. The geometry rows read `TOTAL 796.14`.
+2. `dropIntermediateTotalsBlocks` (RC-7's fix, #427) removes an interim block only when a later `**** TOTAL` row follows
+   the items; with the stars gone there is none, and the interim block stays. Its English `TAX 9.81` row was also not
+   in the block vocabulary (`TAXE` only), so even a removed block would have left `SUBTOTAL 111.29 / TAX 9.81` behind.
+
+On `vi24j` the kept block cost no line: the engine read past it and took the printed total from the final block. It
+is the shape every reader of the receipt has to get right (the admin auto-fix did not: RC-32).
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1792728413893_vi24j` | Windsor #534 | 2026-10-23 | iOS 3.1.2 | Nothing on the lines; the interim block stayed in the items text | Repaired 2026-10-23 (spec); *covered by #480* |
+
+**Fix (applied, Priceback #480).** A later SUBTOTAL row, or a bare `TOTAL <amount>` row, opens the final block as well
+as `**** TOTAL`; `TAX` is a block label. Summary lines that only start with TOTAL (`TOTAL TAX`, `TOTAL NUMBER OF
+ITEMS SOLD`, `TOTAL DISCOUNT(S)`) are not.
+
+**Proposed cleanup change (not applied).** RC-4's proposal covers this too: a punctuation-only row within one glyph
+height of a kept row, inside its x-span, belongs to that row. Not done here: the cleanup runs for every store.
+
 ## RC-31 · A VOID removes the whole folded line, not the one unit it cancels
 
 *(RC-26 to RC-30 are the two-totals, English VOID block, slashless MULTIPLE and `4 @` causes of Priceback #480.)*
@@ -1191,6 +1338,28 @@ below.
 quantity is above 1 and the voided amount equals one unit (`lineTotal / quantity` to the cent), decrement the
 quantity and the line total by one unit. Otherwise (the voided amount equals the whole line) remove it, as today.
 Prove it on the corpus (rule 7).
+
+## RC-32 · The admin auto-fix checked a proposal against the FIRST totals block
+
+**Printed shape.** Any receipt with an interim block (above).
+
+**What goes wrong.** `readPrintedFigures` (`backend/lib/receiptAutoFix.js`, #452 / #475) returned the first SUBTOTAL,
+TAX and TOTAL it read. On `v3u8j` (#1720, parsed right: 135.94) it read 87.98 / 0.00 / 87.98, so the stored lines
+failed `subtotal_on_paper` and `total_on_paper`: *"0 change(s), applicable=false"*, twice. On `vi24j` it read TAX 9.81,
+so even the right proposal failed `tax_on_paper`: *"5 change(s), applicable=false"*, twice. Maxim: *"when i try to fix
+it using Gemini LLM still the receipt is not balancing"*. Gemini was not told about interim blocks, VOID, a slashless
+MULTIPLE or a misread `N @` either.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1792706357636_v3u8j` | #1720 (QC) | 2026-10-22 | not recorded | Nothing (right receipt); auto-fix refused it | Reviewed 2026-10-22; *covered by #490* |
+| `r_1792728413893_vi24j` | Windsor #534 | 2026-10-23 | iOS 3.1.2 | Auto-fix refused the right answer (tax 45.35 vs the interim 9.81) | Repaired by spec; *covered by #490* |
+
+**Fix (applied, Priceback #490, server).** With two blocks or more, the printed figures are the readings that close
+(subtotal + tax = total) with the largest total; when none close, the last SUBTOTAL and TOTAL read and the tax is left
+unchecked (it is forced by `reconciles`), never the footer's `TOTAL TAX`. One block reads exactly as before. The
+shared prompt (`receiptLlmRules`, both Gemini paths) states the interim-block, VOID, slashless MULTIPLE and `N @`
+rules. Live check on prod keys with `vi24j`'s pre-repair lines and photo: applicable, 750.79 + 45.35 = 796.14.
 
 ---
 
