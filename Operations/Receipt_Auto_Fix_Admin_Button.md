@@ -61,6 +61,14 @@ Gemini's answer is treated as a claim. The server computes these itself (`checkP
 | Claimed lines are left as they are | a claimed line keeps its SKU and amount |
 | Item count *(information only)* | units vs the printed `ITEMS SOLD` — registers count differently, so it never blocks |
 
+**Two totals blocks (2026-10-23, RC-32, Priceback #490).** A cashier can total in the middle of one purchase and keep
+ringing (`SUBTOTAL 111.29 / TAX 9.81 / **** TOTAL 121.10 / CASH 0.00`, then 20 more lines and the real
+`750.79 / 45.35 / 796.14`). The printed figures are then the **final** block's: the readings that close
+(subtotal + tax = total) with the largest total. When none close in the scrambled flat text, the last SUBTOTAL and
+TOTAL read are checked and the tax is not (it is forced by *add up* + *subtotal*); the footer's `TOTAL TAX` is never
+used for it. The panel's `printed` carries `totalsBlocks: 2`. A receipt with one block is read exactly as before.
+Until #490 the first block was read, so even a right proposal was refused (`vi24j`, and the correct `v3u8j`).
+
 Then the server **dry-runs** the save through `lib/badScanRepair` (rolled back): a line with a price-drop push, a
 missing device hash, etc. turns Apply off and the headline says why.
 
@@ -92,7 +100,9 @@ ENVIRO FEE) is filed as a fee.
 - The stored lines (SKU, name, quantity, paid, pre-coupon, fee flag) and the stored total/tax.
 - The parser's rules (`PARSER_RULES_PROMPT`: denoise first, only the item and totals blocks, a name is only the words
   after its item number, same SKU + same unit price = one line, different amounts = separate lines, never compute a
-  tax or a total).
+  tax or a total; since #490: an interim SUBTOTAL/TAX/TOTAL block is one purchase and the LAST block is the
+  receipt's, VOID/ANNUL cancels one earlier scan and a positive coupon reprint cancels that coupon, a slash-less
+  `MULTIPLE 7.00-` still reduces the item above, `48 4.79` can be `4 @ 4.79`).
 - A system prompt with the Costco coupon shapes (`/<sku>`, `/MULTIPLE`, a slash-less ref, `TPD/`), the `N @ price`
   quantity line, fee lines, tax flags, and the hard rules (every number printed; lines = SUBTOTAL; SUBTOTAL + TAX =
   TOTAL; unreadable → keep the stored line).
@@ -115,6 +125,13 @@ to the next model (flash-lite has its own free quota); no credit (402) moves to 
 primary for an hour. A pinned model that Google retires falls through to the automatic pick. Nothing to edit when
 Google retires a model — this is what broke on 2026-10-17 (Bugs #335).
 
+**Time (2026-10-23, Bugs #348, Priceback #490).** One model gets up to **90 s**; a model that runs out of time (or
+whose connection drops) hands what is left of **150 s** to the next model, then the next key. Before #490 a single
+45 s cut ended the call with no second model tried: 13 of ~40 taps between 2026-10-19 and 10-23 showed *"Gemini could
+not read this receipt"* (Railway: `[admin] receipt auto-fix failed: The operation was aborted due to timeout []`),
+while answers that arrived took 7–50 s and the live check on `vi24j` took 64 s. `/api/ocr-llm` keeps its own single
+bound (`UPSTREAM_API_TIMEOUT_MS`, no fallback after a timeout): shopper phones are waiting on it.
+
 **Free tier caveat:** on a key with no billing, Google may use what it is sent (receipt photo + OCR text) to improve
 its products. `/health?token=` → `ocrLlm.lastCall` shows which model and key last answered, or every refusal.
 
@@ -132,6 +149,7 @@ desk's rate limit (`ADMIN_DESK_RL`).
 | *not configured* / *daily capacity* / *rate limit* | key unset / budget spent / Gemini 429 | edit by hand, or try later |
 | *Gemini has no credit left and no free backup key answered* | every key answered 402 | set / fix `GEMINI_API_KEY_FREE`, or top up; edit by hand meanwhile |
 | *No Gemini model is available to this key* | every model tried answered 404 | check the key's project in AI Studio |
+| *Gemini took too long to read this receipt, on every model it tried* | every model and key ran out of the 150 s (`TIMEOUT`, 504) | tap again in a minute; edit by hand if it repeats. The log line lists each attempt as `"status":"timeout"` |
 | *Gemini could not read this receipt* | other upstream error (5xx, bad answer) | edit by hand; Railway log line `[admin] receipt auto-fix failed:` lists every attempt |
 
 A **bad photo** (unreadable, crumpled) is still the runbook's job: the button can only prove numbers the OCR text
