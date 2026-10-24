@@ -143,3 +143,23 @@ New admin-only route; no shopper build calls it, and no existing route or field 
 next binary (the admin console is in the app); an admin on an older build simply doesn't see it. Apply uses the
 existing `/lines` route unchanged. The line editor now keeps a fee line's fee flag when it saves (it used to drop it,
 re-filing a deposit as a watched product) — client-side, same request shape (`ignored` was already accepted).
+
+## 7. The same reading, for every receipt (2026-10-23, Priceback #482–#484)
+
+*Fix automatically* is now one of three users of the same Gemini reading:
+
+| Who | When | Applies through |
+|---|---|---|
+| *Fix automatically* (this button) | an admin asks, on any receipt | the desk's line editor → `POST /api/admin/receipts/:id/lines` (`badScanRepair` mode `admin`: stamps the review, may rename, drafts the notice) |
+| **Gemini reads first** | the app, at scan time (build after 3.1.3) | the phone keeps Gemini's lines only when proven; nothing on the server |
+| **Gemini re-reads** | the server, within 30 min of an upload the phone did not let Gemini read | `badScanRepair` mode `reread`: no review stamp, no rename, no notice; refused whole by any line with history |
+
+All three read the parser's lines as the draft and prove the answer with the same checks (§2). Every one of them now
+follows **design rule 9** (`Technical/Receipt_Parser_Design_Rules.md`): two lines of one SKU at different values are
+never folded. The diff the panel shows, and `history_kept`, pair a SKU with the line at the **same amount** first,
+so a claimed pack stays the claimed pack.
+
+The repair it applies (#483) also keeps what the scan proved about each line (tax class, barcode, a database price,
+a watch the shopper turned off), treats a price-drop review row as history like a claim, and matches a kept line by
+its order among the live lines (a line the shopper deleted no longer makes the save fail).
+

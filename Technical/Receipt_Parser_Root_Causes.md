@@ -1159,6 +1159,41 @@ Priceback PR #436 (first merged as #435 into #432's branch after #432 had landed
 
 ---
 
+## RC-31 · A VOID removes the whole folded line, not the one unit it cancels
+
+*(RC-26 to RC-30 are the two-totals, English VOID block, slashless MULTIPLE and `4 @` causes of Priceback #480.)*
+
+**Printed shape.** The same item scanned twice, then one scan voided:
+
+```
+1234567 KS WATER 40PK     4.99 H
+1234567 KS WATER 40PK     4.99 H
+VOID
+1234567 KS WATER 40PK     4.99- H
+```
+
+**What goes wrong.** `pushOrMergeItem` folds the second identical single unit into the first (since #482, only
+identical single units fold: design rule 9), giving one line, quantity 2, 9.98. The VOID handler in `extractItems`
+(`receiptParsingShared.js`, both the single-line and the two-line VOID branches, `main` `6774c19`) finds the line by
+SKU and calls `removeItemAt`, which removes the **whole line**, both units, instead of one. The receipt is then one
+unit short of its printed subtotal (a 4.99 gap here). Before #482 the same happened to any folded line, with any
+values.
+
+**Proof.** Code reading during the sync audit (2026-10-23). No production receipt has been repaired for it yet, so
+there is no replay and no blast radius. A receipt that reproduces it is the next step, and its case goes in the table
+below.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| — | — | — | — | — | No case yet |
+
+**Fix (proposed, not applied: shared parser, needs Maxim's go).** In the VOID branches, when the target line's
+quantity is above 1 and the voided amount equals one unit (`lineTotal / quantity` to the cent), decrement the
+quantity and the line total by one unit. Otherwise (the voided amount equals the whole line) remove it, as today.
+Prove it on the corpus (rule 7).
+
+---
+
 ## Earlier root causes (before this register)
 
 Recorded in their own docs; listed here so the register is complete. Add new cases of these under a new `RC-n`

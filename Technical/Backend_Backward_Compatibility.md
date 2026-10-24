@@ -1,6 +1,6 @@
 # Backend backward compatibility — old app builds keep working
 
-**Last updated:** 2026-10-10 (forced update added) · **Rule source:** `CLAUDE.md` in `maxim-lucas/Priceback`,
+**Last updated:** 2026-10-23 (audit of #481–#484 and #486) · **Rule source:** `CLAUDE.md` in `maxim-lucas/Priceback`,
 section *"The backend never breaks an app build that is still installed"*.
 
 ## Why this matters
@@ -125,6 +125,31 @@ the response.
 Older still: builds **≤ 3.0.4** send no `scanContext`, so the tag cap never applies
 to them (only the per-device/IP limits and the Vision budget do). **2.8.3** sends
 no `Authorization` header, so `/api/ocr` stays optional-auth.
+
+## Audit — 2026-10-23: the sync-integrity and Gemini-first hotfixes (#481–#484, #486)
+
+The store build is **3.1.3** (build 53). Every live build since **2.8.3** was checked against what it does with each
+change. Source: `Technical/Device_Server_Sync_Audit_2026-10-23.md`.
+
+| Change | Why old builds are fine |
+|---|---|
+| `POST /api/receipts`: a re-send is never charged or 402'd (#481) | A request shape every build sends. It removes a charge; nothing new is refused. |
+| Restore pages ordered `(purchase_date, id)` (#481) | Same rows, now a stable order. |
+| Gemini rules, never-merge (#482) | Server Gemini paths only. `/api/ocr-llm` keeps its four item fields. |
+| `badScanRepair` modes (#483) | Admin routes only. A named refusal is now a 4xx instead of a 500 (admin build only). |
+| **Migration 0032** (`receipt_readers`, `receipts.reader_id`) | Additive, nullable, admin-only: stripped from every shopper payload. **Apply to prod before #484 deploys.** |
+| `POST /api/receipts/gemini-read`, Admin · Receipt reading routes (#484) | New routes; no shipped build calls them. |
+| `POST /api/receipts`: optional `reader` (#484) | Absent from every shipped build → NULL. An unknown code → NULL, never a 400. |
+| `/api/ocr-llm`: `proven`, `checks` (#484) | Additive response fields; old builds ignore them. |
+| **Server re-read** (`RECEIPT_GEMINI_REREAD`, OFF at deploy) | Changes lines old builds show: they take them on their next sync, paired **by position**. It only touches a receipt under 30 min old with no claim, push or review row. The residual risk is in the roadmap (*Sync integrity: deferred*). |
+| `/api/watch`: no crowd copy a re-read or a shopper correction disproves (#484, #486) | Fire-and-forget registration, same answer. Only crowd copies are skipped; the watch registry is unchanged. |
+| **Migration 0033** (`shopper_edited_at` ×2, `receipt_items.client_line_id`) | Additive, nullable. **Apply to prod before #486 deploys.** |
+| `PUT /api/receipts/:id/lines` (#486) | New route; builds before it never call it. |
+| Claim / watch / delete: optional `itemId` (#486) | Absent → the old index + amount rule, unchanged (tested). |
+| Restore lines: `taxClass`, `clientLineId`; upload answer: line `id` + `lineTotal`; released drops: `itemId` (#486) | Additive fields; old builds ignore them. |
+| Drop drain holds a drop on a **shopper-corrected** line for an admin, with review off (#486) | Only lines corrected through the new route, which old builds never call. |
+
+Forcing builds: none needed. Every change is additive or behind a switch that ships off.
 
 ## Open gaps
 

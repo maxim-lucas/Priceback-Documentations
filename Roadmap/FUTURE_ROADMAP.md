@@ -164,6 +164,50 @@ join priceback.receipt_statuses s on s.id = r.status_id where s.code in
 ('unsupported_country')` plus the two ids above (flagged `rejected` before the code
 existed).
 
+### Sync integrity: deferred (audit 2026-10-23) 🔵
+
+From `Technical/Device_Server_Sync_Audit_2026-10-23.md`. The High findings shipped (Priceback #481–#484 and #486). These are the rest, most harmful first. Each is a phone-side change, so it reaches shoppers
+only with a store build; the server-side half is noted where one exists.
+
+| # | Gap | Proposed fix |
+|---|---|---|
+| D9 | An offline-scan flush whose answer names no `applied` refs clears every sent ref (`purchaseService._flushOfflineScanLogOnce`) | Clear only the refs the server lists; an empty list clears nothing |
+| D3 | A 500 on the line-delete route answers `retryable:false`, so the phone drops its queued delete and the line comes back | Server: answer 500 as retryable; phone: keep the entry on any 5xx |
+| D1 | A receipt the server refuses for good keeps `syncError`, shown nowhere | A per-receipt "not backed up" line on the Detail screen (en + fr) |
+| D6 | The push-token back-fill reports success without checking the answer | Return `syncProfileToBackend`'s result |
+| D5 | The profile outbox retries a 400 forever | Drop a field the server refused for good, and report it |
+| D2 | `/api/watch` answer unchecked; an empty list never sent | Check the answer; send `[]` when the last watched line goes |
+| D4 | Claim/watch queue entries expire after 90 days | Keep a claim until its receipt is gone; a line id makes the retry safe |
+| D7 | A file re-upload answered not-retryable is dropped | Retry on 5xx; a 4xx says why on the Detail screen |
+| D8 | A tag-scan photo has no retry | Queue it like the receipt file |
+| D10 | Postal-code edits are fire-and-forget | Route them through the profile outbox |
+| D11 | Preferences compare the phone's clock with the server's | A server-issued version per write |
+| D12 | `deletedReceiptIds` capped at 500; restore capped at 25 pages | Page the deleted ids like the receipts |
+| D13 | Photos stay on disk after an account switch | Delete the account's files in `clearAccountScopedStorage` |
+| D14 | A receipt added from the server sorts by its upload time | Send the phone's scan time with the upload |
+| D15 | Restoring an account in its grace window keeps its receipts deleted | **Product decision**, matches the copy "Your data has been erased" |
+| R1′ | An **admin repair** has the same crowd-pool gap the re-read guard closed (#484): a phone that has not synced re-files the bad parse's prices | Extend `crowdCopyGuards` to admin-repaired receipts |
+
+**Gemini re-read: residual risks (the switch ships OFF).** Maxim, 2026-10-22: "all receipts should be read by the
+server for any builds, if there is a risk of regression we can drop the concept or force OTA updates if this is the
+solution. if the risk is high drop that for now but document it in the roadmap md file". Assessed **moderate**: it
+shipped behind its own switch with the guards in the design rules, §7. What can still go wrong once it is on:
+- builds 2.8.3–3.1.3 pair lines by **position** when they sync. On a re-read that changes the number of lines, a
+  phone-only drop chip or an unsent watch-off can land on the neighbouring line until the next check. Claims cannot
+  move: a receipt with a claim is never re-read;
+- a phone that registered its watch list before the re-read finished filed crowd copies of the bad parse. The repair
+  takes them back once, and the #484 guard stops the next registrations;
+- **OTA cannot fix an old build.** OTA needs EAS Enterprise, and even then reaches only the same binary version
+  (`runtimeVersion.policy = appVersion`). A build from 3.0.7 on can be **forced to update** (Admin · App version)
+  once a fixed build is live to 100%. 3.0.6 and older can only be asked.
+
+Turn it on from the web console on **dev** first, watch *Read by* on the desk and the Gemini budget on `/health`,
+then production.
+
+**Small follow-ups found on the way:** the admin *Price-drop queue* doesn't say why a drop on a shopper-corrected
+line waits with review off. There is also no desk filter for "corrected by the shopper"; the receipt detail shows
+it.
+
 ### 🔵 Other parked ideas
 
 #### ✅ Tax reader: fill a missing tax from receipt tax codes, product tax class, price check — MERGED 2026-10-19

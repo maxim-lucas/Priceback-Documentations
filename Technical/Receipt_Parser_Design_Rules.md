@@ -89,6 +89,14 @@ register footer, which step 2 removes. The register footer is the authority for 
 8. **Per-store isolation still holds.** Steps 1–5 are the same *shape* for every store; each store owns its own noise
    list and block boundaries (`Technical/Receipt_Parser_Registry_And_Store_Parsers.md`). Shared code changes need
    Maxim's confirmation (Costco is on the shared path).
+9. **Two lines of one SKU with different values are never one line (Maxim, 2026-10-21; Priceback #482).** Only a
+   *single unit* folds into a line of the same SKU, and only at the same unit paid, the same pre-coupon price and the
+   same fee flag. A unit with a coupon and one without, two packs at different prices, or a multi-unit line stay
+   separate lines. A line already folded from units that did not all get the coupon is split back
+   (`splitMixedValueLines`). The rule is the same in the parser (`receiptParsingShared.pushOrMergeItem`), in what
+   Gemini's answers are grouped by (`receiptLlmRules.groupSameUnitPrice`), in both prompts, in *Fix automatically*'s
+   line matching (`diffLines`, `history_kept`: SKU **and amount**), and in where a drop chip lands
+   (`checkAllPriceDrops` → `lineIndex`).
 
 ## 4. Edge cases that are data, not noise
 
@@ -100,6 +108,8 @@ register footer, which step 2 removes. The register footer is the authority for 
 | `N @ unit` quantity lines | Item block. |
 | Mid-receipt totals block followed by more items (RC-7) | A block boundary decision (step 3), not an extraction stop. |
 | Asterisk-wrapped names (`**KS TOWEL**`) | Item: a banner is a *phrase*, not "any line with asterisks". |
+
+| Two scans of one SKU at different values (one couponed, one not; two packs at different weights) | Two lines (rule 9). Folding them made one product's price the average of two. |
 
 ## 5. What the shopper is told
 
@@ -119,3 +129,25 @@ days consolidates them into the order above. The open cases it must close are li
 `/api/ocr-llm` — read the OCR denoised with the parser's own vocabulary and their answers are cleaned and grouped by
 the parser's rules (`backend/lib/receiptLlmRules.js`, Bugs #338). An LLM reads a receipt better than OCR + regex; it
 must not read it differently.
+
+## 7. Gemini reads first (Maxim, 2026-10-21; Priceback #484, switches OFF at deploy)
+
+Admin · **Receipt reading** (app, and the web console *Receipt reading* section) decides who reads a receipt first:
+
+| Switch | What it does |
+|---|---|
+| **Gemini reads first** (`RECEIPT_GEMINI_FIRST`) | The app (build after 3.1.3) sends each Costco in-warehouse Vision scan to `POST /api/receipts/gemini-read`. Gemini reads the **OCR text** (never the photo) under these rules, with the parser's reading as its draft. Its lines are kept **only when the receipt proves them**: Σ lines = printed subtotal, subtotal + tax = printed total (`receiptAutoFix.checkProposal`). Otherwise the parser's lines stay. |
+| **Gemini re-reads** (`RECEIPT_GEMINI_REREAD`) | For every build: the server re-reads a receipt the phone did not let Gemini read, within 30 min of its upload, and applies a proven correction through the repair path (`badScanRepair` mode `reread`). Never on a receipt with a claim, a drop sent or in review, a shopper correction, a refund, a US receipt or an online order. The phone takes the corrected lines on its next sync. |
+
+**The parser is the fallback, always.** It reads when a switch is off, when the day's Gemini budget is spent
+(`LLM_GLOBAL_DAILY_LIMIT`, read live; `LLM_DAILY_LIMIT` per shopper; `LLM_REREAD_DAILY_LIMIT` for the re-read,
+inside the global one), when Gemini is unavailable or fails, and whenever the paper does not prove Gemini's reading.
+A limit of `0` turns Gemini off.
+
+**Every receipt records its reader** (`receipts.reader_id`, migration 0032; admin receipt detail → *Read by*):
+`parser`, `parser_checked` (Gemini read it, the paper did not prove it), `gemini`, `gemini_reread`. A wrong receipt is
+replayed with the reader that produced it (`Technical/Receipt_Parser_Root_Causes.md`).
+
+Rule 7 still applies: a Gemini-read receipt that does not close is a *parser* case for the corpus, and the weekly
+review of Gemini-corrected receipts (admin desk, *Read by*: Gemini) is where a new noise shape or block boundary is
+found and added to the parser.
