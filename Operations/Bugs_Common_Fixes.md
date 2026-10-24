@@ -14475,3 +14475,84 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Ships with the next binary: 3.1.2 and older keep the phone's reading, and the server cannot reach that code. Until then the only remedy for this shopper is a reinstall + sign-in (fresh local storage → the receipt is mapped from the server); sign-out alone keeps local receipts. **Never** ask them to delete the receipt — that tombstones and deletes it server-side.
 - Detect next time: any admin header edit (date / warehouse / channel) on a receipt from a build without this fix will not reach that phone for the warehouse/channel; date/total/tax always did.
 - Prevent: `__tests__/syncService.test.js` › *mergeServerIntoLocal — the server's header wins* (6 tests; 5 red on the old code). Rule: a field the server stores is the server's on merge — a new synced field gets a line in `mergeServerIntoLocal` in the same PR.
+
+## 341. A receipt sent twice was charged twice, or refused for want of credits and deleted from the phone (sync audit S3; hotfix 2026-10-23, Priceback #481)
+
+- Date: 2026-10-23 · PR: Priceback #481 (`hotfix/sync-server-safety`) · Area: backend · `backend/server.js` (`POST /api/receipts`)
+- Symptom: none reported. Found by the device ↔ server sync audit (`Technical/Device_Server_Sync_Audit_2026-10-23.md`, S3).
+- Root cause: the scan cost was charged **before** the route checked whether the receipt id already belonged to the caller. A 0-credit receipt leaves no ledger row (`creditsRepo.js:199`), so the idempotency check found nothing. Every re-send (a hydrate's "not on the server, push it up", a retry after a lost answer) charged again. On a low balance it answered **402**, and the phone deleted its copy and its photo.
+- Fix: the charge and the 402 apply only to an id the caller does not already own (`existingOwner !== req.user.sub`). Server-side: covers every build at deploy.
+- Prevent: `backend/tests/receiptCreditRefusalDb.test.js` (a re-send of a 0-cost receipt answers 200 and writes no ledger row).
+
+## 342. A restore could skip a receipt and show another twice (sync audit S6; hotfix 2026-10-23, Priceback #481)
+
+- Date: 2026-10-23 · PR: Priceback #481 · Area: backend · `backend/repos/receiptsRepo.js` (`listForUser`)
+- Root cause: receipts were paged by `purchase_date DESC` only. Receipts sharing a date have no stable order across pages, so page 2 could repeat one from page 1 and miss another. The phone then took the missing one as "not on the server" and re-uploaded it, which #341 then charged.
+- Fix: `ORDER BY purchase_date DESC, id DESC`. Server-side: every build.
+- Prevent: `receiptsDb.test.js` › paging (inserted out of order: red on the old code).
+
+## 343. Account and preference data crossed accounts or came back wrong after sign-in (sync audit S4, S7, S9; Priceback #481, ships with the next build)
+
+- Date: 2026-10-23 · PR: Priceback #481 · Area: mobile · `src/services/profileSyncQueue.js`, `storageService.clearAccountScopedStorage`, `purchaseService.clearAccountScopedPurchaseState`, `syncService` (`_applyPrefs`, `mapServerReceiptToLocal`)
+- Root causes:
+  1. **S4.** The profile outbox (`profile_sync_pending_v1`: consents, notification switches, name) survived sign-out. Account A's queued answers were sent with **B's** token.
+  2. **S7.** Sign-out reset auto-reload through `savePrefs`, which stamps `preferencesUpdatedAt`, so the reset looked newer and was pushed to the account at the next sign-in.
+  3. **S9.** A restored language was stored but never applied. A server `unsupported_country` receipt restored as "watching".
+- Fix:
+  1. The outbox key is wiped with the other account-scoped keys.
+  2. The reset is not stamped (`preferencesUpdatedAt: null`).
+  3. A newer server language calls `setLanguage`, and `unsupported_country` restores as a refused receipt.
+- Ships with the next binary (client code).
+- Prevent: `localAccountBoundary`, `auditMoneyBatch`, `syncService`, `syncServiceHydrate` tests.
+
+## 344. Two lines of one SKU with different values became one line: a coupon applied to both units, an average price, a drop chip on the wrong pack (Maxim's rule 2026-10-21; Priceback #482)
+
+- Date: 2026-10-23 · PR: Priceback #482 (`hotfix/never-merge-different-values`) · Area: shared parser (client), backend Gemini rules · `src/services/receiptParsingShared.js` (`pushOrMergeItem`, `splitMixedValueLines`, `removeItemAt`), `backend/lib/receiptLlmRules.js` (`groupSameUnitPrice`, prompts), `backend/lib/receiptAutoFix.js` (`diffLines`, `history_kept`), `src/services/priceService.js` + `receiptLineIdentity.js` + `storageService.updateReceiptItemWhere` (drop chips)
+- Root cause (four sites):
+  1. The parser folded a later scan of a SKU into the earlier line whatever its quantity or coupon, and `removeItemAt` then lost the earlier same-SKU line.
+  2. Gemini's grouping and both prompts folded couponed lines.
+  3. Auto-fix paired a SKU with its first line.
+  4. A drop check result landed on the first line of its product.
+- Fix: design rule 9 (`Technical/Receipt_Parser_Design_Rules.md`).
+  - Only a single unit at the same unit paid, the same pre-coupon price and the same fee flag folds.
+  - A line folded from units that did not all get the coupon is split back.
+  - Auto-fix pairs by SKU **and amount**.
+  - A drop writes by the line it was found on, inside the storage lock.
+- Proof: the pinned production corpus and the golden snapshots are unchanged (Best Buy's parser shares the path; its tests pass).
+- Prevent: `receiptParsingShared*`, `costcoReceiptProdShapes`, `receiptLlmRules`, `receiptAutoFix`, `receiptLineIdentity` and `notificationService` tests. Each rule is mutation-checked.
+
+## 345. Admin receipt repairs dropped each line's tax class and the shopper's watch-off, forgot a rejected drop, and failed on a receipt with a deleted line (Priceback #483)
+
+- Date: 2026-10-23 · PR: Priceback #483 (`hotfix/bad-scan-repair-modes`) · Area: backend · `backend/lib/badScanRepair.js`, `repos/receiptsRepo.persistReceiptItems` (`honorWatchOff`), `server.js` (`/api/admin/receipts/:id/lines`)
+- Root causes:
+  1. `validateSpec` passed only name, SKU and amounts, so every repaired line was written with **no tax class** and **watched again**.
+  2. History meant a claim or a push only. A **rejected** drop lives as a review-queue row; deleting its line cascaded the row away, and the drop came back as new.
+  3. The history check ran before the lines were locked, so a sweep could stage a drop in between.
+  4. Kept lines were matched by stored `position`. A line the shopper deleted leaves a gap, and every claimed line after it failed `KEEP_MISMATCH` (a 500 on the desk).
+- Fix:
+  - The tax class, barcode, unit price, database price and watch-off are carried.
+  - Any review-queue row counts as history.
+  - Lines are locked `FOR UPDATE` before the check.
+  - Kept lines are matched by their order among live lines, and the kept line and its point move together.
+  - New `reread` mode (no review stamp, rename or notice; refused whole by history), for #484's server re-read.
+  - Every named refusal answers a 4xx.
+- Prevent: `badScanRepair` + `badScanRepairDb` (43 tests, 4 mutations).
+
+## 346. A shopper's corrections were reverted at every sync, and a claim or a drop chip landed on the neighbouring line (sync audit S1, S2, S5; Priceback #486)
+
+- Date: 2026-10-23 · PR: Priceback #486 (`hotfix/sync-line-identity-and-edits`, migration 0033) · Area: mobile sync + backend · `src/services/syncService.js` (`pairServerLines`, `mergeServerIntoLocal`, `unionMergeReceipts`, the hydrate), `storageService.js` (the edit queue), `receiptSyncService.putReceiptLines`, `releasedDrops.js`, `DetailScreen.js`; `backend/lib/shopperEdits.js`, `repos/receiptsRepo.applyShopperEdits`, `server.js` (`PUT /api/receipts/:id/lines`, `itemId` on claim/watch/delete), `repos/priceDropQueueRepo.js`
+- Symptom: none reported (found by the sync audit). A name, price or quantity fixed on a receipt, or a line added, came back as the scan read it after the next foreground. A claim sent after a line was deleted elsewhere could close the wrong product.
+- Root causes:
+  1. **S1.** The corrections were written to the phone only (`storageService.updateReceiptItem` / `addItemToReceipt` / `updateReceipt`); no route took them, and every hydrate merged the server's lines back.
+  2. **S2.** The phone threw away the line id the bootstrap sent, and paired server line *i* with local line *i*. Claim, watch and delete found the line by index, then by the first line with the same amount. Released drops were keyed by position.
+  3. **S5.** The hydrate merged before the queued watch changes were sent.
+- Fix:
+  - Lines pair by server id, then by the phone's own id for an added line, then SKU + amount + quantity, then position.
+  - Claim, watch and delete send `itemId`, and released drops carry it.
+  - Corrections go through an owner-only `PUT /api/receipts/:id/lines`: changed in place, refused with 409 when the server changed since, refused for a line with history.
+  - A corrected line files no price point and no crowd copy, a drop on it waits for an admin, and the re-read skips the receipt.
+  - The hydrate sends changes first and keeps the phone's copy until they land.
+  - Date and warehouse are read-only for the shopper.
+- Ships with the next binary (client). The server side is additive. **Apply migration 0033 to production before the deploy.**
+- Prevent: `syncLineIdentity`, `storageServiceShopperEdits`, `receiptLineEditsSync`, `detailScreenShopperEdits`, `syncServiceHydrate`, `receiptShopperEditsDb`, `receiptLineIdentityDb`, `receiptShopperEditsWatchDb` and `priceDropQueueDb` tests. 15 mutations. Rule: a line is named by its id everywhere the phone and the server talk about it.
+
