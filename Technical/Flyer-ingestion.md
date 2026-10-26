@@ -13,6 +13,14 @@ batch is stored **once**, as `NATIONAL` — see §4.
 > `main-test-features` still copy an `"ALL"` batch into each of the 13 provinces.
 > Left for Maxim: `Roadmap/Costco_Coupons_Ingestion_Roadmap.md` §1.
 
+> **Since 2026-10-26 the savings are also read automatically, every day.** The
+> savings harvest (migration 0036) reads Same-Day for every warehouse, the
+> costco.ca coupon book and Business Centre pages, and yepsavings, on the schedule
+> in `savings_sources`, and stores each saving once (`savings` +
+> `saving_warehouses`) with its run history — see `Technical/Savings-Harvest.md`.
+> The coupon book it reads is the same `costco.ca/o/-/coupons` page §2 below
+> describes; the manual paths here still work and are unchanged.
+
 ## 1. In-app admin Flyer Scan (fastest, interactive)
 
 Profile → **Admin → Flyer scan** (visible only to accounts in `ADMIN_USER_SUBS`).

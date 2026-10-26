@@ -101,9 +101,18 @@ when the DB leg didn't run (asserts `HAS_DB` in the CI environment).
 
 ---
 
-## 🔴 Savings-only price drops ("Solution B") — CRITICAL, needs Monica's DOUBLE confirmation
+## ✅ Savings-only price drops ("Solution B") — BUILT 2026-10-26 (Monica confirmed twice)
 
-> **Do not start this without two separate, explicit confirmations from Monica** (her rule, 2026-10-20). It changes how every price-drop amount, commission and claim is computed.
+> **Confirmed twice on 2026-10-26** (the request to check each receipt for the saving
+> at its own warehouse — "if the receipt has not applied this saving as a TPD, flag it
+> as a price drop" — and the explicit confirmation in the follow-up question), **with
+> every resulting drop held for admin approval** (`SAVING_DROP_REVIEW_REQUIRED`, on by
+> default even while `PRICE_DROP_REVIEW_REQUIRED` is off). How it works:
+> `Technical/Savings-Harvest.md` § Savings-based price drops. The text below is the
+> original design note, kept for the reasoning.
+>
+> Original rule: do not start this without two separate, explicit confirmations from
+> Monica (2026-10-20). It changes how every price-drop amount, commission and claim is computed.
 
 **Problem.** Some sources print only a *saving*, not a shelf price. The Québec Same-Day (sameday.costco.ca) weekly savings are the main case. Same-Day prices run above the warehouse shelf, so storing the Same-Day sale price as a price point gives wrong drop amounts. The detector today compares what the shopper paid (`receipt_items` unit price) with a stored price (`price_points.current_unit_price`, `priceDropRepo.findNotifiable`). It has no way to say "$200 off whatever you paid".
 
