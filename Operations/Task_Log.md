@@ -11311,3 +11311,35 @@ anyway).
 - **Owed (Maxim's go):** merge #489 and #490 (= Railway prod deploy), then confirm the new prod deployment's meta records `configFile: /backend/railway.json`, NIXPACKS, region US East, and that it was created at all (#486/#488 never got one). If the merge creates no prod deployment, or one without the config: pin the prod service settings to `railway.json`'s values and deploy `main` HEAD by commit SHA. Then merge `main` into `main-test-features` through a `sync/…` branch.
 - **Noticed, not changed:** the Development environment's trigger is `main`, not `main-test-features` as the 2026-10-20 branch model says.
 - **Regression risk:** #489 low (RLS on an owner-accessed table; test-only; patch-level lockfile bumps). #490 low–medium, admin-facing: the desk waits up to 150 s; every other Gemini caller keeps one bounded attempt (pinned by tests).
+
+---
+
+## 2026-10-26 — Automated daily savings harvest + savings-based price drops (Solution B)
+
+- **Ask (Maxim):** get every Canadian Costco saving automatically, at least daily, at no
+  extra cost, stored in the DB without duplicates, onto `main`. Sources: costco.ca coupons
+  (`/o/-/coupons`), the Business Centre instant-savings page, yepsavings photos (price-tag
+  photos = warehouse prices), and sameday.costco.ca's "Warehouse Savings" checked **for
+  every warehouse** (source of truth when sources disagree) plus the Business Centre
+  Same-Day; the online price and product photos (R2 `costco/<sku>.jpg`) too. Sources
+  managed in a DB table (runs per day / days per week / start hour), new source types
+  possible (Facebook, Instagram); run time, history, counts and confirmed savings in the DB.
+  Missing end dates kept for review, fixed on each run when possible, and an Admin · Saving
+  dates action to look dates up per item. The price-drop detector must flag a saving the
+  receipt did not get as a TPD, at the receipt's warehouse — **Solution B, confirmed twice
+  by Monica 2026-10-26, every drop admin-approved**.
+- **Built (Priceback, branch `feat/savings-harvest`, migration 0036):** `savings_sources`,
+  `savings_source_runs`, `savings`, `saving_warehouses`, two lookups,
+  `price_drop_review_queue.saving_id`; adapters under `backend/services/savings/` (Same-Day
+  over plain-HTTP persisted GraphQL, no browser); `savingsIngest` (dedupe, source of truth,
+  undated handling, in-store verification, price-ending scope); hourly in-process cron
+  (`jobs/harvestSavings`, $0) with stale alert; `savingDropRepo` merged into
+  `findNotifiable`; admin routes; CLI `scripts/harvest-savings.mjs`; mobile Saving dates
+  section + queue evidence. Docs: `Technical/Savings-Harvest.md`,
+  `Technical/Costco-Price-Rules.md`.
+- **Verified on DEV:** real runs — Same-Day 3 warehouses (737 observations → 505 savings,
+  re-run 0 duplicates), coupon book 91 offers → 891 savings (re-run 0 new), Business Centre
+  32 offers, yepsavings Toronto (clearance prices kept as warehouse prices, 1 undated saving
+  left for review); 0 duplicate keys in `savings` and `price_points`.
+- **Owed:** apply 0036 to prod **before** the merge deploys (the queue reads `saving_id`);
+  `PRODUCT_IMAGES_*` / R2 keys must be on the prod service for photos.
