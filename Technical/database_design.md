@@ -221,6 +221,7 @@ One row per accepted redemption; enables the "friends you invited" list and ties
 | sku | text NOT NULL | store SKU, or `bc:<barcode>` / `ln:<receiptId>:<idx>` synthetic |
 | barcode | text | UPC/EAN; index |
 | display_name | text NOT NULL | moved from receipt_items.name |
+| name_locked_at | timestamptz | *(0037)* an admin saved the name on Admin · Product names: the catalogue harvest only fills an empty slot, never renames |
 | created_at | timestamptz | |
 | | UNIQUE (store_id, sku) · index(barcode) | |
 
@@ -308,6 +309,7 @@ One row per accepted redemption; enables the "friends you invited" list and ties
 | watch_enabled | bool NOT NULL default false | **full-price lines only** (no client override) |
 | claimed_at | timestamptz | surfaced to client |
 | claimed_savings | numeric(10,2) | surfaced to client |
+| sku_read | text | *(0037)* the item number the scan READ when the catalogue corrected it (`lib/receiptCatalogMatch`, or a misread product folded away); NULL = read as filed |
 | deleted_at | timestamptz | cascaded from receipt |
 | | index(receipt_id) · index(product_id) | |
 
@@ -406,6 +408,66 @@ breadcrumbs, not authoritative data. No table remains.
 The consumer-facing 20-retailer policy content (seeded from `data/policies.json`) now lives as
 columns on `stores` (see above). The standalone table was dropped so `stores.visible` actually
 gates every displayed store.
+
+### Catalogue harvest *(NEW 2026-10-27, migration 0037 — `Technical/Product-Catalog-Harvest.md`)*
+
+#### `catalog_source_types`, `catalog_run_statuses`, `product_merge_reasons`
+Lookups `{id, code UNIQUE, label}`: `sameday` · `costco_web`; `running` · `success` · `partial` ·
+`failed` · `blocked` · `sanity_skipped`; `sku_misread` · `admin`. Seeded by `db/seed.js` and the migration.
+
+#### `catalog_sources`
+| column | type | notes |
+|---|---|---|
+| id | serial PK | |
+| code | text NOT NULL UNIQUE | |
+| name, url | text NOT NULL | |
+| type_id | int NOT NULL → catalog_source_types.id (restrict) | picks the adapter |
+| enabled | bool NOT NULL default true | |
+| runs_per_day / days_per_week / start_day / start_hour | smallint NOT NULL (1 / 1 / 6 / 0) | America/Toronto; start_day 0 = Monday … 6 = Sunday |
+| trust_rank | smallint NOT NULL default 100 | 1 = most trusted (its names win) |
+| min_items | int NOT NULL default 1 | sanity floor |
+| config | jsonb NOT NULL default `{}` | adapter options |
+| created_at, updated_at | timestamptz | |
+
+#### `catalog_runs`
+| column | type | notes |
+|---|---|---|
+| id | bigserial PK | |
+| source_id | int NOT NULL → catalog_sources.id (cascade) | |
+| status_id | int NOT NULL → catalog_run_statuses.id (restrict) | |
+| started_at, finished_at | timestamptz | |
+| locations_checked, items_found, products_new, names_updated, names_fr_filled, skus_merged, images_uploaded | int NOT NULL default 0 | |
+| error | text | |
+| details | jsonb | skipped by reason, locations, the fix pass's merges and suspects |
+| | index(source_id, started_at) · index(started_at) | pruned after `RETENTION_CATALOG_RUNS_DAYS` |
+
+#### `catalog_items`
+| column | type | notes |
+|---|---|---|
+| id | bigserial PK | |
+| source_id | int NOT NULL → catalog_sources.id (cascade) | |
+| product_id | int NOT NULL → products.id (cascade) | |
+| verified | bool NOT NULL default false | names read off the item's own data; false = a website listing only |
+| name_en, name_fr, size_en, size_fr, brand, image_url, url, external_id | text | as the source lists it |
+| first_run_id, last_run_id | bigint → catalog_runs.id (set null) | |
+| first_seen_at, last_seen_at | timestamptz NOT NULL | "listed" = last_seen_at within `CATALOG_LISTING_FRESH_DAYS` |
+| | UNIQUE (source_id, product_id) · index(product_id) · index(last_seen_at) | |
+
+#### `product_merges`
+| column | type | notes |
+|---|---|---|
+| id | bigserial PK | |
+| store_id | int NOT NULL → stores.id (restrict) | |
+| from_sku | text NOT NULL | the misread number — an alias of the real product while retired_at IS NULL |
+| from_product_id | int NOT NULL | **not a FK, deliberately**: the merge deletes that product; this is its record |
+| to_product_id | int NOT NULL → products.id (cascade) | the real product |
+| reason_id | int NOT NULL → product_merge_reasons.id (restrict) | |
+| score | numeric(4,2) | NULL for an admin's merge |
+| run_id | bigint → catalog_runs.id (set null) | |
+| merged_by | text | `catalog` or `admin` |
+| details | jsonb | names, printed texts, what moved |
+| merged_at, retired_at | timestamptz | retired when a catalogue lists from_sku for real |
+| | UNIQUE (store_id, from_sku) WHERE retired_at IS NULL · index(to_product_id) | |
 
 ### Commented out / deleted
 
