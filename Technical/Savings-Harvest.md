@@ -112,8 +112,8 @@ week — the ASUS laptop: Nov 22 vs Nov 29).
 Switches (app_config, live): `SAVING_DROPS_ENABLED` (default on),
 `SAVING_DROP_REVIEW_REQUIRED` (default on — savings drops wait for an admin even when
 `PRICE_DROP_REVIEW_REQUIRED` is off), `SAVINGS_HARVEST_ENABLED` (master switch),
-`SAVING_DROP_AUTO_APPROVE` (default on — a drop at confidence 100% is approved without a
-person) and `SAVING_LIVE_CHECK_ENABLED` (default on — the confidence's live Same-Day read).
+`SAVING_DROP_AUTO_APPROVE` (**default off** since 2026-10-27 — every drop waits for an
+admin; on, a drop at confidence 100% is approved without a person) and `SAVING_LIVE_CHECK_ENABLED` (default on — the confidence's live Same-Day read).
 
 ## Data checks (2026-10-27)
 
@@ -207,6 +207,14 @@ the amount is the same at every warehouse of the province.
   Same-Day* (`POST /api/admin/price-drop-queue/:id/verify`) and *Open the item on
   Same-Day*; a third switch, *Approve 100% savings drops automatically*. The badge needs the
   next app build; the automatic approval does not.
+- **Off by default, picked by confidence (Maxim, 2026-10-27):** "all price drops should
+  still be in the admin console and approved by admin, I will change the settings if it
+  should go." `SAVING_DROP_AUTO_APPROVE` ships `false` (dev's stored row set to false too),
+  so the sweep approves nothing on its own. The queue shows confidence filter chips with
+  counts — *All · 100% · 90–99% · 80–89% · Below 80% · Not scored* — and *Select all* /
+  *Approve selected* act on the filtered band only (changing the filter clears the
+  selection, so nothing hidden is approved). A drop without a score says why: a
+  price-group drop, or a savings drop whose checks could not run.
 - **Backtest on prod's whole savings-drop queue (2026-10-27 14:51 UTC, read-only):** the
   exact code path (`dropVerifier.assess`) with prod's rows, receipts and harvested prices
   injected and the real live Same-Day checker, nothing written. 13 drops:
