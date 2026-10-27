@@ -40,12 +40,21 @@ receipt screen tap **Reject receipt (photo too poor) and ask to rescan**
 (`POST /api/admin/receipts/:id/reject`, `backend/lib/receiptRejection.js`, migration
 0038). In one transaction it:
 
-- soft-deletes the receipt and its lines as `admin_rejected`, stamped with you (the
-  shopper's phone drops it on its next sync);
+- soft-deletes the receipt as `admin_rejected`, stamped with you, and flags it
+  `skip_parser_optimization`. The row stays as the record: the shopper's phone drops
+  the receipt on its next sync;
 - deletes its own `receipt_ocr` price points and this device's crowd copies of them
   that no other receipt of the day carries. A plain **Delete** keeps the prices; a
   reject does not, because the prices are the misread;
-- closes its pending/approved price-drop review rows as `rejected`;
+- deletes its lines outright, and with them their price-drop review rows still
+  waiting. The desk then shows the rejected receipt with no lines; the photo stays
+  until the usual 7-day prune;
+- deletes every product and the warehouse **the receipt created** (made within 10
+  minutes of its upload, or later by the line editor) that nothing else uses now: no
+  other receipt line (deleted receipts included), price, catalogue entry, saving, tag
+  scan or merge. A product with a barcode or an admin-saved name is always kept. A
+  name the receipt *filled* on a product that already existed can't be told apart
+  from a real one and is left as is;
 - removes it from every watch registration. `/api/watch` then ignores its lines if
   the phone re-sends them before it syncs.
 
