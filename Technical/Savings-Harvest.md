@@ -148,7 +148,9 @@ receipt with.
 (`flags.invalid = "read_after_end"`, its start set to its end); a third-party saving for a
 product an official source has on file in the province is superseded (`supersededBy:
 "official"`); a third-party saving imported before 2026-10-27 is marked `toConfirm`. Never
-deleted. The first prod run after the deploy repairs the 246 yepsavings rows on its own.
+deleted. On prod it was run by hand right after the deploy (2026-10-27, `--repair` against
+prod, at Maxim's request): `readAfterEnd` 246, `officialOnFile` 4, `markedToConfirm` 357 — 0
+savings ending before they start remain.
 
 ## Order of trust (2026-10-27)
 
