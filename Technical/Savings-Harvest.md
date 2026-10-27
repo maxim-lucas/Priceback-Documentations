@@ -186,7 +186,7 @@ used to do by hand on the website; `services/savings/dropVerifier.js` gathers wh
 | `new_price_matches` | the drop's new price is that warehouse's sale price to the cent |
 | `dates_valid` | the end is printed, the start is not after it, it has not passed, it is not months away |
 | `bought_in_window` | bought no later than the deadline and the store's 30-day window is open |
-| `receipt_reads` | the receipt's reading confidence is high: lines = printed subtotal, total printed, every item number and price printed (so no TPD line was missed) |
+| `receipt_reads` | the receipt's lines add up to its total, and to the printed SUBTOTAL when one was read (a missed TPD line breaks both), and **this line's** item number and price are printed on the paper. Another line's misread or a misread TAX label is shown ("whole receipt: low — …") but never blocks: it says nothing about this drop |
 | `line_clean` | read from the paper (not edited by the shopper, nothing filled from the database), no TPD on the line, a whole quantity |
 | `no_tpd_on_paper` | the receipt's text prints no `TPD/<item>` (or `TPD/<name>`) for it: a TPD the parser hung on another line means the shopper already got the saving |
 | `name_matches` | the printed name fits the official name (register abbreviations, OCR slips, glued words; a misread item number would not) |
@@ -207,10 +207,25 @@ the amount is the same at every warehouse of the province.
   Same-Day* (`POST /api/admin/price-drop-queue/:id/verify`) and *Open the item on
   Same-Day*; a third switch, *Approve 100% savings drops automatically*. The badge needs the
   next app build; the automatic approval does not.
-- **Measured on prod's queue (2026-10-27):** of the 13 savings drops, the two the admin
-  rejected (Ferrero paid $17.97 — a clearance price; Comté — 63% off, Business Centre only,
-  receipt without a warehouse) and the over-refunded pizza all fail `paid_regular`; none of
-  them could have been approved automatically.
+- **Backtest on prod's whole savings-drop queue (2026-10-27 14:51 UTC, read-only):** the
+  exact code path (`dropVerifier.assess`) with prod's rows, receipts and harvested prices
+  injected and the real live Same-Day checker, nothing written. 13 drops:
+
+  | Queue | Item (warehouse) | Admin decided | Confidence |
+  |---|---|---|---|
+  | #690, #696, #697, #699 | Yoplait YOP (1186, 802, 1446, 1446) | sent | **100% — auto-approve** |
+  | #691 | Crunchmaster (540) | sent | **100%** |
+  | #692 | 32 Degrees heated vest (159) | sent | **100%** |
+  | #694, #695 | Tide Pods, Dove body wash (1213) | sent | **100%** |
+  | #698 | Sprague lentil soup (521) | sent | **100%** |
+  | #689 | Pizza variety (1213) | **sent — wrongly** | 64% hold: Same-Day does not list the saving at 1213; paid $17.99 vs regular $18.49; staged $13.49 vs sale $13.99 |
+  | #693 | Pizza (159) | superseded | 64% hold: not listed at 159 |
+  | #688 | Ferrero 48 ct (802) | rejected | 85% hold: paid $17.97 (clearance) vs regular $21.99 |
+  | #733 | Comté 15 months (no warehouse) | rejected | 64% hold: receipt names no warehouse; the Business Centre price is a different pack ($28.66) |
+
+  Every correct drop reaches 100%; no wrong one does. The first run of the backtest, when
+  `receipt_reads` asked the WHOLE receipt to read "high", held five correct drops for a
+  misread TAX label or another line's item number — hence the line-level check.
 
 ## Operating it
 
