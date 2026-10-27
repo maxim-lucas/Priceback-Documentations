@@ -46,6 +46,31 @@ does not read tags directly yet; yepsavings' photos are kept as warehouse prices
   **verified only when its regular matches** what receipts / shoppers' tags / flyers
   saw for the item in the province, and every sampled warehouse of the province agrees.
 
+### What Same-Day's badges really say (measured 2026-10-27)
+
+- **A badge outlives its end date.** At 00:45 Toronto on Tuesday Oct 27, warehouse 524
+  (Etobicoke) still showed the Samsung QN80H TV (5708165) at $1,194.99, "reg. $1,794.99",
+  "$600 off", **"Ends Oct 26"** — and two other items the same. Instacart removes ended
+  promotions on its own schedule, so a midnight read sees last week's badges. A saving is
+  over when its printed end is before the warehouse's own day (its province's clock): a BC
+  warehouse read at 00:30 Toronto is still on Oct 26.
+- **The end dates are not one weekly cycle.** One warehouse on Oct 27 listed savings
+  ending Oct 26, 27, 28, 29, 30, 31, Nov 1, 4, 5, 8, 15, 22, 29, 30 — mostly Sundays (the
+  coupon book's), but not only.
+- **Same-Day and costco.ca can print different ends for the same saving.** The ASUS
+  Vivobook (2082745), $400 off: the coupon book says "to November 22", Same-Day "Ends Nov
+  29". The shopper is given the earlier date; a claim is still possible after it as long as
+  Same-Day lists the saving at their warehouse.
+- **Weighed items carry a per-package saving on a per-kg price.** "Asiago Cheese — per kg —
+  $15.81, reg. $20.81, $5 off"; "Whole Brisket — per lb — $119.70". The shelf price is a
+  rate, the receipt line a weight × rate: never a drop.
+- **An item's identity.** `retailerReferenceCodeString` is the warehouse item number (3 to
+  7 digits — old items have short ones: 680 Kraft Singles, 2679 Lee Kum Kee); `productId` is
+  Instacart's product, the same at every warehouse of a storefront (the Business Centre
+  storefront has its own ids); the item's page is `/store/<retailer>/products/<productId>-<slug>`
+  (it loads for anyone, at any warehouse). Many Same-Day items are warehouse-only and do not
+  exist on costco.ca under that item number — searching costco.ca for one finds nothing.
+
 ## Price adjustment policy (context)
 
 Costco Canada refunds the difference when its own price drops within **30 days** of the
@@ -53,6 +78,12 @@ purchase, at the same channel (warehouse purchase → warehouse counter; online 
 No price matching against other retailers. Clearance, gold/bullion and some
 manufacturer-funded deals are reported as excluded. PriceBack's claim deadline is the
 earlier of the store window and the saving's last day (`shared/claimDeadline`).
+
+**The refund is paid − today's price, not the saving.** An instant saving lowers today's
+price from today's regular. When the regular moved since the purchase, the refund moves
+with it: paid $17.99, today $18.49 − $4.50 = $13.99 → $4.00 back, not $4.50 (Bugs #352). A
+shopper who paid a clearance price (`.97`, Ferrero 48 ct at $17.97) did not pay the regular
+the saving comes off.
 
 ## Sources
 
