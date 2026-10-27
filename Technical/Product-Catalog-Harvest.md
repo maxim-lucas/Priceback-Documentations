@@ -71,7 +71,12 @@ French name, 7,636 new products, 274 English names made official, 519 French nam
     only fills an empty slot. `DELETE /api/admin/products/:id/name-lock` hands it back.
   - a MORE trusted source names it within `CATALOG_LISTING_FRESH_DAYS` (35): costco.ca never
     renames what Same-Day names.
-  A French name equal to the English one is no French name.
+  A French name equal to the English one is no French name, and a source's **placeholder** is no
+  name at all: Same-Day lists item 1680367 (a windshield cover) in English as "Product" — kept, it
+  became the name-only database fill's best match for every line saying "product" (seen in the
+  test suite on dev, 2026-10-27). "Product", "Item", "Article", "Produit", "Unknown"… are refused at
+  ingest, and a placeholder already stored on a product or listing gives way to the real name on the
+  next run, locked name or not.
 - **Run history**: `catalog_runs` — start/finish, status (`success`, `partial`, `failed`,
   `blocked`, `sanity_skipped`), locations read, items found, products new, names updated, French
   names filled, item numbers merged, photos uploaded, error, details (skipped items by reason,
