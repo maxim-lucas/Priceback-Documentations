@@ -32,6 +32,36 @@ specs in `backend/data/bad-scan-repairs/<receiptId>.json` · migration
 If in doubt, it is a parser bug: those go through the normal fixture workflow
 (`scripts/exportOcrCaptures.js` → `receiptProdCaptures.test.js`).
 
+### 0a. Too poor to repair? Reject it (added 2026-10-27)
+
+When the photo can't be read even by eye (cut off, blurred, folded over the items)
+or repairing it costs more than it's worth, don't repair it: on the admin desk's
+receipt screen tap **Reject receipt (photo too poor) and ask to rescan**
+(`POST /api/admin/receipts/:id/reject`, `backend/lib/receiptRejection.js`, migration
+0038). In one transaction it:
+
+- soft-deletes the receipt and its lines as `admin_rejected`, stamped with you (the
+  shopper's phone drops it on its next sync);
+- deletes its own `receipt_ocr` price points and this device's crowd copies of them
+  that no other receipt of the day carries. A plain **Delete** keeps the prices; a
+  reject does not, because the prices are the misread;
+- closes its pending/approved price-drop review rows as `rejected`;
+- removes it from every watch registration. `/api/watch` then ignores its lines if
+  the phone re-sends them before it syncs.
+
+Then it sends the shopper the push straight away (type `receipt_rejected`, *Scan
+results* switch, EN/FR). It doesn't go through the approval queue, because your
+confirmed tap is the approval:
+
+> **Receipt rejected: please rescan** — Your receipt photo was too poor to read, so we
+> couldn't process it. Please scan it again with only the header, the items and the
+> total, laid flat in good light.
+
+**No scan-credit refund** (Maxim, 2026-10-27). A receipt with a claimed line or a
+price drop already sent can't be rejected (409 `HAS_HISTORY`); delete or repair
+it by hand. Planned next (roadmap): the app refuses poor scans live, so the shopper
+retakes the photo before it reaches the desk.
+
 ### 0b. Reproduce with the exact live capture before deciding (added 2026-10-09)
 
 The phone parses; the stored lines are what **that phone's binary** made of Vision's answer. Replay the same answer

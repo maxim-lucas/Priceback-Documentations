@@ -11350,3 +11350,23 @@ anyway).
   left for review); 0 duplicate keys in `savings` and `price_points`.
 - **Owed:** apply 0036 to prod **before** the merge deploys (the queue reads `saving_id`);
   `PRODUCT_IMAGES_*` / R2 keys must be on the prod service for photos.
+
+## 2026-10-27 — Admin desk: "Reject receipt" for scans too poor to read
+
+- **Ask (Maxim):** a button on the admin receipt review to reject a receipt: the shopper
+  gets a short, direct notification (receipt too poor, rejected, scan again: header, items
+  and total only) and the receipt is not processed. Example: the latest receipts at
+  warehouse #540 today. Copy approved before building; **no scan-credit refund** ("i wont
+  pay credits for lazy users"). Roadmap: the app will refuse poor scans live.
+- **Built (Priceback, branch `feat/admin-reject-receipt`, migration 0038):**
+  `lib/receiptRejection.js` + `POST /api/admin/receipts/:id/reject`. It soft-deletes the
+  receipt as `admin_rejected`, takes back its price points and crowd copies, closes its
+  waiting drops, unwatches it, and `/api/watch` skips its lines. It then pushes
+  `receipt_rejected` (Scan results switch, EN/FR) and the tap opens the scanner. Desk
+  button + confirm. Runbook §0a.
+- **Also found:** the Gemini/line-editor refusal on `r_1793110284881_3eips` (#540) was
+  not a sent drop. Its two price-drop review rows had been *rejected*, and the editor
+  counts any review row as history (so a rejected drop isn't forgotten). The message
+  says "claimed, notified or in the price-drop review". Not changed.
+- **Owed:** apply 0038 to prod **before** the merge deploys (route answers 503
+  `NOT_INSTALLED` without it).
