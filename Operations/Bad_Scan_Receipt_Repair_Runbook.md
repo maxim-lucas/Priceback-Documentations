@@ -193,6 +193,24 @@ claimed or a price-drop push went out for it — unless the spec lists it in `ke
 already IS the spec's line at its position (it is then left byte-for-byte); the spec does not
 reconcile; an extra price point is another device's.
 
+**The admin desk's line editor (since 2026-10-28, Maxim):**
+- It keeps every line with history that the edit leaves **unchanged** without naming it
+  (`keepUnchangedHistory`). Fixing *another* line of a receipt that has a price drop
+  (the 84 COKE case) is no longer refused. The *Fix automatically* dry run uses the same rule.
+- If a line you **changed** has history, the save is refused (`HAS_HISTORY`). A red
+  **Force save** button then appears. Force (`force: true`, admin only) rewrites that line
+  too and **moves** its history onto the corrected line at the same place: the claim
+  (`claimed_at`, `claim_source_id`), the `price_drop_notifications` rows (the charge record,
+  so the drop is never charged or pushed twice) and the `price_drop_review_queue` rows. A
+  history line with no place left in the edit (the edit has fewer lines) is still refused.
+  The moved rows still describe the old drop (its product and price). That is why force
+  stays a deliberate, red action.
+- An admin may type a **2-digit** item number (Costco prints a few, e.g. `84 COKE`). The
+  desk shows it back. Shopper reads still show only 3–12 digits. The catalogue and savings
+  harvests only know 3–12-digit numbers, so such a product will in practice never get a
+  drop. A Gemini re-read keeps the 3-digit floor.
+- The runbook CLI is unchanged: it still needs `keepItemIds` and has no force.
+
 > ⚠️ It does **not** refuse a line carrying a pending verified-drop review
 > (`price_drop_review_queue`): deleting the line cascades that row away. Check first
 > (`select q.id, i.id, i.position from priceback.price_drop_review_queue q join

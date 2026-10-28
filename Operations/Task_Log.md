@@ -16,6 +16,19 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-28 — Admin desk line editor: 2-digit item numbers, unchanged drop lines kept, red "Force save"
+
+- **Asked (Maxim):** *"last scanned receipt is good except one product coke having sku = 84 but it got in the name and i cant edit the line because there is already a price drop in the receipt. i want the app to accept the sku (2 digits) and also i want the option to force a saving receipt even if i have this error … (button should be on red to force) (hotfix on main) and this is in the admin desk only"*.
+- **Found:** the desk's `/lines` route never sent `keepItemIds`. So a receipt with any claimed, notified or queued line refused every edit (`HAS_HISTORY`), even an edit of a different line. The desk form and `badScanRepair.validateSpec` both required a 3–12 digit SKU.
+- **Decisions:**
+  - The desk always keeps unchanged history lines (`keepUnchangedHistory`).
+  - `force: true` is admin only. Its red button appears after a `HAS_HISTORY` refusal. It rewrites a changed history line and MOVES that line's claim, push/charge records and review rows onto the corrected line at the same place. Deleting them instead would break "commission charged exactly once".
+  - 2-digit SKUs are accepted from an admin only; a Gemini re-read keeps the 3-digit floor. Only the desk shows them back (`adminDisplaySku`).
+  - Shopper reads and the runbook CLI are unchanged.
+- **Files:** backend `lib/badScanRepair.js`, `server.js` (`/lines`, auto-fix dry run), `repos/receiptsRepo.js`; mobile `src/services/adminEditForms.js`, `src/screens/AdminReceiptDetailScreen.js`; tests. Docs: runbook §3.
+- **Branch:** `hotfix/admin-desk-force-line-edit` off `main` → PR into `main`.
+- **Status:** PR open, not merged.
+
 ### 2026-10-28 — Best Buy finalized, then Abercrombie: everything from `development` except ads; new stores admin-only in production; Costco shares nothing
 
 - **Asked (Maxim):** *"continue working on best buy receipt parser i want it to be done and finalized by next week. continue the integration in a separate branch … but i cant take the ads integration for now. if done continue on abercrombie so it can also be finalized"*; then *"get everything from the dev branch if needed"*, *"same for abercrombie store. so i want to pull everything from dev except the ads yet. once the ads is configured i will merge it until then bring everything else in main test features branch"*. Branch asked → **cut from `main`, PR into `main-test-features`**.
