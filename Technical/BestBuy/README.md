@@ -4,18 +4,31 @@ Everything specific to Best Buy Canada as a PriceBack store. Per the standing
 rule — **one store = one parser file and one documentation folder** — nothing
 here describes another retailer, and no other store's folder describes Best Buy.
 
-**Status (2026-09-28): launch held — "Coming soon" in production, lab lane
-only.** When `development` was merged into `main` (branch
-`merge/main-and-development`), Maxim's standing call was that every store
-except Costco stays "Coming soon" in production. So the promotion's five
-declarations moved back together — the parser into `LAB_STORE_PARSERS`,
-`bestbuy` into `LAB_ONLY_STORES`, `enabled: false` in the bundle and in
-`policies.json`, the store-content sync SQL regenerated, and
-`BESTBUY_SCAN_ENABLED` defaulting to `false`. That is exactly the posture `main`
-always shipped; none of the parser, adapter or job work was removed, and lab
-builds (dev backend) still accept Best Buy with its dedicated parser.
-Re-promoting is the documented one-line move plus the flags and the sync — the
-agreement is pinned by `__tests__/bestBuyStorePromotion.test.js`.
+**Status (2026-10-28): finished, shipping in production builds ADMIN-ONLY.**
+Branch `feat/bestbuy-finalize` (cut from `main`, PR into `main-test-features`)
+brings everything from `development` except the ads: the parser hardening
+(#317, #335), the price feed and adapter registry (#312), the go-live tooling and
+health check (#329), the price lock for a charged drop (#321). Maxim's rule for
+every store from now on: *"ship it in the next versions in production it wont be
+available yet for users, but i can test it live in production as an admin."*
+
+- The parser is in `STORE_PARSERS`, so every build carries it.
+- `bestbuy` is in `ADMIN_PREVIEW_STORES` (`src/constants/stores.js`): an admin
+  account can pick and scan it; shoppers see "Coming soon"; the Stores tab badges
+  it "Admins only".
+- `stores.enabled` stays `false` in both databases and in the bundle. **Opening it
+  to shoppers is that row** (Admin console store editor, or the generated
+  `store-content-sync.sql` after flipping `enabled` in `stores.js`), and is
+  Maxim's call.
+- `BESTBUY_SCAN_ENABLED` defaults OFF. Dev carries an explicit `true`, prod an
+  explicit `false`. To test the feed in production as an admin, turn prod's on;
+  it can only price Best Buy lines that exist, which are the admin's own.
+- Costco is untouched: `receiptParsingShared.js` is byte-identical to `main` and
+  frozen; Best Buy's SKU-coverage signal is applied by the registry's
+  `scoreParse`, which returns a Costco score unchanged.
+
+*Earlier (2026-09-28):* launch held on the lab lane when `development` was merged
+into `main` on `merge/main-and-development` (never merged).
 
 *Earlier (2026-09-10):* store #2 on `development` (PR #320), price feed built
 and tested, live in the dev environment only — see the audit.

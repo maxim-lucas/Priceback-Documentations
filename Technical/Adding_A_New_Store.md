@@ -136,6 +136,19 @@ gate is usually the common case, not an edge case.**
 
 `src/services/receiptParsingShared.js` → `detectStore`.
 
+> 🔴 **2026-10-28 — `detectStore` is Costco's and is never taught another store.**
+> Maxim: *"Costco should never share any code with other stores that if modified
+> can have even the smallest risk of impact on costco receipt."* The two
+> detection fixes below (§1.1 black hole, §1.2 strong/weak) were made on
+> `development` INSIDE `detectStore`, and were taken back out when that work
+> reached `main`; `receiptParsingShared.js` is byte-identical to `main` and frozen
+> (§6.1). A store the shared detector files elsewhere **claims its own receipt**
+> instead: export `claims<Store>Receipt(text)` from the store's parser (its own
+> evidence only — the banner's name, never a shared loyalty footer) and register
+> it in `STORE_CLAIMS` / `LAB_STORE_CLAIMS` in `src/services/receiptParsers/index.js`.
+> `claimDetectedStore` runs after `detectStore`, returns a Costco detection
+> untouched, and follows the parser lanes. Sport Chek is the worked example.
+
 Five strategies in order: vendor-name keyword, pattern match, phone, vendor
 metadata, receipt keyword. Nothing downstream runs until this returns the store.
 
@@ -185,7 +198,9 @@ Business Centre**.
 - **`getStoreByKeyword`** (strategies 1 and 5) is a plain `includes()` over
   `receiptKeywords`, scanning `STORES` in array order. A keyword that is a
   substring of another store's text will win by position.
-- **`extractWarehouseId`** needs a per-store branch for the store number.
+- **The store number is read by the store's OWN function** (since 2026-10-28:
+  `extractBestBuyStoreNumber`, `extractSportChekStoreNumber`) — never a new
+  branch in the shared `extractWarehouseId`, which is Costco's path.
   **Require a second field as proof**: Best Buy takes `S-627 R-48` (the register
   pairs with it) because a bare `S-###` also matches a unit in a shipping
   address; Sport Chek takes `STR 330 REG 106` for the same reason — a street
@@ -394,8 +409,13 @@ export function <store>TrackabilitySignals(parsed) { … }  // → [{name, cost}
 result.parserSignals = <store>TrackabilitySignals(result);
 ```
 
-`computeParseConfidence` applies whatever a parser declares. It is a
-**mechanism**, not a shared rule, and that is deliberate:
+The registry's **`scoreParse`** (`src/services/receiptParsers/index.js`) applies
+whatever a parser declares, on top of `computeParseConfidence`. Since 2026-10-28
+the loop lives there, not in the shared scorer (which is Costco's and frozen):
+`scoreParse` returns `computeParseConfidence`'s answer untouched for a Costco
+result, a rejected receipt or a parser that declared nothing. The pipeline
+(`receiptParser.js`) calls `scoreParse`. It is a **mechanism**, not a shared
+rule, and that is deliberate:
 
 > **Never join another store's gate. Declare your own.** Every store prints a
 > different receipt, so the rule differs on every term — the identifier, the
@@ -427,6 +447,23 @@ the signal CAN fire — write the negative case.
 
 ## 5. The lab lane — where an unfinished parser lives
 
+> **Standing rule since 2026-10-28: a FINISHED store ships in production builds,
+> admin-only.** Maxim: *"ship it in the next versions in production it wont be
+> available yet for users, but i can test it live in production as an admin. this
+> will be always the rule for any future store so i can test everything before
+> enabling it for the users."* So the lane is for a parser still under
+> construction; once it meets §5.1 it moves to `STORE_PARSERS` **and** its id goes
+> into **`ADMIN_PREVIEW_STORES`** (`src/constants/stores.js`), with `enabled: false`
+> kept in the bundle and the DB. Admin accounts (the server's `isAdmin`, cached by
+> `purchaseService.setIsAdmin`) can pick and scan it in a store build; shoppers see
+> "Coming soon"; the Stores tab badges it "Admins only". Opening it to shoppers is
+> the `stores.enabled` row (§2.1), Maxim's call, done as data — no new binary.
+> The store's price-feed switch (e.g. `BESTBUY_SCAN_ENABLED`) defaults OFF and is
+> turned on where the admin wants to test the feed.
+> Pinned by `__tests__/adminPreviewStores.test.js` (fail-closed; an admin opens only
+> the held stores) and `bestBuyStorePromotion.test.js` (every held store has a
+> production parser).
+
 **A store parser under construction produces WRONG NUMBERS on a real receipt,
 and a wrong total is worse than "not supported yet" because the user acts on
 it.**
@@ -453,9 +490,11 @@ four defects the corpus itself never hit. Ask, concretely: what does a
 multi-item basket look like? A discounted line? A Quebec receipt? An online
 order? A return? If you cannot answer from real receipts, it stays on the lane.
 
-Promotion touches: `STORE_PARSERS` ← `LAB_STORE_PARSERS` (**moved**, not
-copied), `LAB_ONLY_STORES` emptied of that id, `enabled: true`,
-`BUNDLED_UPDATED_AT`, both generated files, and the DB row (§2.1).
+Promotion off the lane (since 2026-10-28) touches: `STORE_PARSERS` ←
+`LAB_STORE_PARSERS` (**moved**, not copied), the id moved from `LAB_ONLY_STORES`
+to `ADMIN_PREVIEW_STORES`, `enabled` **stays false**. Opening to shoppers later is
+only the DB row (§2.1) — plus `enabled: true` in the bundle and the two generated
+files in the next build, so the offline fallback agrees.
 
 ---
 
@@ -486,10 +525,12 @@ Costco realocr suite, the golden snapshot and the other hashes passing in the
 same run. Never refresh the whole table — a table refresh is indistinguishable
 from an accident.
 
-Note also: `src/services/receiptParsingShared.js` is **not** in the frozen set,
-but it *is* shared parsing code, and the standing rule treats shared parsing code
-as Costco. Changing it needs Maxim's confirmation and a stated regression
-argument, even though no hash fires.
+Since 2026-10-28 `src/services/receiptParsingShared.js` and
+`src/services/receiptGeometry.js` **are** in the frozen set (Maxim: Costco shares
+no code a non-Costco change could reach it through). A new store never edits
+them: its rules go in its own parser and the registry (§1, §4.4). The hashes are
+taken over LF-normalised content, because `main` has no `eol=lf`
+`.gitattributes` and a Windows checkout holds CRLF.
 
 ---
 
@@ -740,3 +781,4 @@ GO-LIVE
 | **Abercrombie** | A 403 may be header completeness, not a wall. Write down a measurement's vantage point — "non-Canadian egress" meant Egypt, and reading it loosely cost three days. |
 | **Sport Chek** | A sibling banner's loyalty footer steals detection. A pattern id with no store record ends the scan. curl is not Node. The receipt's identifier may not address the catalogue at all. |
 | **Best Buy, again** (2026-09-13) | The parse-confidence scorer is store-gated, so a new store scores FULL MARKS on every signal it does not name — a receipt that lost every SKU reported a perfect parse and suppressed the re-OCR that could have recovered it (Bugs #248). Declare your own signals; never join another store's gate. And `node --test` does not load `.env`, so a DB-gated suite skips its whole file and exits green — which is how that store's nightly job sat at 0% function coverage on every branch. |
+| **Best Buy + Abercrombie, landing on `main`** (2026-10-28) | Two new standing rules: a finished store ships in every build **admin-only** (`ADMIN_PREVIEW_STORES`), and **Costco shares no code** a non-Costco change could reach it through — so store detection claims and parser signals live in the registry, and the shared parser is frozen by hash. Porting a month-old branch: `main` had moved the test-data markers, the Costco files and the claim-window model, so ported tests asserted September's behaviour. A bot wall can appear between two measurements: A&F served HTML to Node in September and a JavaScript "Client Challenge" in October, even from Canada. |
