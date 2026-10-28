@@ -11359,3 +11359,31 @@ anyway).
   left for review); 0 duplicate keys in `savings` and `price_points`.
 - **Owed:** apply 0036 to prod **before** the merge deploys (the queue reads `saving_id`);
   `PRODUCT_IMAGES_*` / R2 keys must be on the prod service for photos.
+
+## 2026-10-28 — Merges, main → main-test-features sync, Best Buy doc split, A&F behind F5
+
+- **Ask (Maxim):** merge the waiting PRs; bring the latest `main` into `main-test-features`
+  through a PR, `main` winning every conflict; continue Best Buy and Abercrombie. Maxim saw
+  A&F prices in **CAD** in his own browser from Orléans. A scraping service may be built if
+  needed, but he prefers live checks like Best Buy so that no store needs its catalogue saved.
+- **Merged:** Priceback #503 (sync, merge commit), #504 (Best Buy finalized, squash), docs #178.
+- **Priceback #506** (`sync/main-into-main-test-features-2026-10-28b`, merged), bringing #501,
+  #502 and #505:
+  - **Migration collision at 0039.** `main`'s `0039_receipt_footer_ocr` and
+    `0040_receipt_quality_checks` are in both ledgers. Best Buy's `0039_national_province`
+    was renumbered **0041** (`when` 1793300000000).
+  - **Costco freeze.** Three pins were re-pinned to `origin/main`'s bytes: #502, a reviewed
+    Costco change.
+  - **Tests.** Jest 11,583 pass with 3 failures (the pins), then 163/163 after re-pinning;
+    backend 44/44 + 129/129 on dev; dev test data purged.
+- **Owed (prod, ledger row only):** `0041_national_province` LF hash
+  `15b47ae3963f85982c57ce710b7cf8653d1573338e184614904b1cf79944047a`, `created_at` 1793300000000.
+- **Best Buy docs.** The former §3 and §7 of the shared parser doc moved to
+  `Technical/BestBuy/Receipt_Parser.md`. The shared doc keeps pointers, and its lane paragraph
+  now names Sport Chek as the lane's only store.
+- **Abercrombie.**
+  - The challenge is **F5 Bot Defense** (`/_fs-ch-…/script.js`).
+  - One headless real-Chrome visit from Bell `CA` stayed on "Client Challenge" for 32 s.
+  - A self-built service would have to hide automation from F5, which is ruled out.
+  - Three routes are recorded in `Price_Adapter.md` for Maxim's choice: an unlocker API, a
+    shopper-side in-app check, or an affiliate feed.

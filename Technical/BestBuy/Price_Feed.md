@@ -203,6 +203,15 @@ into "no price".
    That is not a Best Buy blocker — it is a reconciliation hazard, and the reason
    to fix it is that the next person to ask "is 0007 on prod?" gets `no` from the
    ledger and `yes` from the data. Insert the hashes; do not re-run the DDL.
+
+   **2026-10-28 — renumbered 0041.** The file came to `main-test-features` as
+   `0039_national_province` and collided with `main`'s `0039_receipt_footer_ocr`.
+   `main` won, so it is now `0041_national_province` (`when` 1793300000000,
+   Priceback #506). Both databases have the row, and neither ledger records the
+   file. Owed on prod, ledger row only: LF hash
+   `15b47ae3963f85982c57ce710b7cf8653d1573338e184614904b1cf79944047a`,
+   `created_at` 1793300000000. Dev's ledger takes it through drizzle-kit, where
+   the insert is a no-op.
 5. ~~Best Buy is still `enabled: false` and lab-lane.~~ **Done 2026-09-02** —
    the store was promoted off the lab lane and `BESTBUY_SCAN_ENABLED` now
    defaults to `true` in code. Note what that does and does not mean: the

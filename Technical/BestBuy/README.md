@@ -38,6 +38,7 @@ and tested, live in the dev environment only — see the audit.
 | File | What it covers |
 | --- | --- |
 | `Price_Feed.md` | The price adapter (`backend/lib/bestBuyCatalog.js`) and the nightly job. The marketplace gate, the ~10 s API, the live probe, and what is still owed before the production scan flag is turned on. |
+| `Receipt_Parser.md` | The receipt parser: in-store and online formats, SKU width, discount sub-rows, service lines, and the 2026-09-02 promotion off the lab lane. Moved here from the shared registry doc on 2026-10-28. |
 | `Integration_Audit_2026-09-10.md` | The end-to-end audit: what was missing between "the code is complete" and "a shopper can use it", what was fixed, and what is owed. **Start here.** |
 
 ## Where the code lives
@@ -60,12 +61,3 @@ and tested, live in the dev environment only — see the audit.
 - `Technical/Receipt_Parser_Registry_And_Store_Parsers.md` — the registry, the
   parser contract and the lab lane.
 - `Technical/priceDrop.md` — what a price becomes once it is stored.
-
-## Owed: two sections still in the shared parser doc
-
-`Receipt_Parser_Registry_And_Store_Parsers.md` **§3 "The Best Buy parser"** and
-**§7 "Promoting Best Buy off the lane"** are Best Buy-specific and belong here as
-`Receipt_Parser.md`. They were left in place during the 2026-09-10 split because
-moving them means re-threading the registry doc's numbered sections, which is
-worth doing on its own rather than inside an audit. Until then, read §3 and §7
-there — not in another store's folder.
