@@ -11387,3 +11387,22 @@ anyway).
   - A self-built service would have to hide automation from F5, which is ruled out.
   - Three routes are recorded in `Price_Adapter.md` for Maxim's choice: an unlocker API, a
     shopper-side in-app check, or an affiliate feed.
+
+## 2026-10-28 (later) — Abercrombie on hold in the roadmap; Best Buy production-readiness docs
+
+- **Ask (Maxim):** document the A&F decision in the roadmap and hold A&F (no paid API, no
+  shopper manual check, no affiliation). He asked why a Costco-style scraper or a linked A&F
+  account in a cron can't work. Continue Best Buy.
+- **Roadmap (`FUTURE_ROADMAP.md`):** "Abercrombie & Fitch price feed — ⏸ ON HOLD" records:
+  - what is settled (CAD; F5 Bot Defense);
+  - what is ruled out, and why (an account login goes through the same wall);
+  - why Costco differs (Same-Day is Instacart's unwalled front door; the barcode harvest
+    runs in Maxim's real Chrome);
+  - the two free routes left.
+
+  Also added "Best Buy — open to shoppers 🟡" with its gates in order.
+- **Best Buy:** PIA written (`Publishing-Compliance/PIA/bestbuy-price-feed.md`) and the live
+  probe re-run from Canada (1 quoted, 1 marketplace-rejected).
+- **Reviewer-notes disclosure drafted, then reverted on Maxim's instruction.** Admin-only
+  features are never mentioned to App Store or Play. The Best Buy third-party row waits for
+  the shopper launch.

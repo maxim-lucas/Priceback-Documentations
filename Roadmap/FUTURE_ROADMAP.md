@@ -74,7 +74,72 @@ Total since last roadmap touch: **187/187 mobile + 47/47 backend tests passing**
 
 ---
 
+### Best Buy — open to shoppers 🟡
+
+**Code finished (Priceback #504, 2026-10-28)**: the parser ships in every build as an
+**admin-preview** store. Admins scan it in production, shoppers see "Coming soon". Opening
+it to shoppers is Maxim's call. What has to be true first (`Technical/BestBuy/Price_Feed.md`
+§"Owed"):
+
+- 🔴 Reviewer notes: **when the store opens to shoppers**, add Best Buy to the third-party
+  services table and re-render + re-upload the PDF. Admin-only features are never
+  mentioned in store submissions, so nothing changes while it is admin-only.
+- ✅ PIA: `Publishing-Compliance/PIA/bestbuy-price-feed.md`.
+- 🔴 Confirm **Railway** reaches bestbuy.ca: prod `/health?token=` →
+  `checks.priceFeeds.bestbuy`. From Canada the API still answers (2026-10-28).
+- 🔴 Prod drizzle ledger row for `0041_national_province`. The data is already there; hash
+  in `Price_Feed.md`.
+- Then flip, in this order: prod `BESTBUY_SCAN_ENABLED` (an admin tests the feed on their
+  own receipts), then the `stores.enabled` row for shoppers.
+
 ## 🔵 Open — not yet started
+
+### Abercrombie & Fitch price feed — ⏸ ON HOLD (Maxim, 2026-10-28)
+
+**Status:** adapter built and inert (`backend/lib/abercrombieCatalog.js`,
+`CANADIAN_STORE_IDS` empty). Held because A&F has no free, automatic route to its prices
+that we're willing to build. Detail: `Technical/Abercrombie/Price_Adapter.md` and
+`Canadian_Egress_Verification.md`.
+
+**Settled:**
+- A&F Canada prices in **CAD** to Canadian shoppers. Maxim saw this in his own browser
+  from Orléans.
+- The whole site sits behind **F5 Bot Defense** (formerly Shape). curl, a Node fetch and a
+  headless real Chrome all stop at its "Client Challenge" page, from a Canadian home
+  connection as well.
+
+**Ruled out by Maxim:** a paid unlocker or scraping API (no spend), a shopper-run manual
+check in an in-app browser (users won't use it), and an A&F affiliate feed (we can't be
+affiliated).
+
+**Ruled out technically:**
+- **A self-built scraper that hides its automation from F5.** That is an arms race against
+  a product built to detect exactly that.
+- **A shopper-type A&F account used by a cron.** F5 judges the *browser*, not the person.
+  It sits in front of every page, the login page included, and stopping automated logins
+  (credential stuffing) is what it is mainly sold for. A login would pass through the same
+  wall first, gain nothing, and put the account at risk of a ban.
+
+**Why Costco is different.** We never beat Costco's wall either: costco.ca is still
+Akamai-walled to every script. The two routes that work went *around* it.
+- **Same-Day** reads Instacart's own storefront for Costco (`sameday.costco.ca`, plain
+  GraphQL with a guest cookie). It is a second front door with no wall, and it powers the
+  nightly cron.
+- The **barcode harvest** runs in Maxim's real Chrome through Claude in Chrome: a person's
+  real browser, run by hand on a schedule, not a server.
+
+**Free routes left, if this is ever resumed:**
+1. **Find A&F's "Same-Day"**: a second front door that publishes A&F Canada's CAD prices
+   without F5 (a partner storefront or marketplace listing). Research only. Nothing is
+   known to exist yet.
+2. **A weekly Claude-in-Chrome run** in Maxim's own Chrome, the barcode-harvest pattern.
+   It opens the A&F page for each *watched* line only (a live check, as with Best Buy; no
+   catalogue stored), reads the price, and submits it through an admin endpoint. It is
+   free, but it needs Maxim's PC and Chrome, so it is not an unattended cron.
+
+**Owed whichever route is chosen:** read `data-storeid` off a real Canadian page into
+`CANADIAN_STORE_IDS`, replace the derived CAD fixtures with a real capture, and solve
+product→slug addressing (a receipt prints ids, the page URL needs a slug).
 
 ### Costco Pricing Accuracy — Phase 3 (paid scraper fallback chain)
 
