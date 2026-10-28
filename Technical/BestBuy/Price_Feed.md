@@ -177,16 +177,16 @@ into "no price".
 >   flip it. The prod flag writes `verified=true` price points, which reach
 >   `priceDropRepo.findNotifiable`, which **charges commission**.
 
-1. **`REVIEWER_NOTES.md` declares exactly one scraping source** (Costco
+1. **At shopper launch, not before** (Maxim, 2026-10-28: admin-only features are never mentioned to App Store or Play). **`REVIEWER_NOTES.md` declares exactly one scraping source** (Costco
    Same-Day Delivery, "read-only price scrapes"). Enabling this adds a second
    and needs a row. That file renders to `PriceBack_App_Review_Guide.pdf` via
    `Publishing-Compliance/tools/render-reviewer-guide.js` and **nothing syncs
    the PDF to its source** — re-render and re-upload.
-2. **A PIA.** `PUBLISH_CHECKLIST.md` (Quebec Law 25 §3.3) claims a PIA exists
+2. ✅ **Done 2026-10-28:** `Publishing-Compliance/PIA/bestbuy-price-feed.md`. **A PIA.** `PUBLISH_CHECKLIST.md` (Quebec Law 25 §3.3) claims a PIA exists
    for every ingestion pipeline the privacy policy references. This is a third
    one. Note it reads *catalogue* data only — no personal information — which
    should make it a short assessment, not an absent one.
-3. **Verify Railway egress reaches bestbuy.ca.** The existing `SCRAPERS.bestbuy`
+3. **Verify Railway egress reaches bestbuy.ca.** *(2026-10-28: the API still answers from Canada, quoting `19204882` at $2,999.95 and rejecting `18145276` as marketplace. Railway itself is still unverified, because `checks.priceFeeds` is admin-token only. One curl of prod `/health?token=` settles it.)* The existing `SCRAPERS.bestbuy`
    already calls it from Railway, which is good evidence, but Costco is proof
    that egress can be blocked where a laptop is not.
 4. **Apply migration 0007 on production by hand.** Prod's drizzle ledger is
