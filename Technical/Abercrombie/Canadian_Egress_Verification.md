@@ -8,6 +8,40 @@ outcome triggers.
 Canada ~2026-09-22). **Blocks:** the price feed, `hasDbPriceFeed`, and the whole
 fallback question in `Fallback_Percentage_Drop.md`.
 
+## 🔴 Run of 2026-10-28 — Canadian egress reached, storefront NOT read: A&F now runs a JavaScript bot challenge
+
+```
+Date:            2026-10-28
+Egress:          Orléans (Ontario), CA / AS577 Bell Canada   (ipinfo.io, Step 0 passed)
+/shop/ca lands:  unknown — no HTML served
+data-storeid:    not read
+priceCurrency:   not read
+Fixture saved:   none (deliberately — see below)
+```
+
+- **Step 1 (curl, Windows schannel, the documented full header set):** twice, two
+  minutes apart: no HTTP response at all; the server holds the connection
+  60 s and closes it (`schannel: server closed abruptly`, `code=000`).
+  `robots.txt` answers 200 to the same client, so this is not reachability.
+- **Step 3 (Node, `abercrombie-quote-probe.js`, through the real adapter):** both
+  quotes `storefront_mismatch (storeId=? currency=?)`. The saved body (3 KB) is a
+  **"Client Challenge"** page: *"Please enable JavaScript to proceed"*, scripts
+  under `/_fs-ch-…/`. In September the same probe got the real product HTML.
+- **Not committed as a fixture:** it is not a capture of any storefront, and the
+  "never commit a non-Canadian capture as Canadian" rule covers anything that is
+  not the page.
+
+**What this changes.** Whatever the currency answer turns out to be, **a plain
+HTTP adapter cannot read A&F any more** — from Canada, from Railway, from a GCP
+relay. Outcome A's relay plan (§"What each outcome triggers") would hit the same
+wall. A feed now needs a real browser engine (a headless browser solving the
+challenge, or a scraping service), which is a cost and terms-of-use decision for
+Maxim, not a code change. `CANADIAN_STORE_IDS` stays empty — correctly.
+
+**Still worth doing once:** read `data-storeid` and the currency off `/shop/ca` in
+a real desktop browser on Canadian egress. That settles the CAD-vs-USD question
+(outcome A vs B) even though it does not unblock the automated feed.
+
 ---
 
 ## Why this is open at all
