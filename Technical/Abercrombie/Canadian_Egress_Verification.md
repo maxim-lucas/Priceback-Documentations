@@ -42,6 +42,30 @@ Maxim, not a code change. `CANADIAN_STORE_IDS` stays empty — correctly.
 a real desktop browser on Canadian egress. That settles the CAD-vs-USD question
 (outcome A vs B) even though it does not unblock the automated feed.
 
+### Follow-up, same day: the wall is F5 Bot Defense, and headless Chrome does not pass it
+
+- **CAD settled by Maxim (2026-10-28).** He opened A&F in his own desktop
+  browser from Orléans and saw prices in **CAD**. That is outcome A: A&F Canada
+  sells in CAD to Canadian egress. The storefront id (`data-storeid`) is still
+  unread, so `CANADIAN_STORE_IDS` stays empty until a real Canadian page is
+  captured.
+- **The challenge vendor is F5** (formerly Shape Security, now F5 Distributed
+  Cloud Bot Defense). The challenge page loads `/_fs-ch-<token>/script.js` and
+  `errors.js` and names F5. This is an enterprise bot defense that fingerprints
+  the browser and the automation layer, not a simple cookie check.
+- **One headless visit, same Bell egress (ipinfo `CA`):** real Google Chrome 155
+  driven by `puppeteer-core`, fresh profile, product URL
+  `/shop/ca/p/lyocell-cotton-pleated-baggy-trouser-63504014`. HTTP 200, title
+  **"Client Challenge"**, still on the challenge after 32 s (17 KB, no
+  `data-storeid`, no `priceCurrency`). Its user agent announces
+  `HeadlessChrome`. One request only, because of A&F's IP-wide throttle.
+- **What this means for a self-built service.** A browser engine alone is not
+  enough. Getting through would mean hiding the automation from F5's
+  fingerprinting, an arms race against a vendor whose product exists to detect
+  exactly that. We do not build that. The workable routes are listed in
+  `Price_Adapter.md` §"Owed before the scan flag is ever flipped". They need
+  Maxim's choice.
+
 ---
 
 ## Why this is open at all

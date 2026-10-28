@@ -154,7 +154,7 @@ acknowledged the mixture.
 **Fixed** — that file is split into `Technical/Store_Price_Adapters.md`
 (store-neutral: the adapter contract, the NATIONAL province, the `scrape` source
 type, the add-a-store checklist) and `Technical/BestBuy/Price_Feed.md` (Best Buy's
-half). Cross-references updated. Still owed: §3 and §7 of
+half). Cross-references updated. Done 2026-10-28 (moved to `Receipt_Parser.md`): §3 and §7 of
 `Receipt_Parser_Registry_And_Store_Parsers.md` are Best Buy-specific and should
 move to `Technical/BestBuy/Receipt_Parser.md` — see this folder's `README.md`.
 
@@ -311,7 +311,7 @@ Scribd, neither of which belongs in a committed corpus.
 4. 🟠 The production items in `Price_Feed.md` §"Owed" — reviewer notes + PDF
    re-render, the Law 25 PIA, and the drizzle ledger rows.
 5. ~~🟡 Decide finding 9 (the SKU-coverage signal)~~ — **done 2026-09-13**
-   (Bugs #248). Still owed: split §3/§7 of the receipt
+   (Bugs #248). Done 2026-10-28 (`Receipt_Parser.md`): split §3/§7 of the receipt
    parser doc into this folder.
 
 ---
