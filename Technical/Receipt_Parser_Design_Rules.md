@@ -66,6 +66,13 @@ reaches extraction, so extraction never has to know about it.
 Identity (step 1) is read **before** denoising because the warehouse number and the date sit in the header and the
 register footer, which step 2 removes. The register footer is the authority for the warehouse (RC-10).
 
+**After the parser, on save — the catalogue check (2026-10-27, `Technical/Product-Catalog-Harvest.md`).** The parser
+is not changed by it: an item number the parser extracted that no catalogue lists is checked on the server against the
+weekly Costco catalogue (`lib/receiptCatalogMatch`). Only a number one edit away whose printed text — or catalogue name
+at an agreeing price — names it is taken, never across a size; the line keeps the number read (`sku_read`) and its
+printed name. Prices and totals are never touched, so step 5's verification is unaffected. A change to the matcher is
+proven on the whole corpus like a parser change: `scripts/harvest-catalog.mjs --corpus`.
+
 ## 3. Rules
 
 1. **Same structure, same logic.** A new receipt shape is handled by adding its noise to the noise vocabulary

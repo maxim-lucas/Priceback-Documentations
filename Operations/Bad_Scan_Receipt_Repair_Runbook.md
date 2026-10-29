@@ -32,6 +32,45 @@ specs in `backend/data/bad-scan-repairs/<receiptId>.json` · migration
 If in doubt, it is a parser bug: those go through the normal fixture workflow
 (`scripts/exportOcrCaptures.js` → `receiptProdCaptures.test.js`).
 
+### 0a. Too poor to repair? Reject it (added 2026-10-27)
+
+When the photo can't be read even by eye (cut off, blurred, folded over the items)
+or repairing it costs more than it's worth, don't repair it: on the admin desk's
+receipt screen tap **Reject receipt (photo too poor) and ask to rescan**
+(`POST /api/admin/receipts/:id/reject`, `backend/lib/receiptRejection.js`, migration
+0038). In one transaction it:
+
+- soft-deletes the receipt as `admin_rejected`, stamped with you, and flags it
+  `skip_parser_optimization`. The row stays as the record: the shopper's phone drops
+  the receipt on its next sync;
+- deletes its own `receipt_ocr` price points and this device's crowd copies of them
+  that no other receipt of the day carries. A plain **Delete** keeps the prices; a
+  reject does not, because the prices are the misread;
+- deletes its lines outright, and with them their price-drop review rows still
+  waiting. The desk then shows the rejected receipt with no lines; the photo stays
+  until the usual 7-day prune;
+- deletes every product and the warehouse **the receipt created** (made within 10
+  minutes of its upload, or later by the line editor) that nothing else uses now: no
+  other receipt line (deleted receipts included), price, catalogue entry, saving, tag
+  scan or merge. A product with a barcode or an admin-saved name is always kept. A
+  name the receipt *filled* on a product that already existed can't be told apart
+  from a real one and is left as is;
+- removes it from every watch registration. `/api/watch` then ignores its lines if
+  the phone re-sends them before it syncs.
+
+Then it sends the shopper the push straight away (type `receipt_rejected`, *Scan
+results* switch, EN/FR). It doesn't go through the approval queue, because your
+confirmed tap is the approval:
+
+> **Receipt rejected: please rescan** — Your receipt photo was too poor to read, so we
+> couldn't process it. Please scan it again with only the header, the items and the
+> total, laid flat in good light.
+
+**No scan-credit refund** (Maxim, 2026-10-27). A receipt with a claimed line or a
+price drop already sent can't be rejected (409 `HAS_HISTORY`); delete or repair
+it by hand. Planned next (roadmap): the app refuses poor scans live, so the shopper
+retakes the photo before it reaches the desk.
+
 ### 0b. Reproduce with the exact live capture before deciding (added 2026-10-09)
 
 The phone parses; the stored lines are what **that phone's binary** made of Vision's answer. Replay the same answer

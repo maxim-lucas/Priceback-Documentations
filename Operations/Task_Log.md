@@ -45,6 +45,13 @@
 - **Branch:** `hotfix/savings-harvest-data-quality` off `main` (worktree `pb-savings-quality`, the catalog session owns the main checkout) → PR into `main`.
 - **Status: DONE, merged and deployed.** **Priceback #496** merged by Maxim 2026-10-27 15:22 UTC (`1b8a595`, after #495); prod restarted on it (new routes answer 401, an unknown one 404). Final tests: backend **3,063 passed / 0 failed** (two guards made proof against another branch's tables and data on the shared dev DB — the "%" test byte-identical to #495's fix), mobile **10,493 / 0**; new modules at 100% lines and functions. Backtest of the confidence on prod's whole savings-drop queue (read-only, real live Same-Day checks): the 9 correct drops at 100%, the 4 others held (both rejected by hand, the over-refunded pizza — not even listed at its warehouse — and the second pizza line). On prod, at Maxim's request (session priceback-95): the repair run by hand (`readAfterEnd` 246, `officialOnFile` 4, `markedToConfirm` 357), migration **0037** applied with the ledger row (prod had been on `1b8a595` without it), and a fresh pull of the 5 sources, official first. Still Maxim's call: move the Same-Day sources' `start_hour` later or to two runs a day (Same-Day still showed the previous promotions at 00:45; by 10:21 the new ones were up); switch `SAVING_DROP_AUTO_APPROVE` on when he trusts the bands. The confidence filters and badge reach the admin with the next app build.
 
+### 2026-10-26/27 — Weekly catalogue harvest: official EN/FR product names, misread item numbers fixed (hotfix)
+
+- **Asked (/goal):** *"another cron script same style for the one we have for the savings that will use the same websites costco.ca businesscenter and both sites for sameday to make sure all products are filled correctly in the database and autofix the product names (english and french) and fix the errored ones (example banana or banane in the product table with different sku misread from receipts) and feed the database with the full product list of costco nationwide in canada … the parser should check the best match for the product in the database and autofix the sku and product name if misread again. same configuration should run weekly sunday at midnight (configurable also)"*; mid-task: *"hotfix on main branch"*.
+- **Decisions / constraints:** sources in `catalog_sources` like the savings harvest, plus `start_day` (seeded Sunday 00:00 Toronto, missed slot caught up within 24 h); Same-Day read from its products sitemap + `Items`, French via the storefront's locale switch; costco.ca from public sitemaps/pages only (Costco's internal APIs not used); official names win over receipt text except an admin-locked name (`products.name_locked_at`, set by Admin · Product names) and a more trusted source's. Misreads: one edit away + the printed text (never across a size) or the catalogue name at an agreeing price; on save (`lib/receiptCatalogMatch`, keeps `receipt_items.sku_read`, line priced/watched normally) and weekly (`catalogFixer` folds scan-only products into the real one, alias kept; runs only when every source is fresh). Not a parser change — the shared parser is untouched; a post-extraction database step proven on the 127-receipt golden corpus (3 corrections, all misreads, incl. `30659 BANANES` → 30669). Live switches `CATALOG_HARVEST_ENABLED` / `CATALOG_SKU_FIX_ENABLED` / `CATALOG_AUTO_MERGE_ENABLED`. Doc: `Technical/Product-Catalog-Harvest.md`.
+- **Files / areas:** migration `0037_product_catalog`; `services/catalog/*`, `repos/productCatalogRepo.js` (the paywall's `catalogRepo.js` is untouched), `jobs/harvestCatalog.js` + `pruneCatalogRuns.js`, `lib/receiptCatalogMatch.js`, `scripts/harvest-catalog.mjs`; `receiptsRepo` (save check, `sku_read`, shopper-edit guard), `pricesRepo.resolveProductIds` + `watchItems` (aliases), `receiptAutoFix`, `badScanRepair`, server.js (tick :35, console routes, name lock); desk tag (`AdminReceiptDetailScreen`).
+- **Status:** **Priceback #495 merged 2026-10-27 15:04 UTC** (merge = Railway deploy). Migration 0037 on DEV only. Dev runs: Same-Day Costco 8,155 items / 7,636 new products / 13 min; Business Centre 5,769 / 1,677; costco.ca 191 pages + 8,267 listings; BC web 100 pages. Backend suite 3,105/3,108 (1 env flake), coverage 95.44/83.64/96.06/95.44; mobile 10,485/10,491 (env/load only). Found on the way: Same-Day names item 1680367 "Product" in English → refused as a placeholder. **Owed by Maxim:** apply 0037 to production (+ ledger row) BEFORE merging #495; run `--corpus` read-only on production first if wanted.
+
 ### 2026-10-22/23 — Sync-integrity audit; Gemini never merges different values; Gemini first (admin switch, daily-limit fallback)
 
 - **Asked (Maxim, /goal):** *"start a deep analysis on any data that could not sync correctly between the device and the server. also make sure that the Gemini LLM respect the main parser logic everytime, never merge 2 products having different values even if the sku is the same, make also Gemini LLM the primary parser that i can change by a switch in the admin panel and the fallback will kickoff after the limit of LLM (daily)"*. Branch not named → asked → **`main` as hotfixes** (one PR per task, merge = Railway deploy = Maxim's go). Planning: code + dev DB only (*"Resume, no production"*).
@@ -11383,6 +11390,28 @@ anyway).
   left for review); 0 duplicate keys in `savings` and `price_points`.
 - **Owed:** apply 0036 to prod **before** the merge deploys (the queue reads `saving_id`);
   `PRODUCT_IMAGES_*` / R2 keys must be on the prod service for photos.
+
+## 2026-10-27 — Admin desk: "Reject receipt" for scans too poor to read
+
+- **Ask (Maxim):** a button on the admin receipt review to reject a receipt: the shopper
+  gets a short, direct notification (receipt too poor, rejected, scan again: header, items
+  and total only) and the receipt is not processed. Example: the latest receipts at
+  warehouse #540 today. Copy approved before building; **no scan-credit refund** ("i wont
+  pay credits for lazy users"). Roadmap: the app will refuse poor scans live.
+- **Built (Priceback, branch `feat/admin-reject-receipt`, migration 0038):**
+  `lib/receiptRejection.js` + `POST /api/admin/receipts/:id/reject`. It soft-deletes the
+  receipt as `admin_rejected`, takes back its price points and crowd copies, closes its
+  waiting drops, unwatches it, and `/api/watch` skips its lines. It then pushes
+  `receipt_rejected` (Scan results switch, EN/FR) and the tap opens the scanner. Desk
+  button + confirm. Runbook §0a.
+- **Also found:** the Gemini/line-editor refusal on `r_1793110284881_3eips` (#540) was
+  not a sent drop. Its two price-drop review rows had been *rejected*, and the editor
+  counts any review row as history (so a rejected drop isn't forgotten). The message
+  says "claimed, notified or in the price-drop review". Not changed.
+- **Owed:** apply 0038 to prod **before** the merge deploys (route answers 503
+  `NOT_INSTALLED` without it).
+
+---
 
 ## 2026-10-28 — Merges, main → main-test-features sync, Best Buy doc split, A&F behind F5
 
