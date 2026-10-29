@@ -338,3 +338,14 @@ notice drafted.
 | `r_1791723359114_xuxbv` | Costco Sherbrooke #1367 · 2026-09-19 | photo ✅ (capture c71) + OCR | 2026-10-13 | **Correct.** 89.77 + 8.24 = 98.01. Stamped reviewed. |
 | `r_1791723518253_4qp2s` | Costco Sherbrooke #1367 · 2026-09-19 | photo ✅ (capture c72) + OCR | 2026-10-13 | **Repaired (names only).** Lines/totals right (622.08). Products 1119338 `Bas du pobler BATTERIE KS` → `BATTERIE KS`, 427383 `CORN` → `CORN FLAKES`, 1980969 `- FAL IRON` → `T-FAL IRON` (both slots). BISCOFF (item 1436, drop notified) kept. RC-18/RC-13/RC-19. |
 | `r_1791853258418_xzw9x` | Costco Nepean #540 · 2026-09-27 | photo ✅ (captures c99/c100) + OCR | 2026-10-13 | **Repaired.** 8 lines / 323.97 → 11 lines / **129.74** (122.59 + 7.15); 3 coupons restored; synthetic `for your records` product and crowd copy 12247 removed. RC-15/16/2/17. |
+
+### 2026-10-28 — remaining receipts (unreviewed, purchase + 30 ≥ today, not deleted): 3
+
+Photos read from R2; `3eips` also replayed (capture c412) on the shopper's build v3.2.0. Details and root causes:
+`Operations/Bad_Scan_Receipt_Repair_Runbook.md` log, `Technical/Receipt_Parser_Root_Causes.md` RC-15 / RC-33.
+
+| Receipt id | Store / date | Evidence | Verified | Result |
+|---|---|---|---|---|
+| `r_1793110284881_3eips` | Costco Nepean #540 · 2026-10-26 | photo ✅ (R2) + capture c412 replayed | 2026-10-28 | **Repaired.** 6 lines / 1584.88 → 13 lines / **243.73** (228.03 + 15.70); 6 coupons restored; 2 Shop Card payment "items" and their products removed. Reviewed + skip-optimisation. |
+| `r_1793110195684_mez7p` | Costco Nepean #540 · 2026-10-22 | photo ✅ (R2) | 2026-10-28 | **Unrecoverable** (folded: ~4 of 14 items and the totals hidden). ⏳ To reject + rescan push. |
+| `r_1793156647777_0fs8x` | Costco Gloucester #1362 · 2026-10-27 | photo ✅ (R2) | 2026-10-28 | **Unrecoverable** (payment section only, no items). ⏳ To reject + rescan push. |

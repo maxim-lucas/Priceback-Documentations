@@ -11459,3 +11459,21 @@ anyway).
 - **Reviewer-notes disclosure drafted, then reverted on Maxim's instruction.** Admin-only
   features are never mentioned to App Store or Play. The Best Buy third-party row waits for
   the shopper launch.
+
+## 2026-10-28 — Remaining receipts: repair 1, reject 2 with the rescan push
+
+- **Ask (Maxim):** parse and fix the 3 unreviewed receipts (his remaining-receipts query); the
+  totals-only one cannot be accepted; full cleanup of any bad data; a receipt that cannot be fixed
+  gets the rejection notification (#497) so the shopper re-uploads it.
+- **Done (prod data only, no app code):** `r_1793110284881_3eips` (Nepean #540) repaired from the
+  photo — 13 lines / 243.73, proved against SUBTOTAL, HST, GST, discounts and item count; its two
+  admin-rejected, never-sent review-queue rows removed in the same transaction (scratch wrapper
+  around `badScanRepair.repair`, run from a worktree at deployed `1b8a595`). Root causes: RC-15
+  (logo cut) + new **RC-33** (Shop Card tender lines not denoised), proved by replaying capture
+  c412 on v3.2.0; the remaining 62.97 is the photo (hidden first price, ~10° tilt).
+- `r_1793110195684_mez7p` (folded, items + totals hidden) and `r_1793156647777_0fs8x` (payment
+  section only) are unrecoverable → to reject. Prod ran `1b8a595` (before #497), so: migration
+  **0038 applied to prod** by hand (insert + drizzle ledger row 49, LF hash `d2f18502…`), and Maxim
+  chose to deploy `main` and then reject both through `POST /api/admin/receipts/:id/reject`.
+- Docs: `Technical/Receipt_Parser_Root_Causes.md` (RC-15 case, RC-33),
+  `Operations/Bad_Scan_Receipt_Repair_Runbook.md` log, `Operations/Receipt_Data_Verification_Ledger.md`.
