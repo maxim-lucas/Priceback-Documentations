@@ -78,7 +78,10 @@ register footer, which step 2 removes. The register footer is the authority for 
    item *names* after the parse (`stampIgnoredItems`, `tidyCostcoItemName`) is a backstop; every time it fires, the
    noise reached extraction and step 2 has a gap to close.
 4. **Only the item block and the totals block are parsed.** Everything after the TOTAL line except the tax breakdown
-   and the check lines is noise — payment, approval, "retain this copy", tender, change, footer.
+   and the check lines is noise — payment, approval, "retain this copy", tender, change, footer. **The receipt body
+   ends at `**** TOTAL` and its value** (Maxim, 2026-10-27): the Costco item block ends at the last grand-total row,
+   its amount read or not, or at the first footer check line (`costcoItemBlockEnd`, RC-34). The register footer's
+   items-sold count and date stamp are kept apart as `receipts.footer_ocr` (`src/services/receiptFooter.js`).
 5. **The printed totals are the truth.** The printed SUBTOTAL / TAX / TOTAL are never re-derived from the lines. A
    mismatch is a flag, not a correction.
 6. **Special cases are image problems only.** Tilt, curl, fold, zoom, faint print, OCR digit damage — handled in
@@ -113,9 +116,11 @@ register footer, which step 2 removes. The register footer is the authority for 
 
 ## 5. What the shopper is told
 
-The photo only has to cover the receipt **from the top down to the TOTAL line**: the parser needs nothing below it
-except the tax breakdown and the item count, which print right under it. In-app guidance and repair notices say so
-(Maxim, 2026-10-13).
+The photo covers the receipt **from the very top down to the payment date and the number of items sold** (Maxim,
+2026-10-27; it replaces 2026-10-13's "down to the TOTAL line"). Both print after the payment block, which therefore
+stays in the photo: the items-sold count is what the receipt quality check compares the lines with
+(`Technical/Receipt_Photo_Quality_Gate.md`), and the date stamp is the purchase date. The scan screen's *How to scan
+a receipt* section and the admin *Reject receipt* push say so.
 
 ## 6. Status (2026-10-13)
 

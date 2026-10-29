@@ -26,6 +26,33 @@ Measured on 99 fixtures (Costco EN/FR paper, PDF exports, app screenshots, refun
 most paper receipts, `marker` on the Kanata self-checkout ones, `first_item` on PDFs and screenshots, `null` only
 on the faded Pointe Claire receipt (and the refused US ones, which never reach it).
 
+## The footer (`receipts.footer_ocr`)
+
+**Since:** 2026-10-28 (`hotfix/receipt-total-fence-footer`, migration 0039). Maxim: *"the receipt total [**** Total
+and the value] should be the last line detected on a receipt body (and save separately the items sold number as a
+footer OCR so we can refer to and the purchase date)"*.
+
+`src/services/receiptFooter.js → extractReceiptFooter(cleanedText, { itemsSold })` keeps, below the last
+totals-block row, the register lines that state the receipt's check figures:
+
+| Kind | Printed (EN / FR) |
+|---|---|
+| Items sold | `TOTAL NUMBER OF ITEMS SOLD = 13`, `Items Sold: 13` / `NOMBRE D'ARTICLES VENDUS= 2`, `Nombre d'art. 2` |
+| Date stamp | `2026/10/26 17:08:06 540 205 284 705` (date, time, warehouse, terminal, transaction, operator), `K6 2026/10/26 17:08:05` |
+
+- **The flat OCR, not the geometry rows.** The flat text's lines are the printed lines; a tilted footer's rows weld
+  neighbours (`2026/10/02 TOTAL RABAIS 20:28:07 … 4,00 17`). A date stamp counts only when nothing but times and
+  register numbers follow the date.
+- **A count streamed away from its label** (`NOMBRE D'ARTICLES VENDUS-` … `2`, a column-split photo) gets back the
+  count the parse read for it (`= 2`); a bare label is dropped when another line states the count.
+- **Cleaned input**: no member number, card or cashier line reaches it. Capped at 500 characters.
+- Sent as the optional `footerOcr` on `POST /api/receipts` (server cap 1000), echoed on restore like `headerOcr`,
+  shown on Admin · Receipt detail (*Footer OCR*). NULL for every receipt before 3.2.1 and every older build.
+
+Measured on the corpus: 104 of 143 captures have one; the 39 without are screenshots, PDFs, refunds and frames cut
+above the footer. Pinned verbatim on 9 captures (`footer` in `GROUND_TRUTH`) and per fixture by digest in the golden
+snapshot.
+
 ## The production-corpus method (standing rule)
 
 Every receipt-parser problem starts by turning the production receipts not yet in fixtures into fixtures:

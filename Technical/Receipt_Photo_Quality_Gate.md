@@ -1,11 +1,92 @@
 # Receipt photo quality gate — refuse a hopeless photo before it costs anything
 
-> **Status: design only — not implemented (Maxim, 2026-10-12: "leave it till the end, just document it and we will
-> try to have a solution later").** This page records what a bad photo costs today, what the production corpus says
-> bad photos look like, the options, and the order to build them in.
+> **Status: built as the *receipt quality check* (2026-10-28) — shadow on every installed build, refusal on demand
+> per family.** Maxim, 2026-10-27: *"auto reject receipt with poor quality but i dont want to use it without testing
+> it with live and real users receipts … only a flag to appear in the admin console so i can check if the feature is
+> refusing only the bad receipts that the app never would have treat it and i want to have a setting in the admin
+> console to enable the feature user side when i need (on demand)"*. §0 is what was built; §1–§6 are the 2026-10-12
+> design it grew from (Layer 2 + Layer 3, with the arithmetic checks Maxim listed).
 >
 > Related: `Technical/Receipt_Parser_Root_Causes.md` (what bad photos do to the parse),
-> `Operations/Bad_Scan_Receipt_Repair_Runbook.md` (what they cost us afterwards).
+> `Operations/Bad_Scan_Receipt_Repair_Runbook.md` (what they cost us afterwards),
+> `Technical/Receipt_Parser_Design_Rules.md` §5 (what the shopper is told).
+
+## 0. The receipt quality check (built 2026-10-28)
+
+**One set of rules, two places.** `shared/receiptQualityGate.js` (rules v1) judges a receipt as its upload
+(`qualityInputFromApiBody`): the lines, the total and tax the phone read, the cleaned OCR and the footer, and the
+photo's measures. The **server** runs it in the shadow on every upload from every installed build (the photo measured
+on the receipt's linked OCR capture); the **phone** (builds after 3.2.0) runs it before the review step, sends its
+verdict with the upload, and refuses the scan when the admin has switched one of its reasons' families on — free,
+retake only (Maxim's decision, 2026-10-27).
+
+| Family (admin switch) | Reason | Fires when |
+|---|---|---|
+| Photo (`RECEIPT_QUALITY_REFUSE_PHOTO`) | `photo_rotated` | more than 50 % of the words carry no upright baseline: upside down or sideways |
+| | `photo_tilted` | the median baseline angle is above 8° |
+| | `photo_faint` | more than 15 % of the words read with confidence < 0.72 (fading, glare, blur) |
+| | `photo_too_far` | the median word height is below 10 px of a 1200-px-wide frame |
+| | `photo_low_angle` | the top third's words are below 0.5× (or above 2×) the bottom third's |
+| Items count (`…_COUNT`) | `items_sold_unread` | no printed items-sold count (the photo stops above it) |
+| | `items_sold_mismatch` | the printed count differs from the units read (fees excluded) |
+| Totals & tax (`…_TOTALS`) | `totals_unread` | no printed total or tax established |
+| | `tax_missing` | a line carries a tax code (`FP`/`F`/`P`/`H`/`G`/`Y`/`B`) but the tax is 0 |
+| Adds up (`…_BALANCE`) | `lines_off_total` | Σ lines + tax is more than **10 %** off the printed total |
+| Read as an item (`…_ITEM`) | `total_read_as_item` | a line with no item number equals the lines above it (2+) or the printed subtotal/total |
+| | `payment_read_as_item` | a line is named like a tender, a balance or an approval |
+
+**Established figures.** The printed total is the one the phone read when the paper prints that amount (the app
+locks it to the printed one), else the flat text's reading when its block closes; the tax likewise; the subtotal is
+total − tax. The flat text alone pairs a column-split TOTAL with an item's price (3hhhj "TOTAL 5"), and the uploaded
+total alone can be the doubled one (3eips, 1,584.88 for 243.73). The items-sold count is read from the footer first
+(`receipts.footer_ocr`, label and count together), then the raw text.
+
+**Limits** are admin settings (`RECEIPT_QUALITY_*`), served to the app on `GET /api/v1/app-status`, so the trial
+tunes them without an app build. Starting values from the committed corpus (`receiptProdCaptures.test.js` › *the
+receipt quality check on the corpus*, every verdict pinned):
+
+- **No right parse is refused for a photo, totals, adds-up or read-as-an-item reason.** The right parses reach 7.2°
+  of tilt (4qp2s), 6.6 % faint words, 11.4-px glyphs (mebfs) and a 0.72–1.67 height ratio.
+- **The count family flags 12 right parses**, each explained by the paper: 11 photos that stop above the items-sold
+  line (complete under the old "down to the TOTAL" guidance, incomplete under the new one) and Lévis i7aiw's
+  documented unit gap (a weighed pack counted once: 69 for 70). Keep the count family off until the trial clears it.
+- **Every known-bad capture is refused but one**: t7iig c259 lost a $4.00 coupon, 8.92 % off — inside the 10 %
+  tolerance Maxim set "for now". The photo measures do not separate the curled parser gaps from the right parses;
+  their missed lines are caught by the count and adds-up checks, as §4 expected.
+
+**Production backtest (2026-10-28, read-only, last 30 days, `backend/scripts/receipt-quality-backtest.js
+--photos`).** 187 receipts, 152 judged (35 out of scope: online, other stores, refunds, rejected): 91 pass, 61 would
+refuse. The stored lines are the ones after the shopper's review and any admin repair, so this is the shadow check's
+view of an old build.
+
+| Reason | Receipts | What it says |
+|---|---|---|
+| `items_sold_unread` | 53 | The photos stop above the items-sold line — the guidance was "down to the TOTAL" until now. The count family stays off until the new guide (the app's "How to scan a receipt") has shipped and the trial clears it. |
+| `items_sold_mismatch` | 6 | 3 with a 17–40 % gap (lines missing: right refusals); 3 whose lines add up but are 1–2 units off (19 printed, 21 read): to label. |
+| `lines_off_total` | 4 | 17–45 % off (igi2v, 34jc2, 6wd4e, tl5wo): lines missing. |
+| `totals_unread` | 3 | No total or tax established from the stored text (4i228, f1zo2, i7aiw). |
+| `photo_tilted` / `photo_low_angle` | 2 / 1 | **Readings that add up** (u8xbn 8.3° for an 8° limit; 5bvzh a 2.43 ratio, the bottom smaller; xwkjk 12.3°): the photo limits are stricter than these photos needed. Label them, and let the suggestions move the limits. |
+
+No receipt the admin rejected would have passed. Nothing is switched on in the app until a family's line shows no
+wrong refusal.
+
+**On the phone (builds after 3.2.0).** `GET /api/v1/app-status` carries `receiptQuality` (the families that refuse,
+the limits in the gate's units); the app keeps the last word on the device (`src/services/receiptQualityConfig`) and,
+never told, refuses nothing. `scanReceipt`'s last step (`applyQualityCheck`) judges the reading the shopper is about
+to review, with the photo measured on the adopted OCR pass (`photoQuality`). The verdict rides with the upload
+(`qualityCheck`). A refusing reason in a switched-on family turns the scan into `receiptKind: "poor_quality"`: free
+(`rejectionSpendsCredit`), nothing saved, the **"Let's retake this photo"** card naming what went wrong (Retake photo /
+How to scan), the guide unfolded, and a best-effort report to Admin · Receipt reading › *Refused in the app*
+(`POST /api/receipts/quality-refusals`). The offline receipt queue keeps such a scan as *rejected*, with its reasons
+and a Retake button. **"How to scan a receipt"** (`src/components/ReceiptScanGuide`) sits under Photo library / Upload
+file, unfolded until the first saved receipt; the old one-line how-to is gone.
+
+**The trial is a training set** (Maxim: *"these data can be a training so when we enable the feature the app have
+data as reference"*). Every checked receipt stores every raw measure (`receipt_quality_checks.metrics`, migration
+0040) and takes the admin's **Good / Bad** label on the receipt itself (not on the verdict, so a label stays right
+when the rules change). Admin · Receipt reading shows a per-reason scoreboard over the labelled receipts (right
+refusals, wrong refusals, missed, right passes) and **suggested limits**: the strictest value that refuses no receipt
+labelled good. A family's switch should go on only once its line shows no wrong refusal.
 
 ---
 

@@ -421,6 +421,7 @@ the receipt + items but **keeps** their `price_points` (the billable remnant).
 | `image_uploaded_at` | timestamptz | |
 | `raw_ocr` | text | Items/body OCR text. |
 | `header_ocr` | text | Store + warehouse identifying OCR, kept separate from `raw_ocr` (0002). |
+| `footer_ocr` | text | The register footer below the totals: the items-sold count (with its label) and the date/time/terminal stamp (0039). NULL from builds up to 3.2.0, which don't send it. |
 | `policy_status_id` | int → `policy_statuses` (set null) | watching/claimed/expired. Window read live from `stores.adjustment_days` (0002 dropped the snapshotted `policy_window`). |
 | `created_at`, `deleted_at` | timestamptz | |
 
@@ -455,6 +456,30 @@ One row per price-drop alert sent for a watched item (dedup on `(item, price)`).
 | `sent_at` | timestamptz | |
 
 Indexes: unique `(receipt_item_id, price)`, `(price_point_id)`.
+
+### `receipt_quality_checks` (migration 0040)
+The receipt quality check's verdict (`shared/receiptQualityGate`; `Technical/Receipt_Photo_Quality_Gate.md` §0): one
+row per checked receipt — the shadow verdict the server computed on its upload, or the one the app sent with it — or
+one row per scan the app refused (no receipt). The admin's Good / Bad label on the receipt is the trial's training set.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | serial PK | |
+| `receipt_id` | text → `receipts` (cascade), unique | NULL only for a scan the app refused. |
+| `user_sub` | text → `users` (cascade) | Indexed. |
+| `ocr_capture_id` | bigint → `ocr_captures` (set null) | The capture the photo was measured on (pruned with it). |
+| `verdict_id` | int → `receipt_quality_verdicts` (restrict) | `pass` / `refuse`. |
+| `from_app` | bool | The app judged it (before the shopper's review), not the server. |
+| `refused_in_app` | bool | CHECK: `refused_in_app = (receipt_id IS NULL)`. |
+| `rules_version` | smallint | The gate's `RULES_VERSION`. |
+| `metrics` | jsonb | Every raw measure: the photo's, printed vs read figures, the gap, the limits used. |
+| `labelled_good` | bool | The admin's label on the receipt; NULL = not labelled. |
+| `labelled_by` | text → `users` (set null) | |
+| `labelled_at`, `checked_at` | timestamptz | `checked_at` indexed. |
+
+`receipt_quality_check_reasons (check_id → checks cascade, reason_id → receipt_quality_reasons restrict)`, PK on
+both: the reasons of a verdict. Lookups `receipt_quality_verdicts` and `receipt_quality_reasons` (codes =
+`shared/receiptQualityGate` `REASONS`) are seeded by `db/seed.js` and by the migration.
 
 ---
 

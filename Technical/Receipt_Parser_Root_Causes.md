@@ -707,17 +707,29 @@ One live receipt prints the English `Bottom of Basket` / `BOB`.
 
 | Receipt | Store | Scanned | Build | Lost | Status |
 |---|---|---|---|---|---|
-| `r_1791723518253_4qp2s` | Sherbrooke #1367 | 2026-10-11 | iOS 3.0.6 | Product 427383's catalogue name saved as `CORN` | Repaired 2026-10-13 (spec renamed it); still on `main` |
-| `r_1791814977185_p2s1a` | Boisbriand #546 | 2026-10-12 | Android 3.0.6 | AMIRA's 20.00- coupon | Repaired 2026-10-12 (spec); proof owed; the row is still dropped on `main` |
+| `r_1791723518253_4qp2s` | Sherbrooke #1367 | 2026-10-11 | iOS 3.0.6 | Product 427383's catalogue name saved as `CORN` | Repaired 2026-10-13 (spec renamed it); *covered by `hotfix/receipt-total-fence-footer`* (c72 reads `CORN FLAKES`) |
+| `r_1791814977185_p2s1a` | Boisbriand #546 | 2026-10-12 | Android 3.0.6 | AMIRA's 20.00- coupon | Repaired 2026-10-12 (spec); *covered by `hotfix/receipt-total-fence-footer`* (c87 applies the coupon, 69.99 → 49.99); the capture stays a parser gap for its other rows (RC-12) |
+| `r_1792722373237_t7iig` | Rimouski #1720 | 2026-10-23 | not recorded | Stored right (the pass that was kept); 3 of its 4 passes lost a line — the banner, split over three rows, took `ESSUIE 25.99` (c261) or LEMON's row with it | Not repaired; *covered by `hotfix/receipt-total-fence-footer`*: c261 and c262 close to the cent; c259/c260 are RC-12 (the curl shifts the totals block a row down) |
 
-**Proposed parser change (not applied).** Denoise the French count banner as a banner (design rules, step 2):
+**Fix (applied, `hotfix/receipt-total-fence-footer`, 2026-10-28; Maxim: *"Add to the noise cancelation … and the
+equivalent values in french"*).** The French count banner is denoised as a banner (design rules, step 2):
 
-- **Scrub it inline.** Add the phrase `COMPTE (TOTAL )?BAS DU PANIER` (with its count) to `BANNER_NOISE_RES`, so a
-  welded item or coupon keeps its words.
-- **Narrow the `account` rule.** Scope it to the payment line it was written for: `COMPTE :` / `ACCT :`, with the
-  colon.
-- **Keep the minus.** On a banner row, never shed a minus that follows an amount. `BANNER_WORD_RE` sheds `[-:=]+`,
-  which would turn AMIRA's `20.00 -` into a positive amount.
+- **Scrubbed inline.** `FR_BOB_COUNT_RE` (`COMPTE (TOTAL )?BAS DU PANIER` and its count — eaten only behind
+  whitespace, `=` or the closing asterisks) joins `BANNER_NOISE_RES`, so a welded item or coupon keeps its words; the
+  footer's `Compte total bas du panier=1` goes with it. A framed banner may end with its count
+  (`***** Compte bas du panjer 1 ******`), whatever its misread words.
+- **By reading order.** A curled photo spreads the banner over several rows (`t7iig` c262: `***** ESSUIE 25.99 FP` /
+  `Compte bas du` / `2014600 panier 1 ******`), so no row holds the phrase. Vision still reads its words one after
+  another, so they are matched on that sequence and leave the geometry before the rows are built. This banner only:
+  taking every banner out that way changed how a tilted page is straightened and cost `x850x` a right line.
+- **The `account` rule narrowed** to the payment line it was written for: the label and its separator (`COMPTE:`,
+  `ACCT:`, `ACCOUNT #`), or alone / with a card brand when OCR lost the colon (`COMPTE MASTERCORD`, the app's
+  `Account` tab).
+- **A row left with nothing but decoration** once the member number is gone (the `Bas du panier` banner's opening
+  `*********`) is dropped: it welded onto the first item and pushed its SKU off the row start.
+- **Proof.** Golden snapshot: `4qp2s` c72 `CORN` → `CORN FLAKES`; `p2s1a` c87 applies AMIRA's 20.00- coupon; `t7iig`
+  c261 goes from one line (0.4) to both lines closing to the cent (1.0), c262 gets its SKU back (0.9 → 1.0). No `ok`
+  capture changed. The keep-the-minus concern did not arise: the coupon's minus survives on every capture.
 
 ## RC-14 · Margin marks read as 1–2-character words join item and coupon rows
 
@@ -1360,6 +1372,54 @@ MULTIPLE or a misread `N @` either.
 unchecked (it is forced by `reconciles`), never the footer's `TOTAL TAX`. One block reads exactly as before. The
 shared prompt (`receiptLlmRules`, both Gemini paths) states the interim-block, VOID, slashless MULTIPLE and `N @`
 rules. Live check on prod keys with `vi24j`'s pre-repair lines and photo: applicable, 750.79 + 45.35 = 796.14.
+
+## RC-34 · The item block runs past a TOTAL with no amount beside it: tenders, balances and the amount paid become items
+
+**Printed shape.** After `**** TOTAL` a Costco register prints the payment block — a Shop Card tender and the card's
+balance (`Shop Card` / `REMAINING BALANCE: $1,220.51` / `Shop Card 243.73`; French `carte Achat` / `VALEUR
+RESIDUELLE: 99,81 $` / `carte Achat 48,28`), a card tender (`VISA 79.85`), an Executive reward spent as a tender
+(`Remise Exécutif 146,69`), the change (`MONNAIE 9,97`), the approval (`01 APPROUVE - MERCI 027`) — then the footer's
+check lines (tax breakdown, `TOTAL DISCOUNT(S)`, items sold, the date stamp).
+
+**What goes wrong.** The item block ended at the FIRST line with a TOTAL keyword that has an amount on it or on the
+next line (`findTotalLineIndex`, `src/services/receiptParsingShared.js`, `99d524f` 2026-05-26, first in v2.8.2).
+When the geometry rows leave `**** TOTAL` without its amount (column split, a tilted totals block) or OCR misreads
+the label (`**** "OTAL`), that line does not count, and the fence moves down to the next TOTAL line that has one —
+`TOTAL DISCOUNT(S) $ 25.00`, after the payment block. Every payment line in between reaches extraction, and a line
+carrying an amount becomes an item. The payment vocabulary had no Shop Card, balance or reward wording, in either
+language, and the change/approval rules missed `MONNAIE 9,97` and an unaccented `APPROUVE`. The phantom items
+inflate the floor `extractTotal` compares the printed TOTAL with, so the computed total wins and doubles (RC-3's
+mechanism on builds ≤ 3.0.6).
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1793110284881_3eips` | Nepean #540 | 2026-10-27 | not recorded | `Shop Card REMAINING BALANCE: 1220.51` and `Shop Card 243.73` stored as items; total 1,584.88 for 243.73; 6 lines of 13 sold (the first block's items lost too) | Flagged `skip_parser_optimization` (not exportable); not repaired — replay owed if it is |
+| `r_1791651763156_be1p8` | Saint-Jérôme #529 | 2026-10-10 | — | The subtotal 166.89 (`"OTAL`, `Unknown item`) and the amount paid 184.23 (`00 APPRCLV@ - MERCI 001`, `IMPOR AN - conserver cette cople`) as items: 535.06 for 184.23 | Parser gap; *covered by `hotfix/receipt-total-fence-footer`* for the phantoms (c65: 350.83, c66: 183.94); still a gap for its lines (P1–P9) |
+| `r_1791814977185_p2s1a` | Boisbriand #546 | 2026-10-12 | Android 3.0.6 | `Remise Exécutif 146.69` and `-MONNAIE 9.97` as items in the flat candidate | Repaired 2026-10-12; *covered by `hotfix/receipt-total-fence-footer`* (both gone; the printed TOTAL 332.76 and TAXE 7.49 are now read) |
+
+**Proof.** The shape reproduces on `main` before the fix: `costcoReceiptProdShapes.test.js` *"tenders and a card
+balance after a TOTAL with no amount beside it are never items"* reads `REMAINING BALANCE … 1220.51` as an item on
+the old sources and closes to the printed 79.85 on the new. `3eips`'s own capture can't be replayed: the receipt is
+flagged `skip_parser_optimization`, which the exporter honours.
+
+**Fix (applied, `hotfix/receipt-total-fence-footer`, 2026-10-28; Maxim: *"the receipt total [**** Total and the
+value] should be the last line detected on a receipt body"*).** Design rules step 3 — a block boundary, not an
+extraction branch:
+
+- **`costcoItemBlockEnd`** (Costco only, through the engine's new `itemBlockEnd` hook): the item block also ends at
+  the LAST grand-total row, its amount read or not, and at the first footer check line (items sold, total tax,
+  total discount / rabais, instant savings); the engine takes the earlier of that and its own fence. The last
+  grand total, because an interim block's total is followed by more items (RC-7, two totals).
+- **Payment vocabulary, EN + FR** (`shared/ocrCleanup.js`, step 2): `Shop Card` / `COSTCO SHOP CARD`, `REMAINING
+  BALANCE` / `BALANCE REMAINING`, `carte Achat` / `carte d'achat`, `VALEUR RÉSIDUELLE`, `SOLDE RESTANT` /
+  `DISPONIBLE`, `Remise Exécutif` / `CC Reward`, the change with its amount, an unaccented `APPROUVE`. Zero-tender
+  rows (`Comptant 0,00`, `CASH 0.00`) are untouched: the interim-block detector needs them.
+- **Two totals, the first part paid by another tender** (Maxim, 2026-10-28: *"a case when the client ask to pay by 2
+  different payment methods or separately"*): the interim-block detector also accepts a card or Shop Card tender
+  under the first total, or no tender row at all once the cleanup removed its payment lines — when the total carries
+  its amount and items resume after it. All five two-totals receipts in production (`vi24j`, `tv798`, `v3u8j`,
+  `mebfs`, `p2s1a`) print the zero tender; the split payment prints once, at the end (`v3u8j`: carte Achat 48,28 +
+  MasterCard 87,66).
 
 ---
 

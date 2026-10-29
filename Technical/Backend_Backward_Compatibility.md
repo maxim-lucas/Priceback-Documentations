@@ -151,6 +151,29 @@ change. Source: `Technical/Device_Server_Sync_Audit_2026-10-23.md`.
 
 Forcing builds: none needed. Every change is additive or behind a switch that ships off.
 
+## Audit — 2026-10-28: the receipt footer and the receipt quality check (#502, PR-2)
+
+The store build is **3.2.0** (build 55); every build back to **2.8.3** was checked. `v3.2.0`'s
+`checkAppStatus` reads only `maintenance`, `updateRequired` and `minSupportedBuild` from app-status; its admin desk
+sends only its own `status=` chips and ignores unknown row and receipt fields.
+
+| Change | Why old builds are fine |
+|---|---|
+| **Migration 0039** (`receipts.footer_ocr`) | Additive, nullable. **Apply to prod before #502 deploys.** |
+| `POST /api/receipts`: optional `footerOcr` (#502) | Absent from every shipped build → NULL; the route answers exactly as before (tested: *an upload without footerOcr*). |
+| Restore / bootstrap: `footerOcr` per receipt (#502) | Additive field; old builds ignore it. |
+| `backend/shared/ocrCleanup.js` payment vocabulary (#502) | Server Gemini denoise only; no request or response shape changes. |
+| **Migration 0040** (`receipt_quality_*`, four tables) | Additive; the deployed backend before PR-2 neither reads nor writes them. **Apply to prod before PR-2 deploys.** |
+| `POST /api/receipts`: optional `qualityCheck` (PR-2) | Absent from every shipped build → the server judges the upload itself; a malformed one is ignored, never a 400 (tested). |
+| The shadow check after `POST /api/receipts` (PR-2) | Runs after the answer is sent, after the OCR capture link (unchanged); changes no receipt, credit or push. |
+| `GET /api/v1/app-status`: `receiptQuality` (PR-2) | Additive field; 3.0.7–3.2.0 read only their three fields; builds before 3.0.7 never call it. |
+| Admin desk: `quality` per row, `qualityCheck` on the receipt, chips `quality_flagged` / `quality_unlabelled`, `POST …/quality-label` (PR-2) | Additive; the 3.2.0 desk never sends the new chips. |
+| `POST /api/admin/receipts/:id/reject` also labels the receipt's quality verdict Bad (PR-2) | Same answer; the label is a new table only. |
+| `POST /api/receipts/quality-refusals`, `/api/admin/receipt-quality-*`, `/api/admin/console/receipt-quality` (PR-2) | New routes; no shipped build calls them. |
+| **Refusal in the app** (`RECEIPT_QUALITY_REFUSE_*`, all OFF at deploy) | Only builds after 3.2.0 refuse; older builds never refuse, whatever the switches say. |
+
+Forcing builds: none needed.
+
 ## Open gaps
 
 1. ~~No client version on requests~~ **Done** (3.0.7): `X-App-Platform`,
