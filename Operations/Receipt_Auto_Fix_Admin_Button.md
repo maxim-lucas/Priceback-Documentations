@@ -181,3 +181,13 @@ The repair it applies (#483) also keeps what the scan proved about each line (ta
 a watch the shopper turned off), treats a price-drop review row as history like a claim, and matches a kept line by
 its order among the live lines (a line the shopper deleted no longer makes the save fail).
 
+
+## 8. Balance or retry, never split, say how sure (2026-10-24, Bugs #350)
+
+Maxim, after Gemini split a correct `FETA 3KG ×2` on `r_1792860056497_170i0`: *"i want Gemini to always balance the receipt before suggestion or repeat the process until he succeed or worst case fallback with some edits and a warning message that he is not confident … Gemini should never split grouped items as per the main parser except for a weighted items."*
+
+- **Retries.** The desk asks Gemini up to **3** times (`RETRY_ATTEMPTS`), all inside the 150 s `DESK_BUDGET`. Every retry costs one more unit of the daily Gemini budget; a refused budget or less than 15 s left ends the loop. Each retry tells Gemini exactly which checks failed and what its previous lines were. The best try is kept (applicable first, then the most checks passed, then the fewest changes); a retry that fails upstream keeps the best answer instead of failing the desk. The phone's Gemini read keeps its one bounded try.
+- **`grouping_kept` (hard check).** A stored line of several units (the parser grouped it) may come back as several lines only when they are at **different regular prices** (a weighed item). A different coupon is never a reason.
+- **Fallback.** When no try passes, every grouped line the best try split is put back as stored (`autoEdits`, shown under *Automatic edits · not confident*). If every check then passes, Apply is offered at **Medium** confidence; otherwise it is "Not safe to apply automatically", at **Low**.
+- **Confidence.** High: every check passed on the first try with nothing edited or filled. Medium: every check passed, but it took a retry, an automatic edit or a database value. Low: a check failed. Shown on the proposal (with tries and Gemini's own number in small print) and, for the **stored reading**, at the top of the receipt (`readingConfidence`, the same checks run on the stored lines).
+- **Database fill.** What a Costco answer lacks — a name for its item number, an item number for its name (best match ≥ 0.6, not a near tie), a price — is filled from the database and tagged; `skus_on_paper` / `prices_on_paper` skip those values and an informational `database_fill` check lists them.
