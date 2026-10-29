@@ -30,6 +30,26 @@
   - **Owed by Maxim:** apply migrations **0039** then **0040** to prod with their ledger rows, each before its merge; merge #502 → PR-2 → PR-3 (each merge deploys); keep every refusal switch off until the trial's labels clear a family. The guide and the on-phone refusal reach shoppers with the next store build (≥ 56).
   - French copy: the guide names the plan "PriceBack Unlimited", as the rest of the French app does (the approved draft said "PriceBack Illimité").
 
+### 2026-10-28 — Admin desk line editor: 2-digit item numbers, unchanged drop lines kept, red "Force save"
+
+- **Asked (Maxim):** *"last scanned receipt is good except one product coke having sku = 84 but it got in the name and i cant edit the line because there is already a price drop in the receipt. i want the app to accept the sku (2 digits) and also i want the option to force a saving receipt even if i have this error … (button should be on red to force) (hotfix on main) and this is in the admin desk only"*.
+- **Found:** the desk's `/lines` route never sent `keepItemIds`. So a receipt with any claimed, notified or queued line refused every edit (`HAS_HISTORY`), even an edit of a different line. The desk form and `badScanRepair.validateSpec` both required a 3–12 digit SKU.
+- **Decisions:**
+  - The desk always keeps unchanged history lines (`keepUnchangedHistory`).
+  - `force: true` is admin only. Its red button appears after a `HAS_HISTORY` refusal. It rewrites a changed history line and MOVES that line's claim, push/charge records and review rows onto the corrected line at the same place. Deleting them instead would break "commission charged exactly once".
+  - 2-digit SKUs are accepted from an admin only; a Gemini re-read keeps the 3-digit floor. Only the desk shows them back (`adminDisplaySku`).
+  - Shopper reads and the runbook CLI are unchanged.
+- **Files:** backend `lib/badScanRepair.js`, `server.js` (`/lines`, auto-fix dry run), `repos/receiptsRepo.js`; mobile `src/services/adminEditForms.js`, `src/screens/AdminReceiptDetailScreen.js`; tests. Docs: runbook §3.
+- **Branch:** `hotfix/admin-desk-force-line-edit` off `main` → PR into `main`.
+- **Status:** PR open, not merged.
+
+### 2026-10-28 — Best Buy finalized, then Abercrombie: everything from `development` except ads; new stores admin-only in production; Costco shares nothing
+
+- **Asked (Maxim):** *"continue working on best buy receipt parser i want it to be done and finalized by next week. continue the integration in a separate branch … but i cant take the ads integration for now. if done continue on abercrombie so it can also be finalized"*; then *"get everything from the dev branch if needed"*, *"same for abercrombie store. so i want to pull everything from dev except the ads yet. once the ads is configured i will merge it until then bring everything else in main test features branch"*. Branch asked → **cut from `main`, PR into `main-test-features`**.
+- **New standing rules (2026-10-28):** (1) *"ship it in the next versions in production it wont be available yet for users, but i can test it live in production as an admin. this will be always the rule for any future store"* — a finished store parser ships in every build (`STORE_PARSERS`) and is **admin-only** (`ADMIN_PREVIEW_STORES`) until `stores.enabled` opens it to shoppers. Supersedes the 2026-09-28 "back onto the lab lane" for Best Buy. (2) *"Costco should never share any code with other stores that if modified can have even the smallest risk of impact on costco receipt"* — `receiptParsingShared.js` stays byte-identical to `main`; store rules live in the store's parser and the registry, behind a Costco short-circuit.
+- **Ported from `development`** (cherry-picked, `-x`): #312, #317, #318, #319, #320, #321, #322, #323, #329, #330, #334, #335, #343. **Left out:** #309/#310 (ads, on hold until configured); #315 (test e-mail domain — `main` moved its markers to `lib/testDataMarkers.js`, main wins); `c0f3066`/#313 (CI for `development`). `main` wins every contradiction (`.gitattributes`, French policy wording, `storePoliciesDb` test). Migration `0007_national_province` renumbered **0039** (idempotent; prod and dev already carry the `NATIONAL` row — only the ledger row is owed).
+- **Status (2026-10-28): code done, PRs open, not merged** (a PR merge needs Maxim's go). **Priceback #503** syncs `main` #492–#500 into `main-test-features` (15 additive conflicts). **Priceback #504** is Best Buy + everything from `development` except ads, and includes #503, so it merges either way. Docs: this PR (#178). Verified locally: mobile 11,166 passed (one separator test fixed and re-run); backend changed files green on dev (price lookup 26/26, feed/commission/lock DB 45/45); no Actions dispatched. Found on the way: the price lock would have revived an ended saving (fixed, Bugs #353). **Abercrombie:** measured from Canadian egress for the first time. A&F now serves a JavaScript bot challenge, so a plain-HTTP feed is dead from any egress; the storefront id is still unread (needs a real browser). Feed decision is Maxim's.
+
 ### 2026-10-27 — Savings harvest: illogical data, order of trust, a 100%-accurate confidence and automatic approval
 
 - **Asked (Maxim, /goal):** *"sometimes the product has savings and the source is sameday and when i search using the sku on the website manualy i cant find the product. also some products are having valid to date before valid from which is impossible. the 600$ saving on the TV has valid to date = valid from date. you should add logic to cover all these unlogic data. i need the confidence based on the harvesting to be accurate 100% so i dont check the prices manualy to confirm before approving any price drop. the target is to automate the whole process"*. Mid-task: *"the order should always be costco.ca (both including business center) official website along with the sameday (both including business center) then start harvesting the websites (yepsavings, ...etc) and import only if missing in sameday to be confirmed. dont import something already in database by official websites (source of truth always)"*.
@@ -38,6 +58,13 @@
 - **Files / areas:** backend `services/savings/{savingRules,dropConfidence,liveCheck,dropVerifier}.js` (new), `savingsIngest.js`, `samedayItems.js`, `sources/samedaySource.js`, `repos/{savingsRepo,savingDropRepo,priceDropQueueRepo,savingVerifyRepo}.js`, `jobs/harvestSavings.js` (official first, catch-up, repair pass), `priceDropNotifier.js` (auto-approval after staging), `server.js` (queue confidence, `/verify`, `savingAutoApprove`, To confirm, repair), `config/{defaults,configService}.js`, `scripts/harvest-savings.mjs`, `test.env` (`SAVING_LIVE_CHECK_ENABLED=false`); mobile `AdminPriceDropQueueScreen` (confidence panel, Re-check live, third switch), `ToConfirmSavingsSection` on Admin · Saving dates. Docs: `Technical/Savings-Harvest.md`, `Technical/Costco-Price-Rules.md`, Bugs #351–#352.
 - **Branch:** `hotfix/savings-harvest-data-quality` off `main` (worktree `pb-savings-quality`, the catalog session owns the main checkout) → PR into `main`.
 - **Status: DONE, merged and deployed.** **Priceback #496** merged by Maxim 2026-10-27 15:22 UTC (`1b8a595`, after #495); prod restarted on it (new routes answer 401, an unknown one 404). Final tests: backend **3,063 passed / 0 failed** (two guards made proof against another branch's tables and data on the shared dev DB — the "%" test byte-identical to #495's fix), mobile **10,493 / 0**; new modules at 100% lines and functions. Backtest of the confidence on prod's whole savings-drop queue (read-only, real live Same-Day checks): the 9 correct drops at 100%, the 4 others held (both rejected by hand, the over-refunded pizza — not even listed at its warehouse — and the second pizza line). On prod, at Maxim's request (session priceback-95): the repair run by hand (`readAfterEnd` 246, `officialOnFile` 4, `markedToConfirm` 357), migration **0037** applied with the ledger row (prod had been on `1b8a595` without it), and a fresh pull of the 5 sources, official first. Still Maxim's call: move the Same-Day sources' `start_hour` later or to two runs a day (Same-Day still showed the previous promotions at 00:45; by 10:21 the new ones were up); switch `SAVING_DROP_AUTO_APPROVE` on when he trusts the bands. The confidence filters and badge reach the admin with the next app build.
+
+### 2026-10-26/27 — Weekly catalogue harvest: official EN/FR product names, misread item numbers fixed (hotfix)
+
+- **Asked (/goal):** *"another cron script same style for the one we have for the savings that will use the same websites costco.ca businesscenter and both sites for sameday to make sure all products are filled correctly in the database and autofix the product names (english and french) and fix the errored ones (example banana or banane in the product table with different sku misread from receipts) and feed the database with the full product list of costco nationwide in canada … the parser should check the best match for the product in the database and autofix the sku and product name if misread again. same configuration should run weekly sunday at midnight (configurable also)"*; mid-task: *"hotfix on main branch"*.
+- **Decisions / constraints:** sources in `catalog_sources` like the savings harvest, plus `start_day` (seeded Sunday 00:00 Toronto, missed slot caught up within 24 h); Same-Day read from its products sitemap + `Items`, French via the storefront's locale switch; costco.ca from public sitemaps/pages only (Costco's internal APIs not used); official names win over receipt text except an admin-locked name (`products.name_locked_at`, set by Admin · Product names) and a more trusted source's. Misreads: one edit away + the printed text (never across a size) or the catalogue name at an agreeing price; on save (`lib/receiptCatalogMatch`, keeps `receipt_items.sku_read`, line priced/watched normally) and weekly (`catalogFixer` folds scan-only products into the real one, alias kept; runs only when every source is fresh). Not a parser change — the shared parser is untouched; a post-extraction database step proven on the 127-receipt golden corpus (3 corrections, all misreads, incl. `30659 BANANES` → 30669). Live switches `CATALOG_HARVEST_ENABLED` / `CATALOG_SKU_FIX_ENABLED` / `CATALOG_AUTO_MERGE_ENABLED`. Doc: `Technical/Product-Catalog-Harvest.md`.
+- **Files / areas:** migration `0037_product_catalog`; `services/catalog/*`, `repos/productCatalogRepo.js` (the paywall's `catalogRepo.js` is untouched), `jobs/harvestCatalog.js` + `pruneCatalogRuns.js`, `lib/receiptCatalogMatch.js`, `scripts/harvest-catalog.mjs`; `receiptsRepo` (save check, `sku_read`, shopper-edit guard), `pricesRepo.resolveProductIds` + `watchItems` (aliases), `receiptAutoFix`, `badScanRepair`, server.js (tick :35, console routes, name lock); desk tag (`AdminReceiptDetailScreen`).
+- **Status:** **Priceback #495 merged 2026-10-27 15:04 UTC** (merge = Railway deploy). Migration 0037 on DEV only. Dev runs: Same-Day Costco 8,155 items / 7,636 new products / 13 min; Business Centre 5,769 / 1,677; costco.ca 191 pages + 8,267 listings; BC web 100 pages. Backend suite 3,105/3,108 (1 env flake), coverage 95.44/83.64/96.06/95.44; mobile 10,485/10,491 (env/load only). Found on the way: Same-Day names item 1680367 "Product" in English → refused as a placeholder. **Owed by Maxim:** apply 0037 to production (+ ledger row) BEFORE merging #495; run `--corpus` read-only on production first if wanted.
 
 ### 2026-10-22/23 — Sync-integrity audit; Gemini never merges different values; Gemini first (admin switch, daily-limit fallback)
 
@@ -11335,6 +11362,17 @@ anyway).
 - **Noticed, not changed:** the Development environment's trigger is `main`, not `main-test-features` as the 2026-10-20 branch model says.
 - **Regression risk:** #489 low (RLS on an owner-accessed table; test-only; patch-level lockfile bumps). #490 low–medium, admin-facing: the desk waits up to 150 s; every other Gemini caller keeps one bounded attempt (pinned by tests).
 
+## 2026-10-24 — Hotfix: Gemini must balance and never split; database fill; confidence; deleted receipts; shared store buttons; Product names
+
+- **Asked (Maxim):** *"the only non reviewed receipt in prod … i clicked on fix automaticaly (Gemini) … gemini is … trying to unbalance it … Separate the Feta 3K item … for now, i dont want Gemini to be the 1st parser. i want Gemini to always balance the receipt before suggestion or repeat the process until he succced or worst case fallback with some edits and a warning … show the confidence level … Gemini should never split grouped items as per the main parser except for a weighted items … check the product in the database if the parser or Gemini are having the SKU but cant find the product name … The hand should be always for the receipt … a button in the receipt review to force a check on an item SKU, name or price"*. Then: the Database prices filter "doesnt make any sense" → replaced by a Deleted filter with the action taker; "keep the safeguard"; the same costco.ca / Sameday buttons on Saving dates, Potential price drops, Price drops and the desk, SKU first; a Product names screen fetching the official English **and** French names. Branch asked → **`main` (hotfix)**: `hotfix/receipt-desk-gemini-balance-db-fill` off `2a98854`.
+- **Found:** 170i0 is correct as stored (FETA 3KG 35.99 ×2, two identical 8.00- coupons; Scotties' 6.00- prints between them in the OCR). Gemini-first and the re-read were already **off** in prod (`RECEIPT_GEMINI_FIRST` / `_REREAD` = false since 18:08 UTC) — no code. The all-accounts Deleted chip could never match (`listForAdmin`); 0 prod lines ever had `price_from_database`. See Bugs #350.
+- **Design / plan:** `Technical/Receipt_Desk_Gemini_Balance_And_Database_Fill_Design.md` + `_Plan.md`.
+- **Done:** see the PR. Server: `grouping_kept`, 3 retries with feedback + deterministic grouping restore + confidence (`receiptAutoFix`); `receiptDatabaseFill` (Costco only, tagged; a guessed item number files no price point and is unwatched until Mark reviewed); migration **0035** (who deleted a receipt + name/sku-from-database flags, backfill of 2 prod account deletions); admin routes `…/database-check`, `…/delete`, `/api/admin/products` (+ `official-name`, `name`); `readingConfidence`; Sameday `productName` / `officialNames` (EN + FR). App (3.1.5): confidence badges, tags, Check database, Delete receipt, Deleted chip with who, shared `StoreLookupButtons` on 5 screens, Admin · Product names.
+- **0035:** applied to **dev** (drizzle-kit). **Prod: owed, by hand, before merging Priceback #492** (+ ledger row, LF hash `07c9c0841786ec540306446f229fd64a0e3f7faec6f42e3adf91bd29d1f6db2d`).
+- **PR:** Priceback #492 (open; merge = Railway prod deploy, owed to Maxim). Verified: mobile 368/10533 green, i18n 1750/1750; backend c8 2939/2942 + the one red (`dataCleanupRegistry`, new table unclassified) fixed and 29/29 alone — full suite not re-run after that one-line fix; coverage 95.35/83.02/95.78/95.35.
+- **Regression risk:** low–medium. Desk-only for Gemini; the save-time fill touches only a Costco line missing a value (Costco only, a guess unwatched + unpriced until review). Admin-only UI ships with 3.1.5. Final review was a self-review (no subagent).
+- **Old builds:** additive only — new admin routes, new optional fields; `status=database_prices` still accepted; shoppers' phones take the server's lines on sync as for any repair.
+
 ---
 
 ## 2026-10-26 — Automated daily savings harvest + savings-based price drops (Solution B)
@@ -11366,3 +11404,90 @@ anyway).
   left for review); 0 duplicate keys in `savings` and `price_points`.
 - **Owed:** apply 0036 to prod **before** the merge deploys (the queue reads `saving_id`);
   `PRODUCT_IMAGES_*` / R2 keys must be on the prod service for photos.
+
+## 2026-10-27 — Admin desk: "Reject receipt" for scans too poor to read
+
+- **Ask (Maxim):** a button on the admin receipt review to reject a receipt: the shopper
+  gets a short, direct notification (receipt too poor, rejected, scan again: header, items
+  and total only) and the receipt is not processed. Example: the latest receipts at
+  warehouse #540 today. Copy approved before building; **no scan-credit refund** ("i wont
+  pay credits for lazy users"). Roadmap: the app will refuse poor scans live.
+- **Built (Priceback, branch `feat/admin-reject-receipt`, migration 0038):**
+  `lib/receiptRejection.js` + `POST /api/admin/receipts/:id/reject`. It soft-deletes the
+  receipt as `admin_rejected`, takes back its price points and crowd copies, closes its
+  waiting drops, unwatches it, and `/api/watch` skips its lines. It then pushes
+  `receipt_rejected` (Scan results switch, EN/FR) and the tap opens the scanner. Desk
+  button + confirm. Runbook §0a.
+- **Also found:** the Gemini/line-editor refusal on `r_1793110284881_3eips` (#540) was
+  not a sent drop. Its two price-drop review rows had been *rejected*, and the editor
+  counts any review row as history (so a rejected drop isn't forgotten). The message
+  says "claimed, notified or in the price-drop review". Not changed.
+- **Owed:** apply 0038 to prod **before** the merge deploys (route answers 503
+  `NOT_INSTALLED` without it).
+
+---
+
+## 2026-10-28 — Merges, main → main-test-features sync, Best Buy doc split, A&F behind F5
+
+- **Ask (Maxim):** merge the waiting PRs; bring the latest `main` into `main-test-features`
+  through a PR, `main` winning every conflict; continue Best Buy and Abercrombie. Maxim saw
+  A&F prices in **CAD** in his own browser from Orléans. A scraping service may be built if
+  needed, but he prefers live checks like Best Buy so that no store needs its catalogue saved.
+- **Merged:** Priceback #503 (sync, merge commit), #504 (Best Buy finalized, squash), docs #178.
+- **Priceback #506** (`sync/main-into-main-test-features-2026-10-28b`, merged), bringing #501,
+  #502 and #505:
+  - **Migration collision at 0039.** `main`'s `0039_receipt_footer_ocr` and
+    `0040_receipt_quality_checks` are in both ledgers. Best Buy's `0039_national_province`
+    was renumbered **0041** (`when` 1793300000000).
+  - **Costco freeze.** Three pins were re-pinned to `origin/main`'s bytes: #502, a reviewed
+    Costco change.
+  - **Tests.** Jest 11,583 pass with 3 failures (the pins), then 163/163 after re-pinning;
+    backend 44/44 + 129/129 on dev; dev test data purged.
+- **Owed (prod, ledger row only):** `0041_national_province` LF hash
+  `15b47ae3963f85982c57ce710b7cf8653d1573338e184614904b1cf79944047a`, `created_at` 1793300000000.
+- **Best Buy docs.** The former §3 and §7 of the shared parser doc moved to
+  `Technical/BestBuy/Receipt_Parser.md`. The shared doc keeps pointers, and its lane paragraph
+  now names Sport Chek as the lane's only store.
+- **Abercrombie.**
+  - The challenge is **F5 Bot Defense** (`/_fs-ch-…/script.js`).
+  - One headless real-Chrome visit from Bell `CA` stayed on "Client Challenge" for 32 s.
+  - A self-built service would have to hide automation from F5, which is ruled out.
+  - Three routes are recorded in `Price_Adapter.md` for Maxim's choice: an unlocker API, a
+    shopper-side in-app check, or an affiliate feed.
+
+## 2026-10-28 (later) — Abercrombie on hold in the roadmap; Best Buy production-readiness docs
+
+- **Ask (Maxim):** document the A&F decision in the roadmap and hold A&F (no paid API, no
+  shopper manual check, no affiliation). He asked why a Costco-style scraper or a linked A&F
+  account in a cron can't work. Continue Best Buy.
+- **Roadmap (`FUTURE_ROADMAP.md`):** "Abercrombie & Fitch price feed — ⏸ ON HOLD" records:
+  - what is settled (CAD; F5 Bot Defense);
+  - what is ruled out, and why (an account login goes through the same wall);
+  - why Costco differs (Same-Day is Instacart's unwalled front door; the barcode harvest
+    runs in Maxim's real Chrome);
+  - the two free routes left.
+
+  Also added "Best Buy — open to shoppers 🟡" with its gates in order.
+- **Best Buy:** PIA written (`Publishing-Compliance/PIA/bestbuy-price-feed.md`) and the live
+  probe re-run from Canada (1 quoted, 1 marketplace-rejected).
+- **Reviewer-notes disclosure drafted, then reverted on Maxim's instruction.** Admin-only
+  features are never mentioned to App Store or Play. The Best Buy third-party row waits for
+  the shopper launch.
+
+## 2026-10-28 — Remaining receipts: repair 1, reject 2 with the rescan push
+
+- **Ask (Maxim):** parse and fix the 3 unreviewed receipts (his remaining-receipts query); the
+  totals-only one cannot be accepted; full cleanup of any bad data; a receipt that cannot be fixed
+  gets the rejection notification (#497) so the shopper re-uploads it.
+- **Done (prod data only, no app code):** `r_1793110284881_3eips` (Nepean #540) repaired from the
+  photo — 13 lines / 243.73, proved against SUBTOTAL, HST, GST, discounts and item count; its two
+  admin-rejected, never-sent review-queue rows removed in the same transaction (scratch wrapper
+  around `badScanRepair.repair`, run from a worktree at deployed `1b8a595`). Root causes: RC-15
+  (logo cut) + new **RC-33** (Shop Card tender lines not denoised), proved by replaying capture
+  c412 on v3.2.0; the remaining 62.97 is the photo (hidden first price, ~10° tilt).
+- `r_1793110195684_mez7p` (folded, items + totals hidden) and `r_1793156647777_0fs8x` (payment
+  section only) are unrecoverable → to reject. Prod ran `1b8a595` (before #497), so: migration
+  **0038 applied to prod** by hand (insert + drizzle ledger row 49, LF hash `d2f18502…`), and Maxim
+  chose to deploy `main` and then reject both through `POST /api/admin/receipts/:id/reject`.
+- Docs: `Technical/Receipt_Parser_Root_Causes.md` (RC-15 case, RC-33),
+  `Operations/Bad_Scan_Receipt_Repair_Runbook.md` log, `Operations/Receipt_Data_Verification_Ledger.md`.

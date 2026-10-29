@@ -151,6 +151,21 @@ change. Source: `Technical/Device_Server_Sync_Audit_2026-10-23.md`.
 
 Forcing builds: none needed. Every change is additive or behind a switch that ships off.
 
+## Audit — 2026-10-27: the weekly catalogue harvest (hotfix `hotfix/catalog-harvest`, migration 0037)
+
+Every live build back to **2.8.3**, through the newest tag **3.2.0** (build 55), against each change.
+Source: `Technical/Product-Catalog-Harvest.md`.
+
+| Change | Why old builds are fine |
+|---|---|
+| **Migration 0037** (`catalog_*`, `product_merges`, `receipt_items.sku_read`, `products.name_locked_at`) | Additive, nullable / defaulted. **Apply to prod before the code deploys**: every receipt save writes `sku_read`. |
+| `POST /api/receipts`: a line whose item number no catalogue lists is filed under the catalogue item it misreads (`CATALOG_SKU_FIX_ENABLED`, on) | Same request, same answer shape. The line's `productId` in the answer is the real product's, which 3.0.6+ use only to show the product's label; every build keeps its own printed name and number (`applyLineProducts`). Pre-3.0.6 builds ignore the field. |
+| `PUT /api/receipts/:id/lines` sending the number the phone READ back for a corrected line | Not a change: the line keeps its real product (`sku_read` guard). |
+| `POST /api/watch` naming a product folded away (old id or misread number) | Answered with the real product (`resolveProductIds` → `mergedIds` / aliases). Every build; before this the entry was simply dropped as unknown. |
+| Products renamed to their official English/French names weekly | Same fields. Builds that show the product's label show the official name; builds that show their own line text are unchanged. |
+| Restore / bootstrap lines: `skuRead` | Additive field; old builds ignore it. |
+| Console catalogue routes, `DELETE /api/admin/products/:id/name-lock` | New admin routes; no shipped shopper build calls them. |
+
 ## Audit — 2026-10-28: the receipt footer and the receipt quality check (#502, PR-2)
 
 The store build is **3.2.0** (build 55); every build back to **2.8.3** was checked. `v3.2.0`'s

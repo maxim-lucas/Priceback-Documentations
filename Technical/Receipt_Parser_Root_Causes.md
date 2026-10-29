@@ -905,6 +905,7 @@ measured.
 | Receipt | Store | Scanned | Build | Lost | Status |
 |---|---|---|---|---|---|
 | `r_1791853258418_xzw9x` | Nepean #540 | 2026-10-13 | Android 3.0.6 | The Costco parse: 4 items, 3 coupons, BAGELS priced at the TOTAL | Repaired 2026-10-13 (spec) |
+| `r_1793110284881_3eips` | Nepean #540 (self-checkout) | 2026-10-27 | iOS 3.2.0 (55) | The Costco parse: the generic parser kept 4 of 13 items at pre-coupon prices + 2 payment lines (RC-33); 1584.88 for 243.73 | Repaired 2026-10-28 (spec) |
 
 **Proposed parser change (not applied).** Identify, don't guess: detect Costco from what every Costco receipt prints
 in its header and footer — `WHOLESALE` on the logo line, the register footer `Whse:N Trm:N Trn:N OP:N`, and Costco's
@@ -1372,6 +1373,48 @@ MULTIPLE or a misread `N @` either.
 unchecked (it is forced by `reconciles`), never the footer's `TOTAL TAX`. One block reads exactly as before. The
 shared prompt (`receiptLlmRules`, both Gemini paths) states the interim-block, VOID, slashless MULTIPLE and `N @`
 rules. Live check on prod keys with `vi24j`'s pre-repair lines and photo: applicable, 750.79 + 45.35 = 796.14.
+
+## RC-33 · Costco Shop Card tender lines are not noise
+
+**Printed shape.** A receipt paid with a Costco **Shop Card** (gift card) prints the tender block with the card's name
+and its remaining balance, where a credit-card payment prints `MasterCard`/`VISA`:
+
+```
+Shop Card              Resp: Approved
+AMOUNT: $243.73
+REMAINING BALANCE: $1,220.51
+Shop Card                         243.73
+CHANGE                              0.00
+```
+
+**What goes wrong.** The payment block is meant to be denoised before extraction (design rules, step 2), but
+`SKIP_EXACT` / `isSkipLine` (`src/services/receiptParsingShared.js`, payment/card footer list since #11 `7c19367`,
+2026-06-01 — every build) knows `gift card`, `balance`, `amount:`, `approved`, `visa`, `mastercard`… but not
+`shop card` or `remaining balance`. Both lines survive into extraction: the generic parser (RC-15) made items
+`Shop Card REMAINING BALANCE:` **1220.51** and `Shop Card` **243.73**; the Costco parser (RC-15 neutralised) still
+makes `Shop` **1220.51**. The card's balance becomes a watched "item" and the stored total is off by more than 1300.
+
+**Proof.** Replay of capture c412 on **v3.2.0** reproduces the stored 6 lines exactly (Σ 1569.18; stored total
+1584.88 = Σ + tax 15.70). Neutralising RC-15 alone (`COSTCO` above the first line): `storeId costco`, warehouse 540,
+but a `Shop 1220.51` line remains. Removing **only** the two `Shop Card` lines and `REMAINING BALANCE: $1,220.51`
+(text and words) as well: the payment lines are gone; 9 lines, Σ 165.06. The remaining **62.97** to the printed
+SUBTOTAL 228.03 is exactly three lines the **photo** cost — an image problem, not a parser root cause (design rules:
+special cases are geometry / photo quality): the first `518888 NV SW` line's price is hidden at the top edge (its row
+merges with the second: −8.99 net), and the photo's steep tilt (~10°) welds `6262016 KS BATH`'s price row into
+`CRANALM 1.4K`'s name (−23.99) and drops `2054160 DAWNRISE 4PK` 39.99 / `0000394622 2054160` 10.00- (−29.99).
+8.99 + 23.99 + 29.99 = 62.97. The two tilt losses were not isolated further.
+
+**Blast radius (prod, 2026-10-28):** one receipt carries `shop card` or `remaining balance` in its OCR (`3eips`).
+Quebec's French wording for the Shop Card tender has not been seen yet.
+
+| Receipt | Store | Scanned | Build | Lost | Status |
+|---|---|---|---|---|---|
+| `r_1793110284881_3eips` | Nepean #540 (self-checkout) | 2026-10-27 | iOS 3.2.0 (55) | `Shop Card REMAINING BALANCE:` 1220.51 and `Shop Card` 243.73 stored as items | Repaired 2026-10-28 (spec) |
+
+**Proposed parser change (not applied).** Add the Shop Card tender to the payment-block noise vocabulary, EN + FR:
+`shop card`, `remaining balance` (as a prefix, with its amount), and the French register wording once a Quebec Shop
+Card receipt is seen. Better: end the item block at the tender block as a whole (`Resp: Approved` / `AMOUNT:` /
+`APP#` after `**** TOTAL`), so a new tender name never reaches extraction. Pin with c412.
 
 ## RC-34 · The item block runs past a TOTAL with no amount beside it: tenders, balances and the amount paid become items
 

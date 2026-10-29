@@ -32,6 +32,45 @@ specs in `backend/data/bad-scan-repairs/<receiptId>.json` · migration
 If in doubt, it is a parser bug: those go through the normal fixture workflow
 (`scripts/exportOcrCaptures.js` → `receiptProdCaptures.test.js`).
 
+### 0a. Too poor to repair? Reject it (added 2026-10-27)
+
+When the photo can't be read even by eye (cut off, blurred, folded over the items)
+or repairing it costs more than it's worth, don't repair it: on the admin desk's
+receipt screen tap **Reject receipt (photo too poor) and ask to rescan**
+(`POST /api/admin/receipts/:id/reject`, `backend/lib/receiptRejection.js`, migration
+0038). In one transaction it:
+
+- soft-deletes the receipt as `admin_rejected`, stamped with you, and flags it
+  `skip_parser_optimization`. The row stays as the record: the shopper's phone drops
+  the receipt on its next sync;
+- deletes its own `receipt_ocr` price points and this device's crowd copies of them
+  that no other receipt of the day carries. A plain **Delete** keeps the prices; a
+  reject does not, because the prices are the misread;
+- deletes its lines outright, and with them their price-drop review rows still
+  waiting. The desk then shows the rejected receipt with no lines; the photo stays
+  until the usual 7-day prune;
+- deletes every product and the warehouse **the receipt created** (made within 10
+  minutes of its upload, or later by the line editor) that nothing else uses now: no
+  other receipt line (deleted receipts included), price, catalogue entry, saving, tag
+  scan or merge. A product with a barcode or an admin-saved name is always kept. A
+  name the receipt *filled* on a product that already existed can't be told apart
+  from a real one and is left as is;
+- removes it from every watch registration. `/api/watch` then ignores its lines if
+  the phone re-sends them before it syncs.
+
+Then it sends the shopper the push straight away (type `receipt_rejected`, *Scan
+results* switch, EN/FR). It doesn't go through the approval queue, because your
+confirmed tap is the approval:
+
+> **Receipt rejected: please rescan** — Your receipt photo was too poor to read, so we
+> couldn't process it. Please scan it again with only the header, the items and the
+> total, laid flat in good light.
+
+**No scan-credit refund** (Maxim, 2026-10-27). A receipt with a claimed line or a
+price drop already sent can't be rejected (409 `HAS_HISTORY`); delete or repair
+it by hand. Planned next (roadmap): the app refuses poor scans live, so the shopper
+retakes the photo before it reaches the desk.
+
 ### 0b. Reproduce with the exact live capture before deciding (added 2026-10-09)
 
 The phone parses; the stored lines are what **that phone's binary** made of Vision's answer. Replay the same answer
@@ -193,6 +232,24 @@ claimed or a price-drop push went out for it — unless the spec lists it in `ke
 already IS the spec's line at its position (it is then left byte-for-byte); the spec does not
 reconcile; an extra price point is another device's.
 
+**The admin desk's line editor (since 2026-10-28, Maxim):**
+- It keeps every line with history that the edit leaves **unchanged** without naming it
+  (`keepUnchangedHistory`). Fixing *another* line of a receipt that has a price drop
+  (the 84 COKE case) is no longer refused. The *Fix automatically* dry run uses the same rule.
+- If a line you **changed** has history, the save is refused (`HAS_HISTORY`). A red
+  **Force save** button then appears. Force (`force: true`, admin only) rewrites that line
+  too and **moves** its history onto the corrected line at the same place: the claim
+  (`claimed_at`, `claim_source_id`), the `price_drop_notifications` rows (the charge record,
+  so the drop is never charged or pushed twice) and the `price_drop_review_queue` rows. A
+  history line with no place left in the edit (the edit has fewer lines) is still refused.
+  The moved rows still describe the old drop (its product and price). That is why force
+  stays a deliberate, red action.
+- An admin may type a **2-digit** item number (Costco prints a few, e.g. `84 COKE`). The
+  desk shows it back. Shopper reads still show only 3–12 digits. The catalogue and savings
+  harvests only know 3–12-digit numbers, so such a product will in practice never get a
+  drop. A Gemini re-read keeps the 3-digit floor.
+- The runbook CLI is unchanged: it still needs `keepItemIds` and has no force.
+
 > ⚠️ It does **not** refuse a line carrying a pending verified-drop review
 > (`price_drop_review_queue`): deleting the line cascades that row away. Check first
 > (`select q.id, i.id, i.position from priceback.price_drop_review_queue q join
@@ -293,3 +350,6 @@ Neither is ever sent to the shopper's app.
 | 2026-10-14 | `n5hi9`, `jt6a4`, `xadqq`, `5bvzh` | Montreal #515 ×3, Laval #505 | Nothing. Each line and total is right against the printed subtotal, tax and total | Stamped reviewed (guarded `UPDATE`). |
 | 2026-10-23 | `r_1792728413893_vi24j` | Windsor #534 (ON) | NOT a bad photo: one purchase printing two SUBTOTAL/TAX/TOTAL blocks (interim 111.29 / 9.81 / 121.10 after 8 lines); a VOID block read `' OID` (3M SPONGEX24 billed twice, its voided coupon stored as a 4.00 item), LOLE FZIP's slashless `MULTIPLE 7.00-` lost, `4 @ 4.79` read `48 4.79` (SKU-less line); tax back-derived 19.86. 776.28 + 19.86 for 750.79 + 45.35 = 796.14 | Spec, `--write` on `main` `8345bb0` (= deployed). `keepItemIds: [3370]` (HEADNSHLDERS's review-queue row); shifted lines carry their catalogue label so nothing is renamed; `productName` restores 2 labels a bad scan had corrupted (ADIDAS PANT, W+A RUG). 20 lines, 28 units, discounts 101.50. RC-26..RC-30 (+ RC-5). The admin *Fix automatically* had refused the right answer (RC-32). |
 | 2026-10-16 | `r_1791776785814_3mq8x` | Sherbrooke #1367 (QC) | NOT a parse error: the phone still showed the duplicate `w0dv6` (deleted server-side 10-13; builds before 3.0.7 never drop a server-deleted receipt), so they deleted the one left, `3mq8x`, at 21:43 UTC. Both were then gone (the build is not stamped: `users.app_build` null) | Restored (Maxim): `deleted_at` cleared on the receipt + 29 lines, guarded on the 21:43:08.037 delete stamp. Price points untouched. No root-cause entry: no receipt line was wrong. |
+| 2026-10-28 | `r_1793110284881_3eips` | Nepean #540 (ON, self-checkout) | Logo cut → generic parser (RC-15); the Shop Card tender lines stored as items (RC-33: `REMAINING BALANCE` 1220.51, `Shop Card` 243.73); first line's price hidden at the top edge and a steep tilt cost 3 more lines. 6 lines / 1584.88 for 13 lines / 243.73 | Spec (photo, proved: Σ 228.03, HST 15.20 on 116.92, GST 0.50, discounts 25.00, 13 items), `--write` from a worktree at deployed `1b8a595`. Its two review-queue rows (DAWNRISE 1963, JERKY 2091) were admin-REJECTED and never sent, and no kept line could match its new place, so a scratch wrapper deleted those two rows and ran `badScanRepair.repair` in the SAME transaction (dry run first). Catalogue names used for 6 lines so nothing is renamed (`productsRenamed: 0`). 2 synthetic products removed, watch registration 4 → 7 entries, reviewed + skip-optimisation. No notice drafted (the same shopper gets the `mez7p` rejection push). |
+| 2026-10-28 | `r_1793110195684_mez7p` | Nepean #540 (ON) | Folded receipt: ~4 of 14 items and the SUBTOTAL/TOTAL figures under the fold, item numbers cut at the left edge (paid 159.01, HST 2.53, discounts 24.00). Stored 4 lines / 18.29. Cannot be rebuilt from the photo | ⏳ **To reject** (#497, `admin_rejected` + `receipt_rejected` push) once prod runs `main` (prod is on `1b8a595`, before #497). Migration 0038 applied to prod by hand 2026-10-28 (ledger row 49). |
+| 2026-10-28 | `r_1793156647777_0fs8x` | Gloucester #1362 (ON) | Only the payment/tax section was photographed (MasterCard 355.30, HST 10.52, 20 items, no item lines). Stored 2 junk lines (`for your records` 355.30, `(HHST 13%` 10.52) under warehouse #159 (seeded, kept) | ⏳ **To reject** (#497) once prod runs `main`. |

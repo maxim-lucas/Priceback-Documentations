@@ -155,6 +155,31 @@ adapter on.** Procedure: `Canadian_Egress_Verification.md`.
 
 ### Owed before the scan flag is ever flipped
 
+> **2026-10-28 — the list below is superseded at step 1.** CAD is settled: Maxim
+> saw CAD prices in his own browser from Orléans (outcome A). But A&F now sits
+> behind **F5 Bot Defense**, and neither a plain HTTP fetch nor headless Chrome
+> gets past it (`Canadian_Egress_Verification.md` §"Follow-up, same day"). Steps
+> 3–4 (a Montréal fetch relay) would hit the same wall. The feed now has three
+> possible shapes. Each is a live check of **watched lines only**, the way Best
+> Buy's job refreshes only SKUs on live receipt lines, so no catalogue is stored:
+>
+> 1. **Commercial unlocker API** (e.g. Bright Data Web Unlocker), called by the
+>    nightly job per watched style. Canadian egress comes from the provider's
+>    `country=ca`, and the provider is the party getting past the defense. Paid
+>    per successful request, A&F's terms still apply, and the reviewer notes
+>    gain a scraping source.
+> 2. **Shopper-side check.** The app opens the A&F product page in an in-app
+>    browser *the shopper can see*, from their own phone (Canadian egress for
+>    free), and reads the price shown. No server scraping and no bot evasion. It
+>    is not automatic, though: a check happens when the shopper opens it.
+> 3. **Affiliate product feed** (A&F's affiliate network), the sanctioned data
+>    route. It needs an affiliate account and is a feed file, not a live check.
+>
+> Ruled out: a self-built browser farm that hides automation from F5. Whichever
+> route is chosen, steps 2, 5 and 6 still stand: fill `CANADIAN_STORE_IDS` from
+> a real capture, replace the derived fixtures, and solve the slug source (a
+> browser-based route can resolve the slug through A&F's own search page).
+
 In order — each step is blocked by the one above it.
 
 1. 🔴 **Establish whether A&F serves CAD to Canadian egress at all.** Nothing else
