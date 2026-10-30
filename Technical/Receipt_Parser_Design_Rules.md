@@ -157,7 +157,9 @@ better parse is adopted as before. Curl and fold stay in the geometry (RC-12).
     closing assignment, never zipped; the three totals printed just ABOVE the labels (past at most one item or coupon
     line) count only when they close with a tax at most 20 % of the subtotal. The items-sold count comes from BOTH
     counters (summary and footer); a count printed beside its label beats a scanned one; two printed counts that
-    disagree are no count; the pre-scan count is never the items sold. Nothing reads a figure off "the whole text" or
+    disagree are no count; the pre-scan count is never the items sold. A count streamed away from its label is found
+    by a scan that crosses only amounts, the summary's own labels and the register's date stamp, up to 10 lines (a
+    Quebec summary prints it 7 lines down — #515); any other line ends it. Nothing reads a figure off "the whole text" or
     "the next line" again.
 11. **One reading of the paper, one set of checks, three policies (Maxim, 2026-10-29; RC-37).** *"Reading confidence
     and quality check should use the same logic."* Every consumer reads the paper through
