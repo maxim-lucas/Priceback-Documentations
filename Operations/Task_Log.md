@@ -11525,3 +11525,17 @@ anyway).
   swipeable pages ("To claim now" first when drops exist, "Saved all-time").
 - **Branch:** `feat/drop-amount-emphasis-hero-pages` off `main` (Maxim's choice).
 - **Analysis:** `Marketing-Plan/Conversion_Analysis_2026-10-29.md`.
+
+## 2026-10-30 — Push tokens: the splash prompt, the alerts card, and a reachability check in the admin desk
+
+- **Ask (Maxim):** some shoppers have no push token, so they never get notified (a likely cause
+  of few subscribers); the newest shopper got 2 drops and no notification. Fix it (1: no prompt
+  at the splash, 2: retry/report the token, 3: an in-app card), "make sure this never happens
+  again": flag in the health check and the admin desk any shopper who gets no push when that is
+  not normal. Same question for shoppers with no session.
+- **Branch:** `hotfix/push-permission-at-splash` off `main` (Maxim: "hotfix on main").
+- **Found:** 20% of active shoppers tokenless (iOS 23%); 9 of 41 shoppers with a drop in 30 days
+  never told. Root cause in Bugs #357. Sessions: 0/68 Android shoppers have one, BY DESIGN
+  (first-party sessions are iOS-only); iOS 160/161 live.
+- **Done:** see Bugs #357; check documented in `Operations/Shopper_Reachability_Check.md`.
+  PR #518. Migration 0042 applied to dev; **prod still owed** (apply BEFORE the backend deploys).
