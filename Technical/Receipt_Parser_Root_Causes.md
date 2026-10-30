@@ -1520,6 +1520,19 @@ block runs past the amounts a column split streams below the TOTAL label, across
 (`H`), lost stars (`****`) and a tender word (`Comptant`), and a stray `TOTAL` after the grand total is never a new
 block (3hhhj).
 
+**Prod, read-only, after the deploy (2026-10-30, 102 Costco receipts of the last 14 days, the desk's reading
+confidence as the desk computes it).** Old code: 68 high · 3 medium · 31 low; new code: 46 · 36 · 20, then 48 · 35 ·
+19 with #515. 33 receipts' printed TOTAL / TAX are read differently — among them Maxim's *"printed TOTAL 0.00"*
+receipt `r_1793312557863_vt48i` (now 134.31), `exps0` (11.98 → 91.97), `tvkcs` (1.35 → 146.17), `t7iig` (5.84 →
+44.82), `wwnr1` (265.01 → 287.36). Many of the old "high" were these misreads. **#515** reads three damaged shapes
+only when the block then closes — a starred price line (`nh1zb`), a lost or spaced decimal point (`np6uz` `5725`,
+`o6k25` `153 71`), the totals printed just above the labels (`dj4to`, `gsbai`, `pmfkz`): total or tax not read 18 →
+12, the six all equal to their stored totals. The 12 left are right to be amber or red: `07khu` and `yvflx` print a
+closing block the stored total contradicts (lines lost — red), `f1zo2` and `4i228` carry no readable totals, the rest
+OCR damage (`s0mze` `477753`, `kyot9` `14111`, `wb5vr` `15725`, `qrycs` 61.20 for 67.20), junk between the TOTAL
+and its amounts (`ykjrv` `€800`), a Shop Card payment that prints the total only in the payment block (`3eips`), and
+the Costco-app layout (`pxzjm`).
+
 ---
 
 ## RC-36 · The items-sold reader stops at the first label: the footer's counter is never read

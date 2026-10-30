@@ -151,7 +151,11 @@ better parse is adopted as before. Curl and fold stay in the geometry (RC-12).
     TOTAL from the final Total section only (§2a): the `**** TOTAL` row is the total, the row before it the TAX. An
     amount is a label's when it prints on the label's row; bare amounts are assigned only when there are as many as
     labels (in order) or when exactly one order-kept assignment closes. **A failed zip is never re-tried one label
-    later, and a figure that cannot be placed is unread — never guessed.** The items-sold count comes from BOTH
+    later, and a figure that cannot be placed is unread — never guessed.** Damaged shapes are read only when the block
+    then closes (Priceback #515, from the prod comparison of 2026-10-30): a starred price line (`* 24.79 F`) does not
+    end the block; an amount whose decimal point OCR lost (`5725`) or read as a space (`153 71`) counts only in a
+    closing assignment, never zipped; the three totals printed just ABOVE the labels (past at most one item or coupon
+    line) count only when they close with a tax at most 20 % of the subtotal. The items-sold count comes from BOTH
     counters (summary and footer); a count printed beside its label beats a scanned one; two printed counts that
     disagree are no count; the pre-scan count is never the items sold. Nothing reads a figure off "the whole text" or
     "the next line" again.
