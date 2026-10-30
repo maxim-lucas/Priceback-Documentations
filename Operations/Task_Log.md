@@ -11508,3 +11508,15 @@ anyway).
   chose to deploy `main` and then reject both through `POST /api/admin/receipts/:id/reject`.
 - Docs: `Technical/Receipt_Parser_Root_Causes.md` (RC-15 case, RC-33),
   `Operations/Bad_Scan_Receipt_Repair_Runbook.md` log, `Operations/Receipt_Data_Verification_Ledger.md`.
+
+## 2026-10-29 — Drop amounts up front: locked row, product/receipt rows, two-page hero; conversion analysis
+
+- **Ask (Maxim):** the Products-view lock row can't fit its EN/FR text and hides the amount;
+  lead with the amount in bold. Make each unlocked drop's saving big (hero-style), and the same
+  on receipt rows ("$4.00 to claim"). Put active alerts (amount + count, tap → Products · drops)
+  in the hero card. Also: why do drop recipients not subscribe — analyse prod data.
+- **Decided (Maxim):** lock row "**$X** more to claim" / "N hidden drops · D days left" + a
+  labelled Unlock button; big right-aligned amount on product and receipt rows; hero = two
+  swipeable pages ("To claim now" first when drops exist, "Saved all-time").
+- **Branch:** `feat/drop-amount-emphasis-hero-pages` off `main` (Maxim's choice).
+- **Analysis:** `Marketing-Plan/Conversion_Analysis_2026-10-29.md`.
