@@ -1581,10 +1581,25 @@ counter label the reading left unread. Two shapes, both fixed in **Priceback #51
 6-line reach (`34jc2`, `kyot9`, `5c5zi`, `pd6ni`; corpus `f3ivl`, whose 25 was documented as unread); and a count
 streamed past the register's date stamp (`f2dd5`) or read with an OCR stroke in front (`/16`, `tny47`). The scan now
 reaches 10 lines and crosses the date stamp; it still crosses nothing else. After it, **every prod receipt whose OCR
-prints an items-sold counter has its count read.** The 6 still not green read it and it disagrees with the stored
-lines (`16k2o` 17 for 18, `igi2v` 8 for 7, `34jc2` 3 for 1, `5em7j` 21 for 20, `vuozi` 19 for 21, `pxzjm` 14 for 16 —
-lines lost or split, red or amber by design); 4 print only the pre-scan count (`d0vyw`, `f19vo`, `no4cp`, `98ut3`),
-never read; 25 photos carry no counter at all.
+prints an items-sold counter has its count read.** 4 print only the pre-scan count (`d0vyw`, `f19vo`, `no4cp`,
+`98ut3`), never read; 25 photos carry no counter at all. The 6 still not green read the count and it disagrees with
+the stored lines. **Each was checked against its paper (read-only, 2026-10-30): all six are real defects of the stored
+reading, none a miscount by the check** — four of them close to the cent, so only the count could catch them:
+
+| Receipt | Printed / stored units | What the stored reading got wrong (the paper) |
+|---|---|---|
+| `r_1792767963180_igi2v` | 8 / 7 | lines lost: they sum to 87.23, the paper's subtotal is 157.22 |
+| `r_1792767845325_34jc2` | 3 / 1 | lines lost: one 14.99 line, the paper's subtotal is 29.97 |
+| `r_1792702945085_5em7j` | 21 / 20 | a quantity lost: `2 @ 4.95` / `BUTTER 454G 9.90` stored as quantity 1 (closes) |
+| `r_1792527513688_vuozi` | 19 / 21 | two quantities invented: a stray `2` after the price (`52.99 2`, `14.99 2`) stored as quantity 2 on HUGGIES+ T3 and KS GRANOLA (closes) |
+| `r_1792365485591_pxzjm` | 14 / 16 | two fee lines stored as products: `DEPOSIT 9502 1.60` and `4402 ENVIRO FEE 0.64` lost their names (`Item #9502`, `Item #4402`), so they are not ignored — and file price points (closes) |
+| `r_1793328368102_16k2o` | 17 / 18 | a membership renewal stored as a product: `RENOUV PRIVI 130.00` (Quebec *Privilège* renewal) is not in `IGNORED_KEYWORDS` (closes) |
+
+**Proposed, not made (needs Maxim — `receiptParsingShared.js` is shared with Best Buy):** `IGNORED_KEYWORDS` matches
+`renouvellement` but not the printed abbreviation `RENOUV`, so the line uploads as a watchable product with a $130
+price point and counts in the parser's own items-sold self-check (Bugs #97 made membership lines fees, excluded from
+the count — `16k2o` confirms Costco's count leaves them out: 18 − 1 = 17). Add a word-bounded `renouv` (not a bare
+substring: `RENOUVEAU` is a word). Only one prod receipt (`16k2o`) carries the abbreviation so far.
 
 | Receipt / capture | Store | Old | Paper | Status |
 |---|---|---|---|---|
