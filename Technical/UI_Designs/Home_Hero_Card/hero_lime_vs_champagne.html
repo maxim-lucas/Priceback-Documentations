@@ -1,0 +1,102 @@
+<title>Hero Card Colors</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+<style>
+/* Layout: two option columns, each showing the hero in its two states; every card is a live snap carousel. */
+:root{
+  --bg:#eef3f0; --fg:#10241a; --muted:#5b6e64; --rule:#d3ded8;
+  --ink:#0d3d28; --inkDeep:#062a1a;
+  --lime:#bef264; --limeSoft:#d9f99d;
+  --gold:#f5e6b8; --goldSoft:#fbf3dc;
+  --font:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1310;--fg:#e6efe9;--muted:#8fa399;--rule:#22322a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b1310;--fg:#e6efe9;--muted:#8fa399;--rule:#22322a;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+h1{font-size:22px;margin:0 0 4px;text-wrap:balance}
+.lead{color:var(--muted);margin:0 0 28px;max-width:60ch;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:36px;max-width:820px}
+.opt h2{font-size:15px;margin:0 0 2px}
+.opt p.sw{margin:0 0 16px;color:var(--muted);font-size:13px;display:flex;gap:8px;align-items:center}
+.chip{width:14px;height:14px;border-radius:4px;display:inline-block}
+.state{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;font-weight:700}
+.stack{display:flex;flex-direction:column}
+
+.card{background:linear-gradient(135deg,var(--ink),var(--inkDeep));border-radius:22px;color:#fff;max-width:380px;overflow:hidden;position:relative}
+.track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.track::-webkit-scrollbar{display:none}
+.page{flex:0 0 100%;scroll-snap-align:start;padding:18px 20px 16px;box-sizing:border-box}
+.head{display:flex;justify-content:space-between;align-items:center}
+.title{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.bars{display:flex;gap:4px}
+.bar{width:16px;height:3px;border-radius:2px;background:rgba(255,255,255,.22)}
+.amt{display:flex;align-items:flex-start;margin-top:8px;font-variant-numeric:tabular-nums;line-height:1}
+.amt .d{font-size:24px;font-weight:700;margin-top:6px;margin-right:2px}
+.amt .n{font-size:56px;font-weight:800;letter-spacing:-.03em}
+.amt .c{font-size:24px;font-weight:700;margin-top:6px}
+.lines{margin-top:12px;display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600}
+.line{display:flex;gap:8px;align-items:center}
+.line .ico{width:18px;text-align:center}
+.line.locked{color:rgba(255,255,255,.62)}
+.foot{margin-top:14px;padding-top:11px;border-top:1px solid rgba(255,255,255,.12);font-size:12px;display:flex;gap:6px;align-items:center;color:rgba(255,255,255,.7)}
+.foot b{font-weight:700}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+
+/* option accents */
+.lime .title,.lime .ico.ok,.lime .foot b{color:var(--lime)}
+.lime .bar.on{background:var(--lime)}
+.lime .amt .c,.lime .amt .d{color:var(--limeSoft)}
+.gold .title,.gold .ico.ok,.gold .foot b{color:var(--gold)}
+.gold .bar.on{background:var(--gold)}
+.gold .amt .c,.gold .amt .d{color:var(--goldSoft)}
+.saved .title{color:rgba(255,255,255,.6)}
+</style>
+
+<h1>Hero card: Lime vs Champagne</h1>
+<p class="lead">Each card swipes like the app will (drag or scroll sideways): page 1 is "To claim", page 2 is "Saved all-time". Sample amounts, not real data.</p>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const opts=[
+  {cls:"lime",name:"Option A · Lime",hex:"#bef264"},
+  {cls:"gold",name:"Option B · Champagne",hex:"#f5e6b8"}
+];
+const bars=i=>`<div class="bars"><span class="bar ${i===0?'on':''}"></span><span class="bar ${i===1?'on':''}"></span></div>`;
+const amt=v=>{const [n,c]=v.toFixed(2).split(".");return `<div class="amt"><span class="d">$</span><span class="n">${n}</span><span class="c">.${c}</span></div>`};
+const foot=`<div class="foot">⏱ <b>3 days left</b> · Tap for more details</div>`;
+const claimMixed=`<div class="page">
+  <div class="head"><span class="title">To claim</span>${bars(0)}</div>
+  ${amt(12.40)}
+  <div class="lines">
+    <div class="line"><span class="ico ok">✓</span>$7.40 ready · 2 drops</div>
+    <div class="line locked"><span class="ico">🔒</span>$5.00 locked · 1 drop</div>
+  </div>${foot}</div>`;
+const claimFree=`<div class="page">
+  <div class="head"><span class="title">To claim</span>${bars(0)}</div>
+  ${amt(12.40)}
+  <div class="lines"><div class="line"><span class="ico ok">✓</span>3 drops</div></div>${foot}</div>`;
+const saved=`<div class="page saved">
+  <div class="head"><span class="title">Saved all-time</span>${bars(1)}</div>
+  ${amt(84.15)}
+  <div class="lines"><div class="line"><span class="ico ok">↗</span>$12.40 saved this month</div></div>
+  <div class="foot">🛒 Spent in 2026: $1,240.30</div></div>`;
+document.getElementById("grid").innerHTML=opts.map(o=>`
+ <section class="opt ${o.cls}">
+  <h2>${o.name}</h2><p class="sw"><span class="chip" style="background:${o.hex}"></span>${o.hex}</p>
+  <div class="stack">
+   <div class="state">With a locked drop</div>
+   <div class="card"><div class="track">${claimMixed}${saved}</div></div>
+   <div class="state">No locked drop</div>
+   <div class="card"><div class="track">${claimFree}${saved}</div></div>
+   <div class="hint">Swipe a card to see page 2.</div>
+  </div>
+ </section>`).join("");
+document.querySelectorAll(".card").forEach(card=>{
+  const tr=card.querySelector(".track");
+  tr.addEventListener("scroll",()=>{
+    const i=Math.round(tr.scrollLeft/tr.clientWidth);
+    card.querySelectorAll(".page").forEach(p=>p.querySelectorAll(".bar").forEach((b,j)=>b.classList.toggle("on",j===i)));
+  },{passive:true});
+});
+</script>

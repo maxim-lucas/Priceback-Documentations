@@ -11539,3 +11539,14 @@ anyway).
   (first-party sessions are iOS-only); iOS 160/161 live.
 - **Done:** see Bugs #357; check documented in `Operations/Shopper_Reachability_Check.md`.
   PR #518. Migration 0042 applied to dev; **prod still owed** (apply BEFORE the backend deploys).
+
+## 2026-10-30 — Home hero: Lime carousel, ready/locked split, one-line deadline footer
+
+- **Ask (Maxim):** the hero's "To claim" page doesn't swipe like an Instagram carousel; amber clashes
+  with the green; amount too small; the footer repeats the alert. Show ready vs locked so a free
+  "$5 to claim" never surprises with a paywall. Remove the stat tiles; footer = nearest days left +
+  "tap for more details" (no product name). Nothing locked → "N drops · on M receipts".
+- **Decided (Maxim):** Option Lime (`#bef264`); Champagne kept as alternative. Mockups saved in
+  `Technical/UI_Designs/Home_Hero_Card/`. No "Unlock with credits" link.
+- **Branch:** `feat/home-hero-lime-carousel` off `main`, PR to `main` (Maxim).
+- **Open:** a clearer Claim flow (shoppers think tapping Claim pays them) — proposed, awaiting approval.
