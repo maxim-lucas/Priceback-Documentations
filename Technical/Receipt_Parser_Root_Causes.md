@@ -1466,6 +1466,126 @@ extraction branch:
 
 ---
 
+## RC-35 · A labels-first totals block is zipped one label late: the TAX's amount read as the TOTAL
+
+**Printed shape.** A column split streams the totals block's labels and amounts apart, and not always in matching
+runs:
+
+```
+SUBTOTAL            SUBTOTAL            SUBTOTAL           SUBTOTAL
+TAX                 TAX                 TAX                TAX
+**** TOTAL          196.12              83.84              3.50- H      ← the last coupon's amount
+76.08               24.43               0.00               72.13
+0.00                220.55              **** TOTAL         4.35
+2026/10/09 19:30    **** TOTAL          83.84              **** TOTAL
+76.08               (ec7p8 c35)         (PXL_…22107026)    76.48 (unlinked c50)
+```
+
+**What goes wrong.** `readLabelsFirstBlocks` (`shared/receiptPrintedFigures.js`; written for `afuor`, 2026-10-21, in
+`backend/lib/receiptAutoFix.js`, moved to `shared/` on 2026-10-28) zips a run of bare labels with the bare amounts
+under it. When the run has FEWER amounts than labels it `continue`s without moving past the run, so the loop
+restarts at `TAX` and zips `[tax, total]` with `[subtotal's amount, tax's amount]`: **total = the TAX amount**
+(0.00 on a zero-tax receipt — the desk's *"printed TOTAL 0.00"*). Its fallback `findAll` borrows "the next line" for
+any label, whoever it belongs to. Every consumer of `readPrintedFigures` inherited it: the desk's **reading
+confidence**, and **every Gemini proof** (Fix automatically, Gemini-first, the re-read, `/api/ocr-llm`) — a correct
+proposal failed `total_on_paper` / `tax_on_paper`, and the desk retried Gemini 3× for 60–150 s on an answer that
+could never pass. The receipt quality check read the same receipts right only because it trusted the phone's figure
+when that amount was printed anywhere (RC-37).
+
+| Receipt / capture | Store | What the old reader said | Paper | Status |
+|---|---|---|---|---|
+| Desk receipts, 2026-10-29 (Maxim: *"every receipt have the same problem"*) | — | printed TOTAL 0.00 (the tax) | — | *covered by PR-2* |
+| `ec7p8` c35, c36, c38, c39 | Kanata #541 | tax 196.12 | 24.43 | *covered by PR-2* |
+| `unlinked` c50 | Oshawa #1128 | tax 76.48 | 4.35 | *covered by PR-2* |
+| `t7iig` c261, c262 | Rimouski #1720 | tax 25.99, total 5.84 | 5.84 / 44.82 | *covered by PR-2* |
+| `3hhhj` c81, c82 | Gloucester #1362 | total 5 / 15.99 | 696.50 | *covered by PR-2* |
+| `4qp2s` c72 | Pointe-Claire #528 | subtotal 16.99 | 556.34 | *covered by PR-2* |
+| `v3u8j` c257 | Rimouski #1720 | subtotal = total 87.98 (interim block) | 135.94 | *covered by PR-2* |
+| `xuxbv` c71, `bq42g`, `i7aiw`, `mebfs` c86, `yb0uh` | — | tax / total from a neighbouring row | — | *covered by PR-2* |
+
+**Proof.** On the 91 committed production captures (right parses, three figures each): the old reader read **16
+figures wrong** off the raw OCR (97 right, 52 unread) and **14 wrong** off the stored text the server reads (119
+right); the new reader **0 wrong** (131 and 154 right). Pinned by `receiptProdCaptures.test.js` › *the printed
+figures and the items-sold count are read from their own sections*. The shape that pinned the wrong answer
+(`backend/tests/receiptAutoFix.test.js`, *"SUBTOTAL / TAX / **** TOTAL / 154.86 → total 154.86"*, the subtotal's
+amount) now reads nothing.
+
+**Fix (PR-2, `hotfix/receipt-one-reading`, 2026-10-29).** `shared/costcoReceiptSections.js`: the totals are read from
+the final totals SECTION only. The grand total is the `**** TOTAL` row (a bare `TOTAL` right after the block's own
+labels when the stars are lost — RC-30, Quebec `Total Partiel / Taxes / TOTAL`); the TAX is the row before it
+(Maxim: *"The grand total has always a suffix '**** TOTAL', Tax is always the line before"*). An amount on a label's
+own row is that label's. Bare amounts are assigned only when there are as many as labels (in order) or when exactly
+one order-kept assignment closes (subtotal + tax = total); otherwise the figure is **unread, never guessed**. The
+block runs past the amounts a column split streams below the TOTAL label, across a date stamp, a lone tax flag
+(`H`), lost stars (`****`) and a tender word (`Comptant`), and a stray `TOTAL` after the grand total is never a new
+block (3hhhj).
+
+---
+
+## RC-36 · The items-sold reader stops at the first label: the footer's counter is never read
+
+**Printed shape.** Costco prints the items-sold count TWICE: in the summary (`TOTAL NUMBER OF ITEMS SOLD = 8`,
+`NOMBRE D'ARTICLES VENDUS- 11`) and in the footer (`Items Sold: 8`, `Nombre d'art. 11`, `Articles vendus: 4`). A
+column split streams the summary's count away from its label — four lines down (Quebec `4jfke`), two lines UP
+(Rimouski `v3u8j`), or off the photo's edge (Kanata `ec7p8`). The self-checkout prints a third count,
+`TOTAL NUMBER OF PRE-SCANNED ITEMS= 6`, which is NOT the items sold.
+
+**What goes wrong.** Three readers of one count:
+
+- `extractItemsSoldCount` (`src/services/receiptParsingShared.js`, the parser's self-check and unit cap; moved to
+  `shared/receiptPrintedFigures.js` 2026-10-28) took the FIRST label, scanned ±6 lines for a bare integer, then
+  `break` — the English footer counter was never tried (only the French `Nombre d'art.` had a fallback). The ±6 scan
+  crossed into the payment block (`4jfke`: a stray `9` above for a count of 11).
+- `readPrintedFigures().itemsSold`: its own inline-only regex — null on 35 of 131 captures where the parser read the
+  count.
+- The quality check read the footer first, then the text.
+
+So the receipt quality check said *"items sold not found"* on a receipt whose OCR prints it (Maxim, 2026-10-29: *"there
+is 2 section where the total items is counted, sometimes the 2nd counter is not detected but the first is there"*),
+and the reading confidence never saw a count it could not read.
+
+| Receipt / capture | Store | Old | Paper | Status |
+|---|---|---|---|---|
+| Maxim's receipt, 2026-10-29 (quality check "items sold not found", reading confidence 9 of 9) | — | unread | in the OCR | *covered by PR-2* |
+| `ec7p8` c35 | Kanata #541 | unread (summary count unreadable) | `Items Sold: 8` | *covered by PR-2* (`printedCountReadable: false` removed) |
+| `v3u8j` c257 | Rimouski #1720 | unread on the server | 6, two lines above its label | *covered by PR-2* |
+| `4jfke` c63 | Quebec #503 | 9 possible (a payment-block stray) | 11 | *covered by PR-2* |
+
+**Proof.** On the corpus' right parses, the server's reading (stored text + footer OCR) found the count on **18 of 45**
+receipts before (27 unread) and **42 of 45** now (the 3 unread are photos that stop above the count line), **never
+wrong**; the parser's reading 38 → 39, never wrong.
+
+**Fix (PR-2).** `readItemsSold` (`shared/costcoReceiptSections.js`): both counters, told apart by their label's shape;
+a count printed beside its label beats one found by scanning; two printed counts that disagree are NO count
+(unverified), never a guess; the scan for a streamed count goes either way, nearest first, up to 6 lines, crossing
+only amounts and the summary's own labels (a date stamp or a payment line ends it), and only from the first
+summary label (a later copy — the footer OCR appended to the text — sits beside footer text). The pre-scan count is
+never read. `extractItemsSoldCount` and `readPrintedFigures().itemsSold` read through it: one count reader.
+
+---
+
+## RC-37 · The reading confidence and the quality check read one paper two ways
+
+**What goes wrong.** Three consumers judged a receipt reading against its paper, each with its own reading of the
+paper and its own checks:
+
+| | Printed figures | Items count | Policy |
+|---|---|---|---|
+| Desk reading confidence (`readingConfidence`) | `readPrintedFigures` (RC-35) | advisory, outside "n of n" | any fail → low |
+| Gemini proofs (`checkProposal`) | `readPrintedFigures` (RC-35) | advisory | Apply when every non-advisory check passes |
+| Receipt quality check (`receiptQualityGate`) | the phone's figure when printed **anywhere**, else the flat reading when it closes | footer first (RC-36) | refuse per family switch |
+
+So one receipt could be **9 of 9, green** on the desk while the quality check refused it (*items sold not found*),
+and *"printed TOTAL 0.00"* on the desk while the quality check read the total right (Maxim, 2026-10-29: *"all logic
+should be the same on confidence and safety check"*).
+
+**Fix (PR-2).** One reading of the paper and **one set of checks** (`shared/receiptChecks.js`), three policies
+(`Technical/Receipt_Parser_Design_Rules.md` rule 11). Measured on the corpus: no right parse is refused for a photo,
+totals, adds-up or read-as-an-item reason; every known-bad capture is refused, or accepted and flagged (not green) by
+the reading confidence, or uploads the paper's figures.
+
+---
+
 ## Earlier root causes (before this register)
 
 Recorded in their own docs; listed here so the register is complete. Add new cases of these under a new `RC-n`
