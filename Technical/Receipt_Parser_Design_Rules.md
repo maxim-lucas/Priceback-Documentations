@@ -186,7 +186,11 @@ better parse is adopted as before. Curl and fold stay in the geometry (RC-12).
     caller's deadline) and the desk names each class (`OVERLOADED`, `QUOTA_EXCEEDED`, `TIMEOUT`, `EMPTY_ANSWER`,
     `NO_CREDIT`, `BAD_REQUEST`); a paid key paused for no credit is named on every refusal. "Gemini could not read
     this receipt" is reserved for the truly unknown. An empty or cut-off answer (MAX_TOKENS, blocked) moves to the
-    next model. Every call logs one line (caller, refusals, tokens) — never a key or receipt text.
+    next model. Every call logs one line (caller, refusals, tokens) — never a key or receipt text. **A model that hung
+    is asked last (Priceback #516, 2026-10-30):** no answer in an attempt of ≥ 30 s sends it to the back of that key's
+    order for 10 minutes — still asked after the others, back in front once it answers; a quick 503, a dropped
+    connection or the phone's 18 s attempt never demotes. Never let one model that is not answering eat every call's
+    deadline (measured: the free key's newest flash answered 0 of 15 desk calls and cost each one up to 90 s).
 13. **Never retry Gemini on a check no answer can pass.** When Gemini and the stored reading agree and only the
     paper's own figure check fails, our reading of the paper is the odd one out: the desk stops after one try
     (`worthRetrying`). A chain must end inside the caller's own wait (`/api/ocr-llm`: 18 s for the phone's 20 s).
