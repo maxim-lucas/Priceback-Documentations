@@ -1575,6 +1575,26 @@ only amounts and the summary's own labels (a date stamp or a payment line ends i
 summary label (a later copy — the footer OCR appended to the text — sits beside footer text). The pre-scan count is
 never read. `extractItemsSoldCount` and `readPrintedFigures().itemsSold` read through it: one count reader.
 
+**Prod, after the deploy (2026-10-30, read-only, 102 Costco receipts of 14 days).** 11 receipts still printed a
+counter label the reading left unread. Two shapes, both fixed in **Priceback #515**: a Quebec summary prints
+`NOMBRE D'ARTICLES VENDUS-`, `TOTAL RABAIS`, then all their amounts, then the count — **7 lines down**, out of the
+6-line reach (`34jc2`, `kyot9`, `5c5zi`, `pd6ni`; corpus `f3ivl`, whose 25 was documented as unread); and a count
+streamed past the register's date stamp (`f2dd5`) or read with an OCR stroke in front (`/16`, `tny47`). The scan now
+reaches 10 lines and crosses the date stamp; it still crosses nothing else. After it, **every prod receipt whose OCR
+prints an items-sold counter has its count read.** The 6 still not green read it and it disagrees with the stored
+lines (`16k2o` 17 for 18, `igi2v` 8 for 7, `34jc2` 3 for 1, `5em7j` 21 for 20, `vuozi` 19 for 21, `pxzjm` 14 for 16 —
+lines lost or split, red or amber by design); 4 print only the pre-scan count (`d0vyw`, `f19vo`, `no4cp`, `98ut3`),
+never read; 25 photos carry no counter at all.
+
+| Receipt / capture | Store | Old | Paper | Status |
+|---|---|---|---|---|
+| `r_1792767845325_34jc2` | Quebec (FR) | unread (7 lines down) | 3 | *covered by #515* |
+| `r_1792672733561_kyot9` | Quebec (FR) | unread (7 lines down) | 6 | *covered by #515* |
+| `r_1793328141590_5c5zi`, `r_1793236942373_pd6ni` | Quebec (FR) | unread (7 lines down) | in the OCR | *covered by #515* |
+| `r_1792537237415_f2dd5` | Ontario | unread (past the date stamp) | 17 | *covered by #515* |
+| `r_1792550490840_tny47` | Quebec (FR) | unread (`/16`) | 16 | *covered by #515* |
+| corpus `r_1790808757051_f3ivl` | Pointe-Claire #528 | unread (7 lines down) | 25 | *covered by #515* |
+
 ---
 
 ## RC-37 · The reading confidence and the quality check read one paper two ways
