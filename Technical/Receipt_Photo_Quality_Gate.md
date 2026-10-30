@@ -27,19 +27,36 @@ retake only (Maxim's decision, 2026-10-27).
 | | `photo_faint` | more than 15 % of the words read with confidence < 0.72 (fading, glare, blur) |
 | | `photo_too_far` | the median word height is below 10 px of a 1200-px-wide frame |
 | | `photo_low_angle` | the top third's words are below 0.5× (or above 2×) the bottom third's |
-| Items count (`…_COUNT`) | `items_sold_unread` | no printed items-sold count (the photo stops above it) |
-| | `items_sold_mismatch` | the printed count differs from the units read (fees excluded) |
+| Items count (`…_COUNT`) | ~~`items_sold_unread`~~ | **rules v1 only.** Since rules v2 (2026-10-29) a receipt whose count is not read is ACCEPTED — Maxim: *"even if the item count arent detected, the quality check should accept the receipt"*; the reading confidence marks it amber instead |
+| | `items_sold_mismatch` | the printed count (either counter, RC-36) differs from the units read (fees excluded) |
 | Totals & tax (`…_TOTALS`) | `totals_unread` | no printed total or tax established |
 | | `tax_missing` | a line carries a tax code (`FP`/`F`/`P`/`H`/`G`/`Y`/`B`) but the tax is 0 |
 | Adds up (`…_BALANCE`) | `lines_off_total` | Σ lines + tax is more than **10 %** off the printed total |
 | Read as an item (`…_ITEM`) | `total_read_as_item` | a line with no item number equals the lines above it (2+) or the printed subtotal/total |
 | | `payment_read_as_item` | a line is named like a tender, a balance or an approval |
 
-**Established figures.** The printed total is the one the phone read when the paper prints that amount (the app
-locks it to the printed one), else the flat text's reading when its block closes; the tax likewise; the subtotal is
-total − tax. The flat text alone pairs a column-split TOTAL with an item's price (3hhhj "TOTAL 5"), and the uploaded
-total alone can be the doubled one (3eips, 1,584.88 for 243.73). The items-sold count is read from the footer first
-(`receipts.footer_ocr`, label and count together), then the raw text.
+**Rules v2 (2026-10-29) — one reading of the paper with the reading confidence.** The gate runs the checks of
+`shared/receiptChecks` (`Technical/Receipt_Parser_Design_Rules.md` rules 10–11; RC-35 … RC-37), the very ones the
+desk's reading confidence and every Gemini proof run, under its own policy (refuse per family switch). The figures
+come from the receipt's sections (`shared/costcoReceiptSections`): the final totals block — the `**** TOTAL` row is
+the total, the row before it the TAX — and BOTH items-sold counters (the summary's and the footer's). A missing count
+is accepted. The server re-judges a verdict a build made with older rules (build 56 runs v1), and `GET
+/api/v1/app-status` sends the count family as refusing only to builds past 56 (`X-App-Build`): a v1 build would refuse
+an unread count.
+
+**Established figures (v2).** The paper's final totals block when it closes or prints a figure beside its label; else
+the phone's figure when the totals BLOCK prints that amount (v1 accepted it printed anywhere — an item's price could
+pass for the total); else the block's in-order reading; else unread. The subtotal not read is total − tax. v1, for the
+record: the phone's figure when printed anywhere, else the flat reading when its block closes — the flat text paired a
+column-split TOTAL with an item's price (3hhhj "TOTAL 5"), and the uploaded total alone can be the doubled one (3eips,
+1,584.88 for 243.73); the count from the footer first, then the raw text.
+
+**Corpus under v2.** The 11 right parses whose photo stops above the count now pass (amber in the reading
+confidence). Two known-bad captures refused by v1 only for an unread count now pass, within the 10 % tolerance —
+`be1p8` c66 (9.25 % off) and `3mq8x` c84 (0.45 %) — and both are flagged (not green) by the reading confidence;
+`t7iig` c260 passes because its upload is now the paper's (the section fence, PR-3). Pinned by
+`receiptProdCaptures.test.js` › *every known-bad capture is refused, or accepted and flagged by the reading
+confidence — unless its upload is right*.
 
 **Limits** are admin settings (`RECEIPT_QUALITY_*`), served to the app on `GET /api/v1/app-status`, so the trial
 tunes them without an app build. Starting values from the committed corpus (`receiptProdCaptures.test.js` › *the

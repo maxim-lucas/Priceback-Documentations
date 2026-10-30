@@ -73,6 +73,46 @@ at an agreeing price — names it is taken, never across a size; the line keeps 
 printed name. Prices and totals are never touched, so step 5's verification is unaffected. A change to the matcher is
 proven on the whole corpus like a parser change: `scripts/harvest-catalog.mjs --corpus`.
 
+## 2a. The receipt's seven sections (Maxim, 2026-10-29)
+
+> *"It would be better if the parser can divide the receipt into section directly then treat each one alone but it
+> should consider the tilt and any other bad influence on the receipt. Sections should be (Header, Body, Void, Total,
+> Payment, Summary and footer)."*
+
+`shared/costcoReceiptSections.js` (`segmentCostcoLines`) divides a Costco receipt — the phone's geometry rows (tilt and
+curl already straightened, RC-12) or the flat text stored as `receipts.raw_ocr` — into:
+
+| Section | What it holds | Where it ends | Read by |
+|---|---|---|---|
+| **Header** | store, address, member line | the first item row (an item number + an all-caps name) or a pre-scan banner | identity (`receiptHeader`) |
+| **Body** | item rows, coupons (TPD, `/MULTIPLE`), fees, `N @ unit`, interim totals blocks (RC-7) | the FINAL totals block | item extraction |
+| **Void** | `VOID` / `ANNUL` (incl. `'OID`) + the line it cancels — data, inside the body | — | item extraction |
+| **Total** | the final `SUBTOTAL` / `TAX` / `**** TOTAL` and their amounts | past the amounts a column split streams below the TOTAL label | the printed figures (RC-35) |
+| **Payment** | card, approval, `AMOUNT` / `MONTANT`, tender, change, Shop Card | the summary's first line | nothing (noise) |
+| **Summary** | tax breakdown, `TOTAL TAX` / `TAXE TOTAL`, `TOTAL NUMBER OF ITEMS SOLD`, savings | the footer | the summary items-sold counter (RC-36) |
+| **Footer** | the date stamp, `Items Sold: N` / `Nombre d'art. N`, the register line, thanks | the end | the footer counter (RC-36), the purchase date, `receipts.footer_ocr` |
+
+**Anchors (EN + FR).** The grand total is the `**** TOTAL` row — or a bare `TOTAL` right after the block's own labels
+when the stars are lost (RC-30; Quebec `Total Partiel / Taxes / TOTAL`) — and the **TAX is the row before it** (Maxim:
+*"The grand total has always a suffix '**** TOTAL', Tax is always the line before"*). The LAST grand-total row is the
+final block (an interim block is followed by more items). A `TOTAL` after a grand-total row is never a new block.
+
+**What uses the sections today (2026-10-29).** Every reading of the printed figures and of the items-sold count —
+the parser's self-checks and unit cap, the receipt quality check, the desk's reading confidence and every Gemini proof
+(rule 11) — and the parser's item fence (`costcoItemBlockEnd`: the body ends at the sections' grand-total row; the
+fence stays at that row, not at the `SUBTOTAL` label, because a column split streams the last coupon's amount between
+the labels). **Not yet, and why** (each step was measured on the corpus and not taken):
+
+- the footer OCR from the sections: a date stamp streamed between `**** TOTAL` and its amount belongs to the Total
+  section, and 10 captures lost their footer — the footer keeps "everything after the last totals row";
+- the parser's own printed total from the sections: on a parser-gap receipt the right total lets the validator book
+  the lost lines as tax (RC-5: `be1p8` c66 would store tax 0.29 for 17.34) — it waits for RC-5's fix;
+- feeding extraction only Body + Void + Total: the item fence and the header strip already bound it.
+
+**Tilt before OCR.** The high-res second OCR pass (run only when the first parse is not fully confident) turns a photo
+measured at ≥ 2° of tilt straight before reading it again (`straightenFor`, `measurePhoto().tiltSignedDeg`); the
+better parse is adopted as before. Curl and fold stay in the geometry (RC-12).
+
 ## 3. Rules
 
 1. **Same structure, same logic.** A new receipt shape is handled by adding its noise to the noise vocabulary
@@ -107,6 +147,47 @@ proven on the whole corpus like a parser change: `scripts/harvest-catalog.mjs --
    Gemini's answers are grouped by (`receiptLlmRules.groupSameUnitPrice`), in both prompts, in *Fix automatically*'s
    line matching (`diffLines`, `history_kept`: SKU **and amount**), and in where a drop chip lands
    (`checkAllPriceDrops` → `lineIndex`).
+10. **Every printed figure is read from its own section (Maxim, 2026-10-29; RC-35, RC-36).** The SUBTOTAL / TAX /
+    TOTAL from the final Total section only (§2a): the `**** TOTAL` row is the total, the row before it the TAX. An
+    amount is a label's when it prints on the label's row; bare amounts are assigned only when there are as many as
+    labels (in order) or when exactly one order-kept assignment closes. **A failed zip is never re-tried one label
+    later, and a figure that cannot be placed is unread — never guessed.** Damaged shapes are read only when the block
+    then closes (Priceback #515, from the prod comparison of 2026-10-30): a starred price line (`* 24.79 F`) does not
+    end the block; an amount whose decimal point OCR lost (`5725`) or read as a space (`153 71`) counts only in a
+    closing assignment, never zipped; the three totals printed just ABOVE the labels (past at most one item or coupon
+    line) count only when they close with a tax at most 20 % of the subtotal. The items-sold count comes from BOTH
+    counters (summary and footer); a count printed beside its label beats a scanned one; two printed counts that
+    disagree are no count; the pre-scan count is never the items sold. Nothing reads a figure off "the whole text" or
+    "the next line" again.
+11. **One reading of the paper, one set of checks, three policies (Maxim, 2026-10-29; RC-37).** *"Reading confidence
+    and quality check should use the same logic."* Every consumer reads the paper through
+    `shared/receiptPrintedFigures` (`establishPrintedFigures`, `readItemsSold`) and runs the checks of
+    `shared/receiptChecks` (`evaluateReading`). A consumer may change only its POLICY:
+
+    | Check | Quality check (refuses in the app, per family switch) | Reading confidence (admin triage) | Gemini proof (Apply, Gemini-first, re-read, ocr-llm) |
+    |---|---|---|---|
+    | `items_sold` | mismatch refuses (`items_sold_mismatch`); **unread is accepted** (rules v2) | mismatch → red; unread or the counters disagree → amber | **informs only** (Maxim: *"Inform only"*) |
+    | `reconciles`, `total_on_paper`, `subtotal_on_paper`, `tax_on_paper` | `totals_unread`, `lines_off_total` (10 %) | fail → red; unread → amber | a fail blocks |
+    | `tax_missing`, `total_read_as_item`, `payment_read_as_item` | refuse (their family) | fail → red | a fail blocks |
+    | `photo_quality` (when a capture was measured) | photo family | out of limits → amber | — |
+    | `skus_on_paper`, `prices_on_paper`, `history_kept`, `grouping_kept` | — | fail → red | a fail blocks |
+
+    **The difference between the two** (Maxim): the quality check will, on the long run, *refuse* a receipt in the
+    shopper's app on criteria that are fixed; the reading confidence only says the receipt *needs an admin review or a
+    Gemini fix* — it never refuses. Reading confidence levels: any fail → low (red); anything unverified → medium
+    (amber); else high (green); "n of n" counts every check, the count included. A low or amber receipt is, for now,
+    a badge only; once Maxim has validated the confidence, the server re-read will target non-green receipts and a
+    *Needs review* desk queue will hold what Gemini cannot prove (Maxim, 2026-10-29: *"3 for now, when i validate the
+    strength of the function will be one"*). A new check is added to `receiptChecks`, never to one consumer.
+12. **A Gemini failure is said as what it is (2026-10-29).** Google's 429 / 500 / 503 are a busy Google, not a bad
+    receipt: `lib/gemini` waits them out (RetryInfo / Retry-After, else 1.5 s then 4 s, up to 3 rounds, inside the
+    caller's deadline) and the desk names each class (`OVERLOADED`, `QUOTA_EXCEEDED`, `TIMEOUT`, `EMPTY_ANSWER`,
+    `NO_CREDIT`, `BAD_REQUEST`); a paid key paused for no credit is named on every refusal. "Gemini could not read
+    this receipt" is reserved for the truly unknown. An empty or cut-off answer (MAX_TOKENS, blocked) moves to the
+    next model. Every call logs one line (caller, refusals, tokens) — never a key or receipt text.
+13. **Never retry Gemini on a check no answer can pass.** When Gemini and the stored reading agree and only the
+    paper's own figure check fails, our reading of the paper is the odd one out: the desk stops after one try
+    (`worthRetrying`). A chain must end inside the caller's own wait (`/api/ocr-llm`: 18 s for the phone's 20 s).
 
 ## 4. Edge cases that are data, not noise
 
@@ -142,13 +223,19 @@ days consolidates them into the order above. The open cases it must close are li
 the parser's rules (`backend/lib/receiptLlmRules.js`, Bugs #338). An LLM reads a receipt better than OCR + regex; it
 must not read it differently.
 
+**One reading of the paper (2026-10-29, rules 10–13, §2a).** The receipt's sections now exist
+(`shared/costcoReceiptSections`) and every reading of its printed figures and items-sold count goes through them;
+the quality check, the reading confidence and the Gemini proofs share one set of checks (`shared/receiptChecks`).
+Measured on the corpus: no printed figure read wrong (16 / 14 before), the count read on 42 of 45 receipts on the
+server (18 before).
+
 ## 7. Gemini reads first (Maxim, 2026-10-21; Priceback #484, switches OFF at deploy)
 
 Admin · **Receipt reading** (app, and the web console *Receipt reading* section) decides who reads a receipt first:
 
 | Switch | What it does |
 |---|---|
-| **Gemini reads first** (`RECEIPT_GEMINI_FIRST`) | The app (build after 3.1.3) sends each Costco in-warehouse Vision scan to `POST /api/receipts/gemini-read`. Gemini reads the **OCR text** (never the photo) under these rules, with the parser's reading as its draft. Its lines are kept **only when the receipt proves them**: Σ lines = printed subtotal, subtotal + tax = printed total (`receiptAutoFix.checkProposal`). Otherwise the parser's lines stay. |
+| **Gemini reads first** (`RECEIPT_GEMINI_FIRST`) | The app (build after 3.1.3) sends each Costco in-warehouse Vision scan to `POST /api/receipts/gemini-read`. Gemini reads the **OCR text** (never the photo) under these rules, with the parser's reading as its draft. Its lines are kept **only when the receipt proves them**: Σ lines = printed subtotal, subtotal + tax = printed total (`receiptAutoFix.checkProposal`, the checks of rule 11 under the Gemini-proof policy). Otherwise the parser's lines stay. Builds after 3.3.0 also send the footer OCR (the second items-sold counter). |
 | **Gemini re-reads** (`RECEIPT_GEMINI_REREAD`) | For every build: the server re-reads a receipt the phone did not let Gemini read, within 30 min of its upload, and applies a proven correction through the repair path (`badScanRepair` mode `reread`). Never on a receipt with a claim, a drop sent or in review, a shopper correction, a refund, a US receipt or an online order. The phone takes the corrected lines on its next sync. |
 
 **The parser is the fallback, always.** It reads when a switch is off, when the day's Gemini budget is spent

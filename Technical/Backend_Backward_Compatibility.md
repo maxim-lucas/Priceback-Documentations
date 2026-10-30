@@ -189,6 +189,26 @@ sends only its own `status=` chips and ignores unknown row and receipt fields.
 
 Forcing builds: none needed.
 
+## Audit — 2026-10-29: Gemini reliability and one reading of the paper (#510, `hotfix/receipt-one-reading`, PR-3, PR-4)
+
+Live builds: Android 56 (3.3.0) is the admin's; shoppers' requests in the logs carry `ios:55` (3.2.0); every build back
+to **2.8.3** was checked (`git show v2.8.3…v3.3.0:src/services/ocrService.js`, `geminiReader.js`, the admin desk).
+**No migration.**
+
+| Change | Why old builds are fine |
+|---|---|
+| `POST /api/admin/receipts/:id/auto-fix` failure `code` / `message` (#510): `OVERLOADED` (503, was 502), `EMPTY_ANSWER`, `MALFORMED_ANSWER`, `BAD_REQUEST` | Every desk build shows `message` on any non-2xx (`AutoFixPanel`); only the wording changes. |
+| `lib/gemini` waits out a busy Google between rounds (#510) | `/gemini-read` and the re-read keep their 25 s bound (the phone waits 30 s); `/api/ocr-llm` now ends at 18 s, inside every build's 20 s abort (all builds treat a failure as "keep the parse"). |
+| Admin `/health`: `ocrLlm.keyStatus`, `ocrLlm.recentCalls` (#510) | Additive, admin-only. |
+| `readingConfidence` on `GET /api/admin/receipts/:id` (PR-2): more checks (`items_sold` counted, `tax_missing`, `total_read_as_item`, `payment_read_as_item`, `photo_quality`), each with `state` / `blocksApply` beside `ok` / `advisory` | Additive keys; the server computes the level. A desk build before PR-2 labels an unknown key "Another safety check" and draws `ok:false` + `advisory` as ⓘ — admin only. |
+| `checkProposal` (PR-2) — the proof behind Apply, `/gemini-read` (builds after 3.1.3) and `/api/ocr-llm` (every build) | Same request and response shapes. The paper's figures are now read right (RC-35), so a proof that failed on a misread figure now passes; three new checks can block (a taxed line with no tax, a total or a payment read as a line); the items-sold count only informs. |
+| `POST /api/receipts/gemini-read`: optional `footerOcr` (PR-2) | Absent from every shipped build → the proof reads the OCR text alone, as before. |
+| The shadow quality check: rules v2 (PR-2) | Server-side verdicts only. A verdict a build made with rules v1 (build 56) is re-judged with v2 instead of stored as sent. |
+| `GET /api/v1/app-status` `receiptQuality.refuse.count` (PR-2) | Sent `true` only to builds past 56 (`X-App-Build`): build 56 runs rules v1 and would refuse an unread count. Builds before 3.2.1 ignore the payload. The count family is OFF anyway. |
+| PR-3 (the parser's item fence), PR-4 (straightening the photo before the second OCR pass) | App-only; reach shoppers with the next store build. `scanContext.rotateDeg` is an additive field of the `/api/ocr` body the server stores verbatim. |
+
+Forcing builds: none needed.
+
 ## Open gaps
 
 1. ~~No client version on requests~~ **Done** (3.0.7): `X-App-Platform`,

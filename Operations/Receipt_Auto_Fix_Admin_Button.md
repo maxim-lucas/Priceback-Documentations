@@ -150,10 +150,31 @@ desk's rate limit (`ADMIN_DESK_RL`).
 | *Gemini has no credit left and no free backup key answered* | every key answered 402 | set / fix `GEMINI_API_KEY_FREE`, or top up; edit by hand meanwhile |
 | *No Gemini model is available to this key* | every model tried answered 404 | check the key's project in AI Studio |
 | *Gemini took too long to read this receipt, on every model it tried* | every model and key ran out of the 150 s (`TIMEOUT`, 504) | tap again in a minute; edit by hand if it repeats. The log line lists each attempt as `"status":"timeout"` |
-| *Gemini could not read this receipt* | other upstream error (5xx, bad answer) | edit by hand; Railway log line `[admin] receipt auto-fix failed:` lists every attempt |
+| *Google's Gemini is overloaded right now (high demand) — not a problem with this receipt* | every round of models answered 500 / 503 after the waits (`OVERLOADED`, 503) | tap again in a minute. If it repeats for hours, see the line below |
+| *… The paid Gemini key has no credit, so only the free backup key is answering* (appended to any of the above) | `GEMINI_API_KEY` answered 402 and is paused for an hour; the free key is rate-limited (429) and shed first under load (503) | **top up or replace the paid key** — `/health?token=` → `ocrLlm.keyStatus.primary.noCredit` |
+| *Gemini answered with no usable text (MAX_TOKENS / SAFETY / …)* | every model's answer was cut off or blocked (`EMPTY_ANSWER`, 502) | tap again; the log line names the finish reason |
+| *Gemini's answer was not readable (malformed JSON)* | a 200 whose text is not the JSON asked for (`MALFORMED_ANSWER`, 502) | tap again |
+| *Gemini refused our request (HTTP 400) — a bug on our side* | `BAD_REQUEST`, 502 | report it; edit by hand |
+| *Gemini could not read this receipt* | anything else (`UPSTREAM_FAILED`, 502) — rare since 2026-10-29 | edit by hand; Railway log line `[admin] receipt auto-fix failed:` lists every attempt |
+
+**Why it failed "9 times in 10" until 2026-10-29 (Bugs #355).** Prod logs, 2026-10-25 → 10-29: every hard failure
+ran on the **free backup key alone** — the paid key paused after a 402 — and Google answered `429` on the flash and
+`503 "This model is currently experiencing high demand"` on the flash-lite. The chain gave up in ~5 s with no wait,
+and every class read *"Gemini could not read this receipt"*. The other "failures" were 60–150 s retry loops that could
+never pass: the paper's printed TOTAL was read off the wrong row (RC-35), so a right answer failed `total_on_paper`.
+Now: a busy round is waited out (RetryInfo / Retry-After, else 1.5 s then 4 s, up to 3 rounds, inside the deadline);
+an empty or cut-off answer moves to the next model; no retry when Gemini agrees with the stored reading and only the
+paper's own figure check failed; every call logs `[gemini] caller=… ok=… model=… key=… attempts=… tokens=…`, and the
+last 20 are in `/health` (`ocrLlm.recentCalls`). Design rules 12–13.
 
 A **bad photo** (unreadable, crumpled) is still the runbook's job: the button can only prove numbers the OCR text
 holds.
+
+**The SAFETY CHECKS list (2026-10-29).** The proposal is checked with the very checks the receipt quality check and
+the desk's reading confidence run (`shared/receiptChecks`, design rule 11): besides the proof's own (lines, grouping,
+item numbers and prices printed, claimed lines kept) — reconciles, total / subtotal / tax on paper, the items-sold
+count, a taxed line with no tax, a total or a payment read as a line. A ✗ (red) blocks *Apply*; the items-sold count
+and the photo only inform (amber ! or ?), never block.
 
 ## 6. Old app builds
 
