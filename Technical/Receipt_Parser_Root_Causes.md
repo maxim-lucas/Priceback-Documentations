@@ -1595,11 +1595,13 @@ reading, none a miscount by the check** — four of them close to the cent, so o
 | `r_1792365485591_pxzjm` | 14 / 16 | two fee lines stored as products: `DEPOSIT 9502 1.60` and `4402 ENVIRO FEE 0.64` lost their names (`Item #9502`, `Item #4402`), so they are not ignored — and file price points (closes) |
 | `r_1793328368102_16k2o` | 17 / 18 | a membership renewal stored as a product: `RENOUV PRIVI 130.00` (Quebec *Privilège* renewal) is not in `IGNORED_KEYWORDS` (closes) |
 
-**Proposed, not made (needs Maxim — `receiptParsingShared.js` is shared with Best Buy):** `IGNORED_KEYWORDS` matches
-`renouvellement` but not the printed abbreviation `RENOUV`, so the line uploads as a watchable product with a $130
-price point and counts in the parser's own items-sold self-check (Bugs #97 made membership lines fees, excluded from
-the count — `16k2o` confirms Costco's count leaves them out: 18 − 1 = 17). Add a word-bounded `renouv` (not a bare
-substring: `RENOUVEAU` is a word). Only one prod receipt (`16k2o`) carries the abbreviation so far.
+**Made with Maxim's go (2026-10-30, Priceback #517 — `receiptParsingShared.js` is shared with Best Buy):**
+`IGNORED_KEYWORDS` matched `renouvellement` but not the printed abbreviation `RENOUV`, so the line uploaded as a
+watchable product with a $130 price point and counted in the parser's own items-sold self-check (Bugs #97 made
+membership lines fees, excluded from the count — `16k2o` confirms Costco's count leaves them out: 18 − 1 = 17).
+`renouv` is now a fee word as a WHOLE word (`IGNORED_WORDS_RE`; `RENOUVEAU` stays a product word). Reaches shoppers
+with the next store build. The other five receipts in the table are left for the desk (Maxim, 2026-10-30: *"Leave
+them for the desk"*) — they show red or amber there.
 
 | Receipt / capture | Store | Old | Paper | Status |
 |---|---|---|---|---|
