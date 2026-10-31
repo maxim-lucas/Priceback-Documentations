@@ -59,6 +59,29 @@ without `price` stamps nothing.
 | Admin potential drops | per-line `daysLeft` from the rule, `savingEnds`, `endKnown`, group `savingEndKnown`; ended savings not listed. |
 | App | `ClaimDeadlineChip` ("Claim by Oct 18 · 4d left", "Saving ended Oct 11 · may be refused", "25d left · claim soon") + sentence on the receipt; Home "ready to claim" / "expiring soon", Receipts alerts, locked card, local reminders (earliest per-item close, savings closing that day). An ended saving is kept as `priceDrop {detected:false, savingEnded:true, endedOn}`. |
 
+## When the store extends the saving (2026-10-30)
+
+> *"if any type of savings date extended, the price drop date in the user UI should be updated and a mention to the extension (costco extended the saving or something like that)"* — Maxim
+
+**The date already moved.** Each tier above takes the `MAX` of its own end dates, so an extension (a new flyer, a new tag EXP, an admin date, for the same price) gives the group a later `saving_ends`. The phone then took the new date from all three writers of a line's `priceDrop`: the released list (`releasedDrops.applyReleasedDrops`, which rewrites the drop when `savingEnds` differs), the receipt screen's **Check price** (`DetailScreen`), and the background check (`notificationService`). An ended-saving note (`savingEnded`) whose saving runs again is rebuilt as a live drop. **What was missing was the mention.** The chip just showed another date, with no reason.
+
+**Now.** All three writers pass the new `priceDrop` through `claimDeadline.withSavingExtension(previous, next)`. When the shopper had been shown an earlier end **for the same drop** (same price to the cent, or an ended note's `endedOn`) and the new end is later, it sets `priceDrop.savingExtendedFrom` to the earliest end they saw.
+
+- **Kept** across later writes while the end stays past it.
+- **Dropped** when the end moves back to the first date or earlier, becomes unknown, or the price changes. A new price is another saving, not this one extended.
+- **No mention** when the end goes from unknown to known. That is a first date, not an extension.
+
+`itemClaimDeadline` returns `extendedFrom`. It is null once the saving has ended, so "Saving ended" wins over "Extended".
+
+| Surface | Text (EN / FR) |
+|---|---|
+| Chip: Receipt screen, Home "To claim", Receipts alerts | `claimDeadline.extendedClaimBy`: "Extended · claim by Oct 25 · 12d left" / "Prolongé · d'ici le 25 oct. · 12 j restants". The date is the item's real last day, so the receipt window when the extension runs past it. |
+| Sentence under the item (Receipt screen) | `claimDeadline.extendedBody`: "Costco extended this saving. It was ending on October 18, 2026; you can now claim this item until October 25, 2026." / "Costco a prolongé ce rabais. …". `extendedBodyNoStore` is used when the store has no name. |
+
+Client-only: `savingExtendedFrom` lives in the phone's `priceDrop`. No server field or route changed, so old builds show the new date without the mention, as before.
+
+Not done: no push says "extended". An old build cannot be reached this way (OTA unavailable). Tests: `__tests__/savingExtension.test.js` (helper, chip, sentence EN + FR, released list) and `notificationService.test.js` › *the saving was EXTENDED*. Both writers were mutation-checked.
+
 ## Admin · Saving dates
 
 `GET /api/admin/saving-dates` — every group a told-and-unclaimed line, a held drop (pending/approved) or a
