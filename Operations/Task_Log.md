@@ -16,6 +16,14 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-10-31 — Actions run on v3.5.0 red: a test warehouse code collision
+
+- **Asked (Maxim):** *"fix the github action workflow, i ran the workflow on the last tag and it failed, if it is something fixable do it, if it needs my assistance hold and i will help you tomorrow"*.
+- **Found:** one backend test of 3302 red, no defect in v3.5.0: a random test warehouse code landed on a row another test left behind. Same cause as the 2026-10-28 red on `main`. Bugs #358.
+- **Files / areas:** `backend/tests/helpers/uniq.js`, `backend/tests/helpers/warehouseCodesDir.js`, `backend/scripts/run-suite.js`, `backend/tests/testWarehouseCode.test.js`, `__tests__/ciParity.test.js`. Test-only.
+- **Branch:** `fix/test-warehouse-code-collisions` → Priceback #523; docs `docs/test-warehouse-code-collisions`.
+- **Status:** #523 merged. Local backend suite 3305 pass / 0 fail, coverage gate passed. Dispatch on the branch (run 41173402163) green: mobile 11,148 pass, backend 3305 pass / 0 fail, security pass. The v3.5.0 tag is unchanged (tags never move), so a re-run on it can still hit the collision; v3.5.0's product code is the same as the branch's.
+
 ### 2026-10-30 — .97 warehouse clearance (uncharged drop), one set of check buttons in the queue, receipt validator (expired receipts)
 
 - **Asked (Maxim):** item 1992720 went to a **.97 warehouse clearance** ($9.97) in October 2026. *"this price code *.97 is a warehouse and should always be considered in the same warehouse only not even on provinces except if there is the same clearance at the same time in different warehouses (if this is not the case today in the code, i prefer that you add a button in the potential price drops to flag the item as warehouse clearance so it can be skipped or approuved same style as the weighted items)"*; *"add a button to flag the item as a price drop but dont charge him as it should be verified in the store and the claim can be refused"*. Queue: *"the buttons for price check in costco.ca and sameday shoud be linked to the confidence score, yesterday i saw the buttons twice … when i click it should update the confidence if the app gets the response if it cant i still can click the buttons myself for manual check."* Scan: *"expired receipt should be refused on scan … create a new validator as a parent of the quality check and integrate other consideration as date of purchase, not a costco receipt … only to be refused if the date has been detected at high confidence or if the user confirmed the date in the expiry window."* Mid-task: *"expired receipt even refused has to be charged 1 credit still"*.

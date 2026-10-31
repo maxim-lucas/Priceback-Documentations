@@ -28,6 +28,13 @@ fails the suite rather than silently forking the marker set.
 `.test` is an RFC-2606 reserved TLD and `9000–9999` is above every real Costco
 warehouse code (they stop at 8099), so no real row can collide.
 
+Warehouse codes are the one marker whose band is small enough to collide with
+itself, and tests leave warehouses behind until the post-run purge. So
+`testWarehouseCode()` claims each code rather than only drawing it: in the
+process, and under `scripts/run-suite.js` as a file in one directory shared by
+the whole run (`PRICEBACK_WAREHOUSE_CODES_DIR`). A run can draw 1000 codes, then
+it fails loudly. Bugs #358 is why.
+
 **Transitional matchers** — `LEGACY_SUB_PREFIXES` / `LEGACY_EMAIL_DOMAINS` in the
 same file list the pre-`qa-` prefixes (`test-`, `seed-`, `pdwin-`, …) and
 `@example.com` / `@test.local`. The purge sweeps them too, so it is effective
