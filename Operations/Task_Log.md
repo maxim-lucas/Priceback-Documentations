@@ -11570,3 +11570,7 @@ anyway).
 - **Done:** `shared/receiptRejectionReasons.js` (10 reasons); push copy per reason, EN + FR;
   the route takes an optional `reason` (none → `unreadable`, the old push); the desk shows a
   reason picker before the confirm. No migration.
+- **Follow-up (Maxim, same day):** repair `mkxkq` in prod after all, missed cents accepted, and he
+  reviews it on the desk before marking it reviewed. Done (runbook log). 4 false pending drops,
+  caused by the lost instant discounts, were deleted. Added reasons: Costco gas, refund, food court,
+  membership only, US receipt, payment slip only.
