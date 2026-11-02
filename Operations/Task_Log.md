@@ -16,6 +16,13 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-02 — Support email to shoppers whose price drops reached nobody (no push token)
+
+- **Asked (Maxim):** email every shopper with no push token who has price drops: full details of the open ones (product, amount, purchase date, end date), *"you missed a total of xxx $"* for the expired ones, update the app and allow notifications, sent from support@priceback.ca with high importance and a signature, and done programmatically so it can be reused.
+- **Decisions (Maxim's answers):** branch `ops/email-unreachable-drop-shoppers` off `main`; SMTP through the **Zoho** mailbox, configured in `.env`; **dry run → preview → test to Maxim → send**.
+- **Done:** `priceDropRepo.unreachableDropRows` (the reverse of `pendingClaimRows`, additive), `lib/unreachableDropEmails.js` (open vs missed via `shared/claimDeadline`, EN/FR/bilingual copy), `lib/supportMailer.js` (Zoho SMTP, `priority: high`), `scripts/emailUnreachableDropShoppers.js` (dry run / `--test-to` / `--send` with a `sent.jsonl` ledger). `nodemailer` added as a devDependency. Runbook: `Operations/Unreachable_Shopper_Drop_Emails.md`.
+- **Status:** prod dry run: 8 shoppers (4 Apple relay). **Nothing sent yet.** Waiting for: Zoho app password in `backend/.env`, Maxim's `--test-to` review, Apple relay sender registration, then `--send`.
+
 ### 2026-10-31 — Actions run on v3.5.0 red: a test warehouse code collision
 
 - **Asked (Maxim):** *"fix the github action workflow, i ran the workflow on the last tag and it failed, if it is something fixable do it, if it needs my assistance hold and i will help you tomorrow"*.
