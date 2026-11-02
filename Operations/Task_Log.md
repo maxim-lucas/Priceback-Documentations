@@ -11581,3 +11581,14 @@ anyway).
   reviews it on the desk before marking it reviewed. Done (runbook log). 4 false pending drops,
   caused by the lost instant discounts, were deleted. Added reasons: Costco gas, refund, food court,
   membership only, US receipt, payment slip only.
+
+## 2026-11-02 — A price drop starts the day after the purchase (misparse guard)
+
+- **Ask (Maxim):** misparsed scans detect drops that were already savings on the receipt. A drop
+  must come from a saving whose start (when known, and confirmed by costco.ca / Costco Business
+  Centre only) is at least the day after the purchase date; a saving valid on the purchase date
+  is always a misparse — Costco changes prices overnight, never during the day. Save the rule.
+- **Branch:** `hotfix/drop-starts-day-after-purchase` off `main` (Maxim: "hotfix on main").
+- **Done:** `priceDropRepo.savingRunningAtPurchase` gates the price-group sweep, saving drops
+  and the potential list; test in `savingsHarvestDb.test.js`; rule in `Technical/priceDrop.md`.
+  No migration.

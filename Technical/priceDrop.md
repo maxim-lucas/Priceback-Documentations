@@ -222,6 +222,20 @@ Runs on a cron and immediately after each flyer import. On `main-test-features` 
    already available at checkout — including the scanned receipt's OWN instant-discount
    `receipt_ocr` echoes — is never a drop, so a receipt can't self-trigger; a sale that
    started after the purchase counts even if it already ended.
+   **A drop starts the day after the purchase at the earliest (Maxim, 2026-11-02).** Costco
+   changes prices overnight, after the warehouses close — never during the day. So when
+   Costco's own site prints the saving's start (savings source type `costco_web`: the
+   costco.ca coupon book and costcobusinesscentre.ca, `flags.startPrinted = true`, not
+   `toConfirm`, not superseded, with a known end) and that saving of the product, in the
+   line's province, was already running on the purchase date (`valid_from ≤ purchase_date ≤
+   valid_until`), the shopper was charged the sale price at the register: a full-price line
+   is a **misparse** (a missed TPD line), never a drop. Applied to every path — the
+   price-group sweep, saving-based drops (Solution B) and the admin's potential list — through
+   one predicate, `priceDropRepo.savingRunningAtPurchase`. Starts nobody printed (Same-Day's
+   and a blog's are the day the harvest first saw the saving) and third-party dates prove
+   nothing and are not consulted; without a printed start the existing rules decide alone.
+   The review-queue drain re-checks held drops with the same rule, so a misparse already
+   queued is dropped at the next drain.
 3. **Charge commission — incrementally, once per item.** Commission is debited **at detection**
    (in the same tx as the notification insert), but only on the **new price difference**: a
    per-item transaction advisory lock + a lookup of the lowest previously-notified price gives a
