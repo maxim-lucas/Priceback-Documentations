@@ -11592,3 +11592,23 @@ anyway).
 - **Done:** `priceDropRepo.savingRunningAtPurchase` gates the price-group sweep, saving drops
   and the potential list; test in `savingsHarvestDb.test.js`; rule in `Technical/priceDrop.md`.
   No migration.
+
+## 2026-11-02 — Kickstarter campaign + plan codes (a partner code that gives Unlimited)
+
+- **Ask (Maxim):** use Claude in Chrome to create PriceBack's Kickstarter project to fund the national
+  launch and get users: no lifetime rewards; annual, monthly, multi-year, credit packs; study successful
+  similar campaigns; aim for funding in the first hours so Kickstarter pushes it. Present it as a new app
+  with a proven concept; vision = every store with a price-adjustment policy, then Costco worldwide and
+  local stores per country. Packages approved; Maxim approves the full page before anything is submitted.
+  Then: "a code to give a subscription (yearly, monthly, multi-year) — implement it anyway", via the
+  partner system; codes unique, random, single-use, never reused; no fake person names in example codes.
+- **Branch:** `feat/partner-code-plan-grant` off `main`.
+- **Done (code):** migration **0043** (`partner_codes.referee_plan_months`,
+  `partner_attributions.plan_granted_at`); `lib/partnerPlanGrant.js` grants a RevenueCat promotional
+  `unlimited` entitlement at redemption, retried by every subscription sync until confirmed, never
+  counted as revenue or as a first purchase; admin form field; `scripts/generate-partner-codes.js`
+  (unique single-use codes, `--per-pack` for group rewards); onboarding copy EN + FR; "SARAH45"-style
+  examples replaced by neutral codes. Technical doc: `Technical/Partner_Program.md` → *Plan codes*.
+  **0043 applied to dev; prod owes it BEFORE the backend deploys.**
+- **Done (campaign):** Kickstarter draft (Basics, CA$ goal, items) + `Marketing-Plan/11-kickstarter-campaign.md`.
+  Not submitted; Maxim approves the preview first.

@@ -26,7 +26,8 @@ Money is `numeric(10,2)` CAD. **Earned amounts are never stored.** They are comp
 
 | Column | Meaning |
 |---|---|
-| `referee_credits` + `referee_trigger_id` | Welcome credits for the new user, at `signup` / `first_scan` / `first_purchase` |
+| `referee_credits` + `referee_trigger_id` | Welcome credits for the new user (0..25,000), at `signup` / `first_scan` / `first_purchase` |
+| `referee_plan_months` | Months of **Unlimited** for the new user (1..120, NULL = none), granted at redemption as a RevenueCat promotional entitlement. Migration 0043 — see *Plan codes* below |
 | `partner_credits` + `partner_credit_trigger_id` | Credits to the partner's own account (`partners.user_sub`) per user, at `first_scan` / `first_purchase` (never `signup`) |
 | `cpa_amount`, `min_spend` | $ once the user's window spend reaches `min_spend` (0 = the first paid charge) |
 | `commission_pct` | % of every paid charge inside the window |
@@ -40,7 +41,7 @@ Money is `numeric(10,2)` CAD. **Earned amounts are never stored.** They are comp
 
 - Format: `^[A-Z0-9]{4,20}$`, case-insensitive (`backend/partnerCode.js`).
 - Creation rejects:
-  - any code the friend normalizer would accept (`ambiguous_with_friend_code`; e.g. `SARAHB` reads as `PB-SARAHB`);
+  - any code the friend normalizer would accept (`ambiguous_with_friend_code`; e.g. `KSYEAR` reads as `PB-KSYEAR`);
   - any code starting with `PB` (`reserved_prefix`; the app formats `PB…` input as a friend code).
 - The redeem route routes by shape. A friend-shaped code goes to the unchanged friend path; anything else goes to `partnersRepo.redeem`. Both share `POST /api/me/referral/redeem` and the same onboarding field.
 
@@ -70,6 +71,29 @@ Friend redemption (`referralsRepo.redeem`) now also refuses a user who has a par
 - Both lock the attribution `FOR UPDATE`, capture conversions, and pay every reward whose trigger has fired and whose stamp (`referee_credited_at` / `partner_credited_at`) is empty. The stamp is set in the same transaction as the ledger row and never clears. A partner reward with no linked or live partner account is left **unpaid and unstamped**.
 - Ledger types: `partner_referee_bonus` (note `partner code welcome bonus`) and `partner_referral_bonus` (note `partner referral reward`). The ledger `ref` is `partner-att:<id>`. Notes never name the referred user.
 - Pushes reuse data type `referral_settled` (roles `referee` / `referrer`), category `notifFriendJoins`, with copy keys `partner.referee.*` / `partner.partner.*` in `backend/lib/pushI18n.js` (EN + FR).
+
+## Plan codes — a code that gives Unlimited (migration 0043, 2026-11-02)
+
+Built for the Kickstarter rewards (Maxim: "a code to give a subscription — yearly, monthly or multi-year"). Backend-only: **every app build already in the stores honours a plan code**, because the plan lives in RevenueCat, which every build reads.
+
+- **Grant.** After `partnersRepo.redeem` commits, the redeem route calls `lib/partnerPlanGrant.grantOwedPlan`. It POSTs `https://api.revenuecat.com/v1/subscribers/<sub>/entitlements/unlimited/promotional` with `end_time_ms = attributed_at + referee_plan_months` (calendar months, UTC). A promotional entitlement never bills and never renews: when it ends, the account is back on credits.
+- **Once, durably.** `partner_attributions.plan_granted_at` is stamped only after RevenueCat answers 2xx. Until then the plan is *owed*, and every `POST /api/me/subscription/sync` retries the grant **before** it reads the subscriber, so the same sync already sees the plan. The end date is fixed by the attribution, so a retry or two racing calls ask for the same end. A plan whose end passed before it could be granted is stamped and skipped. No `REVENUECAT_SECRET_KEY` means the plan is left owed (logged as `[PartnerPlan] … left owed`).
+- **Not revenue.** The promotional product (`rc_promo_*`, store `promotional`) matches no catalog product, so partner conversions and the business counters never price it. `_rcSubscriberToTier` marks it `isPromotional`, the sync records its event with `raw_payload.promotional = true`, and neither the sync nor the webhook (`event.store = PROMOTIONAL`) lets it settle a referral or fire a first_purchase reward. The Price-Drop Guarantee already excluded promotional grants.
+- **Response.** The redeem route adds `refereePlanMonths` and `planGranted` (both additive). Builds before 3.5.1 ignore them and show their usual "Code applied" copy. From 3.5.1, onboarding names the plan (`onb.partnerRedeemedPlan` / `…PlanPending`, EN + FR) and refreshes the entitlement right away.
+- **Admin.** The partner desk's code form has an "Unlimited months" field. The deal summary reads "User gets N months of Unlimited at sign-up (never renews)". The deal, plan months included, freezes at the first redemption.
+- **Bulk issue — `backend/scripts/generate-partner-codes.js`.** This issues **unique codes with a hard use cap** (Maxim 2026-11-02): PREFIX + 8 random characters from an unambiguous alphabet (no 0/O/1/I/L), re-drawn on any collision. A personal reward is single use. A group reward is ONE code with `--uses N` (`max_redemptions = N`); redemption N+1 answers `code_exhausted` ("1 code even for 10 uses … we block at 10"). Nothing is bound to an email, so there is no manual step. Example: `railway run -e production node scripts/generate-partner-codes.js --partner-id <id> --prefix KSY --count 300 --plan-months 12 --out ks-1year.csv`. Run `--dry-run` first.
+
+### Parked option: binding a code to the backer's email (not built — Maxim, 2026-11-02)
+
+Not built because it creates support work: a backer's PriceBack account email often differs from their Kickstarter email (another Google account), and Apple "Hide My Email" gives a random `@privaterelay.appleid.com` address. Every mismatch becomes a support email. Maxim's rule is that nothing in the Kickstarter flow may need a manual step. If leaked codes become a real problem, here is the design, all automatic:
+
+1. **Collect the email.** The pledge manager's survey asks "Which email will you sign in to PriceBack with? (Not an Apple Hide-My-Email address — sign in with Google or show your email.)"
+2. **Bind at issue time.** Migration: `partner_codes.bound_email text` (lowercased, nullable). Generator: `--emails <survey.csv>` creates one single-use code per survey row with `bound_email` set. Group codes (`--uses N`) stay unbound, since they're gifts.
+3. **Check at redemption.** In `partnersRepo.redeem`, after the cap check: if `bound_email` is set and `lower(users.email)` differs, refuse with `code_email_mismatch`. **Backward compatibility (rule 3):** builds that don't send `X-App-Build` get `404 not_found` ("Code not found"), a path they already handle. Newer builds get `code_email_mismatch` and the copy "This code is linked to the email you gave in the Kickstarter survey. Sign in with that account to use it." (EN + FR).
+4. **Self-service fix, no support:** a signed link in the delivery email (`/api/codes/rebind?code=…&sig=…`, HMAC with a server secret, valid 30 days) lets the backer re-bind the code to the account they're signed in to, once. That replaces the manual "email us" step.
+5. **Tests:** match, mismatch on old and new builds, unbound group code, single rebind, a forged signature.
+
+Cost estimate: about half a day including tests. Revisit only if redemption logs show codes used by accounts unrelated to the backer survey.
 
 ## Conversions (`captureConversions`)
 
@@ -121,7 +145,8 @@ App: `AdminPartnersScreen` / `AdminPartnerDetailScreen` (admin console → Dashb
 ## Known limits
 
 - **Refunds and chargebacks are not clawed back.** The hold covers the store refund window. A refund after the hold must be corrected by hand (record a negative adjustment as a note and pay less).
-- The comped plan is recorded only (`comped_until`); grant it in RevenueCat.
+- The partner's OWN comped plan is recorded only (`comped_until`); grant it in RevenueCat. (A plan for the *referred user* is automatic — see *Plan codes*.)
+- A plan code can only be redeemed at sign-up, like every partner code. An existing user who backs the campaign gets their plan by hand: RevenueCat dashboard → customer → *Grant promotional entitlement* `unlimited`.
 - There is no deep link / landing page (`priceback.ca/c/CODE`). The code is typed in onboarding.
 - Credits and revenue are CAD-only (Canada launch). An Egyptian-pound purchase has no CAD catalog row and is not counted.
 
@@ -134,3 +159,11 @@ Migration 0017 is applied **by hand before the code merges** (prod's drizzle led
 3. Boot seeds `partner_types`, `partner_triggers` and the two credit event types.
 
 Until it is applied: partner codes answer `not_found`, the desk answers 503, and friend referrals and every purchase path are unaffected.
+
+Migration **0043** (plan codes) follows the same procedure, **before the backend that reads it deploys** (drizzle selects the new columns on every partner-code read):
+
+1. Run `backend/db/migrations/0043_partner_code_plan.sql` against prod. It is additive and idempotent.
+2. Insert the ledger row with the file's LF sha256 (`c727cb8d8eadf7ab3c29f4ad196afc8c7dee0bfb4005ff5bf73a2818776d1973`) and `created_at = 1793500000000`.
+3. Check that `REVENUECAT_SECRET_KEY` is set on prod (`/health` → RevenueCat probe). Without it, plan codes are redeemed but their plans stay owed.
+
+Applied to the dev database on 2026-11-02.
