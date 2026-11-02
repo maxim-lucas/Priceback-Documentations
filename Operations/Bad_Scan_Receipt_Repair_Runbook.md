@@ -36,7 +36,7 @@ If in doubt, it is a parser bug: those go through the normal fixture workflow
 
 When the photo can't be read even by eye (cut off, blurred, folded over the items)
 or repairing it costs more than it's worth, don't repair it: on the admin desk's
-receipt screen tap **Reject receipt (photo too poor) and ask to rescan**
+receipt screen tap **Reject receipt and ask to rescan…**, then pick **why**
 (`POST /api/admin/receipts/:id/reject`, `backend/lib/receiptRejection.js`, migration
 0038). In one transaction it:
 
@@ -63,8 +63,28 @@ results* switch, EN/FR). It doesn't go through the approval queue, because your
 confirmed tap is the approval:
 
 > **Receipt rejected: please rescan** — Your receipt photo was too poor to read, so we
-> couldn't process it. Please scan it again with only the header, the items and the
-> total, laid flat in good light.
+> couldn't process it. Please scan it again, flat and straight, from the top down to the
+> payment date and the number of items sold.
+
+**Pick the reason that matches the photo** (added 2026-11-02, `shared/receiptRejectionReasons.js`).
+Each one sends its own push (`backend/lib/pushI18n.js`, `receiptRejected.<code>.*`, EN + FR),
+telling the shopper what was wrong and how to fix it. The code is sent in the push's
+`data.reason`, so it shows in the account's notification history. It isn't stored on the receipt,
+and the desk shows "Rejected by Admin". A request with no reason (an older desk build) gets
+`unreadable`, the push above. An unknown reason is a 400 and nothing is written.
+
+| Code | Desk label | When |
+|---|---|---|
+| `cropped` | Cropped: prices or totals cut off the photo | an edge of the paper is outside the frame, so digits are missing |
+| `not_flat` | Not flat: folded, curled or tilted | lines are hidden under a fold, or bent out of reach |
+| `blurry` | Blurry or out of focus | |
+| `poor_lighting` | Too dark, faded or glare | |
+| `missing_items` | Missing items: part of the receipt is not in the photo | the item block doesn't reach its totals |
+| `wrong_store` | Wrong store: not a store PriceBack supports | |
+| `wrong_date` | Wrong date: purchase date missing, unreadable or too old | |
+| `duplicate` | Duplicate: this receipt was already scanned | keep the first copy, reject the second |
+| `not_a_receipt` | Not a receipt | |
+| `unreadable` | Photo too poor to read (other) | none of the above; the original push |
 
 **No scan-credit refund** (Maxim, 2026-10-27). A receipt with a claimed line or a
 price drop already sent can't be rejected (409 `HAS_HISTORY`); delete or repair
@@ -353,3 +373,4 @@ Neither is ever sent to the shopper's app.
 | 2026-10-28 | `r_1793110284881_3eips` | Nepean #540 (ON, self-checkout) | Logo cut → generic parser (RC-15); the Shop Card tender lines stored as items (RC-33: `REMAINING BALANCE` 1220.51, `Shop Card` 243.73); first line's price hidden at the top edge and a steep tilt cost 3 more lines. 6 lines / 1584.88 for 13 lines / 243.73 | Spec (photo, proved: Σ 228.03, HST 15.20 on 116.92, GST 0.50, discounts 25.00, 13 items), `--write` from a worktree at deployed `1b8a595`. Its two review-queue rows (DAWNRISE 1963, JERKY 2091) were admin-REJECTED and never sent, and no kept line could match its new place, so a scratch wrapper deleted those two rows and ran `badScanRepair.repair` in the SAME transaction (dry run first). Catalogue names used for 6 lines so nothing is renamed (`productsRenamed: 0`). 2 synthetic products removed, watch registration 4 → 7 entries, reviewed + skip-optimisation. No notice drafted (the same shopper gets the `mez7p` rejection push). |
 | 2026-10-28 | `r_1793110195684_mez7p` | Nepean #540 (ON) | Folded receipt: ~4 of 14 items and the SUBTOTAL/TOTAL figures under the fold, item numbers cut at the left edge (paid 159.01, HST 2.53, discounts 24.00). Stored 4 lines / 18.29. Cannot be rebuilt from the photo | ⏳ **To reject** (#497, `admin_rejected` + `receipt_rejected` push) once prod runs `main` (prod is on `1b8a595`, before #497). Migration 0038 applied to prod by hand 2026-10-28 (ledger row 49). |
 | 2026-10-28 | `r_1793156647777_0fs8x` | Gloucester #1362 (ON) | Only the payment/tax section was photographed (MasterCard 355.30, HST 10.52, 20 items, no item lines). Stored 2 junk lines (`for your records` 355.30, `(HHST 13%` 10.52) under warehouse #159 (seeded, kept) | ⏳ **To reject** (#497) once prod runs `main`. |
+| 2026-11-02 | `r_1793552939526_mkxkq` | SW Calgary #1391 (AB) | Right edge cut off in the bottom half: prices read as `36.3…`, `30.0…`, `5.0…`, `22.9…`; SUBTOTAL 561.28 shows as `561.2`. Paper: TOTAL 569.40, GST 8.12, 29 items, discounts 45.50. Stored 19 lines / 304.99 / tax 14.52, with no instant discounts. Working back from the subtotal leaves two cropped meat prices (B/S BREASTS `36.3x`, B/S THIGHS `30.0x`) whose missing cents add up to 7, and nothing on the paper says how they split. The bottom-of-basket names and prices can't be paired up either. Can't be rebuilt to the cent | ⏳ **To reject** with reason `cropped`, once prod runs the reasons hotfix (PR on `main`, 2026-11-02). Not a parser root cause: the image is cropped. |

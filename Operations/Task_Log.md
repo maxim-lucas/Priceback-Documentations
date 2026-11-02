@@ -11556,3 +11556,17 @@ anyway).
   (first-party sessions are iOS-only); iOS 160/161 live.
 - **Done:** see Bugs #357; check documented in `Operations/Shopper_Reachability_Check.md`.
   PR #518. Migration 0042 applied to dev; **prod still owed** (apply BEFORE the backend deploys).
+
+## 2026-11-02 — Reject receipt: a reason, and a notification per reason
+
+- **Ask (Maxim):** a prod receipt needs review and can't be reviewed properly. Fix it in prod
+  if possible. Also give the desk's Reject button a reason, each with its own notification
+  so the shopper understands the problem: not flat, cropped prices/total, blurry, missing items,
+  wrong store, wrong date, …. "Hotfix on main", ships in the next build.
+- **Branch:** `hotfix/receipt-rejection-reasons` off `main`.
+- **Receipt:** `r_1793552939526_mkxkq` (SW Calgary #1391). Prices are cropped at the right
+  edge and can't be rebuilt to the cent (runbook log), so it goes to reject with `cropped`
+  after deploy.
+- **Done:** `shared/receiptRejectionReasons.js` (10 reasons); push copy per reason, EN + FR;
+  the route takes an optional `reason` (none → `unreadable`, the old push); the desk shows a
+  reason picker before the confirm. No migration.
