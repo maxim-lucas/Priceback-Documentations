@@ -72,6 +72,7 @@ Community goals: **500 backers** → +250 credits for everyone · **1,500** → 
 
 ## 5. First hours: the plan to be funded on day one
 
+0. **Ride Black Friday (Nov 27) and Boxing Week (Dec 26 →) for the follower list.** Post "Scan your Black Friday / Boxing Day receipts with PriceBack: prices keep dropping after the sale" plus the pre-launch link, in EN + FR, in the deal communities. This is the best moment of the year for the message.
 1. **Pre-launch page now.** Kickstarter "Notify me on launch" followers get Kickstarter's own launch email at 9:00. Target **2,000+ followers** by 2027-01-11.
 2. **Own audience first.** In-app banner + push + email to current users: "Be a Founding Backer, VIP price for 48 h". They're the warmest audience there is.
 3. **Launch squad.** 30–50 people (friends, family, partners, early users) committed to back in the **first 60 minutes**. Early velocity is what the algorithm reads.
@@ -91,6 +92,13 @@ Community goals: **500 backers** → +250 credits for everyone · **1,500** → 
 You check out. Ten days later, the same item is cheaper. Many stores have a **price-adjustment policy**: bring your receipt back within the window and they refund the difference. Almost nobody claims it, because nobody re-checks every receipt, every day.
 
 **PriceBack does.** Snap your receipt once. We watch every line on it, every day, for your whole adjustment window. When a price drops, your phone lights up with what dropped, by how much, and how many days you have left to claim it.
+
+### 🎄 Bought on Boxing Day? Your window may still be open.
+Holiday prices keep moving after the big sales. Many price-adjustment windows run 30 days, so Boxing Week receipts can still be inside theirs when this campaign opens. Scan them now. (Some stores exclude Black Friday or Boxing Week sales from their policy; PriceBack shows each store's rules.)
+
+**Find one $40 price drop and your Kickstarter plan has paid for itself.** One drop on a big-ticket item can pay for years of PriceBack.
+
+> Copy rule (Maxim asked for "users can save 20× what they paid", 2026-11-02): not used as written. It's a savings performance claim, which needs proof under the Competition Act and Kickstarter's rules, and the October data doesn't support it for a typical user. Use the arithmetic line above, or a real anonymized example from prod data once approved.
 
 ### 🚀 Brand new. Proven. Ready to go national.
 PriceBack is a new Canadian app, and it already works. We built it, tested it on real receipts, and proved the concept: price drops are real, they're frequent, and shoppers are leaving that money on the counter. Now we're launching PriceBack across Canada.
@@ -160,3 +168,30 @@ What we copy: wave pricing + flash tiers (Seedtime), a simple time ladder + a fo
 **Users gained** ≈ backers × ~1.2 (group packs add seats), plus non-backers who discover the app through the campaign and install it free. In the realistic case: ~300–550 committed users and several thousand page visitors.
 
 **Decision gate (protects against the pessimistic case).** "Funded in the first hours" means ~220 backers by early afternoon on launch day, which needs ~1,100+ followers at a 20% day-1 conversion. **Check on 2027-01-05:** if the pre-launch page has fewer than ~1,000 followers, postpone the launch by 2–4 weeks and keep building the list. Launching early into a slow start is the most common way a project that could have funded fails.
+
+## 10. Option C timing (Maxim, 2026-11-02): launch Tue Nov 10, 28 days → ends Tue Dec 8
+
+Backers get their codes Dec 9–10, while Black Friday receipts (Nov 27) are still inside a 30-day window and before Boxing Day. Kickstarter pays out ~14 days after the end, so **about Dec 22, before 2026 ends**. Goal **CA$5,000** (no time to build a pre-launch list, so a lower goal makes funding far more likely; there's no ceiling). Reward delivery: **December 2026**.
+
+## 11. Drafts for Maxim's review: founder paragraph, creator bio, AI disclosure
+
+**Founder paragraph (Story → "Meet the founder")**
+> I'm Maxim Lucas, and I build PriceBack from Ottawa. Prices at stores like Costco keep changing after you've paid, and when they drop inside the price-adjustment window, that difference is yours to claim. But nobody has time to re-check every receipt, every day. So I built an app that does. PriceBack reads your receipt, watches every item through its window, and tells you the moment you can claim money back. It's built in Canada, in English and French, and it already works on real receipts. Now I want to put it in every Canadian pocket, and then take it everywhere Costco goes. Back it, and you're with me from day one.
+
+*Optional:* add one sentence in your own words about the moment you decided to build it. Only a true story works here.
+
+**Creator bio (People tab, ≤300 characters)**
+> Founder of PriceBack, the Canadian app that watches your receipts and tells you when to claim a price drop. Building it from Ottawa, in English and French.
+
+**AI disclosure (Kickstarter asks this of every project)**
+- *Does the project use AI?* **Yes.**
+- *The product:* PriceBack reads receipts with Google Cloud Vision (text recognition) and Google Gemini (turns the recognized text into items and prices). Gemini receives the receipt **text** only, never the photo, with payment details removed. We use Google's paid Gemini plan, under which Google does not use this text to improve its products; if it's unavailable, a free plan may be used, under which Google may. PriceBack does not train any AI model on users' data. (Same facts as `Publishing-Compliance/Gemini_Receipt_Reading_Disclosure.md`.)
+- *The campaign:* The page text was drafted with the help of an AI assistant and reviewed and approved by the creator. Images and video show the real app and real receipts; none is AI-generated.
+
+## 12. Video: real footage only (Maxim, 2026-11-02)
+
+- **Real UI:** recorded from the app on the Android emulator (`adb screenrecord`), never mock-ups.
+- **Real receipt:** from Maxim's own account, with the membership number and date blurred (and the items blurred as he asked).
+- **Real big numbers** (Costco savings caught by PriceBack's daily harvest, public price data): Samsung QN80H TV **$600 off on Oct 26** (then $500 Oct 27–29 and Oct 31–Nov 5); Samsung S85H OLED **$500 off Oct 26–29**; Generac Guardian generator **$1,000 off Oct 26–Nov 8**. Wording: "Costco took $600 off this TV on October 26. PriceBack caught it the same day." The data shows one day at $600, not 48 hours.
+- **Real grocery drops:** anonymized, product + before/after price only, never another user's receipt or identity.
+- **Not used (refused):** fabricated price drops presented as real results. That's deceptive under the Competition Act and Kickstarter's rules.
