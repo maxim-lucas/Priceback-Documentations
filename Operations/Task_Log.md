@@ -11625,3 +11625,19 @@ anyway).
 - **Done:** app PR #529 (`fix/invite-copy-first-purchase`: EN + FR copy, amounts passed to the strings,
   `inviteCopyConsistency.test.js`); website PR #20 merged (FAQ + JSON-LD, EN + FR);
   `Publishing-Compliance/Rewarded_Actions_Policy.md` and `Technical/database_design.md` (user_referrals).
+
+## 2026-11-03 — Kickstarter draft finished, ready for review
+
+- **Ask (Maxim):** "continue the kickstarter campaign and finalize it if possible to start as soon as
+  possible"; then: creator name Maxim Lucas, launch Tue Nov 10 at 10:00 ET with a fixed end Tue Dec 8 at
+  21:00 ET, Ottawa as the location (project and profile), the PriceBack icon as avatar.
+- **Done (Kickstarter, Chrome):** project image (two-phone still from the video scene, no captions);
+  project video v6 16:9 + Discovery Mode 9:16; Story (14 sections, from the plan, Boxing Day → Black
+  Friday, "today Costco, next Best Buy/Home Depot/Rona/Sport Chek"), Risks, Use of AI (now declares the
+  AI-generated narration voice); profile bio, avatar, Ottawa, priceback.ca; fixed deadline
+  2026-12-08T21:00-05:00. All required tabs green. **Not submitted:** Maxim clicks *Submit for review*,
+  then *Launch* on Nov 10 at 10:00 ET.
+- **Left to Maxim:** vanity URL (Kickstarter makes it permanent; suggestion `priceback`), Preferences →
+  Pledge Over Time (recommend No, so all payouts land in December), pre-launch page (only after approval).
+- **Doc:** `Marketing-Plan/11-kickstarter-campaign.md` v4 (status, timing, §6 = the story as
+  published, §11 = the AI disclosure as filed).
