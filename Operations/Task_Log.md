@@ -16,6 +16,15 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-02 — Products catalogue rebuild, regular prices per place, egress budget, job schedules
+
+- **Asked (Maxim):** *"the products table has a lot of bad data, bad and misparsed receipts created dupplicate products with bad skus or bad product names … clean the data based on a sameday website, costco.ca, business costco center website and costco business same day website for all provinces and warehouses … all receipt items should be linked correctly. create a duplicate of product table … before doing the fix"*; then: receipt short labels EN + FR on products; a regular-price table (costco.ca, warehouse, Same-Day; `price_sameday` moves there) so savings apply to the original price; a full nationwide catalogue with every source's price; a channel flag with only `costco` / `business_centre`; a proof that no production receipt's prices change (better SKU/labels allowed, price changes shown for approval); the missing shrimp saving (362866); savings run moved after Same-Day publishes; jobs scheduled only when needed; egress cut (dev + prod share one plan, quota exceeded); *"disable dev railway runs never do that again."*
+- **Decisions:** hotfix branches off `main`; dev first, prod on Maxim's go; rebuild **in place** (no delete/re-create — cascades + phones hold ids); prices as rows per place (province row + warehouse rows only where different); official names kept as sources give them + a full-length name with size; root causes one section per class. Full list: design doc §5.
+- **Done so far:** dev `app_config` `SAVINGS_HARVEST_ENABLED` / `CATALOG_HARVEST_ENABLED` → `false` (2026-11-03 04:44 UTC). Shrimp cause found: the 00:05 savings run precedes Same-Day's publication.
+- **Files / areas:** design `Technical/Product_Catalog_Rebuild_Design.md`; `backend/server.js` (scheduler), `repos/pricesRepo.js` (`namedProductsForStore`), `lib/receiptDatabaseFill.js`, `lib/dbBackup.js`, `services/catalog/*`, `services/savings/*`, `repos/costcoImportRepo.js`, `db/schema.js` + migration.
+- **Branch:** docs `docs/products-catalog-rebuild`; code `hotfix/egress-and-job-schedules`, `hotfix/products-catalog-model`, `hotfix/products-catalog-cleanup` (all off `main`).
+- **Status:** design written and reviewed — awaiting Maxim's approval; nothing built.
+
 ### 2026-11-02 — Support email to shoppers whose price drops reached nobody (no push token)
 
 - **Asked (Maxim):** email every shopper with no push token who has price drops: full details of the open ones (product, amount, purchase date, end date), *"you missed a total of xxx $"* for the expired ones, update the app and allow notifications, sent from support@priceback.ca with high importance and a signature, and done programmatically so it can be reused.
