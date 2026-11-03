@@ -438,8 +438,10 @@ fill already skips an `ignored` line (`lib/receiptDatabaseFill.js:131`, `:203`).
   text too**, not only the `ignored` flag (a fee line an old build sends without the flag must
   still be skipped) — `FEE_NAME` in `lib/receiptAutoFix.js:51` is the existing pattern; share it,
   don't copy it.
-- A fee line is never watched, never filed as a price point, never a drop (unchanged; the save
-  path's guard keeps it whatever the client sends).
+- A fee line is never watched, never filed as a price point, never a drop. *As built (Part A
+  final review):* the save path used to trust only the client's `ignored` flag; it now decides
+  with `lib/feeLines.isFeeLine` (flag **or** printed text), while the stored `ignored` column
+  stays what the phone sent.
 - The catalogue fixer, the cleanup and the regular-prices table **exclude fee products**: a fee
   product (by its names, or because every line it ever had is a fee line) is never a misread
   suspect, never folded, never renamed, never given a price row, never counted for the channel
