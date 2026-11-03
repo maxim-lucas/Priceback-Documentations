@@ -91,7 +91,7 @@ Community goals: **500 backers** → +250 credits for everyone · **1,500** → 
 ### ⚡ Prices drop after you buy. Every. Single. Week.
 You check out. Ten days later, the same item is cheaper. Many stores have a **price-adjustment policy**: bring your receipt back within the window and they refund the difference. Almost nobody claims it, because nobody re-checks every receipt, every day.
 
-**PriceBack does.** Snap your receipt once. We watch every line on it, every day, for your whole adjustment window. When a price drops, your phone lights up with what dropped, by how much, and how many days you have left to claim it.
+**PriceBack does.** Scan your receipt once. We watch every line on it, every day, for your whole adjustment window. When a price drops, your phone lights up with what dropped, by how much, and how many days you have left to claim it.
 
 ### 🎄 Bought on Boxing Day? Your window may still be open.
 Holiday prices keep moving after the big sales. Many price-adjustment windows run 30 days, so Boxing Week receipts can still be inside theirs when this campaign opens. Scan them now. (Some stores exclude Black Friday or Boxing Week sales from their policy; PriceBack shows each store's rules.)
@@ -112,7 +112,7 @@ Groceries, electronics, home improvement, sporting goods: one app, every receipt
 Costco alone operates in 14 countries. Our road is simple: **every Canadian store with a price-adjustment policy, then Costco in the USA, then Costco everywhere it operates** (UK, Mexico, Australia, Japan, Korea, Taiwan, Spain, France, Sweden, Iceland, New Zealand, China), **then each country's own stores.** Every backer helps push that map forward, and Founding Members vote on the order.
 
 ### 🔍 How it works
-1. **Snap** your receipt. 2. **We watch** every item, every day. 3. **Drop?** You get an alert with the amount and the deadline. 4. **Claim** it at the store.
+1. **Scan** your receipt. 2. **We watch** every item, every day. 3. **Drop?** You get an alert with the amount and the deadline. 4. **Claim** it at the store.
 
 ### 🙌 Be there at the start
 Every big idea has a moment before everybody knows about it. This is PriceBack's. Picture a couple of years from now: friends at checkout saying *"wait, scan it with PriceBack first."* You'll be able to say you were there on day one, as a **Founding Backer**.
@@ -175,23 +175,23 @@ Backers get their codes Dec 9–10, while Black Friday receipts (Nov 27) are sti
 
 ## 11. Drafts for Maxim's review: founder paragraph, creator bio, AI disclosure
 
-**Founder paragraph (Story → "Meet the founder")**
-> I'm Maxim Lucas, and I build PriceBack from Ottawa. Prices at stores like Costco keep changing after you've paid, and when they drop inside the price-adjustment window, that difference is yours to claim. But nobody has time to re-check every receipt, every day. So I built an app that does. PriceBack reads your receipt, watches every item through its window, and tells you the moment you can claim money back. It's built in Canada, in English and French, and it already works on real receipts. Now I want to put it in every Canadian pocket, and then take it everywhere Costco goes. Back it, and you're with me from day one.
-
-*Optional:* add one sentence in your own words about the moment you decided to build it. Only a true story works here.
+**Founder paragraph (Story → "Meet the founder")**: v2, Maxim's facts, 2026-11-02. No city of residence or building is named, by Maxim's choice.
+> I'm Maxim Lucas. I lived in France before moving to Canada a few years ago, and in both countries I saw the same thing: prices change after you've paid, and when they drop inside the store's price-adjustment window, that difference is yours to claim. But nobody has the time or the tools to re-check every receipt, at every store, every day. In Montréal, Laval, Québec City, Lévis, Sherbrooke, Trois-Rivières, Bromont and Toronto, I kept hearing people complain about exactly that. So I built an app that does the checking for you. PriceBack reads your receipt, watches every item through its window, and tells you the moment you can claim money back. It's made in Canada, in English and French, and it already works on real receipts. Now I want to put it in every Canadian pocket, and then take it everywhere Costco goes. Back it, and you're with me from day one.
 
 **Creator bio (People tab, ≤300 characters)**
-> Founder of PriceBack, the Canadian app that watches your receipts and tells you when to claim a price drop. Building it from Ottawa, in English and French.
+> Founder of PriceBack, the Canadian app that watches your receipts and tells you when to claim a price drop. From France to Québec and Ontario, I heard the same complaint everywhere: prices drop after you pay, and nobody has time to check.
 
-**AI disclosure (Kickstarter asks this of every project)**
+**AI disclosure (short form, Maxim's choice)**
 - *Does the project use AI?* **Yes.**
-- *The product:* PriceBack reads receipts with Google Cloud Vision (text recognition) and Google Gemini (turns the recognized text into items and prices). Gemini receives the receipt **text** only, never the photo, with payment details removed. We use Google's paid Gemini plan, under which Google does not use this text to improve its products; if it's unavailable, a free plan may be used, under which Google may. PriceBack does not train any AI model on users' data. (Same facts as `Publishing-Compliance/Gemini_Receipt_Reading_Disclosure.md`.)
-- *The campaign:* The page text was drafted with the help of an AI assistant and reviewed and approved by the creator. Images and video show the real app and real receipts; none is AI-generated.
+- *How:* PriceBack uses OCR and AI to read receipts and match prices. Your data is protected and stays yours: we never sell it, and you can delete all of it yourself, anytime, from the app.
+- *The campaign:* the page text was drafted with the help of an AI assistant and approved by the creator. The video recreates the app's real screens from its own design; no imagery is AI-generated.
+
+**Project location:** "Canada" if Kickstarter allows a country-level location; otherwise the city stays hidden from the story and bio. Maxim asked that no city be named.
 
 ## 12. Video: real footage only (Maxim, 2026-11-02)
 
-- **Real UI:** recorded from the app on the Android emulator (`adb screenrecord`), never mock-ups.
-- **Real receipt:** from Maxim's own account, with the membership number and date blurred (and the items blurred as he asked).
+- **Real UI, recreated from code** (Maxim, 2026-11-02: the emulator is too slow on his machines): screens rebuilt from the app's own theme colours, BrandMark logo, i18n strings and screen layouts, then rendered frame by frame to MP4. They are not invented designs.
+- **Receipt:** a generic sample receipt (not Maxim's) with every item masked; only the printed "COSTCO WHOLESALE" header, a date and the total are visible. No Costco logo artwork: it's a registered trademark and a takedown risk.
 - **Real big numbers** (Costco savings caught by PriceBack's daily harvest, public price data): Samsung QN80H TV **$600 off on Oct 26** (then $500 Oct 27–29 and Oct 31–Nov 5); Samsung S85H OLED **$500 off Oct 26–29**; Generac Guardian generator **$1,000 off Oct 26–Nov 8**. Wording: "Costco took $600 off this TV on October 26. PriceBack caught it the same day." The data shows one day at $600, not 48 hours.
 - **Real grocery drops:** anonymized, product + before/after price only, never another user's receipt or identity.
 - **Not used (refused):** fabricated price drops presented as real results. That's deceptive under the Competition Act and Kickstarter's rules.
