@@ -11,7 +11,7 @@ holds, so **none of the three is rewarded**. They ship as unrewarded
 A credit reward is allowed only for an action that is **both**:
 
 1. **Verifiable server-side** — the backend can prove the action happened for
-   *this* account (a verified price drop, a referred friend's first scan).
+   *this* account (a verified price drop, a referred friend's first purchase).
 2. **Not a store/platform-prohibited incentive** — see the table.
 
 An honor-system "tap and get 5 credits" fails rule 1 by definition: it is free
@@ -31,7 +31,12 @@ Given the review history in `App_Store_Rejections.md` (5.1.1(iv) on 2.8.18,
 ## What is rewarded today
 
 - **Flag a price drop** — +1 per *verified* drop.
-- **Invite a friend** — `referralCredits`, paid when the friend scans a first receipt.
+- **Invite a friend** — the same bonus to both people (`REFERRAL_REFERRER_CREDITS` =
+  `REFERRAL_REFEREE_CREDITS` = **15 credits each**), paid when the friend makes their **first purchase**
+  in PriceBack (credit pack or subscription): `referralsRepo.settleReferralOnFirstPurchase`, called from
+  the top-up confirm, the subscription sync and the RevenueCat webhook. Redeeming the code at sign-up
+  pays nothing by itself. The app, the website FAQ and this policy state that one rule (Maxim,
+  2026-11-03; app PR #529, website PR #20).
 
 Both are proven server-side. Any new earn path must meet the same bar.
 

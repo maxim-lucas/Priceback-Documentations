@@ -11612,3 +11612,16 @@ anyway).
   **0043 applied to dev; prod owes it BEFORE the backend deploys.**
 - **Done (campaign):** Kickstarter draft (Basics, CA$ goal, items) + `Marketing-Plan/11-kickstarter-campaign.md`.
   Not submitted; Maxim approves the preview first.
+
+## 2026-11-03 — Invite a friend: one rule everywhere (first purchase, 15 credits each)
+
+- **Ask (Maxim):** "the invite a friend should all be the same always. reward is on their first purchase
+  (first purchase = rewards for both of them 15 credits each) fix it in the app also … make sure also it
+  says the same on the website … and documentations".
+- **Found:** the backend already pays both sides 15 on the referee's first purchase
+  (`settleReferralOnFirstPurchase`, prod `app_config` 15/15), but the app said "Give {referee}, get
+  {referrer}", "first receipt scan", "On their first scan", a sign-up reward "(coming soon)" and an
+  instant credit on redeem; the website FAQ said "when they join"; this policy said "first scan".
+- **Done:** app PR #529 (`fix/invite-copy-first-purchase`: EN + FR copy, amounts passed to the strings,
+  `inviteCopyConsistency.test.js`); website PR #20 merged (FAQ + JSON-LD, EN + FR);
+  `Publishing-Compliance/Rewarded_Actions_Policy.md` and `Technical/database_design.md` (user_referrals).
