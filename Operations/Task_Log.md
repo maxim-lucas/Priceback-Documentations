@@ -23,7 +23,7 @@
 - **Done so far:** dev `app_config` `SAVINGS_HARVEST_ENABLED` / `CATALOG_HARVEST_ENABLED` → `false` (2026-11-03 04:44 UTC). Shrimp cause found: the 00:05 savings run precedes Same-Day's publication.
 - **Files / areas:** design `Technical/Product_Catalog_Rebuild_Design.md`; `backend/server.js` (scheduler), `repos/pricesRepo.js` (`namedProductsForStore`), `lib/receiptDatabaseFill.js`, `lib/dbBackup.js`, `services/catalog/*`, `services/savings/*`, `repos/costcoImportRepo.js`, `db/schema.js` + migration.
 - **Branch:** docs `docs/products-catalog-rebuild`; code `hotfix/egress-and-job-schedules`, `hotfix/products-catalog-model`, `hotfix/products-catalog-cleanup` (all off `main`).
-- **Status:** design written and reviewed — awaiting Maxim's approval; nothing built.
+- **Status:** design **approved** 2026-11-03. **Part A built** on `hotfix/egress-and-job-schedules` (plan `Technical/Product_Catalog_Rebuild_Plan_Part_A.md`): scheduler gate (prod only; dev `SCHEDULED_JOBS_ENABLED=false` set), tag-credit sweep skips settled pools, fill candidates in memory, fee lines never filled, Same-Day publication probe (measuring across Mon 2026-11-09), job audit §6.2a (decisions owed by Maxim), egress baseline `Operations/Egress/2026-11-03-before.md`, Bugs #359. Not merged, not deployed. Parts D–F: not started.
 
 ### 2026-11-02 — Support email to shoppers whose price drops reached nobody (no push token)
 

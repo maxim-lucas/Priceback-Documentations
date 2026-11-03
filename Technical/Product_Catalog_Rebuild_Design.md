@@ -194,11 +194,21 @@ Already done 2026-11-02: dev `app_config` `SAVINGS_HARVEST_ENABLED` and
    locally) — a wrong name would stop prod's jobs. Set `SCHEDULED_JOBS_ENABLED=false` on the
    dev service as belt and braces.
 2. **`namedProductsForStore`** (`repos/pricesRepo.js:378`, used by
-   `lib/receiptDatabaseFill.js:179`): never download the table. Ask the database only for the
-   candidates the fill can use (item numbers one edit away from the line's, names/receipt names
-   similar to the printed text — `pg_trgm` is available to add), capped. The fill's decisions
-   must stay identical on the receipt corpus.
-3. **Config reads**: the 5.9 M single-key reads come from the deliberately *fresh* readers
+   `lib/receiptDatabaseFill.js:179`): never download the table per receipt. *As built (Part A,
+   Task 3):* the candidate list is kept in memory per store — one full read, then incremental
+   reads of the newest ids looking back 500 ids (receipt-save transactions commit out of id
+   order), de-duplicated by SKU, and a full re-read hourly for renames; rows only the caller's
+   transaction can see are returned but never cached. The fill's decision function and filter
+   are unchanged.
+0. **The one loop behind prod's top volumes** (found while planning Part A): the price sweep's
+   tag-credit settlement (`tagCreditsRepo.settleAllVerified`) enumerated ~1,414 pools per
+   sweep and, per pool, read the product by SKU (the 7.5 M product reads), ran `WITH fresh AS`
+   (7.5 M), tried the settlement insert (5.9 M) and read `PRICE_TAG_ALREADY_VERIFIED_NO_CREDIT`
+   fresh (the 5.9 M config reads) — ~460k queries a day at the 2-minute sweep cadence of
+   2026-11-02. *As built (Part A, Task 2):* pools already settled this week are not enumerated
+   (no caller → nobody to pay → no outcome change), the product id comes with the pool, and the
+   switch is read only when a shopper scans. Items 3 and 5 below are therefore **not done**.
+3. ~~Config reads~~ (*superseded by item 0 — the fresh readers stay as they are*): the 5.9 M single-key reads come from the deliberately *fresh* readers
    (`configService.readOpsFlagFresh` / `readOpsNumberFresh`) — most likely `/api/v1/app-status`
    on every app launch (`server.js` ~3481). *Claude's call:* per-request readers (app-status:
    minimum build, maintenance) get a short in-process cache of **≤ 60 s** — "the next launch"
@@ -211,8 +221,8 @@ Already done 2026-11-02: dev `app_config` `SAVINGS_HARVEST_ENABLED` and
 4. **Jobs**: no per-item lookup loops. A harvest loads the store's `sku → id` map (and
    `warehouse code → id`) once per run, then writes set-based (`jsonb_array_elements`, as
    `costcoImportRepo` already does).
-5. **Verified-drop check** and the `SELECT DISTINCT sku, warehouse, province` query: batch per
-   sweep instead of per product; find and cut the caller of the second.
+5. ~~Verified-drop check~~ (*superseded by item 0*): the `WITH fresh AS` and
+   `SELECT DISTINCT sku, warehouse, province` volumes were both the tag-credit loop.
 6. **Measure**: record each top query's calls/rows before the change (a snapshot of
    `pg_stat_statements`, not a reset) and again 7 days after deploy; report egress from the
    Supabase usage page for both projects.
@@ -231,6 +241,27 @@ Already done 2026-11-02: dev `app_config` `SAVINGS_HARVEST_ENABLED` and
   `adminAlerts` every 5 min, `runStoreLaunchNotifications` and `pastReceiptsTipBackfill` every
   15 min, `purgeRestoreLedgers` hourly — each justified or slowed. A job's tick that finds
   nothing due must cost one cheap query at most.
+
+### 6.2a Job audit (measured 2026-11-03 — Maxim decides each change)
+
+Prod `job_runs`, last 7 days (test jobs excluded). "Reads" from the job's code. Nothing here
+is changed without Maxim's go; the proposals cost a little latency, never correctness.
+
+| Job | Cadence today | Runs/day | Avg | Reads / what changes its input | Proposal |
+|---|---|---|---|---|---|
+| `priceSweep` | admin knob `PRICE_SWEEP_INTERVAL_MINUTES` — prod **60**; it ran **every 2 min** on 2026-11-02 17:00–01:00 UTC (30/h) | 324 (7-day avg) | 60–97 s | the verified-drop sweep (`findNotifiable`, ~150k blocks/call), the tag-credit settlement (Task 2 fix), policy healing. New observations already trigger a debounced regional sweep 4 s after they land (`scheduleVerifiedDropSweep`), so the scheduled one is the safety net | **keep 60**; never below 30 from the admin page (a floor in `sweepScheduler.resolveIntervalMinutes`) |
+| `adminAlerts` | every 5 min | 288 | 0.9 s | new receipts, accounts, shopper notices, duplicates, and the **live** potential-drop list (`potentialDropRepo.listPotential`) | **every 15 min** (an admin alert 10 min later) |
+| `runStoreLaunchNotifications` | every 15 min | 96 | 0.15 s | stores just enabled — changes only when an admin enables a store | **hourly** (or fire it from the store-enable route) |
+| `pastReceiptsTipBackfill` | every 15 min | 75 | 0 ms (no work) | the past-receipts tip backlog | **hourly** |
+| `purgeRestoreLedgers` | hourly | 24 | 0.2 s | deletions older than the 2 h credit-restore window | keep |
+| `harvestSavings` tick | hourly :05 | 24 | — | which savings source is due (2 small reads); real runs: Same-Day daily, Business Centre daily, coupons daily, BC web daily, yepsavings Mon + Thu | keep the tick; **Same-Day start hour after publication** (Task 4 measurement, Mon 2026-11-09); coupon book: skip all writes when the page is unchanged |
+| `harvestCatalog` tick | hourly :35 | 23 | — | which catalogue source is due; runs weekly (Sunday) | keep (cheap; it carries the catch-up) |
+| `ocrAuthProbe` | 6-hourly | 4 | 0.07 s | one Vision probe | keep |
+| `sweepInMemoryState` | 6-hourly | 4 | 1 ms | memory only | keep |
+| `reengagement`, `pastReceiptsTip`, `pendingClaimsReminder`, `inactiveClaimsNudge`, `priceDropGuarantee` | daily (+ a boot catch-up, hence ~3.4/day around deploys) | 3–3.4 | ≤ 7 s | shopper state, daily by design | keep |
+| `runDailyDigest`, `runDailyMaintenance`, `runDbRetentionJobs`, `reconcileCredits`, `pruneAuthOutcomes`, `pruneNotificationHistory` | daily | 1 | ≤ 1.4 s | — | keep |
+| `purgeDeletedAccounts` | monthly (28–31) | — | 0.2 s | — | keep |
+| **`dbBackup`** | daily 04:10 UTC | 1 | **79 s** | **every table** to R2 — ~65 MB/day, **~2 GB/month** of egress | Maxim: (a) weekly full backup + Supabase's own daily backups, (b) daily but only tables changed since the last backup, (c) keep daily. Not changed without his go — it is the only off-Supabase copy |
 
 ### 6.3 Product model
 
