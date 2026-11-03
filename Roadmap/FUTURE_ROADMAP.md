@@ -289,6 +289,17 @@ it.
   fills a line from the database and flags it for the admin (PR #456, migration `0028`). Design:
   `Technical/Receipt_Tax_Codes_Estimate.md` §0 and §11. The app side ships with the next build.
 
+#### 🔵 Receipt fee lines belong to the line above (Maxim, 2026-11-03)
+- An eco / enviro fee (`ENVIRO FEE`, `ECO FEE`, `ECOFRAIS`) or a container deposit (`DEPOSIT`,
+  `DEPOSIT QC`, `CONSIGNE`) is printed as **its own line right after the item it is charged on**
+  (`DEPOSIT CL` after a case of water). Today each becomes a separate line on an `ln:` placeholder
+  or on a numbered fee product (`9484 DEPOSIT`), always `ignored` (never tracked, never watched).
+- Future (parser): attach each fee line to the product line above it (e.g. a `fee_of_position`
+  link), so the item's real cost includes its fee, the fee never needs a product of its own, and
+  the database fill has nothing to guess. Needs Maxim's confirmation (Costco parser rule).
+- Until then (`Technical/Product_Catalog_Rebuild_Design.md` §6.8): never fill a fee line's item
+  number, never track or watch it — like membership fees.
+
 #### 🔵 Flyer parser — "SAVE $N"-only banner tiles
 - The geometry flyer parser (`backend/services/flyerTextParser.parseFlyerWords`,
   shipped 2026-06-26) extracts every tile that has an item number **and** a

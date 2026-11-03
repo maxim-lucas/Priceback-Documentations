@@ -175,6 +175,12 @@ Already done 2026-11-02: dev `app_config` `SAVINGS_HARVEST_ENABLED` and
     **full-length name** with the size, as Same-Day shows it, in both languages (§6.3).
 13. Re-linked receipts are documented **one root-cause section per class** with a case table
     listing every receipt, plus the §6.7 before/after price proof — no per-receipt replay.
+14. **Fee lines** (eco / enviro fee, deposit / consigne — and, like them, membership fees and
+    similar non-merchandise lines) are separate receipt lines that belong to the **product on the
+    line before them**. For now: **never fill their item number** from the database (it does not
+    exist as a product), and they are **never price-tracked, watched or offered as a drop**.
+    Linking a fee to its product is a roadmap parser improvement (`Roadmap/FUTURE_ROADMAP.md`,
+    "Receipt fee lines belong to the line above"), not this work. See §6.8.
 
 ## 6. Design
 
@@ -381,6 +387,33 @@ A script, read-only except inside a rolled-back transaction:
    backup, and the after-state is re-verified against the simulated one.
 5. Also re-run the receipt golden corpus and `scripts/harvest-catalog.mjs --corpus`: unchanged
    except the listed corrections.
+
+### 6.8 Fee lines (Maxim, 2026-11-03)
+
+**What a receipt prints:** an eco / enviro fee (`ENVIRO FEE`, `ECO FEE`, `ECOFRAIS`) or a
+container deposit (`DEPOSIT`, `DEPOSIT QC`, `CONSIGNE`) is printed as **its own line, right after
+the item it is charged on** — `DEPOSIT CL` after a case of water, `ENVIRO FEE C` after a
+battery-powered item. It is part of that item's cost, not a product. Membership fees and similar
+lines behave the same way for tracking.
+
+**Prod today (2026-11-03):** 91 live fee lines — **all `ignored = true`**, none watched, none
+filled from the database, no price point on any fee product. 61 sit on `ln:` placeholders; **30
+carry a number the receipt printed** next to the fee (`9484 DEPOSIT`, `9491 CONSIGNE QC/310062`,
+`6377 ECO FEE`, `4391 ENVIRO FEE`…), so those fee rows exist as numbered products. The database
+fill already skips an `ignored` line (`lib/receiptDatabaseFill.js:131`, `:203`).
+
+**Rules for this work:**
+- The database fill never fills an item number or a name on a fee line. Guard by **the printed
+  text too**, not only the `ignored` flag (a fee line an old build sends without the flag must
+  still be skipped) — `FEE_NAME` in `lib/receiptAutoFix.js:51` is the existing pattern; share it,
+  don't copy it.
+- A fee line is never watched, never filed as a price point, never a drop (unchanged; the save
+  path's guard keeps it whatever the client sends).
+- The catalogue fixer, the cleanup and the regular-prices table **exclude fee products**: a fee
+  product (by its names, or because every line it ever had is a fee line) is never a misread
+  suspect, never folded, never renamed, never given a price row, never counted for the channel
+  flag. Numbered fee products (`9484 DEPOSIT`…) stay as they are.
+- §6.7's proof lists any fee line whose state would change — expected: none.
 
 ## 7. Order of work
 
