@@ -11641,3 +11641,12 @@ anyway).
   Pledge Over Time (recommend No, so all payouts land in December), pre-launch page (only after approval).
 - **Doc:** `Marketing-Plan/11-kickstarter-campaign.md` v4 (status, timing, §6 = the story as
   published, §11 = the AI disclosure as filed).
+
+## 2026-11-03 — Savings drops on a pack product: $5 for every buyer; confidence reads FR and short names
+
+- **Ask (Maxim):** five $5 drumstick drops (SKU 55502) showed $4.33 … $5.60 in the review queue; fix on a hotfix
+  branch off main so they show $5 and can be approved in prod, and fix the root cause. Then: the confidence must not
+  drop for a pack item or for a French / short / cut receipt name (match by SKU or by the names registers print);
+  one tap from a queue card to the shopper's full report.
+- **Done:** branch `hotfix/saving-drop-pack-price`. Bug #359 in `Operations/Bugs_Common_Fixes.md`.
+  Prod datafix of the 5 queue rows after deploy (needs Maxim's go).
