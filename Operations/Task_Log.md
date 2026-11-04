@@ -11650,3 +11650,8 @@ anyway).
   one tap from a queue card to the shopper's full report.
 - **Done:** branch `hotfix/saving-drop-pack-price`. Bug #359 in `Operations/Bugs_Common_Fixes.md`.
   Prod datafix of the 5 queue rows after deploy (needs Maxim's go).
+- **Follow-up 2026-11-04:** #530 merged 05:49 UTC with #531. Prod was missing migrations **0043** (#527) and
+  **0044** (#531) → the startup seed's warehouses insert failed on `channel_id`, config never warmed, admin list
+  empty → every admin route 403 "admin only". Applied 0043 + 0044 + ledger rows (ids 53, 54) to prod with Maxim's go.
+  The 05:32 UTC daily stage (old code, before the deploy) had re-staged 3 drops at the old shelf-based price
+  (4837/4838/4839) → closed as superseded; the 5 corrected $5.00 rows (4536/4537/4540/4541/4711) stay pending.
