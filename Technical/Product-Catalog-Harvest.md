@@ -225,9 +225,28 @@ plan `Technical/Product_Catalog_Rebuild_Plan_Part_DE.md`).
 | `receipt_name` / `receipt_name_fr` | the register's short text printed most often, per receipt language ("5 DOZ EGGS" / "OEUF 5 DOZ") — live lines only, never an edited, database-filled or fee line, never an admin-locked product | `refreshReceiptNames` (each good tick, `--refresh-names`) |
 | `channel_id` | `costco` (1) or `business_centre` (2): Business Centre only when nothing but Business Centre sells it (listings, savings, receipt lines at a BC warehouse, BC regular prices — vs the same from Costco, plus flyers) | `refreshChannels` (each good tick, `--refresh-channels`) |
 
-**The database fill** names a nameless receipt line with the product's receipt name in the
-receipt's language, else the official name (`pricesRepo.productNameBySku`) — so a cropped eggs
-line reads `5 DOZ EGGS`, not "Large Eggs".
+**The database fill** asks for the product's receipt name in the receipt's language, else the
+official name (`pricesRepo.productNameBySku`; a stand-in such as "ITEM #1234" never counts).
+**Not yet visible to the shopper:** a line whose name the database filled is stored with
+`printed_name` NULL, and receipt reads show `coalesce(printed_name, display_name)` — so the
+phone still shows the official name ("Large Eggs"). Showing the receipt name on filled lines is
+a visible change waiting for Maxim's decision (final review I5, 2026-11-03). What it changes
+today: the admin desk's "Check database" result and "Fix automatically" items, and on a French
+receipt the label fill of an empty official French slot.
+
+**Timeouts and partial runs:** a Same-Day catalogue run gets 240 minutes
+(`timeoutMinutesFor`; ~95 min with prices), a website run 120; the savings tick waits while the
+catalogue tick reads Same-Day. `--offset/--limit` (Same-Day) and `--partial` (websites) run a
+slice that fits a short command, written without the sanity floor — used for the dev fill of
+2026-11-03 on a memory-constrained machine. The dev fill found two real bugs (French-session
+price strings ×100; stale warehouse rows) and the final review three more (stand-in receipt
+names, badge-only "Save $X" prices, the French price pass) — all fixed with tests.
+
+**Website coverage gap (pre-existing):** the costco.ca reader only reads pages whose photo is
+named after the item number (2,015 of 5,083 pages in one sitemap version, 5,809 of 11,371 in the
+other — costco.ca serves both). Pages without that hint, and pages taken down (404, ~70 % of the
+unread hinted ones), are never resolved; the 404s are re-planned every run. Follow-ups:
+remember gone pages; read hint-less pages once to learn their item number.
 
 **Regular prices — `product_regular_prices`** (one row per product, channel, kind, province,
 warehouse; NULL province = national, NULL warehouse = the province's price):
