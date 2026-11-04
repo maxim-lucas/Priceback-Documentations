@@ -11655,3 +11655,13 @@ anyway).
   empty → every admin route 403 "admin only". Applied 0043 + 0044 + ledger rows (ids 53, 54) to prod with Maxim's go.
   The 05:32 UTC daily stage (old code, before the deploy) had re-staged 3 drops at the old shelf-based price
   (4837/4838/4839) → closed as superseded; the 5 corrected $5.00 rows (4536/4537/4540/4541/4711) stay pending.
+
+## 2026-11-04 — Roadmap re-prioritised for production (P0 → P3), top tiers as hotfixes off main
+
+- **Ask (Maxim):** "start planning the roadmap file by priority now for production on main as a hotfix".
+- **Done:** `Roadmap/FUTURE_ROADMAP.md` rewritten by priority, every open row checked against `main` @ `adc94e5`
+  and prod that day. Prod ledger = `main` through 0044, 21 crons green over 48 h, RevenueCat + webhook `configured`
+  on prod `/health`. D9 already fixed. Open in code: flyer overlay lost on every deploy (L5 remnant), D3, R1′,
+  D1, D2, D12. Ledger trap noted: prod row 52 = 0042's hash at 0041's `when`.
+- **Next:** P0-2 (one prod plan-code redemption before Nov 10), P0-3 (Maxim approves the 5 Bug #359 rows), then
+  P1-1 … P1-5 as `hotfix/*` PRs off `main`.
