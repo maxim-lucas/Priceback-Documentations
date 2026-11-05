@@ -56,8 +56,8 @@ Severity:
 | S7 | Sign-out pushed its auto-reload reset to the account | Medium | all | **Fixed #481** (next build) |
 | S8 | A line's tax class is lost by the sync and by admin repairs | Low | all | Repairs **fixed #483**; sync **#486** |
 | S9 | A restored language never applied; a US receipt restored as "watching" | Low | all | **Fixed #481** (next build) |
-| R1 | A server correction is undone in the crowd pool by a phone that has not synced yet | Medium | all | **Fixed #484** (for the Gemini re-read) |
-| D1–D15 | Documented, not fixed (below) | — | — | Roadmap |
+| R1 | A server correction is undone in the crowd pool by a phone that has not synced yet | Medium | all | **Fixed #484** (for the Gemini re-read); admin repairs **R1′ fixed 2026-11-05** (Priceback #533) |
+| D1–D15 | Section 3. D1–D8 and D10–D14 fixed 2026-11-05 (server halves Priceback #533, phone halves Priceback #534 for 3.5.1); D9 was already fixed; D15 is a product decision | — | — | Section 3 |
 
 ### S1. Shopper corrections are local only, and the next sync reverts them (High)
 
@@ -149,11 +149,33 @@ With #486's edit queue, a pending line edit would be reverted the same way.
 
 `badScanRepair` takes the bad parse's crowd copies back, but only **once**, at repair time.
 
-**Fix (#484).** For a receipt Gemini re-read, `/api/watch` files a crowd copy only when the corrected lines carry that SKU at that unit price, paid or regular (`receiptsRepo.rereadReceiptUnitPrices`). The re-read records its reader inside the repair's transaction, so the guard has no gap. **Admin repairs still have the gap:** see the roadmap.
+**Fix (#484).** For a receipt Gemini re-read, `/api/watch` files a crowd copy only when the corrected lines carry that SKU at that unit price, paid or regular (`receiptsRepo.rereadReceiptUnitPrices`). The re-read records its reader inside the repair's transaction, so the guard has no gap.
+
+**R1′ (2026-11-05, Priceback #533).** Admin repairs had the same gap. `receiptsRepo.crowdCopyGuards` now treats a receipt with `admin_reviewed_at` (what the desk's line editor, *Fix automatically* and the bad-scan runbook all stamp) like a re-read one. Test: `backend/tests/receiptGeminiRereadWatchDb.test.js`.
 
 ---
 
-## 3. Documented, not fixed (roadmap)
+## 3. Documented, then fixed (2026-11-05)
+
+Status 2026-11-05: every row except D9 (already fixed) and D15 (product decision) is fixed. **Server halves** ship in Priceback #533 (`hotfix/p1-server-sync-gaps`) and reach every build at deploy; **phone halves** in Priceback #534 (`hotfix/p2-phone-sync-3.5.1`) and reach shoppers with 3.5.1. Each phone half is safe against a server without its server half, and each server half is additive.
+
+| # | Fix | Server half (every build) | Phone half (3.5.1) |
+|---|---|---|---|
+| D1 | A receipt refused for good says **"Not backed up"** on the Detail screen (en + fr) | — | `utils/receiptBackup`, `DetailScreen` |
+| D2 | `/api/watch`'s answer is read; the empty list is sent when the last watched line goes | `items: []` accepted (was 400) | `priceService.registerForPriceWatch`, `price_watch_registered_v1` |
+| D3 | A 5xx never drops a queued delete, claim, watch toggle, correction or re-upload | `sendQueuedMutationFailure`: every failure `retryable:true` | `receiptSyncService.queuedRetryable` |
+| D4 | A claim stays queued until its receipt is gone (watch toggles still expire at 90 days) | — | `storageService.retryPendingReceiptItemEdits` |
+| D5 | The profile outbox drops only the field the server refused and sends the rest | 400s carry `refused: [{ field, consentType? }]` | `profileSyncQueue`, `syncProfileToBackend(…, { reportRefusal })` |
+| D6 | The push-token back-fill returns what the server said | — | `notificationService.syncPushTokenToBackend` |
+| D7 | A refused photo says **"Photo not backed up"**; an object-store failure is retried | re-presign: store down → 503 retryable; 500 retryable | `storageService` drain, `documentUploadRefused` |
+| D8 | A tag photo whose upload did not finish is queued and retried with a fresh URL | `POST /api/observations/tag/image-upload-url` (owner + device checked) | `services/tagPhotoUploadQueue` |
+| D10 | Postal-code edits go through the profile outbox; the hydrate keeps a queued change | — | `CompleteProfileScreen`, `syncService`, `profileSyncQueue.hasPendingLocation` |
+| D11 | Preferences compared on one clock | `preferences.clientNow` → `lib/clientClock`; bootstrap `serverTime` | `syncService.clockSkewMs`, `pushCloudPrefs` |
+| D12 | Deleted receipt ids paged past 500 | `deletedReceiptIdsNext` + `GET /api/receipts/deleted` | `syncService._fetchRemainingDeletedIds` |
+| D13 | The account wipe deletes that account's receipt files and queued tag photos | — | `storageService.clearAccountScopedStorage` |
+| D14 | A restored receipt keeps the scan time its id `r_<ms>_…` carries | — | `syncService.scanTimeFromReceiptId` |
+
+The original findings:
 
 | # | Gap | Where | Effect |
 |---|---|---|---|
