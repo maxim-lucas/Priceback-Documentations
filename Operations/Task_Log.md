@@ -11705,6 +11705,37 @@ anyway).
   desk test above) / 2 skipped. **Priceback #534** (P2 phone, stacked on #533): mobile suite 397 suites, 11,274 pass, 1
   skipped, coverage gate green. Nothing merged or deployed: a merge to `main` deploys prod (Maxim's go); merge #533
   first, then retarget #534 to `main`. #534 reaches shoppers with 3.5.1 (tag + release per the release rule).
+
+## 2026-11-06 — Receipt review: rule 5 corrected, missed quantities, App-approved, Rejected chip, two rejection reasons
+
+Asked (Maxim): rule 5 is "always try to balance, flag only after the configured tries" (not "flag, never balance");
+digital Costco receipts (screenshot/PDF) read qty 2+ as 1 — cross the item's known unit price at the same warehouse
+(exact to the cent); apply migrations to prod; auto-approve receipts at 100 % confidence (n of n) into an
+"App-approved" filter; the desk's filters on several lines, "Not labelled" removed; scan-rejected and admin-rejected
+receipts under one "Rejected" chip; rejection reasons for "QR code only" and "total only"; a new user (iOS 3.5.0)
+with no push notifications.
+
+- **Branch** `hotfix/receipt-review-autoapprove-qty` off `origin/main` @ `826a717` — **Priceback #537**, open, not merged (a merge deploys prod: Maxim's go). Pre-existing failures on clean `main`: backend `badScanRepairDb` line-editor registry test; mobile `adminReviewEditing` "edits, adds and removes lines".
+- **Rule 5** rewritten in `CLAUDE.md` and `Technical/Receipt_Parser_Design_Rules.md` (pipeline step 6 BALANCE, rule 5);
+  new rules 14 (missed quantity) and 15 (App-approved).
+- **Migration 0045** (`auto_approved_at`, `auto_review_checked_at`, `quantity_inferred_at` on receipts + a partial
+  index). **Applied to dev and to PROD** (ledger row `aa3bc234ad48…`, `created_at` 1793700000000) before any deploy.
+  Prod was already current through 0044 (0042's ledger row sits at 1793300000000).
+- **Server:** `lib/receiptQuantityInference` (upload → after the re-read, before the drop sweep; also the backlog
+  sweep), `badScanRepair` mode `quantity`; `lib/receiptAutoApproval` (upload, shopper edit, hourly sweep + boot
+  run); desk filters `app_approved`, `rejected`; `unprocessed` no longer lists rejected scans; `deleted` no longer
+  lists admin rejections; `/api/watch` crowd guard covers quantity-corrected receipts. Switch
+  `RECEIPT_AUTO_REVIEW_ENABLED` (on; off in `test.env`). Push reasons `qr_code_only`, `total_only` (EN + FR).
+- **Desk (admin, ships with the next build):** chips wrap; App-approved + Rejected chips; "Not labelled" chip gone
+  (server key kept); row badges "App-approved" and "Rejected".
+- **Prod facts:** 0 live receipts waiting for review today (all 228 reviewed), so auto-approval starts with the next
+  uploads. The PDF corpus' `G-5` (Gloucester BC #802) shows the quantity shape: `1246719 HALLOUMI 11.98` = 2 × 5.99;
+  prod knows that SKU only at the misread 11.98, so the rule drops recorded multiples and needs a true unit price at
+  the warehouse before inferring.
+- **Push, Martine Grandmaitre:** not the old "granted without a token" bug. Her iPhone (3.5.0, build 58) reports
+  the OS permission **denied** (17:35 UTC today). iOS 3.5.0: 64 granted phones, all 64 with a token; 11 denied, 2
+  undetermined. Registration works; she declined the prompt or turned notifications off in Settings, and iOS does
+  not prompt twice. Fix is on her phone (Settings → PriceBack → Notifications) or the in-app alerts card.
 ## 2026-11-06 — Best Buy launch prep on `main-test-features`: in-store denoise, Admin · Stores switch
 
 - **Ask (Maxim):** "are we ready to publish best buy store and 100% support their receipts? what is the remaining
