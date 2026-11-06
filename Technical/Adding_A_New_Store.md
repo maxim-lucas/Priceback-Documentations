@@ -463,6 +463,12 @@ the signal CAN fire — write the negative case.
 > Pinned by `__tests__/adminPreviewStores.test.js` (fail-closed; an admin opens only
 > the held stores) and `bestBuyStorePromotion.test.js` (every held store has a
 > production parser).
+>
+> **Since 2026-11-06 (`main-test-features`, migration 0045) the switch is Admin · Stores**, for any store:
+> *Coming soon* / *Admins only* / *Everyone* (`stores.enabled` + `stores.admin_preview`, served as `adminPreview`).
+> `ADMIN_PREVIEW_STORES` is now only the bundled fallback for a record without the field; a new store sets
+> `adminPreview: true` on its bundled record. `store-content-sync.sql` writes availability on INSERT only, so a
+> content sync never undoes the desk. Details: `Technical/BestBuy/Launch_Readiness_2026-11-06.md` §3.
 
 **A store parser under construction produces WRONG NUMBERS on a real receipt,
 and a wrong total is worse than "not supported yet" because the user acts on
