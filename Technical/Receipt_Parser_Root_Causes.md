@@ -1636,6 +1636,95 @@ the reading confidence, or uploads the paper's figures.
 
 ---
 
+## RC-38 · A coupon streamed under `**** TOTAL` of a label run turns a purchase into a refund
+
+**Printed shape.** Gloucester #1362, 2026-10-25, a $56.38 purchase. The receipt prints **no tax flags** (every line is
+zero-rated groceries, no `H`/`N` after the amounts), and its totals labels print as one column:
+
+```
+SUBTOTAL        56.38
+TAX              0.00
+**** TOTAL      56.38
+```
+
+Vision streamed the label run on its own, then the amounts column. On the photo the phone kept (capture c666), the
+first amount after the run was the CAFE BORBONE coupon:
+
+```
+8888188 BLACKOYSTERS
+SUBTOTAL
+TAX
+**** TOTAL
+5.00-          ← the coupon of 0000397010 / 1941821, not the total
+•
+⚫ 7.99
+56.38
+0.00
+56.38
+```
+
+**Code.** `parseCostcoReceipt` (`src/services/costcoReceiptParser.js`) sends a receipt to the refund path when
+`countPurchaseLines(rawText) === 0 && (isRefundText(rawText) || isRefundReceipt(rawText))`. With no tax flags,
+`countPurchaseLines` is 0 on any receipt. `isRefundText` (`src/services/receiptParsingShared.js`) accepts a negative
+amount **on the line after** a SUBTOTAL / TOTAL / AMOUNT label. Under a label run the next line is not that label's
+amount (the RC-35 re-zip, one label late), so the coupon's `5.00-` read as a negative grand total.
+`parseRefundReceipt` then negated every line: stored total −56.38, seven lines −7.69 … −7.99, nothing watched.
+The next-line read predates #427. #427 (`207393a`, v3.1.0, the RC-4 fix) made it line by line and kept the next line.
+Every build from v3.1.0 to 3.5.0 has it.
+
+**Not the backend.** Maxim saw it right after #540 (mtf → main) was deployed, reverted the backend (#541), rescanned
+and got a correct parse. The refund decision is entirely on the phone. #540 changed none of the parser, and the
+rescan (c667) was a new photo, on which Vision streamed the label run *last*.
+
+**Proof** (2026-11-06, replay through `parseReceiptText`):
+
+| Capture | What | v3.5.0 and `main-test-features` | With the fix |
+|---|---|---|---|
+| c666 (saved) | `5.00-` under `**** TOTAL` | **refund**, lines −7.69, −5.95, −2.99, −8.79, −7.98, −14.99, −7.99 = the stored row exactly | warehouse, the same lines positive, 56.38 to the cent |
+| c667 (rescan, not saved) | label run streamed last | warehouse, 56.38 | unchanged |
+
+Neutralisation: in c666 the only refund evidence is that `5.00-`. `isRefundHeader`, `isRefundReceipt` and every
+definitive marker are false, so once the coupon no longer counts as the total, the parse closes to 56.38.
+
+**Prod blast radius.** One receipt. Every live Costco receipt with a negative total that prints none of the definitive
+markers (query in the `suspected_refund` desk filter): only `r_1794004639294_qzjpq`, Maxim's test scan.
+
+**Fix (fix/costco-refund-gate-printed-total → main-test-features), Costco-only, approved by Maxim on 2026-11-06.**
+`isPlacedRefundText`, in the Costco parser, replaces `isRefundText` at the gate. The definitive markers are
+unchanged. A negative total counts only when it is placed: on its label's own line, or under a label that stands
+alone, never under the last label of a run of amountless labels. The shared `isRefundText` is untouched.
+Pinned in `__tests__/costcoRefundGatePlacement.test.js` and the prod-capture corpus (c666, c667).
+
+**Old builds.** v3.1.0–3.5.0 keep the bug and cannot be updated over the air. The admin desk's **Suspected refund**
+filter (`status=suspected_refund`, `receiptsRepo`) lists every live, unreviewed Costco receipt saved with a negative
+total whose stored OCR prints none of `REFUND / MEMBERSHIP`, `APPROVED - REFUND`, `REMISE D'ACHAT` or a negative
+items-sold count. It is read only, and *Mark reviewed* clears it. Nothing about the upload changes.
+
+| Receipt | Warehouse | Scanned | Build | Stored → paper | Status |
+|---|---|---|---|---|---|
+| `r_1794004639294_qzjpq` | Gloucester #1362 | 2026-11-06 | Android 3.5.0 | −56.38 → 56.38 | Maxim's test scan; to be deleted at his say. Covered by the fix |
+
+## RC-39 · The quality check reads no totals when a label run's amounts stream outside it (open)
+
+**Printed shape.** The same Gloucester #1362 receipt. Its SUBTOTAL / TAX / `**** TOTAL` labels are one run. On c667
+the run's amounts stream **before** the labels, and on c666 **after** the grand-total row, behind a coupon.
+
+**What goes wrong.** The parser reads 56.38 right on both (confidence 1.0). `readTotalsSection`
+(`shared/costcoReceiptSections.js`) only places amounts inside the final totals block, so `readPrintedFigures`
+returns subtotal / tax / total `null`. The receipt quality check then answers **refuse · totals_unread** on a right
+parse: two readings of one paper, the RC-37 class. If the totals refusal is switched on in Admin, the shopper is asked
+to retake a photo that was read right. This probably also explains why c667 was never saved.
+
+**Status.** Open. It changes a shared Costco module (the sections reader feeds the quality check, the desk's reading
+confidence and every Gemini proof), so it needs Maxim's call. Pinned as a named exception in
+`__tests__/receiptProdCaptures.test.js` (`RC39_TOTALS_UNREAD`); the fix's PR empties that list.
+
+**Proposed fix.** When the final block is a run of N amountless labels and exactly N bare amounts follow the grand
+total row (or precede the run) with `subtotal + tax = total`, place them in order. That is the same
+unique-closing rule the block already applies to its own amounts.
+
+---
+
 ## Earlier root causes (before this register)
 
 Recorded in their own docs; listed here so the register is complete. Add new cases of these under a new `RC-n`
