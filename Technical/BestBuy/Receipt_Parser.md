@@ -13,6 +13,16 @@ admins can scan Best Buy, shoppers see "Coming soon". `LAB_STORE_PARSERS` /
 there: off the lane on 2026-09-02, back on it on 2026-09-28 when `development`
 was merged toward `main`, finalized admin-only by Priceback #504. See `README.md`.
 
+**2026-11-06 — the in-store slip is denoised first** (design rules §2; `src/services/bestBuyReceiptSections.js`,
+Best Buy only, `feat/bestbuy-launch-prep`). `segmentBestBuyInStoreLines` divides the slip into Header (up to the
+`SALE`/`VENTE`/`RETURN` line, else the last register/BUS DATE/date line above the first amount) · Body (minus
+fulfilment lines: `Delivery Date`, `SEND #`, `FULFILLMENT METHOD`, FR equivalents) · Totals (item-count line,
+SUBTOTAL/SOUS-TOTAL … TOTAL, minus the `Deliver01` stub) · Payment (first card/cash/debit/approval line after
+TOTAL) · Footer. `parseBestBuyInStoreReceipt` composes `denoiseBestBuyInStoreText` into its preprocess, so the
+geometry rework and glyph repair read the same cleaned slip; identity is still read from the raw text. Fail-open
+when no totals block is found. The online path already read only its item table. Audit, proof and open questions:
+`Launch_Readiness_2026-11-06.md` §2.
+
 ## 1. The parser
 
 Two formats, one entry point:
