@@ -97,8 +97,9 @@ for admins needed a build. Now each store is in one of three states, switched fr
 | Admins only | false | true | "Coming soon" for shoppers; an admin can pick and scan it ("Admins only" badge) |
 | Everyone | true | false | open; the waiting shoppers are pushed within 15 min |
 
-- **Migration `0045_store_admin_preview`** — additive, idempotent; holds Best Buy for admins. Numbered 0045 because
-  `main` already has 0042–0044. **Apply it on prod BEFORE deploying this backend**: `storePoliciesRepo` selects
+- **Migration `0046_store_admin_preview`** (first written as `0045_store_admin_preview`; renumbered 2026-11-06 when
+  `main` gained its own `0045_receipt_auto_approval` — see §5) — additive, idempotent; holds Best Buy for admins.
+  **Apply it on prod BEFORE deploying this backend**: `storePoliciesRepo` selects
   every column, so without it `GET /api/v1/policies.json` fails and every launch keeps its cached stores.
   Applied on dev 2026-11-06.
 - `GET /api/admin/stores`, `POST /api/admin/stores/:code/availability` (`lib/storeAvailability.js` is the only
@@ -123,7 +124,7 @@ builds keep their bundle. "Everyone" reaches every build — which is why step 6
 3. **Decide †** (re-derived tax) and the in-row bleed-through (§2).
 4. **Ship a build that carries the parser** (first release cut from `main` after the merge), tag + GitHub release per
    the release rule. Test it live in production as an admin.
-5. **Deploy the backend from `main`**, after applying `0045` (and `main`'s own pending migrations) on prod. Confirm
+5. **Deploy the backend from `main`**, after applying `0046_store_admin_preview` (and `main`'s own pending migrations) on prod. Confirm
    Railway reaches bestbuy.ca: prod `/health?token=` → `checks.priceFeeds.bestbuy`.
 6. **Before "Everyone": protect the installed builds.** v3.5.0 and older read Best Buy with the generic parser. Once
    the new build is live to 100 % in BOTH stores, raise **Admin · App version** to it. Builds that don't report
@@ -132,3 +133,52 @@ builds keep their bundle. "Everyone" reaches every build — which is why step 6
    re-upload the reviewer PDF; prod drizzle-ledger row for the national-province migration. (PIA already done.)
 8. **Go live — Maxim's call:** Admin · Stores → Best Buy → **Everyone** (pushes the 3 waiting shoppers), then turn on
    `BESTBUY_SCAN_ENABLED` on prod last (it writes verified price points, which charge commission).
+
+## 5. Status update — 2026-11-06 (later)
+
+Maxim changed step 1: *"merge main into main-test-features instead, dont merge anything on main yet … prepare
+main-test-features to be the ready to merge code to main but i will do it at my pace"*.
+
+**Step 1 — `main` merged into `main-test-features`** (`origin/main` @ `b2ea5f8`, 33 commits). Resolved:
+
+| Conflict | Resolution |
+|---|---|
+| Two migrations numbered **0045** (`main`: `0045_receipt_auto_approval`, #537; branch: `0045_store_admin_preview`) | Branch's renamed **`0046_store_admin_preview`**, SQL unchanged; journal 41→46 in order; `schema.sql` regenerated (47 migrations); comments citing it point at 0046 |
+| `usersRepo.js` exports | both kept (`PUSH_PERMISSIONS` + `_touchUpdatedAt`) |
+| `priceService.registerForPriceWatch` | `main`'s refusal handling + `WATCH_REGISTERED_KEY` (sync audit D2) **and** the branch's once-a-day fingerprint de-dupe; a fingerprint is stored only after an accepted, non-`retry` answer |
+| `flyerAdminRoutes.test.js` | `main`'s capture-only-this-batch filter on the branch's `recordPricePointsBulkDetailed` |
+
+Tests the merge surfaced, fixed on the merge branch (test or wiring only, no behaviour change for a shopper):
+
+- `costcoPathImmutability` — `costcoReceiptParser.js` / `receiptParsingShared.js` re-pinned to `main`'s bytes
+  (#512, #517 — reviewed Costco changes shipped on `main`). Costco stays byte-identical to `main`.
+- `homeHeroToClaim` (main's) — its storage mock gains `getStatsAndReceipts`, which the branch's Home uses.
+- `detailScreenDeep` (branch's) — a Costco receipt now shows its per-channel claim steps (#519), not the policy
+  paragraph; the test asserts those.
+- `/health` `checks.priceFeeds` gets a roll-up `status` (like `revenuecat`) so Admin · Health never shows it as
+  "unknown"; the public check-set test lists `priceFeeds`. `checks.priceFeeds.bestbuy` is unchanged.
+- **Two red tests already on `main`** (its last Full Coverage run, 2026-11-05, failed on exactly these):
+  `adminReviewEditing` "edits, adds and removes lines" (#532 made line edits update the total; the test now covers
+  that and the hand-typed-total refusal) and `badScanRepairDb` "the admin desk's line editor updates the in-memory
+  registry" (its receipt id `r_badscan_desk_<RUN>` collided with the approval-desk test's, which is dated outside
+  the window → `expired` → 0 entries written; it now uses `deskedit`). `main` itself still carries both until the
+  merge.
+
+**Prod database, checked read-only 2026-11-06:**
+
+| Migration | Prod |
+|---|---|
+| `0041_national_province` | data present (`NATIONAL` province row); **no ledger row** (still owed) |
+| `0042`–`0045_receipt_auto_approval` | applied, in the ledger |
+| **`0046_store_admin_preview`** | **NOT applied** — `stores.admin_preview` does not exist. Apply it (by hand; idempotent) **before** deploying a backend built from `main-test-features`, or `GET /api/v1/policies.json` fails |
+
+**Step 7 (paperwork) — done on `docs/bestbuy-reviewer-notes`:** `REVIEWER_NOTES.md` lists Best Buy as the second
+active retailer and bestbuy.ca as a read-only price source, plus a "checked once a day" testing note; the reviewer PDF
+is re-rendered. **Upload it to App Store Connect only when Best Buy is open to Everyone** — before then the
+reviewer would read about a store they can't select.
+
+**The 3 waiting shoppers** (prod `store_launch_subscriptions`, `store_code = 'bestbuy'`, none notified yet) signed up
+2026-10-07, 2026-10-22 and 2026-10-27 (two Google accounts, one Apple). Identities are in the database, not here.
+
+Not done, by design: anything on `main`, any prod write, the build/tag/release (cut from `main` after Maxim's
+merge), raising the minimum app version, flipping Best Buy to Everyone, `BESTBUY_SCAN_ENABLED`.
