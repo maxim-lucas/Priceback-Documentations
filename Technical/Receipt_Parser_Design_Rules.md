@@ -58,9 +58,13 @@ reaches extraction, so extraction never has to know about it.
    ├─ 4. EXTRACT       items + coupons + fees from the item block; subtotal / tax / total from the
    │                   totals block. Nothing else is ever an item.
    │
-   └─ 5. VERIFY        Σ lines = SUBTOTAL, SUBTOTAL + TAX = TOTAL, items sold, savings, tax bases.
-                       A receipt that does not close is FLAGGED for the shopper — never balanced by
-                       inventing a tax or a total (RC-3, RC-5).
+   ├─ 5. VERIFY        Σ lines = SUBTOTAL, SUBTOTAL + TAX = TOTAL, items sold, savings, tax bases.
+   │
+   └─ 6. BALANCE       a receipt that does not close is ALWAYS worked on until it does: the configured
+                       tries correct the LINES to the printed figures (Gemini re-read, the missed-quantity
+                       check of rule 14). Only a receipt that still does not close after them is FLAGGED
+                       for review. The printed SUBTOTAL / TAX / TOTAL are never changed: a tax or a total
+                       is never invented or re-derived from the lines (RC-3, RC-5).
 ```
 
 Identity (step 1) is read **before** denoising because the warehouse number and the date sit in the header and the
@@ -129,8 +133,14 @@ better parse is adopted as before. Curl and fold stay in the geometry (RC-12).
    ends at `**** TOTAL` and its value** (Maxim, 2026-10-27): the Costco item block ends at the last grand-total row,
    its amount read or not, or at the first footer check line (`costcoItemBlockEnd`, RC-34). The register footer's
    items-sold count and date stamp are kept apart as `receipts.footer_ocr` (`src/services/receiptFooter.js`).
-5. **The printed totals are the truth.** The printed SUBTOTAL / TAX / TOTAL are never re-derived from the lines. A
-   mismatch is a flag, not a correction.
+5. **Always try to balance; flag only what the tries cannot close (Maxim, 2026-11-06).** *"My rule is to always try
+   to balance the receipt; if after the configured trials it still failed, it should get flagged for review."* The
+   printed SUBTOTAL / TAX / TOTAL are the truth and are never re-derived from the lines; it is the **lines** that are
+   corrected until they add up to them — by the configured tries, in order: the Gemini re-read (`RECEIPT_GEMINI_REREAD`,
+   within its budgets), the missed-quantity check (rule 14), the admin desk's *Fix automatically*. A receipt that
+   still does not close after them is flagged for review (reading confidence red/amber, *Not reviewed*); one that
+   closes with every check passed is approved by the app itself (*App-approved*, rule 15). (Until 2026-11-06 this
+   rule read "a mismatch is a flag, not a correction" — that was never Maxim's rule.)
 6. **Special cases are image problems only.** Tilt, curl, fold, zoom, faint print, OCR digit damage — handled in
    step 0 (geometry) or by the photo-quality gate, never by text rules aimed at one receipt.
 7. **Prove it on the corpus.** A parser change is measured on every committed production capture
@@ -194,6 +204,32 @@ better parse is adopted as before. Curl and fold stay in the geometry (RC-12).
 13. **Never retry Gemini on a check no answer can pass.** When Gemini and the stored reading agree and only the
     paper's own figure check fails, our reading of the paper is the odd one out: the desk stops after one try
     (`worthRetrying`). A chain must end inside the caller's own wait (`/api/ocr-llm`: 18 s for the phone's 20 s).
+
+14. **A quantity the receipt did not print is found by the price (Maxim, 2026-11-06).** *"The costco receipt format as
+    a screenshot or pdf doesn't consider the quantities … if an item sku is the same for a warehouse purchase, it
+    should cross the price to detect a missed quantity (detected price divided by the price = quantity, only if it
+    rounds at the cent for the same warehouse)."* The Costco app's digital receipt prints one line per item number
+    with every unit's amount and no `N @ price` line (`1246719 HALLOUMI 11.98 N` = 2 × 5.99, Gloucester BC #802
+    `G-5.pdf`). On the server, after the upload (and after the re-read), `backend/lib/receiptQuantityInference`
+    takes each quantity-1 line with an item number and checks its amount (pre-coupon when couponed) against the
+    item's **known unit prices at the same warehouse**: the last 180 days of price tags, receipts and crowd copies
+    there (current and regular), the catalogue's warehouse regular price, and the item's other one-unit lines on the
+    same receipt. A known price that is itself a multiple of another is dropped (it is the same mistake recorded
+    earlier); more than two distinct prices = a price that varies (weighed meat, cheese), never inferred; the amount
+    must divide **exactly to the cent** into 2 … 24 units, with one answer only. When the paper prints the
+    items-sold count, it is the proof: nothing is inferred when the lines already count it, and the quantities are
+    applied only when they make the lines count it exactly. Applied through `badScanRepair` mode `quantity` (the
+    money is never touched; a line with history refuses it), stamped `receipts.quantity_inferred_at` (migration
+    0045) so `/api/watch` guards its crowd copies; the phone takes the lines on its next sync. A receipt with no
+    known price at its warehouse is left as read — the quantity check gets better as the warehouse's prices fill in.
+15. **The app approves what is proven (Maxim, 2026-11-06).** *"If it balance 100% confidence 14 out of 14 should be
+    auto approved and in a separate filter 'App-Approved'."* `backend/lib/receiptAutoApproval` runs the reading
+    confidence (rule 11) on every upload — after the quality check, the re-read and the quantity check — and on the
+    backlog (hourly sweep, each receipt once; again after a shopper's correction). Level High **and** every check
+    passed (n of n) → stamped reviewed + `auto_approved_at` (migration 0045): it leaves *Not reviewed* and is listed
+    under *App-approved*. Anything less stays for a person. A person's review is never overridden; an app approval
+    that no longer holds (the shopper changed the lines) is taken back; an admin's *un-review* sends it back to *Not
+    reviewed*. Switch: `RECEIPT_AUTO_REVIEW_ENABLED` (on unless `false`; off in the committed `test.env`).
 
 ## 4. Edge cases that are data, not noise
 
