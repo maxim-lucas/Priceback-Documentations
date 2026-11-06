@@ -4,6 +4,13 @@ Everything specific to Best Buy Canada as a PriceBack store. Per the standing
 rule — **one store = one parser file and one documentation folder** — nothing
 here describes another retailer, and no other store's folder describes Best Buy.
 
+**Status (2026-11-06): not ready for shoppers — see `Launch_Readiness_2026-11-06.md`** (the readiness check, the
+parser audited against the design rules, the in-store denoise step, Admin · Stores, and the remaining roadmap).
+`feat/bestbuy-launch-prep` → `main-test-features`: the in-store slip is now denoised before extraction
+(`src/services/bestBuyReceiptSections.js`), and a store's availability — *Coming soon* / *Admins only* /
+*Everyone* — is switched from **Admin · Stores** for any store (migration 0045, `stores.admin_preview`), replacing
+the bundled `ADMIN_PREVIEW_STORES` set as the switch. `main` still has Best Buy on the lab lane.
+
 **Status (2026-10-28): finished, shipping in production builds ADMIN-ONLY.**
 Branch `feat/bestbuy-finalize` (cut from `main`, PR into `main-test-features`)
 brings everything from `development` except the ads: the parser hardening
@@ -39,7 +46,8 @@ and tested, live in the dev environment only — see the audit.
 | --- | --- |
 | `Price_Feed.md` | The price adapter (`backend/lib/bestBuyCatalog.js`) and the nightly job. The marketplace gate, the ~10 s API, the live probe, and what is still owed before the production scan flag is turned on. |
 | `Receipt_Parser.md` | The receipt parser: in-store and online formats, SKU width, discount sub-rows, service lines, and the 2026-09-02 promotion off the lab lane. Moved here from the shared registry doc on 2026-10-28. |
-| `Integration_Audit_2026-09-10.md` | The end-to-end audit: what was missing between "the code is complete" and "a shopper can use it", what was fixed, and what is owed. **Start here.** |
+| `Launch_Readiness_2026-11-06.md` | Ready to launch? The state on `main` / `main-test-features` / prod, every capture against the design rules, the in-store denoise step, Admin · Stores, and the **remaining roadmap**. **Start here.** |
+| `Integration_Audit_2026-09-10.md` | The end-to-end audit: what was missing between "the code is complete" and "a shopper can use it", what was fixed, and what is owed. |
 
 ## Where the code lives
 

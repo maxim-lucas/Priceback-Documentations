@@ -11665,3 +11665,32 @@ anyway).
   D1, D2, D12. Ledger trap noted: prod row 52 = 0042's hash at 0041's `when`.
 - **Next:** P0-2 (one prod plan-code redemption before Nov 10), P0-3 (Maxim approves the 5 Bug #359 rows), then
   P1-1 … P1-5 as `hotfix/*` PRs off `main`.
+
+## 2026-11-06 — Best Buy launch prep on `main-test-features`: in-store denoise, Admin · Stores switch
+
+- **Ask (Maxim):** "are we ready to publish best buy store and 100% support their receipts? what is the remaining
+  roadmap" → then "port #504 onto main, do also 2 [check the parser against the noise-removal rule] … dont mingle the
+  costco receipt parser … i want the store to be enabled only for admins … with a switch to enable stores in the
+  admin desk for any store" → then "work on main test features only now, i will merge all the branch to main later".
+- **Answer to the question:** not ready. #504 merged into `main-test-features`, not `main`; v3.3.0–v3.5.0 all have
+  Best Buy on the lab lane; prod: store off, feed off, 0 Best Buy receipts, 3 shoppers waiting. Corpus = 9 captures
+  (1 in-store); no return, markdown, second in-store or Québec in-store slip. No further Best Buy receipt exists in
+  the other fixture folders. Full write-up: `Technical/BestBuy/Launch_Readiness_2026-11-06.md`.
+- **Done, branch `feat/bestbuy-launch-prep` off `main-test-features` @ `bcedbf0`:**
+  - In-store denoise (`src/services/bestBuyReceiptSections.js`, Best Buy only — no shared/Costco file touched):
+    header/payment/footer and fulfilment lines removed before extraction. Four failure cases proven non-vacuous
+    (each fails with the step removed): `SALE` welded into the item name, a header banner with an amount, the
+    `Deliver01` stub as a phantom $12 item, a fulfilment line folded into an item. Corpus parses unchanged.
+  - Admin · Stores (`src/screens/AdminStoresScreen.js`; `GET /api/admin/stores`,
+    `POST /api/admin/stores/:code/availability`; `lib/storeAvailability.js`): Coming soon / Admins only / Everyone
+    for any store. Migration `0045_store_admin_preview` (numbered past `main`'s 0042–0044), `adminPreview` in the
+    policies payload (additive), the app reads the record's own field with the bundled set as fallback, and
+    `store-content-sync.sql` now writes availability on INSERT only so a sync never undoes the desk.
+- **Dev DB:** 0045 applied (additive). Dev still has `bestbuy.enabled = true` from the 2026-09-10 audit — not
+  changed. **Prod: nothing touched.** 0045 must be applied on prod before this backend deploys.
+- **Decisions taken (flag if wrong):** did not port #504 to `main` (superseded by "main-test-features only");
+  the desk is three states, not two switches; "Everyone" clears the admin hold; the content sync stopped owning
+  `enabled` (it would otherwise reopen/close stores behind the desk's back).
+- **Open for Maxim:** keep or flag the in-store tax re-derived from the printed rate (`repairTaxFromPrintedRate`,
+  design rule 5); in-row bleed-through left in the photo's item name (image problem); French in-store vocabulary
+  unproven until a Québec slip is captured.
