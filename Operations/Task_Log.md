@@ -11674,6 +11674,37 @@ anyway).
 - **Next:** P0-2 (one prod plan-code redemption before Nov 10), P0-3 (Maxim approves the 5 Bug #359 rows), then
   P1-1 … P1-5 as `hotfix/*` PRs off `main`.
 
+## 2026-11-05 — P0 / P1 / P2 of the roadmap as a hotfix on main
+
+- **Ask (Maxim):** "fix P0 and P1 and P2 as a hotfix on main" (after the 2026-11-04 re-prioritisation).
+- **P0 (no code; Maxim's actions):** P0-1 already ✅. P0-2 needs a real prod account and a phone: redeem ONE partner
+  plan code end to end before generating the Kickstarter reward codes. P0-3: approve the 5 corrected $5.00 drumstick
+  drops (4536/4537/4540/4541/4711) on the desk. Neither was done by Claude (prod data / Maxim's decision).
+- **P1 (server-only), branch `hotfix/p1-server-sync-gaps` off `origin/main` @ `adc94e5`, one commit per row:**
+  P1-1 flyer overlay rebuilt from price_points at boot (Bug #360); P1-2 every queued route answers failures
+  retryable — both deletes, claim, watch and PUT lines (Bug #361); P1-3 admin-repaired receipts guard the crowd pool
+  like re-read ones (Bug #362); P1-4 the price-drop queue names why a drop waits (`heldReason`) and filters drops on
+  shopper-corrected lines (admin screen part reaches Maxim with his next build); P1-5 the profile route's 400s name
+  the refused field (Bug #363). Plus the server halves of P2: D2 (`/api/watch` accepts `[]`), D7 (re-presign
+  retryable), D8 (`POST /api/observations/tag/image-upload-url`), D11 (`clientNow` + bootstrap `serverTime`), D12
+  (`deletedReceiptIdsNext` + `GET /api/receipts/deleted`). No migration.
+- **P2 (phone, for 3.5.1), branch `hotfix/p2-phone-sync-3.5.1`, stacked on P1:** D1, D2, D3, D4, D5, D6, D7, D8,
+  D10, D11, D12, D13, D14 — see `Technical/Device_Server_Sync_Audit_2026-10-23.md` §3. D9 was already fixed. **D15
+  untouched: product decision for Maxim.** New i18n keys (en + fr): `detail.backupReceiptTitle/Body`,
+  `detail.backupPhotoTitle/Body`.
+- **Decisions taken (flag if wrong):** P1 shipped as ONE PR with a commit per row (not one PR per row), so the deploy
+  is one audited change; P1-2 widened from the two delete routes to claim/watch/PUT lines (same defect, same
+  queues); D11 fixed by clock-skew correction (phone sends `clientNow`, bootstrap sends `serverTime`) instead of a
+  server-issued version, so no migration; D14 reads the scan time from the receipt id (`r_<ms>_…`), so no
+  migration; D2 only clears a list the phone knows it registered (a pre-3.5.1 leftover goes with the retention prune).
+- **Found, not fixed (pre-existing on `origin/main`):** `backend/tests/badScanRepairDb.test.js` "the admin desk's line
+  editor updates the server's in-memory registry with the database" fails on clean `main` too (`entriesWritten` 0,
+  expected 2) — verified in a clean worktree. A flaky `flyerAdminRoutes` test (an earlier test's background
+  fan-out captured by a stub) was hardened on the P1 branch. Local `nodemailer` was not installed (`npm install`).
+- **Status:** **Priceback #533** (P1 + server halves) open into `main`: backend suite 3,482 pass / 1 fail (the pre-existing
+  desk test above) / 2 skipped. **Priceback #534** (P2 phone, stacked on #533): mobile suite 397 suites, 11,274 pass, 1
+  skipped, coverage gate green. Nothing merged or deployed: a merge to `main` deploys prod (Maxim's go); merge #533
+  first, then retarget #534 to `main`. #534 reaches shoppers with 3.5.1 (tag + release per the release rule).
 ## 2026-11-06 — Best Buy launch prep on `main-test-features`: in-store denoise, Admin · Stores switch
 
 - **Ask (Maxim):** "are we ready to publish best buy store and 100% support their receipts? what is the remaining

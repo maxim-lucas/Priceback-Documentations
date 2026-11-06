@@ -14699,3 +14699,42 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Files: `backend/services/savings/savingRules.js`, `backend/repos/savingDropRepo.js`, `backend/repos/savingVerifyRepo.js`, `backend/services/savings/dropVerifier.js`, `backend/services/savings/dropConfidence.js`, `src/screens/AdminPriceDropQueueScreen.js`; tests `backend/tests/savingsQuality.test.js`, `backend/tests/savingsHarvestDb.test.js`, `__tests__/adminPriceDropQueueScreen.test.js`, `__tests__/undatedSavingsSection.test.js`.
 - Detect next time: a group of drops for one saving whose savings differ by cents. Check how many distinct `regular_unit_price` values Same-Day printed for the product in a single `observed_at`.
 - Prevent: the DB test (three pack prices → paid − $5; one shelf price → today's shelf price), plus unit tests for the rule, the confidence and the names (English, French, short, cut, register names, self-echo).
+
+## 360. Every deploy emptied the flyer overlay: no flyer price on /api/check-price and an empty deals feed until the next weekly import (roadmap P1-1, audit L5; fixed 2026-11-05, Priceback #533)
+
+- Date: 2026-11-05 · Area: backend (`server.js` flyer overlay, `/api/check-price`, `/api/flyer/active`).
+- Symptom: after any Railway deploy, `/health` (admin) showed `flyerOffers: 0` and `activeFlyerOffers: 0`; `/api/check-price` lost its flyer leg and `GET /api/flyer/active` returned no offers, although the week's flyer had been imported.
+- Root cause: the overlay (`flyerOffers` / `flyerHistory`) lived in memory, mirrored only to `flyerOffers.json` / `flyerHistory.json` under `DATA_DIR`. Production has no Railway volume, so every deploy started empty. The offers were durable all along as `flyer` price points (batch key in `source_ref`, printed window in `valid_from`/`valid_until`), but nothing rebuilt the overlay from them.
+- Fix: `startServer()` calls `restoreFlyerOverlayFromDb()` → `lib/flyerOverlayRestore.restoreFlyerOverlay` over `pricesRepo.flyerOverlayRows({ sinceISO })` (rows whose window ends inside `RETENTION_EXPIRED_OFFERS_DAYS`). Newest row per (province, SKU) wins; a key already in memory is never overwritten; each offer passes `flyerPricing.normalizeOffer`. No volume, so no deploy downtime.
+- Not kept by a price point (so absent from a restored offer): `size`, `imageHint`, the delivery flags (only `executiveOnly` is stored), a custom import `source` label. An item a re-import of the same batch dropped comes back until its window ends (the price point stays).
+- Files: `backend/lib/flyerOverlayRestore.js`, `backend/repos/pricesRepo.js` (`flyerOverlayRows`), `backend/server.js`; tests `backend/tests/flyerOverlayRestore.test.js`, `backend/tests/flyerOverlayRestoreDb.test.js`.
+- Detect next time: admin `/health` → `flyerOverlayRestore` (`ok`, `restored`, `rows`, `at`) right after a deploy, beside `flyerOffers` / `activeFlyerOffers`.
+- Prevent: the DB test "deploys" (empties the overlay), rebuilds and reads the offer back through `/api/flyer/active`.
+
+## 361. A deleted line came back after a sync, and a claimed line stayed watched and billed — the server told the phone to drop its queued change on a 500 (roadmap P1-2 / sync audit D3; fixed 2026-11-05, server Priceback #533, phone #534)
+
+- Date: 2026-11-05 · Area: both (`server.js` receipt routes; `receiptSyncService`, `storageService` queues).
+- Symptom: a shopper deletes a line (or a receipt, claims a line, stops watching it, corrects it) while the server has a non-transient failure; the next sync puts the line back, or the server keeps the claimed line watched and keeps electing (and charging) drops on it.
+- Root cause: `DELETE /api/receipts/:id`, `DELETE …/items/:index`, `POST …/claim`, `POST …/watch` and `PUT …/lines` answered a deterministic failure `500 retryable:false`. Every shipped build (checked back to v2.8.3) lets the body's `retryable` beat the status and drops a queue entry marked not retryable — and those queues are the change's only road to the server. The image re-presign route did the same for the receipt photo (D7).
+- Fix (server, every build): `sendQueuedMutationFailure` answers every failure retryable — 503 for a pooler blip as before, 500 otherwise. The re-presign route answers an object-store failure 503 `UPLOAD_STORE_UNAVAILABLE` retryable (was a terminal 422). Fix (phone, 3.5.1): `receiptSyncService.queuedRetryable` keeps an entry on any 5xx whatever the body says, so a server bug can never drop one again.
+- Files: `backend/server.js`; `src/services/receiptSyncService.js`, `src/services/storageService.js`; tests `backend/tests/queuedMutationRetryableDb.test.js`, `backend/tests/receiptDocumentDb.test.js`, `__tests__/receiptSyncServiceDeletes.test.js`, `__tests__/storageServiceItemEdits.test.js`, `__tests__/receiptDocumentStorage.test.js`.
+- Detect next time: `[receipts] item delete failed` / `item claim failed` lines in the Railway log. Any new route a phone reaches through a durable queue must answer failures through `sendQueuedMutationFailure`.
+- Prevent: the route test fails every queued route with a deterministic and a transient error and asserts `retryable:true` on both.
+
+## 362. An admin-repaired receipt's bad prices went back into the crowd pool every time the shopper opened Home (roadmap P1-3, R1′; fixed 2026-11-05, Priceback #533)
+
+- Date: 2026-11-05 · Area: backend (`/api/watch`, `receiptsRepo.crowdCopyGuards`).
+- Symptom: after an admin corrected a receipt on the desk (line editor, *Fix automatically*, the bad-scan runbook), `flyer_user_scan` crowd copies at the bad parse's prices reappeared for that device and date.
+- Root cause: the phone keeps its uncorrected copy until its next hydrate and re-registers it through `POST /api/watch` every time Home opens. `lib/badScanRepair` takes the bad copies back only once. #484 guarded the Gemini re-read (reader `gemini_reread`) but not an admin repair.
+- Fix: `crowdCopyGuards` treats a receipt with `admin_reviewed_at` (every admin repair stamps it) like a re-read one: a crowd copy files only when it matches a repaired line's unit price, paid or regular (±1 cent).
+- Files: `backend/repos/receiptsRepo.js`, `backend/server.js` (comment); test `backend/tests/receiptGeminiRereadWatchDb.test.js`.
+- Detect next time: `flyer_user_scan` rows for a device whose `source_ref` date matches an `admin_reviewed_at` receipt, at a price none of its lines carries.
+
+## 363. A refused profile field held every other profile change back forever, and a postal-code change made offline was put back (sync audit D5 + D10; fixed 2026-11-05, server Priceback #533, phone #534)
+
+- Date: 2026-11-05 · Area: both (`PUT /api/me/profile`; `profileSyncQueue`, `CompleteProfileScreen`, `syncService` hydrate).
+- Symptom: (D5) a profile outbox holding a field the server refuses with 400 (a Terms grant on an account with no postal code) re-sent the whole doc on every drain, so notification toggles and the membership tier queued beside it never landed. (D10) a postal-code change that failed offline was lost, and the next hydrate wrote the server's old code back over it.
+- Root cause: (D5) a refused write changes nothing and the 400 never said which field; the outbox treated every non-OK as "retry everything". (D10) the postal code went out through one fire-and-forget `syncProfileToBackend`, and the hydrate is server-wins on postal code and province.
+- Fix: the two 400s carry an additive `refused: [{ field, consentType? }]` (server, every build); the 3.5.1 outbox drops just that field (a refused postal code takes its province and city), reports it (`profile_field_refused`, field names only), and sends the rest at once. Postal-code edits go through the outbox; the hydrate keeps a queued change (`hasPendingLocation`).
+- Files: `backend/server.js` (`refusedProfileFields`); `src/services/profileSyncQueue.js`, `src/services/authService.js` (`reportRefusal`), `src/screens/CompleteProfileScreen.js`, `src/services/syncService.js`; tests `backend/tests/signupPostalAndOsDb.test.js`, `__tests__/profileSyncQueue.test.js`, `__tests__/syncServiceSyncAudit.test.js`, `__tests__/authService.test.js`.
+- Detect next time: the `profile_field_refused` analytics event.
