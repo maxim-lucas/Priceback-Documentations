@@ -16,6 +16,14 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-06 — Merge main INTO main-test-features; Best Buy launch prep without touching main
+
+- **Asked (Maxim):** who are the 3 shoppers waiting for Best Buy; then *"merge main into main-test-features instead, dont merge anything on main yet, i already applied the migration on prod too, all the rest go ahead, changes never on main, prepare main-test-features to be the ready to merge code to main but i will do it at my pace"*.
+- **Decisions:** `main` is never written; `main-test-features` gets `main` via a sync PR. The branch's `0045_store_admin_preview` → **`0046_store_admin_preview`** (main's #537 took 0045). No prod writes.
+- **Done:** sync PR into `main-test-features` (conflicts + tests listed in `Technical/BestBuy/Launch_Readiness_2026-11-06.md` §5, incl. two tests already red on `main`); `REVIEWER_NOTES.md` + reviewer PDF gain Best Buy (branch `docs/bestbuy-reviewer-notes`).
+- **Found:** prod has main's 0045 but **not** `0046_store_admin_preview` (`stores.admin_preview` missing) — Maxim must apply it before a backend from this branch deploys. 3 waiting shoppers confirmed on prod (none notified).
+- **Status:** waiting on Maxim — apply 0046 on prod, merge `main-test-features` → `main` at his pace, the re-derived-tax decision, the new real receipts.
+
 ### 2026-11-02 — Support email to shoppers whose price drops reached nobody (no push token)
 
 - **Asked (Maxim):** email every shopper with no push token who has price drops: full details of the open ones (product, amount, purchase date, end date), *"you missed a total of xxx $"* for the expired ones, update the app and allow notifications, sent from support@priceback.ca with high importance and a signature, and done programmatically so it can be reused.
