@@ -1723,6 +1723,121 @@ confidence and every Gemini proof), so it needs Maxim's call. Pinned as a named 
 total row (or precede the run) with `subtotal + tax = total`, place them in order. That is the same
 unique-closing rule the block already applies to its own amounts.
 
+**2026-11-06.** Still open for photos (c666, c667 are photos). A PDF with the same streamed shape is no longer affected:
+see RC-41.
+
+## RC-40 · A two-digit Costco item number stays in the name (84 COKE) (fixed, hotfix 2026-11-06)
+
+**Printed shape.** Costco prints a few staples under a two-digit item number: `84 COKE 32X355 17.89 Y`, and
+`64 MEMBERSHIP RENEWAL` (Maxim). On a PDF the flat text splits it as `84` / `COKE 32X355` / `17.89 Y`.
+
+**What goes wrong.** Every reader wanted 3+ digits: the engine (`receiptParsingShared.extractSku`, `cleanSku`,
+`tryExtractItem`), the checks (`shared/receiptChecks.hasSku`), the wire contract (`displaySku`), the server's repos
+and the desk's **Check database** (`lib/receiptDatabaseFill` dropped every product whose number had fewer than 3
+digits, and `GET …/database-check` refused `sku=84`). So the line was stored as `84 COKE 32X355`, sku null. The desk
+had no check for a missing item number, so a receipt that closed to the cent was **auto-approved 13 of 13** with an
+unnumbered line. Check database found nothing, although product 47032 (sku 84, `COKE 32X355`) existed.
+
+**Cases.** `r_1794006813485_uj6oq` (c669, Barrhaven #1263), `r_1794006890957_0xj8u` (c671), `r_1794006913406_c6xeg`
+(c673): all three PDFs, Android 3.5.0, 2026-11-06. uj6oq and c6xeg were auto-approved.
+
+**Fix (hotfix PR → main).**
+- `shared/itemNumber` is the one rule: an item number is 2–12 digits. Adopted by the checks, the wire contract,
+  `receiptsRepo`, shopper edits, watch items, Gemini proposals, the admin price lookup, product-name jobs, the
+  database fill and the database-check route. Price tags, barcodes, the Sameday lookup and the Costco tax-code reader
+  keep 3+ digits: on a shelf tag a bare two-digit number is not an item number, and the tax reader would read
+  numbers inside product names as items.
+- The engine gained an **additive** `readItemRow` hook (a store without it parses as before). Costco's
+  `readCostcoShortItemRow` reads `NN NAME price` and `NNNNNNN XX price`, and `recoverTwoDigitItemNumbers` splits a
+  `NN NAME` that the flat text re-zipped, only when the paper prints the number at the head of that row.
+- **A department is not an item.** `93 PHARMACY`, `26 SPORTING`, `27 GARDEN`, `17 COOLER`, `13 FOOD` (refund and
+  department lines in the corpus) are two digits and one word. Numbered, every pharmacy sale would be one product,
+  and two prescriptions would read as a price drop (a push and a commission). They keep reading as before.
+  `namesAProduct`: a second word or a size.
+- New check `skus_present` (`shared/receiptChecks`): a product line without an item number (fees and deposits
+  excepted) is **unverified**. The desk shows amber, and auto-approval needs n of n, so the receipt waits for a person.
+  It informs only for a Gemini proof.
+- **Old builds (≤ 3.5.0)** keep their parser. On a Costco scan upload the server recovers the number with the same
+  rule (`lib/legacyItemNumbers`, in `persistReceiptItems`).
+- `receiptDatabaseFill.normalizeName` drops a leading item number, so `84 COKE 32X355` matches `COKE 32X355`.
+
+**Goldens.** On every photo the only change is COKE's sku 84 (`PXL_20260702_024137863`).
+
+## RC-41 · A Costco PDF's flat text streams its totals away from their labels (fixed, hotfix 2026-11-06)
+
+**Printed shape.** Two- and three-page Costco PDFs (costco.ca "download receipt"). Vision reads them page by page, and
+the flat text streams a column at a time:
+
+```
+SUBTOTAL
+321.04
+Member
+TAX
+****
+TOTAL
+XXXXXXXXXXXXXXXXX
+APPROVED -PURCHASE
+AMOUNT: $329.49
+…
+Please Come Again
+8.45
+329.49
+```
+
+**What goes wrong.** The parser reads it right through the word geometry (329.49 = 321.04 + 8.45). But
+`raw_ocr` was the flat text, and `shared/costcoReceiptSections` places no amount inside the final block. So the
+desk read *TOTAL not read off the totals block; the amount is printed elsewhere* and *TAX not read off the paper*
+(**Medium**), and the quality check read **Would refuse · totals_unread**.
+
+**Cases.** `r_1794006788556_5zvc2` (c668, Kanata #541, 2026-11-06). In the corpus, G-12 and the three PDF refunds read
+nothing from the flat text either.
+
+**Fix: the PDF's structure, apart from the photo's.** A PDF's words are page-relative and exact (no tilt, curl or
+fold; each page offset by 1e6). `shared/pdfReceiptRows` groups them by page and line, so every label sits beside its
+amount. A photo is never detected as a PDF: its word boxes are in pixels (`isPdfWords`), and the OCR service flags a
+PDF itself (`annotation.isPdf`).
+- **Phone:** `src/services/receiptPdf` stamps `sourceKind: "pdf"` and `pdfPages`. A Costco PDF's `rawText`
+  (→ `raw_ocr`) is its rows. The quality check treats a PDF as not a photo.
+- **Server, for builds ≤ 3.5.0:** `lib/pdfReceiptText` runs after the capture link. When the capture is a PDF, the
+  stored text's totals do not add up and the rows' do, `raw_ocr` becomes the rows (guarded on the text the phone
+  sent). The quality check then judges the rows by the server's rules.
+- `ocrCapture.envelopeText` adds a PDF's rows to its flat text (a superset), so a rows `raw_ocr` still links to its
+  capture.
+- The sections reader, the checks and the photo geometry are untouched.
+
+**Proof.** The shared rows read the same SUBTOTAL / TAX / TOTAL / items sold as the photo geometry on all 39 PDF
+fixtures. All 8 new production PDFs now pass every reading check (`receiptProdCaptures`: *a Costco PDF is judged on
+its rows*). The one exception is Lévis i7aiw's documented unit gap.
+
+**Not covered.** Costco PDFs already stored as flat text keep it until re-uploaded or backfilled (Maxim's call).
+
+## RC-42 · A two-character item name drops the line (1722362 G2) (fixed, hotfix 2026-11-06)
+
+**Printed shape.** `1722362 G2 23.99 Y` (Gatorade G2), Barrhaven 0xj8u (c671).
+
+**What goes wrong.** `tryExtractItem` keeps a name only when it is longer than 2 characters, so the line was dropped
+and the receipt was $23.99 short (lines 616.01, printed SUBTOTAL 640.00).
+
+**Fix.** Costco's `readItemRow` hook (RC-40) reads `NNNNNNN XX price` when the two characters hold a letter. c671
+closes to the cent.
+
+## RC-43 · Refusals made on scan, with credit wording (fixed, hotfix 2026-11-06)
+
+Not a parser root cause: the app's flow. Maxim: *"The receipt refuses for any reason (expired, upside down, not
+balanced, ....etc) should never be refused on scan but on 'Start tracking', the app should always give the user the
+option to edit before refusing and when refused he still can edit, rescan or cancel … never mention 1 credit was
+used."*
+
+- `receiptParser.deferEligibilityRefusal`: expired and the quality check come back on the scan as `pendingRefusal`.
+  The review opens with an amber heads-up card.
+- **Start tracking** judges the reading again as edited (`ScanScreen.judgeBeforeTracking`: expired on the saving date,
+  then `applyQualityCheck`). A refusal offers **Edit** (nothing spent, the review stays), **Rescan** or **Cancel**.
+  Charging is unchanged: an expired receipt is charged when the refusal is final, a quality refusal never.
+- What the receipt *is* (gas, refund-only, not a supported store, outside Canada, unreadable) is still refused at
+  scan: there is nothing to edit. Those popups now offer Rescan / Cancel.
+- No refusal or error copy mentions credits (`scan.rejectedCreditNote` removed; `retakeBody`, `unreadableBody`,
+  `rejectedStoreBody` and `sourceGoneBody` rewritten, EN + FR).
+
 ---
 
 ## Earlier root causes (before this register)

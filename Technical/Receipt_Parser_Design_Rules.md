@@ -230,6 +230,19 @@ better parse is adopted as before. Curl and fold stay in the geometry (RC-12).
     under *App-approved*. Anything less stays for a person. A person's review is never overridden; an app approval
     that no longer holds (the shopper changed the lines) is taken back; an admin's *un-review* sends it back to *Not
     reviewed*. Switch: `RECEIPT_AUTO_REVIEW_ENABLED` (on unless `false`; off in the committed `test.env`).
+    **Since 2026-11-06 a product line with no item number is never n of n** (check `skus_present`, unverified; fees
+    and deposits excepted). A receipt that closed to the cent with `84 COKE 32X355` unnumbered was auto-approved
+    13 of 13 (RC-40).
+
+16. **A PDF is treated apart from a photo, for its structure only (Maxim, 2026-11-06).** *"make sure PDF receipts
+    are always treated differently without regressing the paper receipt parsing … a pdf can be multipage, the paper
+    receipt never."* What differs: a PDF has one to several pages, page-relative word boxes, and a flat text that
+    streams the totals' labels and amounts apart. So a Costco PDF's paper (`raw_ocr`) is its rows
+    (`shared/pdfReceiptRows`: by page, then by line, with every label beside its amount). The phone stores them
+    (`src/services/receiptPdf`), and the server re-reads a PDF an older build stored as flat text
+    (`lib/pdfReceiptText`). Everything else (the sections, the checks, the parser's rules) is the same code for
+    both. A shared fix goes into the shared path; only a structural difference gets a PDF branch, and a photo never
+    enters it (its word boxes are in pixels). RC-41.
 
 ## 4. Edge cases that are data, not noise
 
