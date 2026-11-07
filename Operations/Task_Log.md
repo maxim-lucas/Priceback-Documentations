@@ -16,6 +16,13 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-07 — Locked price drops: show the amount, a fixed "few days left", and a missed counter
+
+- **Asked (Maxim):** correcting the 2026-11-06 count-only lock — *"the locked price drops should always show the amount … and a fixed message like 'few days left, unlock before it is too late' and once they expire they can show for the total missed counter. the tracking by product or receipts should always have a tile as a row … for the total amount with locked row (to unlock) … hide any identification for the receipt or the product but have the amount with less time to react"*; then *"merge everything into main once you finish"*.
+- **Kept from 11-06:** the receipt screen shows no trace of a locked drop; a locked alert opens Tracking, never a receipt; the paywall leads with Unlimited.
+- **Changed:** `summarizeLockedDrops` → `{count, savings, missedCount, missedSavings}`; LockedDropCard shows the amount, a red "Only a few days left — unlock before it's too late" chip (never the real days) and a missed line; Tracking has the amount row in **both** views plus a missed row under All/Expired; Home hero back to the ready/locked split with amounts; the locked pushes (verified drop, claims reminder, inactive nudge) carry the saving/total + "only a few days left". Rule written up in `Technical/Price_Drop_Lock_And_Notifications_2026-10-01.md`.
+- **Status:** done — branch `feat/locked-drops-hide-all-paywall-redesign`, merged to `main` on Maxim's request.
+
 ### 2026-11-06 — Merge main INTO main-test-features; Best Buy launch prep without touching main
 
 - **Asked (Maxim):** who are the 3 shoppers waiting for Best Buy; then *"merge main into main-test-features instead, dont merge anything on main yet, i already applied the migration on prod too, all the rest go ahead, changes never on main, prepare main-test-features to be the ready to merge code to main but i will do it at my pace"*.
@@ -11764,3 +11771,21 @@ with no push notifications.
 - **Open for Maxim:** keep or flag the in-store tax re-derived from the printed rate (`repairTaxFromPrintedRate`,
   design rule 5); in-row bleed-through left in the photo's item name (image problem); French in-store vocabulary
   unproven until a Québec slip is captured.
+
+## 2026-11-06 — In-app purchase prices stuck on "Loading" on one Android phone → store-lookup timeout
+
+- **Asked:** "I merged main-test-feature branch into main and since i can't see the in-app purchases prices, does
+  any dev configuration got into main?" → then "it is the 3.5.0 on android, live production version … saw the prices
+  2 hours ago" → "loading message, the admin health billing diagnostic is fine" → "came back now, what do you think
+  this was?" / "android was loading on 1 device, another one was working and iphone was working too" → "yes add the
+  timeout".
+- **Investigation:** no dev config in `main` (#540/#543): `app.json`/`eas.json` = `v3.5.0` but a notification icon;
+  `config/profiles/*` untouched since Sept; purchase/paywall/price files untouched since `v3.5.0`. Prod
+  `/api/v1/pricing.json` served `source: db` with the same five product ids; `/health` revenuecat configured;
+  RevenueCat status green. 3.5.0 prices come only from RevenueCat → Play on the device. Three devices at the same
+  moment (one Android stuck, one Android + iPhone fine) = device-side Play Billing hang. Bug #364.
+- **Done (Priceback, branch `fix/store-price-lookup-timeout` off `main`):** 10 s deadline on the store lookup, 3 s
+  on the storefront read (`storePrices.js`), six tests. Mobile suite: 12004 passed, 1 failed —
+  `costcoPathImmutability` (`costcoReceiptParser.js` hash), already failing on `main`, untouched here. i18n check green.
+- **Not done:** a hung `initRevenueCat` stays cached in flight in `purchaseService` (see Bug #364 "Not covered");
+  no release cut — ships in the next build.
