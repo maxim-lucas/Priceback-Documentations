@@ -11636,3 +11636,10 @@ anyway).
 - **Done:** `thirdPartyRow` / `OFFICIAL_EVIDENCE` in `priceDropRepo`; potential list splits a
   third-party card per price, labelled, dated by its post; admin actions scoped by `thirdParty`.
   Rule in `Technical/priceDrop.md` § 5. No migration. Queue rows 6032/6035 left for Maxim.
+- **Revision (Maxim, same day):** a website/social post is ONE vote of the 3 (each post, each
+  yepsavings warehouse page), pooled with non-admin shoppers; official sources need no rule of 3;
+  fewer than 3 go to potential. Replaces the separate third-party card. Plus a new
+  receipt-rejection reason `store_not_supported_yet` (EN + FR push), same PR.
+- **Prod regression (Maxim, same day):** 3 drumstick drops at $12.68 instead of $5 off, a
+  pack-priced product in the price-group path. Hotfix Priceback #548 merged and deployed; rows
+  8824–8826 superseded; the correct $5 drops had already gone out Nov 3. Bugs #361.

@@ -81,6 +81,7 @@ and the desk shows "Rejected by Admin". A request with no reason (an older desk 
 | `poor_lighting` | Too dark, faded or glare | |
 | `missing_items` | Missing items: part of the receipt is not in the photo | the item block doesn't reach its totals |
 | `wrong_store` | Wrong store: not a store PriceBack supports | |
+| `store_not_supported_yet` | Store not supported yet: coming soon, we'll tell the shopper when it is | Push: the store is coming soon and we'll let them know when it's supported (EN + FR). Added 2026-11-07. |
 | `wrong_date` | Wrong date: purchase date missing, unreadable or too old | |
 | `duplicate` | Duplicate: this receipt was already scanned | keep the first copy, reject the second |
 | `not_a_receipt` | Not a receipt | |
