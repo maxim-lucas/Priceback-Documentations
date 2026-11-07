@@ -98,6 +98,15 @@ How to scan), the guide unfolded, and a best-effort report to Admin · Receipt r
 and a Retake button. **"How to scan a receipt"** (`src/components/ReceiptScanGuide`) sits under Photo library / Upload
 file, unfolded until the first saved receipt; the old one-line how-to is gone.
 
+**Since 2026-11-06 the refusal is made at Start tracking, never on scan** (Maxim: *"should never be refused on scan
+but on 'Start tracking', the app should always give the user the option to edit before refusing"*; RC-43 in
+`Receipt_Parser_Root_Causes.md`). `scanReceipt` returns the verdict as `pendingRefusal`, and the review opens with an
+amber heads-up card listing the reasons. **Start tracking** runs `applyQualityCheck` again on the reading as edited
+(and the expired rule on the saving date). A refusal there offers **Edit** (nothing spent, nothing reported),
+**Rescan** or **Cancel**. Rescan and Cancel make it final: the *Refused in the app* report is sent then, and a queued
+scan leaves the queue. A quality refusal stays free. No copy mentions credits. A check that cannot run never blocks
+the save. A PDF is judged as not a photo, on its rows (RC-41).
+
 **The trial is a training set** (Maxim: *"these data can be a training so when we enable the feature the app have
 data as reference"*). Every checked receipt stores every raw measure (`receipt_quality_checks.metrics`, migration
 0040) and takes the admin's **Good / Bad** label on the receipt itself (not on the verdict, so a label stays right
