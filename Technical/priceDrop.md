@@ -236,6 +236,33 @@ Runs on a cron and immediately after each flyer import. On `main-test-features` 
    nothing and are not consulted; without a printed start the existing rules decide alone.
    The review-queue drain re-checks held drops with the same rule, so a misparse already
    queued is dropped at the next drain.
+   **Only official sources make a real drop; every other website is a potential one (Maxim,
+   2026-11-07).** *"any non official source (websites others than costco official websites and
+   sameday official websites for both warehouses and business) should be considered as
+   potential price drops not real price drops so we can split the low confidence from high
+   confidence price drops."* Official = Costco's own publications: Same-Day in-store rows
+   (`sourceKind 'sameday_instore'`, costco + business_centre), costco.ca and the Business
+   Centre pages, the weekly flyer, a retailer's own API (`scrape`). Shoppers' receipts and tag
+   scans are crowd evidence and keep the rule of N. A price read off any other site or post —
+   the yepsavings harvest and the admin's social-post import, both `flags.sourceKind
+   'social_price_tag'` — is **never** evidence for a verified drop until an admin's *Verify
+   price* on Admin · Potential price drops stamps it (`flags.potentialDropVerifiedBy`):
+   - it verifies no price group, whatever its `verified` stamp says (`ROW_VERIFIED` requires
+     `OFFICIAL_EVIDENCE`; the import had written 3,417 such rows `verified=true`, and the
+     rule-of-N stamp one more);
+   - it counts as no shopper toward the rule of N, and `markNewlyVerified` never stamps it;
+   - it is not the "seen after the purchase" sighting a verified drop needs (the sweep's
+     `fresh` drops it);
+   - its date is never a printed (tier-2) end — it is tier 4, unverified (`_vouchedEnd`);
+   - on Admin · Potential price drops it is its own card per (product, province, price),
+     tagged **UNOFFICIAL SOURCE · LOW CONFIDENCE**, naming the site, dated by its own post,
+     shown even when an official saving at the same price has ended. The card's actions
+     carry `thirdParty: true` so *Not a real price* excludes the post's rows only.
+   One predicate pair in `priceDropRepo` (`thirdPartyRow`, `OFFICIAL_EVIDENCE`); the
+   savings-based path (Solution B) already required an official source or an admin confirm.
+   Case that set it: DEMP 12 Grain, ON — Same-Day's $2 off ended Nov 1, one yepsavings post
+   (warehouse 531) said Nov 8, and that date revived two dead drops into the verified queue on
+   Nov 6 (`Operations/Bugs_Common_Fixes.md` #360).
 3. **Charge commission — incrementally, once per item.** Commission is debited **at detection**
    (in the same tx as the notification insert), but only on the **new price difference**: a
    per-item transaction advisory lock + a lookup of the lowest previously-notified price gives a

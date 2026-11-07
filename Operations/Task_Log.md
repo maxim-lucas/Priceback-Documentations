@@ -11623,3 +11623,16 @@ anyway).
   **0043 applied to dev; prod owes it BEFORE the backend deploys.**
 - **Done (campaign):** Kickstarter draft (Basics, CA$ goal, items) + `Marketing-Plan/11-kickstarter-campaign.md`.
   Not submitted; Maxim approves the preview first.
+
+## 2026-11-07 — Only official sources make a real price drop (third-party sites → potential)
+
+- **Ask (Maxim):** two $2 DEMP bread drops waiting for approval had an expired saving; the only
+  trace was one yepsavings offer in Ontario. From now on any non-official source (anything but
+  Costco's and Same-Day's own sites, warehouse + business) is a potential drop, not a real one,
+  so low and high confidence split and auto-approve can be trusted.
+- **Branch:** `hotfix/unofficial-source-potential-drops` off `main` (Maxim: "Hotfix off main").
+- **Root cause:** a yepsavings row's `expiryDate` passed as a printed end and outlived Same-Day's
+  ended one; 4,206 social rows stamped `verified` acted as admin bypasses. Bugs #360.
+- **Done:** `thirdPartyRow` / `OFFICIAL_EVIDENCE` in `priceDropRepo`; potential list splits a
+  third-party card per price, labelled, dated by its post; admin actions scoped by `thirdParty`.
+  Rule in `Technical/priceDrop.md` § 5. No migration. Queue rows 6032/6035 left for Maxim.
