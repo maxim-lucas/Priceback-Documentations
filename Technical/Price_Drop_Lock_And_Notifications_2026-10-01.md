@@ -82,6 +82,43 @@ The body always carries the days left (`1 day left to claim`, `N days left…`,
 
 ## In the app (free account below zero)
 
+> **Superseded 2026-11-07 — current rule (Maxim):** *"the locked price drops
+> should always show the amount … and a fixed message like 'few days left,
+> unlock before it is too late' … once they expire they can show for the total
+> missed counter … hide any identification for the receipt or the product but
+> have the amount with less time to react."*
+>
+> | Shown | Never shown |
+> |---|---|
+> | how many drops are locked, their **total saving** | the item, its new price, **which receipt** |
+> | one fixed line, **"Only a few days left — unlock before it's too late"** (FR *« Plus que quelques jours — débloquez avant qu'il ne soit trop tard »*), the same at 2 days or 3 weeks | the **real days left** (they would also hint at the purchase date) |
+> | locked drops whose window closed: a **missed** total ("$8.20 missed · 2 locked drops expired") | — |
+>
+> - `dropLock.summarizeLockedDrops` → `{ count, savings, missedCount, missedSavings }`
+>   (no days, no urgency). Open = the item's own deadline still open; anything
+>   else lockable is *missed*.
+> - **Receipt screen**: no trace at all (since 2026-11-06): no card, no hidden
+>   row, no "Price drop" title, and the header counts only visible drops. A card
+>   on one receipt would identify the receipt.
+> - **Home**: hero "To claim now" = every open drop, split
+>   *"$X ready · N drops"* / *"$Y locked · N drops"*; no "on N receipts" while
+>   something is locked; the footer says the visible drops' days, or
+>   "Only a few days left" when only locked ones remain. The **locked card** shows
+>   the count, "You can save $Y", the red hurry chip, the tip, the missed line and
+>   **Unlock**.
+> - **Tracking**: one compact row **in both views** (Products and Receipts) —
+>   "**$Y** more to claim / N hidden drops · Only a few days left" — under All /
+>   Alerts / Watching; a **missed** row ("**$X** missed / N locked drops
+>   expired") under All / Expired. Both rows open the paywall.
+> - **Pushes** (server): the verified-drop alert, the claims reminder and the
+>   inactive-claims nudge carry the saving/total and "only a few days left" — never
+>   the real days, the receipt, the position or the price. Locked verified-drop
+>   payload: `{ type, kind, locked: true }` only; the reminder: `{ type, count,
+>   total, locked: true }` (both route to Tracking › Alerts on 3.5.2+, and to the
+>   list on every older build because there is no `receiptId`).
+>
+> The rest of this section is the 2026-10-01 design, kept for history.
+
 `maskReceiptForLock` is **display-only**: the stored receipt keeps its drop, so
 buying credits shows it immediately and no claim is ever lost.
 
