@@ -19,7 +19,7 @@ Code (Priceback, branch `hotfix/drop-reminder-emails`):
 
 ## Who gets an email
 
-A live account (`status = true`, no deletion requested) with an email address and **at least one fresh drop**, that also has **at least one reason**:
+A live account (`status = true`, no deletion requested) with an email address and **at least one fresh drop**. **Push-reachable, recently active shoppers are included too** (Maxim, 2026-11-08: *"they should always be included"*): the email is a recap on top of the push, not a substitute. The reasons below are recorded on each shopper in the preview as information; they no longer gate the email:
 
 | Reason | Meaning |
 |---|---|
@@ -39,12 +39,14 @@ One language: the saved app language (`user_preferences.language`) when it is `e
 
 | Part | Content |
 |---|---|
-| Subject | *"You have 3 price drops waiting: $18.00 to claim"* / *"3 baisses de prix vous attendent : 18,00 $ à réclamer"* |
-| Recap | Price drops waiting · Total savings to claim · Earliest claim deadline (date and days left). Only the fresh drops. |
-| Missed | When any unclaimed drop's window has ended (emailed before or not): *"Already missed: $X from N price drops that were not claimed in time. Don't let the next one slip away."* |
-| Call to action | Open PriceBack for the details of each item and to claim. Button to the App Store / Google Play page (opens the app when installed; an email client strips a `priceback://` link). Both stores when the platform is unknown. |
+| Subject | **The amount first**, no count: *"$18.00 in price drops waiting for you"* / *"18,00 $ en baisses de prix vous attendent"*. On the earliest deadline's last day it starts *"Final reminder: "* / *"Dernier rappel : "* and the amount follows it directly. |
+| Header | The real app icon (`backend/assets/email-logo.png`, `assets/icon.png` at 144 px, sent as an inline `cid:` attachment because mail clients block remote and data images) next to the wordmark "Price**Back**" (the website's green). |
+| Final reminder | When `earliestDaysLeft <= 1` (claimDeadline counts today as 1, so this is the last day itself): a red banner at the top, and the deadline reads *"last day today"* / *"dernier jour aujourd'hui"* instead of "1 day left". |
+| Amount | A highlighted green box with the total in 36 px. **Vague on purpose:** no count of drops, never "an item" or "1 price drop"; the details are in the app. |
+| Recap | Earliest claim deadline (date and days left). Only the fresh drops. |
+| Missed | When any unclaimed drop's window has ended (emailed before or not): *"Already missed: $X in price drops that were not claimed in time. Don't let the next one slip away."* |
+| Call to action | One sentence: open PriceBack for the details and to claim, **update the app and allow notifications** (this replaced the separate P.S.). Button to the **Canadian** App Store page (`apps.apple.com/ca/app/priceback/id6795860374`, the website's Get app link: the app is on the Canadian storefront only, the region-less link fails for some readers) / Google Play. Both when the platform is unknown. It cannot open the app directly: builds only register `priceback://`, which mail clients strip, and there are no universal links. |
 | Signature | *Kind regards, The PriceBack Team*, support@priceback.ca, priceback.ca |
-| P.S. | Update PriceBack to the latest version and allow notifications, with the store link(s). |
 | Footer | Service message, not marketing. |
 
 Sent from support@priceback.ca through Zoho (`lib/supportMailer`), Reply-To support, **normal importance**. "High" stays for the hand-run support campaign.
@@ -75,7 +77,7 @@ Remember `app_config` outranks `defaults.js`: once a row exists, changing the co
 ## Approve, then send (the first run)
 
 1. **Preview the list** (nothing is sent):
-   - `GET /api/admin/drop-reminder-emails/preview` (admin token): every shopper with their address, language, reasons, count, total, earliest end, missed total, and the shoppers *not* emailed with why (`reachable_and_active`, `already_emailed`, `nothing_open`, `no_email`).
+   - `GET /api/admin/drop-reminder-emails/preview` (admin token): every shopper with their address, language, reasons, count, total, earliest end, missed total, and the shoppers *not* emailed with why (`already_emailed`, `nothing_open`, `no_email`).
    - One shopper's email as it will look: `GET /api/admin/drop-reminder-emails/preview?sub=<sub>&format=html`.
    - Or from a terminal: `railway run -e production node scripts/runJobNow.js dropReminderEmails` prints the list and writes every email as `.html` / `.txt` + `manifest.json` into `backend/data/support-emails/drop-reminders-<date>/` (gitignored).
 2. **Test**: `POST /api/admin/jobs/dropReminderEmails/run {"testTo":"you@…"}` or `runJobNow.js dropReminderEmails --test-to you@…`. Every email goes to that address, subject `[TEST → shopper]`. Nothing is recorded.
@@ -119,3 +121,12 @@ Without the password a sending run fails with `SMTP_NOT_CONFIGURED`, sends nothi
 4. Preview → test → approve → send, as above.
 
 **Old app builds:** unaffected. No existing route, request or response changes. The new routes are admin-only, and the email is sent by the server.
+
+
+## Running it from a PC with Avast (2026-11-08)
+
+Avast's mail shield intercepts SMTP, so port 465 fails with `unable to verify the first certificate`. Port 587 re-signs with the Avast root, which Windows trusts: `SUPPORT_SMTP_PORT=587 NODE_OPTIONS=--use-system-ca railway run -e production node scripts/runJobNow.js …`. Verification stays on. From Railway itself none of this applies. A connection can also drop mid-batch ("Connection closed unexpectedly"): that one is not recorded, so re-running picks it up.
+
+## First send (2026-11-08)
+
+17 shoppers, $147.50, sent by hand from `runJobNow.js --send --i-approved` (switch still off) with the vague copy. All 17 accepted by Zoho and recorded in `price_drop_reminder_emails`; a re-preview showed `already_emailed 17`. The 10 push-reachable shoppers were then added to the rule (see Who gets an email).
