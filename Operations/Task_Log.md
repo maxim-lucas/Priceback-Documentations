@@ -11772,6 +11772,25 @@ with no push notifications.
   design rule 5); in-row bleed-through left in the photo's item name (image problem); French in-store vocabulary
   unproven until a Québec slip is captured.
 
+## 2026-11-06 — Prod hotfix on `main`: 2-digit item numbers, PDF totals, refusals at Start tracking
+
+- **Asked:** "coke product has sku 84 … the SKU is always null … auto-approved with a null SKU which is should never be
+  allowed … the check database button also didnt find any recommandations … PDF receipts have sometimes (Would
+  refuse) label and low confidence (Medium) because the total_on_paper not read off … The receipt refuses for any
+  reason … should never be refused on scan but on 'Start tracking' … never mention 1 credit was used … merge the new
+  code via a PR on main". Mid-task: "make sure PDF receipts are always treated differently without regressing the
+  paper receipt parsing" / "a pdf can be multipage, the paper receipt never".
+- **Done (Priceback, branch `fix/hotfix-sku-confidence-refusal-flow` off `main`):** `shared/itemNumber` (2–12 digits)
+  across receipt paths; Costco `readItemRow` hook (84 COKE, 1722362 G2), departments (`93 PHARMACY`) left as they
+  were; `skus_present` check (no auto-approval with an unnumbered product line); server recovery for ≤ 3.5.0 uploads;
+  Check database matches `84 COKE` → `COKE 32X355`; PDF rows (`shared/pdfReceiptRows`) on the phone and, for old
+  builds, on the server (`lib/pdfReceiptText`); refusals deferred to Start tracking with Edit / Rescan / Cancel;
+  credit wording removed (EN + FR). Root causes RC-40 … RC-43.
+- **Proof:** 8 new prod PDF captures (c631, c668–c674) pinned to the PDFs' own figures; every one passes every
+  reading check; photo goldens change only for COKE's sku 84.
+- **Not done (Maxim's call):** backfill `raw_ocr` of Costco PDFs already stored as flat text; the 3 COKE receipts
+  already in prod; RC-39 (photo label-run totals) still open; the Costco tax-code reader still ignores a 2-digit item.
+
 ## 2026-11-06 — In-app purchase prices stuck on "Loading" on one Android phone → store-lookup timeout
 
 - **Asked:** "I merged main-test-feature branch into main and since i can't see the in-app purchases prices, does
