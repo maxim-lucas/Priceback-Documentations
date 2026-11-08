@@ -11864,3 +11864,11 @@ with no push notifications.
 - **Done:** `lib/dropReminderEmails` (all of the above), inline logo attachment through the job's `sendMail`, `runJobNow.js` inlines the logo in saved previews, tests 28/28. First send: 17 shoppers, $147.50, 0 failed. Doc: `Operations/Price_Drop_Reminder_Emails.md`.
 - **Learned:** Avast intercepts SMTP on the dev PC (use 587 + `--use-system-ca`); `claimDeadline.daysLeft` is 1 on the last day itself; a `cid:` logo, not a hosted/data one, is what mail clients show.
 - **Open:** `unreachableDropEmails.js` still has the region-less App Store link (left alone); the send switch is still off in production.
+
+
+## 2026-11-08 — Reminder email: second send, and the production server cannot reach Zoho
+
+- **Ask (Maxim):** include the push-reachable shoppers always; merge; rerun for the 10 through the production pipeline, excluding the 17 already emailed.
+- **Done:** #552 merged and deployed; switch `DROP_REMINDER_EMAILS_SEND` on in `app_config` (Maxim: leave on); the production dry run picked exactly the 10 and excluded the 17 by the ledger; the real send from the server failed with `Connection timeout` (nothing recorded), so the 10 were sent by hand from a PC: 10 sent, 0 failed.
+- **Learned:** the server cannot send via Zoho SMTP (likely Railway's SMTP block, unverified): the automatic job is not deliverable yet. A `git checkout <file>` to drop one experimental edit also reverted an earlier uncommitted edit in the same file (the logo attachment); a test on the sent message now pins it.
+- **Open:** fix the server's mail route before ~Nov 11, or turn the switch off; `unreachableDropEmails.js` still has the region-less App Store link.
