@@ -264,13 +264,13 @@ Runs on a cron and immediately after each flyer import. On `main-test-features` 
    `potentialDropVerifiedBy`, which makes the posts official evidence.
    Case that set it: DEMP 12 Grain, ON. Same-Day's $2 off ended Nov 1, one yepsavings post
    (warehouse 531) said Nov 8, and that date revived two dead drops into the verified queue on
-   Nov 6 (`Operations/Bugs_Common_Fixes.md` #360). A first version of the rule, the same day,
+   Nov 6 (`Operations/Bugs_Common_Fixes.md` #366). A first version of the rule, the same day,
    made a post count for nothing and gave it a separate card; Maxim revised it to one vote.
    **A product sold by the pack never gets a price-group drop (2026-11-07, Priceback #548).**
    When Same-Day shows it sold by the pack in the province (`priceDropRepo.soldByThePackIn`:
    one harvest prints 3 or more regular prices), a price group's price is one pack's price: no
    price-group drop and no potential card; the savings path prices it as paid minus the saving
-   (Bugs #361).
+   (Bugs #367).
 3. **Charge commission — incrementally, once per item.** Commission is debited **at detection**
    (in the same tx as the notification insert), but only on the **new price difference**: a
    per-item transaction advisory lock + a lookup of the lowest previously-notified price gives a

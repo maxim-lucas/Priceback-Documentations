@@ -209,6 +209,24 @@ to **2.8.3** was checked (`git show v2.8.3…v3.3.0:src/services/ocrService.js`,
 
 Forcing builds: none needed.
 
+## Audit — 2026-11-06: 2-digit item numbers, PDF rows, refusal at Start tracking (hotfix → `main`)
+
+Live build: **Android 3.5.0** (main-test-features merged into main and deployed the same day). Every build back to
+**2.8.3** was checked for SKU handling (`git grep` over `v3.5.0:src`): no build filters a received SKU by its length.
+**No migration.**
+
+| Change | Why old builds are fine |
+|---|---|
+| `displaySku` (`receiptsRepo`, `shared/receiptWireContract`) shows a 2-digit item number (`84`) on shopper reads | A build that gets one back shows it as the line's item number, as it shows any other. Its own lookups (`REAL_SKU` ≥ 3 digits) treat it as no number, which is what it had before. |
+| Scan uploads: a Costco line with no SKU named `NN WORD WORD…` whose number the receipt's OCR prints at the head of that row is stored under item `NN` (`lib/legacyItemNumbers`) | Same request shape. Old builds send `84 COKE 32X355` + null and now get the product's number. A one-word department (`93 PHARMACY`) is stored exactly as before. |
+| After a Costco PDF upload, `raw_ocr` may become the PDF's rows (`lib/pdfReceiptText`) | Only when the capture is a PDF, the stored text's totals do not add up and the rows' do, and only if `raw_ocr` is still what the phone sent. No build reads `raw_ocr` back for anything but the admin desk. |
+| The shadow quality check re-judges such a receipt on its rows (the app's verdict on the flat text is set aside) | Server-side verdict only. |
+| `readingConfidence`: new check `skus_present` (unverified when a product line has no item number) | Admin only. A desk build labels an unknown key "Another safety check". Auto-approval needs n of n, so such a receipt waits for a person. |
+| `GET /api/admin/receipts/:id/database-check` accepts `sku` of 2 digits; `/api/admin/catalog/items` too | Admin only, additive. |
+| Shopper line edits (`PUT /api/receipts/:id/lines`) keep a 2-digit `sku` instead of dropping it to null | No shipped build lets a shopper type one; additive. |
+
+Forcing builds: none needed.
+
 ## Open gaps
 
 1. ~~No client version on requests~~ **Done** (3.0.7): `X-App-Platform`,

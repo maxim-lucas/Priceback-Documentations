@@ -1,293 +1,116 @@
-# PriceBack — Future Roadmap
+# PriceBack — Roadmap by priority
 
-Status legend: **✅ SHIPPED** · **🟡 PARTIAL** · **🔵 OPEN**
+**Re-prioritised 2026-11-04** against `main` @ `adc94e5` (store build **3.5.0 / 58**, tag `v3.5.0`),
+production's database and `/health`. Every open row below was checked against the code or prod that day:
+**open ✔** = seen open in code/prod · **re-check** = carried over, not re-verified · **✅** = done (cites the PR).
 
-When picking up the next round of work, **skip everything tagged ✅** and use it
-as already-baseline. Treat 🟡 items as candidates for completion before any new
-🔵 work is started.
-
-> **Defects take priority over this file.** The register is
-> [`App_Audit_2026-08-07.md`](./App_Audit_2026-08-07.md) — a whole-app path + bug
-> audit at `66a14e4` / v2.8.4: 0 Critical, 2 High, 4 Medium, 7 Low.
->
-> **All 13 findings were fixed the same day** (Priceback #242–#246,
-> Priceback-Website #13; write-ups in `Operations/Bugs_Common_Fixes.md`
-> **#149–#154**). The audit document is now a *history* of what was found, not a
-> to-do list — read it for the reasoning, not for outstanding work.
->
-> **One item is NOT closed: L5.** `DATA_DIR` is unset in `backend/railway.json`,
-> so the price-watch registry, the notify dedupe ledger and the flyer overlay may
-> be sitting on ephemeral container disk. It is an ops action, not a code change:
-> mount a Railway Volume on **both** the production and development services, set
-> `DATA_DIR` to its mount path, then confirm `GET /health` + `x-admin-token` →
-> `checks.storage.status` reads `volume`. Do that before anything below.
->
-> Two consequences of the fixes that need a human decision, not a commit: preview
-> builds now tag Sentry `environment: preview` (alerts filtered on
-> `environment:production` stop seeing them), and the first production
-> `eas update` must be a no-op bundle verified on a device — H1 activated a
-> delivery path that has never carried traffic, and store binaries up to 2.8.3
-> can never receive one at all.
->
-> ⚠️ **This file itself is stale.** Its "recently shipped" table stops at
-> 2026-05-20 and it cites a 187-test suite that has since grown into the
-> thousands. Treat the ✅ table as a floor, not as current state, until it is
-> rewritten (see §7 of the audit).
+How to work this file:
+- **Top to bottom.** P0 before P1, P1 before P2. Nothing in P3 starts while a P0/P1 row is open.
+- **P0 and P1 ship as hotfixes**: a `hotfix/<slug>` branch off `main`, one PR each, merged and carried to prod
+  (migrations applied to prod *before* the merge: prod deploys automatically once `main`'s CI finishes). P1 rows are server-only, so
+  one deploy fixes every installed build. They still follow the backend-compat rule (`Technical/Backend_Backward_Compatibility.md`),
+  audited against `v3.5.0..HEAD`.
+- **P2 rows change the phone**, so they reach shoppers only with a store build. They are bundled into the next
+  release (3.5.1), not hotfixed one by one.
+- **Defects outrank this file.** A production bug goes straight to `Operations/Bugs_Common_Fixes.md` and a hotfix.
 
 ---
 
-## ✅ Recently shipped — skip in next rounds
+## P0: production risk before the Kickstarter launch (Nov 10, 10:00 ET)
 
-| Item | Commit / date | Notes |
-|---|---|---|
-| **Receipt editing after save** | `bc37371` · 2026-05-20 | DetailScreen editor extended (qty, warehouseId, "+ Add item"). `addItemToReceipt` helper + 6 tests. |
-| **PDF export — full** | `bc37371` · 2026-05-20 | `exportClaimsAsPdf({ range })` accepts month / quarter / year / all. Profile modal: range chip group + contextual pickers. 5 tests. |
-| **Costco weekly-flyer overlay** | `bc37371` · 2026-05-19 | `flyerPricing.js` module, `/api/flyer/import`, `/api/flyer/active`, /api/check-price priority flyer → sameday → (crowdsourced as parallel signal), append-only price history, 103-item Ontario flyer JSON. 12 tests. |
-| **Crowdsourced ≥6-user gate** | `bc37371` · 2026-05-19 | `MIN_DISTINCT_USERS_FOR_ALERT=6` — crowdsourced data only attaches to /api/check-price when ≥6 distinct devices have contributed. Median is still computed; just not broadcast below the threshold. |
-| **Urgency colour codes** | `bc37371` · 2026-05-19 | Green / yellow / red tied to fraction of adjustment window remaining (>2/3, 1/3–2/3, <1/3). `priceDropUrgency()`, `COLORS.urgency`, applied across Home / Receipts / Detail / push titles. |
-| **Audit pass #5** | `bc37371` · 2026-05-19 | province now flows through /api/watch, flyer import items cap, constant-time admin token, daily prune cron, scrape cron skips flyer-covered SKUs to avoid double-notify. |
-| **iOS build prep** | `bc37371` · 2026-05-20 | `expo-apple-authentication` added, `usesAppleSignIn`, `googleClientIdIos` placeholder, `signInWithGoogle` passes iOS client. Still needs GCP iOS OAuth client + GoogleService-Info.plist before first build. |
-
-Total since last roadmap touch: **187/187 mobile + 47/47 backend tests passing**.
-
----
-
-## 🟡 Partial — finish before new 🔵 work
-
-### Warehouse-pricing Phase 2 — UI surface
-**Status:** Backend done (flyer + crowdsourced complement + priority chain), mobile lookup wired. **Missing:**
-- "Deals this week" feed in the app — `getActiveFlyerOffers(region)` helper exists in `priceService.js` but no screen renders it yet.
-- DetailScreen badge for the new `crowdsourced` complement field on /api/check-price (currently only the old "From your warehouse · N obs" chip path is wired).
-
-### iOS first build
-**Status:** All code-side prep landed in `bc37371`. **Missing user-side prep before EAS / local build:**
-1. `npm install` so `expo-apple-authentication@~8.0.0` lands in `node_modules/`.
-2. GCP → create iOS OAuth client for `com.priceback`. Paste client ID into `app.json` `extra.googleClientIdIos`.
-3. Download `GoogleService-Info.plist` from GCP, drop in repo root.
-4. App Store Connect → enable "Sign In with Apple" capability on the bundle ID.
-5. `eas build --platform ios --profile preview` (needs macOS or EAS cloud; local iOS build isn't possible from Windows).
-
-### Plan A + Plan B production rollout
-**Status:** Both merged + dormant per `PLAN_AB_ROLLOUT.md`. Plan B is now superseded by the flyer overlay as the *primary* Costco price source (see strategy memo); Plan B remains as the complement signal. Plan A (LLM OCR reconciliation) is still useful and untouched.
-
-**Open:** Backend env vars + new EAS build to enable the Profile toggles.
-
----
-
-### Best Buy — open to shoppers 🟡
-
-**Code finished (Priceback #504, 2026-10-28)**: the parser ships in every build as an
-**admin-preview** store. Admins scan it in production, shoppers see "Coming soon". Opening
-it to shoppers is Maxim's call. What has to be true first (`Technical/BestBuy/Price_Feed.md`
-§"Owed"):
-
-- 🔴 Reviewer notes: **when the store opens to shoppers**, add Best Buy to the third-party
-  services table and re-render + re-upload the PDF. Admin-only features are never
-  mentioned in store submissions, so nothing changes while it is admin-only.
-- ✅ PIA: `Publishing-Compliance/PIA/bestbuy-price-feed.md`.
-- 🔴 Confirm **Railway** reaches bestbuy.ca: prod `/health?token=` →
-  `checks.priceFeeds.bestbuy`. From Canada the API still answers (2026-10-28).
-- 🔴 Prod drizzle ledger row for `0041_national_province`. The data is already there; hash
-  in `Price_Feed.md`.
-- Then flip, in this order: prod `BESTBUY_SCAN_ENABLED` (an admin tests the feed on their
-  own receipts), then the `stores.enabled` row for shoppers.
-
-## 🔵 Open — not yet started
-
-### Abercrombie & Fitch price feed — ⏸ ON HOLD (Maxim, 2026-10-28)
-
-**Status:** adapter built and inert (`backend/lib/abercrombieCatalog.js`,
-`CANADIAN_STORE_IDS` empty). Held because A&F has no free, automatic route to its prices
-that we're willing to build. Detail: `Technical/Abercrombie/Price_Adapter.md` and
-`Canadian_Egress_Verification.md`.
-
-**Settled:**
-- A&F Canada prices in **CAD** to Canadian shoppers. Maxim saw this in his own browser
-  from Orléans.
-- The whole site sits behind **F5 Bot Defense** (formerly Shape). curl, a Node fetch and a
-  headless real Chrome all stop at its "Client Challenge" page, from a Canadian home
-  connection as well.
-
-**Ruled out by Maxim:** a paid unlocker or scraping API (no spend), a shopper-run manual
-check in an in-app browser (users won't use it), and an A&F affiliate feed (we can't be
-affiliated).
-
-**Ruled out technically:**
-- **A self-built scraper that hides its automation from F5.** That is an arms race against
-  a product built to detect exactly that.
-- **A shopper-type A&F account used by a cron.** F5 judges the *browser*, not the person.
-  It sits in front of every page, the login page included, and stopping automated logins
-  (credential stuffing) is what it is mainly sold for. A login would pass through the same
-  wall first, gain nothing, and put the account at risk of a ban.
-
-**Why Costco is different.** We never beat Costco's wall either: costco.ca is still
-Akamai-walled to every script. The two routes that work went *around* it.
-- **Same-Day** reads Instacart's own storefront for Costco (`sameday.costco.ca`, plain
-  GraphQL with a guest cookie). It is a second front door with no wall, and it powers the
-  nightly cron.
-- The **barcode harvest** runs in Maxim's real Chrome through Claude in Chrome: a person's
-  real browser, run by hand on a schedule, not a server.
-
-**Free routes left, if this is ever resumed:**
-1. **Find A&F's "Same-Day"**: a second front door that publishes A&F Canada's CAD prices
-   without F5 (a partner storefront or marketplace listing). Research only. Nothing is
-   known to exist yet.
-2. **A weekly Claude-in-Chrome run** in Maxim's own Chrome, the barcode-harvest pattern.
-   It opens the A&F page for each *watched* line only (a live check, as with Best Buy; no
-   catalogue stored), reads the price, and submits it through an admin endpoint. It is
-   free, but it needs Maxim's PC and Chrome, so it is not an unattended cron.
-
-**Owed whichever route is chosen:** read `data-storeid` off a real Canadian page into
-`CANADIAN_STORE_IDS`, replace the derived CAD fixtures with a real capture, and solve
-product→slug addressing (a receipt prints ids, the page URL needs a slug).
-
-### Costco Pricing Accuracy — Phase 3 (paid scraper fallback chain)
-
-> Note: Phase 2 reframed as the *flyer overlay* (shipped). This is now the
-> NEXT step — a paid-API fallback when both flyer and sameday miss.
-
-If sameday scraping ever becomes unreliable, fall back to a commercial API.
-All are paid but handle anti-bot / CAPTCHA / page-structure churn for us.
-
-| Service | Pricing | Pros | Cons |
+| # | Item | Status 2026-11-04 | What's left |
 |---|---|---|---|
-| [Unwrangle](https://docs.unwrangle.com/costco-product-data-api/) | Pay-per-call | Search + product detail, UPC in search API, warehouse ID param | Paid |
-| [Apify Costco Scraper](https://apify.com/sovereigntaylor/costco-scraper/api) | Pay-per-run | Search + detail + warehouse pages, member-only status | Paid |
-| [ScrapingBee](https://www.scrapingbee.com/scrapers/costco-scraper-api/) | 1000 free credits | Easy setup, CA/US/UK | Paid after trial |
-
-**Decision criteria:**
-- Stay on sameday at low volume (free, current approach).
-- Add a provider fallback chain after flyer: flyer → sameday → Unwrangle → ScrapingBee.
-- Monitor sameday error rate. If >15% over 24h, auto-switch to paid provider.
-
-**Sketch:**
-```js
-async function costcoLookup(sku, name, warehouseId, province) {
-  const flyer = getActiveFlyerPrice(province, sku);  // ✅ shipped
-  if (flyer) return flyer;
-  try { return await scrapeSameday(sku, warehouseId); }
-  catch { /* fall through */ }
-  if (process.env.UNWRANGLE_KEY) {
-    try { return await scrapeViaUnwrangle(sku, warehouseId); } catch {}
-  }
-  if (process.env.SCRAPINGBEE_KEY) {
-    try { return await scrapeViaScrapingBee(sku); } catch {}
-  }
-  return null;
-}
-```
+| P0-1 | **Prod schema in step with `main`** | ✅ prod ledger = `main` through **0044** (ids 53/54 applied 11-04 after the admin-403 outage). All 21 crons green over 48 h (`job_runs`). | Standing rule: compare the prod ledger with `backend/db/migrations/meta/_journal.json` **before every merge** that carries a migration. ⚠️ Ledger trap: row id 52 holds **0042**'s hash at **0041**'s `when` (1793300000000). When `0041_national_province` reaches `main`, the migrator will skip it (the last `created_at` is 0044's). Insert its ledger row by hand, as `Technical/BestBuy/Price_Feed.md` already says. |
+| P0-2 | **RevenueCat on prod** (partner plan codes for Kickstarter rewards, #527, grant through RC) | ✅ prod `/health`: `revenuecat: configured, webhook: configured, syncApi: configured` (supersedes the July "webhook never delivered" note). | Before Nov 10: redeem **one** plan code on a real prod account end to end (code → RC promotional `unlimited` → app shows Unlimited → `partner_attributions.plan_granted_at` set). Generate the reward codes with `scripts/generate-partner-codes.js --per-pack` only after that passes. |
+| P0-3 | **Bug #359 queue rows**: 5 corrected $5.00 drumstick drops (4536/4537/4540/4541/4711) | pending in prod | Maxim approves them on the desk. No code. |
 
 ---
 
-### Canadian "Warehouse Runner" full product
+## P1: server-side hotfixes (one deploy fixes every build)
 
-**Inspiration:** [Warehouse Runner](https://app.warehouserunner.com/) tracks
-Costco prices across 600+ US warehouses and alerts on local drops.
-
-**Canadian opportunity:** No equivalent for the Canadian market.
-PriceBack already has the heavy infrastructure done (✅ flyer overlay,
-✅ receipt OCR + warehouse ID, ✅ crowdsourced contributions, ✅ push pipeline).
-What's left is the **product surface**.
-
-#### Timeline (revised after flyer overlay shipped)
-
-- **v3.0** — Warehouse price history visible in-app (read-only). Now feasible because `flyerHistory.json` already persists every flyer price observation.
-- **v3.5** — ✅ Opt-in crowd contribution from scans *(shipped via Plan B + ≥6-user gate)*.
-- **v4.0** — Dedicated "Deals near you" feed (🟡 backend ready, mobile screen still 🔵), push alerts for local price drops (✅ shipped via flyer sweep).
-
-#### Revenue models still to consider
-- Free tier: see prices at your warehouse only.
-- Pro tier (add-on): see prices at all warehouses in a 50 km radius.
-- Higher tier ($19.99/mo) for power users / cross-province comparisons.
-
-#### Still required for the full vision
-- Geocoding: warehouse ID → lat/lng for "near me" features.
-- Outlier detection for OCR'd prices (prices 10× the median get flagged) — minimal version already present in `warehousePricing.js` (±30% off the high-confidence median).
-- Per-region flyer ingestion beyond Ontario (currently only ON; QC / BC / AB etc. each need their own weekly upload).
+| # | Item | Status | Fix (server only) | Old builds |
+|---|---|---|---|---|
+| P1-1 | **Flyer overlay lost on every deploy** (what's left of audit **L5**) | ✅ fixed 2026-11-05, Priceback #533, `hotfix/p1-server-sync-gaps` (PR open, not merged: a merge deploys). Overlay rebuilt at boot from the flyer price points; admin /health `flyerOverlayRestore`. | Rebuild `flyerOffers`/`flyerHistory` at boot from the flyer `price_points` rows (already durable, see the comment at `server.js` ~L647). Keep the files as a local mirror. This closes L5 **without** a Railway Volume, and so without downtime on every deploy. | `/api/check-price` and `/api/flyer/active` keep their shape. Only the data stops vanishing. |
+| P1-2 | **D3**: a failed line/receipt delete answers `500 retryable:false`, so the phone drops its queued delete and the line comes back | ✅ fixed 2026-11-05, Priceback #533, `hotfix/p1-server-sync-gaps` (PR open, not merged: a merge deploys). Every queued route (both deletes, claim, watch, PUT lines) answers failures retryable. | Answer a deterministic failure retryable, the same as the 503 branch. | Builds that read `retryable` keep the tombstone and retry. That's the queue's existing 503 path, so nothing new. Phone half (keep on any 5xx) is P2. |
+| P1-3 | **R1′**: an admin-repaired receipt has the crowd-pool gap the re-read guard closed (#484). A phone that hasn't synced re-files the bad parse's prices on every `/api/watch` | ✅ fixed 2026-11-05, Priceback #533, `hotfix/p1-server-sync-gaps` (PR open, not merged: a merge deploys). `crowdCopyGuards` guards `admin_reviewed_at` receipts like re-read ones. | Add admin-repaired receipts (the badScanRepair / desk marker) to the `reread`-style guard: a crowd copy files only when it matches the repaired line's unit price. | Same `/api/watch` request. Refused copies were never shown to the shopper. |
+| P1-4 | **Admin price-drop queue**: say why a drop on a shopper-corrected line waits with review off; add a "corrected by the shopper" filter | ✅ fixed 2026-11-05, Priceback #533, `hotfix/p1-server-sync-gaps` (PR open, not merged: a merge deploys). `heldReason` per row, `?corrected=1`, `correctedCount`; the admin screen part reaches Maxim with his next build. | Admin screens only (exempt from translation, plain English). | Admin-only, so no shopper build is affected. |
+| P1-5 | **D5 server half**: the profile outbox retries a 400 forever | ✅ fixed 2026-11-05, Priceback #533, `hotfix/p1-server-sync-gaps` (PR open, not merged: a merge deploys). The two 400s carry `refused: [{ field, consentType? }]`. | If the route can name the refused field, return it (additive field) so the P2 phone fix can drop just that one. | Additive response field. |
 
 ---
 
-### US receipts (Costco US) — price-drop tracking 🔵
+## P2: phone-side fixes → bundle into the next store build (3.5.1)
 
-**Why it is on the list.** On 2026-10-02 a Quebec customer scanned a receipt from
-Costco Bayonne, NJ #1334 and was promised by push: *"Price-drop tracking isn't
-available yet for US Costco stores. It's coming soon, and we'll notify you as soon
-as it's live."* Since that day US receipts are refused (app) and stored unpriced as
-`unsupported_country` (server) — `shared/receiptCountry.js`, Bugs #304.
+From `Technical/Device_Server_Sync_Audit_2026-10-23.md` (the High findings shipped in #481–#484, #486). Most harmful first.
 
-**What "live" needs, at minimum:** a USD price pool that never mixes with CAD
-(price points keyed by country/currency, not by the shopper's province); US
-warehouses registered under a US state, not a province; Costco US's own
-price-adjustment policy (30 days, same as Canada, but its own claim copy and
-online form); store availability (the app is Canada + Egypt only today); and
-`SUPPORTED_RECEIPT_COUNTRIES` gaining `"US"` only once all of that exists.
+| # | Gap | Status | Proposed fix |
+|---|---|---|---|
+| D3 | Phone drops a queued line delete on a 500 | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1); server half = P1-2 | Keep the entry on any 5xx (server half = P1-2) |
+| D1 | A receipt the server refuses for good keeps `syncError`, shown nowhere | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1) | A per-receipt "not backed up" line on the Detail screen (en + fr) |
+| D2 | `/api/watch` answer unchecked; an empty list is never sent | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1); server accepts `items: []` | Check the answer; send `[]` when the last watched line goes |
+| D12 | `deletedReceiptIds` capped at 500; restore capped at 25 pages | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1); server cursor on P1 | Page the deleted ids like the receipts (server adds an optional cursor, so additive) |
+| D6 | The push-token back-fill reports success without checking the answer | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1) | Return `syncProfileToBackend`'s result |
+| D5 | The profile outbox retries a 400 forever | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1); needs P1-5 | Drop a field the server refused for good, and report it (needs P1-5) |
+| D4 | Claim/watch queue entries expire after 90 days | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1) | Keep a claim until its receipt is gone; a line id makes the retry safe |
+| D7 | A file re-upload answered not-retryable is dropped | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1); server re-presign retryable on P1 | Retry on 5xx; a 4xx says why on the Detail screen |
+| D8 | A tag-scan photo has no retry | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1); new route on P1 | Queue it like the receipt file |
+| D10 | Postal-code edits are fire-and-forget | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1) | Route them through the profile outbox |
+| D11 | Preferences compare the phone's clock with the server's | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1); server `clientNow` + `serverTime` on P1 | A server-issued version per write |
+| D13 | Photos stay on disk after an account switch | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1) | Delete the account's files in `clearAccountScopedStorage` |
+| D14 | A receipt added from the server sorts by its upload time | ✅ phone half in Priceback #534, `hotfix/p2-phone-sync-3.5.1` (stacked on #533; ships with 3.5.1) (scan time read from the id; no server change) | Send the phone's scan time with the upload |
+| D9 | An offline-scan flush with no `applied` refs cleared every sent ref | ✅ fixed: `purchaseService._flushOfflineScanLogOnce` clears only the refs in `applied[]` | — |
+| D15 | Restoring an account in its grace window keeps its receipts deleted | **product decision** | Matches the copy "Your data has been erased". Maxim decides. |
 
-**🔴 Owed on launch:** notify every account holding an `unsupported_country`
-receipt — at minimum `002010.0696…0013` (receipts `r_1790986971714_tl5wo`,
-`r_1790986803639_sgftf`). Query: `select distinct user_sub from priceback.receipts r
-join priceback.receipt_statuses s on s.id = r.status_id where s.code in
-('unsupported_country')` plus the two ids above (flagged `rejected` before the code
-existed).
+**Release note for 3.5.1:** OTA is unavailable, so every row here reaches only shoppers who update. Once 3.5.1 is
+live to 100% in a store, consider raising `MIN_SUPPORTED_BUILD_*` (prod today: Android 52, iOS 52) only if a
+row can't be made safe for older builds.
 
-### Sync integrity: deferred (audit 2026-10-23) 🔵
+---
 
-From `Technical/Device_Server_Sync_Audit_2026-10-23.md`. The High findings shipped (Priceback #481–#484 and #486). These are the rest, most harmful first. Each is a phone-side change, so it reaches shoppers
-only with a store build; the server-side half is noted where one exists.
+## P3: features and launches (Maxim sets the order)
 
-| # | Gap | Proposed fix |
-|---|---|---|
-| D9 | An offline-scan flush whose answer names no `applied` refs clears every sent ref (`purchaseService._flushOfflineScanLogOnce`) | Clear only the refs the server lists; an empty list clears nothing |
-| D3 | A 500 on the line-delete route answers `retryable:false`, so the phone drops its queued delete and the line comes back | Server: answer 500 as retryable; phone: keep the entry on any 5xx |
-| D1 | A receipt the server refuses for good keeps `syncError`, shown nowhere | A per-receipt "not backed up" line on the Detail screen (en + fr) |
-| D6 | The push-token back-fill reports success without checking the answer | Return `syncProfileToBackend`'s result |
-| D5 | The profile outbox retries a 400 forever | Drop a field the server refused for good, and report it |
-| D2 | `/api/watch` answer unchecked; an empty list never sent | Check the answer; send `[]` when the last watched line goes |
-| D4 | Claim/watch queue entries expire after 90 days | Keep a claim until its receipt is gone; a line id makes the retry safe |
-| D7 | A file re-upload answered not-retryable is dropped | Retry on 5xx; a 4xx says why on the Detail screen |
-| D8 | A tag-scan photo has no retry | Queue it like the receipt file |
-| D10 | Postal-code edits are fire-and-forget | Route them through the profile outbox |
-| D11 | Preferences compare the phone's clock with the server's | A server-issued version per write |
-| D12 | `deletedReceiptIds` capped at 500; restore capped at 25 pages | Page the deleted ids like the receipts |
-| D13 | Photos stay on disk after an account switch | Delete the account's files in `clearAccountScopedStorage` |
-| D14 | A receipt added from the server sorts by its upload time | Send the phone's scan time with the upload |
-| D15 | Restoring an account in its grace window keeps its receipts deleted | **Product decision**, matches the copy "Your data has been erased" |
-| R1′ | An **admin repair** has the same crowd-pool gap the re-read guard closed (#484): a phone that has not synced re-files the bad parse's prices | Extend `crowdCopyGuards` to admin-repaired receipts |
+### Best Buy: open to shoppers 🟡
+**Code finished (Priceback #504, 2026-10-28)**: the parser ships in every build as an **admin-preview** store.
+Prod `BESTBUY_SCAN_ENABLED = false` (checked 2026-11-04). Owed first (`Technical/BestBuy/Price_Feed.md` §"Owed"):
+- 🔴 Reviewer notes: **when the store opens to shoppers**, add Best Buy to the third-party services table and
+  re-render + re-upload the PDF. Admin-only features are never mentioned in store submissions.
+- ✅ PIA: `Publishing-Compliance/PIA/bestbuy-price-feed.md`.
+- 🔴 Confirm **Railway** reaches bestbuy.ca: prod `/health?token=` → `checks.priceFeeds.bestbuy`.
+- 🔴 Prod drizzle ledger row for `0041_national_province` (see the P0-1 ledger trap).
+- Then flip, in this order: prod `BESTBUY_SCAN_ENABLED` (an admin tests the feed on their own receipts), then the
+  `stores.enabled` row for shoppers.
 
-**Gemini re-read: residual risks (the switch ships OFF).** Maxim, 2026-10-22: "all receipts should be read by the
-server for any builds, if there is a risk of regression we can drop the concept or force OTA updates if this is the
-solution. if the risk is high drop that for now but document it in the roadmap md file". Assessed **moderate**: it
-shipped behind its own switch with the guards in the design rules, §7. What can still go wrong once it is on:
+### Gemini re-read switch (ships OFF; prod `RECEIPT_GEMINI_REREAD = false`, `RECEIPT_GEMINI_FIRST = false`)
+Maxim, 2026-10-22: "all receipts should be read by the server for any builds, if there is a risk of regression we
+can drop the concept or force OTA updates if this is the solution. if the risk is high drop that for now but
+document it in the roadmap md file". Assessed **moderate**: it shipped behind its own switch with the guards in the
+design rules, §7. What can still go wrong once it is on:
 - builds 2.8.3–3.1.3 pair lines by **position** when they sync. On a re-read that changes the number of lines, a
   phone-only drop chip or an unsent watch-off can land on the neighbouring line until the next check. Claims cannot
   move: a receipt with a claim is never re-read;
 - a phone that registered its watch list before the re-read finished filed crowd copies of the bad parse. The repair
   takes them back once, and the #484 guard stops the next registrations;
-- **OTA cannot fix an old build.** OTA needs EAS Enterprise, and even then reaches only the same binary version
-  (`runtimeVersion.policy = appVersion`). A build from 3.0.7 on can be **forced to update** (Admin · App version)
-  once a fixed build is live to 100%. 3.0.6 and older can only be asked.
+- **OTA cannot fix an old build.** A build from 3.0.7 on can be **forced to update** (Admin · App version) once a
+  fixed build is live to 100%. 3.0.6 and older can only be asked.
 
 Turn it on from the web console on **dev** first, watch *Read by* on the desk and the Gemini budget on `/health`,
-then production.
+then production. Do P1-3 first: the admin-repair gap is the same class as the re-read gap.
 
-**Small follow-ups found on the way:** the admin *Price-drop queue* doesn't say why a drop on a shopper-corrected
-line waits with review off. There is also no desk filter for "corrected by the shopper"; the receipt detail shows
-it.
+### "Deals this week" feed 🟡
+Backend done: `GET /api/flyer/active?region=` (sorted by savings %). **No screen consumes it** (checked
+2026-11-04). Needs P1-1 first, or the feed is empty after every deploy. Also open from the old Phase 2: a
+DetailScreen badge for the `crowdsourced` complement on `/api/check-price`.
 
-### 🔵 Other parked ideas
+### US receipts (Costco US): price-drop tracking 🔵
+**Why it is on the list.** On 2026-10-02 a Quebec customer scanned a receipt from Costco Bayonne, NJ #1334 and was
+promised by push: *"Price-drop tracking isn't available yet for US Costco stores. It's coming soon, and we'll notify
+you as soon as it's live."* Since that day US receipts are refused (app) and stored unpriced as
+`unsupported_country` (server): `shared/receiptCountry.js`, Bugs #304.
 
-#### ✅ Tax reader: fill a missing tax from receipt tax codes, product tax class, price check — MERGED 2026-10-19
-- Costco prints a tax letter per line (`FP`/`F` in QC, `H`/`G` in ON, `Y`/`B`/`N` on digital receipts), and the
-  receipt prints each tax separately. A separate reader takes the letters from the OCR as received (the parser loses
-  them during denoise) and checks them against the printed taxes.
-- **Scope (Monica, 2026-10-18):** only a helper. When the scan read no tax (missing, or 0 while a line carries a
-  code), the reader fills the printed tax the codes confirm, or the tax the codes give when no printed tax can be
-  read. A tax the scan read is never replaced.
-- **Merged:** Priceback PR #455 (2026-10-18). On the corpus it closes on 56 of 138 fixtures, always on the paper's
-  tax; one golden fixture changes (c88: no tax → 7.49, the paper's).
-- **Merged 2026-10-19:** each line's tax class (federal, provincial, both, none) is saved, so the database learns each
-  product's tax per province (PR #467, migration `0029`), and a "Check price in database" button in the scan review
-  fills a line from the database and flags it for the admin (PR #456, migration `0028`). Design:
-  `Technical/Receipt_Tax_Codes_Estimate.md` §0 and §11. The app side ships with the next build.
+**What "live" needs, at minimum:** a USD price pool that never mixes with CAD (price points keyed by
+country/currency, not by the shopper's province); US warehouses registered under a US state, not a province; Costco
+US's own price-adjustment policy (30 days, same as Canada, but its own claim copy and online form); store
+availability (the app is Canada + Egypt only today); and `SUPPORTED_RECEIPT_COUNTRIES` gaining `"US"` only once all
+of that exists.
 
 #### 🔵 Receipt fee lines belong to the line above (Maxim, 2026-11-03)
 - An eco / enviro fee (`ENVIRO FEE`, `ECO FEE`, `ECOFRAIS`) or a container deposit (`DEPOSIT`,
@@ -300,44 +123,96 @@ it.
 - Until then (`Technical/Product_Catalog_Rebuild_Design.md` §6.8): never fill a fee line's item
   number, never track or watch it — like membership fees.
 
-#### 🔵 Flyer parser — "SAVE $N"-only banner tiles
-- The geometry flyer parser (`backend/services/flyerTextParser.parseFlyerWords`,
-  shipped 2026-06-26) extracts every tile that has an item number **and** a
-  readable price block. Some flyer tiles are pure marketing banners — a big
-  "SAVE $100" headline with **no SKU and no `was/-savings/promo` block** (e.g. a
-  category teaser pointing at Costco.ca). These are intentionally **skipped** for
-  now (no SKU = no `price_points` join key; no price = nothing to record).
-- Future: optionally surface them as a separate "category promo" signal (banner
-  text + savings headline + the section's valid-from/until), shown in review but
-  not written to `price_points`. Low priority — they carry no per-item price.
+**🔴 Owed on launch:** notify every account holding an `unsupported_country` receipt, at minimum
+`002010.0696…0013` (receipts `r_1790986971714_tl5wo`, `r_1790986803639_sgftf`). Query: `select distinct user_sub from
+priceback.receipts r join priceback.receipt_statuses s on s.id = r.status_id where s.code in
+('unsupported_country')` plus the two ids above (flagged `rejected` before the code existed).
 
-#### ✅ ~~PDF export~~ — SHIPPED 2026-05-20
-Annual + month/quarter/all-time PDF reports via `expo-print`. See `src/services/exportService.js`. Profile → Export Data.
+### Canadian "Warehouse Runner" full product 🔵
+**Inspiration:** [Warehouse Runner](https://app.warehouserunner.com/) tracks Costco prices across 600+ US warehouses
+and alerts on local drops. No Canadian equivalent. PriceBack already has the infrastructure (flyer overlay, receipt
+OCR + warehouse ID, crowd contributions, savings harvest, push pipeline). What's left is the **product surface**:
+- Warehouse price history visible in-app (read-only).
+- "Deals near you" feed (see above).
+- Geocoding: warehouse ID → lat/lng for "near me".
+- Revenue ideas: free = own warehouse; Pro add-on = all warehouses within 50 km; power tier for cross-province.
 
-#### 🔵 Family sharing (Unlimited tier)
-- Share receipts across up to 6 household members
-- Already listed as Unlimited tier feature in `purchaseService.js`
-- Needs: real auth/user accounts beyond local — `users.json` backend table exists but no household join model
-- Requires backend user schema redesign
+### Plan A: LLM OCR reconciliation 🔵
+Merged and dormant per `PLAN_AB_ROLLOUT.md`. Plan B is superseded by the flyer overlay + savings harvest as the
+primary price source and stays as the complement signal. **Open:** backend env vars + an EAS build to enable the
+Profile toggles. Overlaps the Gemini re-read work, so decide whether it is still wanted.
 
-#### 🔵 Advanced analytics (Unlimited tier)
-- Category breakdown, spending trends, best-value-store-per-category
-- Already listed in `purchaseService` features
-- Most data already captured; needs UI work
+### Ops decisions carried from the 2026-08-07 audit (not code)
+- Preview builds tag Sentry `environment: preview`; alerts filtered on `environment:production` don't see them.
+- The first production `eas update` must be a no-op bundle verified on a device (moot while OTA is off-plan).
 
-#### 🔵 Receipt photo persistence
-- Currently images live in app cache (lost on reinstall)
-- Copy to permanent storage via `expo-file-system`'s persistent directory
-- Low priority — receipts don't usually need viewing after claiming
+---
 
-#### 🔵 Barcode database
-- `BarcodeScanScreen` lets users enter barcodes but doesn't look up product info
-- Future: hit UPC database API (upcitemdb.com or similar) to auto-fill product name
-- Would make barcode scanning much smoother
+## Parked / on hold (don't start without Maxim)
 
-#### ✅ ~~Receipt editing after save~~ — SHIPPED 2026-05-20
-DetailScreen editor now covers item name / price / qty / sku, header date / total / tax / warehouseId, and "+ Add item". See commit `bc37371`.
+### Abercrombie & Fitch price feed: ⏸ ON HOLD (Maxim, 2026-10-28)
 
-#### 🔵 Dark mode toggle
-- Removed in v2.5.0 but can come back as proper theme context with full re-render
-- Users have asked for this
+**Status:** adapter built and inert (`backend/lib/abercrombieCatalog.js`, `CANADIAN_STORE_IDS` empty). Held because
+A&F has no free, automatic route to its prices that we're willing to build. Detail:
+`Technical/Abercrombie/Price_Adapter.md` and `Canadian_Egress_Verification.md`.
+
+**Settled:**
+- A&F Canada prices in **CAD** to Canadian shoppers. Maxim saw this in his own browser from Orléans.
+- The whole site sits behind **F5 Bot Defense** (formerly Shape). curl, a Node fetch and a headless real Chrome all
+  stop at its "Client Challenge" page, from a Canadian home connection as well.
+
+**Ruled out by Maxim:** a paid unlocker or scraping API (no spend), a shopper-run manual check in an in-app browser
+(users won't use it), and an A&F affiliate feed (we can't be affiliated).
+
+**Ruled out technically:**
+- **A self-built scraper that hides its automation from F5.** That is an arms race against a product built to
+  detect exactly that.
+- **A shopper-type A&F account used by a cron.** F5 judges the *browser*, not the person. It sits in front of every
+  page, the login page included, and stopping automated logins (credential stuffing) is what it is mainly sold for.
+
+**Why Costco is different.** We never beat Costco's wall either: costco.ca is still Akamai-walled to every script.
+The routes that work went *around* it: **Same-Day** (Instacart's storefront for Costco, plain GraphQL with a guest
+cookie) and the **barcode harvest** in Maxim's real Chrome through Claude in Chrome.
+
+**Free routes left, if this is ever resumed:**
+1. **Find A&F's "Same-Day"**: a second front door that publishes A&F Canada's CAD prices without F5. Research only.
+2. **A weekly Claude-in-Chrome run** in Maxim's own Chrome for *watched* lines only, submitted through an admin
+   endpoint. Free, but it needs Maxim's PC, so it is not an unattended cron.
+
+**Owed whichever route is chosen:** read `data-storeid` off a real Canadian page into `CANADIAN_STORE_IDS`, replace
+the derived CAD fixtures with a real capture, and solve product→slug addressing.
+
+### Costco pricing: paid scraper fallback chain
+Only if Same-Day becomes unreliable (Maxim: no spend today). Candidates: Unwrangle (pay-per-call, UPC search,
+warehouse param), Apify Costco Scraper (pay-per-run), ScrapingBee (1000 free credits). Trigger: Same-Day error rate
+>15 % over 24 h. Chain: flyer → Same-Day → Unwrangle → ScrapingBee.
+
+### Flyer parser: "SAVE $N"-only banner tiles
+`flyerTextParser.parseFlyerWords` skips tiles with no SKU and no price block (category teasers). Could surface
+them as a "category promo" signal in review, never written to `price_points`. Low priority.
+
+### Family sharing (Unlimited tier)
+Share receipts across up to 6 household members. Needs a household join model on `users`.
+
+### Advanced analytics (Unlimited tier)
+Category breakdown, spending trends, best-value store per category. Data is captured; needs UI.
+
+### Dark mode toggle
+Removed in v2.5.0; could return as a proper theme context. Users have asked for it.
+
+---
+
+## Superseded / done (history: read the PRs, don't re-open)
+
+| Item | Outcome |
+|---|---|
+| iOS first build | Superseded: iOS ships (App Store update gate #440, prod `MIN_SUPPORTED_BUILD_IOS = 52`, Apple + Google iOS sign-in configured on prod `/health`). |
+| Barcode database | Superseded by barcode→SKU linking and `services/barcodeLookup` (`fetchExternalName`), plus the admin Barcode Feeder (#498). |
+| Receipt photo persistence | Superseded by R2 receipt-photo upload and its retention prune (Bug #108). Re-check only if shoppers report lost photos. |
+| Audit 2026-08-07 (13 findings) | All fixed the same day (#242–#246, Website #13; Bugs #149–#154). L5 shrank to P1-1 above. |
+| Tax reader (receipt tax codes, product tax class, DB price check) | Merged 2026-10-18/19 (#455, #456, #467; migrations 0028/0029). Design: `Technical/Receipt_Tax_Codes_Estimate.md`. |
+| Receipt editing after save; PDF export; Costco weekly-flyer overlay; crowd ≥6-user gate; urgency colours | Shipped May 2026 (`bc37371`). |
+| Crowd contribution from scans (old "v3.5" milestone) | Shipped via Plan B + the ≥6-user gate. |
+
+For everything shipped since, read the GitHub releases (`gh release list`): every store version has a tag and
+release notes.

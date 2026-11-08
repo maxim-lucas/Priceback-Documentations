@@ -16,6 +16,21 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-07 — Locked price drops: show the amount, a fixed "few days left", and a missed counter
+
+- **Asked (Maxim):** correcting the 2026-11-06 count-only lock — *"the locked price drops should always show the amount … and a fixed message like 'few days left, unlock before it is too late' and once they expire they can show for the total missed counter. the tracking by product or receipts should always have a tile as a row … for the total amount with locked row (to unlock) … hide any identification for the receipt or the product but have the amount with less time to react"*; then *"merge everything into main once you finish"*.
+- **Kept from 11-06:** the receipt screen shows no trace of a locked drop; a locked alert opens Tracking, never a receipt; the paywall leads with Unlimited.
+- **Changed:** `summarizeLockedDrops` → `{count, savings, missedCount, missedSavings}`; LockedDropCard shows the amount, a red "Only a few days left — unlock before it's too late" chip (never the real days) and a missed line; Tracking has the amount row in **both** views plus a missed row under All/Expired; Home hero back to the ready/locked split with amounts; the locked pushes (verified drop, claims reminder, inactive nudge) carry the saving/total + "only a few days left". Rule written up in `Technical/Price_Drop_Lock_And_Notifications_2026-10-01.md`.
+- **Status:** done — branch `feat/locked-drops-hide-all-paywall-redesign`, merged to `main` on Maxim's request.
+
+### 2026-11-06 — Merge main INTO main-test-features; Best Buy launch prep without touching main
+
+- **Asked (Maxim):** who are the 3 shoppers waiting for Best Buy; then *"merge main into main-test-features instead, dont merge anything on main yet, i already applied the migration on prod too, all the rest go ahead, changes never on main, prepare main-test-features to be the ready to merge code to main but i will do it at my pace"*.
+- **Decisions:** `main` is never written; `main-test-features` gets `main` via a sync PR. The branch's `0045_store_admin_preview` → **`0046_store_admin_preview`** (main's #537 took 0045). No prod writes.
+- **Done:** sync PR into `main-test-features` (conflicts + tests listed in `Technical/BestBuy/Launch_Readiness_2026-11-06.md` §5, incl. two tests already red on `main`); `REVIEWER_NOTES.md` + reviewer PDF gain Best Buy (branch `docs/bestbuy-reviewer-notes`).
+- **Found:** prod has main's 0045 but **not** `0046_store_admin_preview` (`stores.admin_preview` missing) — Maxim must apply it before a backend from this branch deploys. 3 waiting shoppers confirmed on prod (none notified).
+- **Status:** waiting on Maxim — apply 0046 on prod, merge `main-test-features` → `main` at his pace, the re-derived-tax decision, the new real receipts.
+
 ### 2026-11-02 — Products catalogue rebuild, regular prices per place, egress budget, job schedules
 
 - **Asked (Maxim):** *"the products table has a lot of bad data, bad and misparsed receipts created dupplicate products with bad skus or bad product names … clean the data based on a sameday website, costco.ca, business costco center website and costco business same day website for all provinces and warehouses … all receipt items should be linked correctly. create a duplicate of product table … before doing the fix"*; then: receipt short labels EN + FR on products; a regular-price table (costco.ca, warehouse, Same-Day; `price_sameday` moves there) so savings apply to the original price; a full nationwide catalogue with every source's price; a channel flag with only `costco` / `business_centre`; a proof that no production receipt's prices change (better SKU/labels allowed, price changes shown for approval); the missing shrimp saving (362866); savings run moved after Same-Day publishes; jobs scheduled only when needed; egress cut (dev + prod share one plan, quota exceeded); *"disable dev railway runs never do that again."*
@@ -23,7 +38,7 @@
 - **Done so far:** dev `app_config` `SAVINGS_HARVEST_ENABLED` / `CATALOG_HARVEST_ENABLED` → `false` (2026-11-03 04:44 UTC). Shrimp cause found: the 00:05 savings run precedes Same-Day's publication.
 - **Files / areas:** design `Technical/Product_Catalog_Rebuild_Design.md`; `backend/server.js` (scheduler), `repos/pricesRepo.js` (`namedProductsForStore`), `lib/receiptDatabaseFill.js`, `lib/dbBackup.js`, `services/catalog/*`, `services/savings/*`, `repos/costcoImportRepo.js`, `db/schema.js` + migration.
 - **Branch:** docs `docs/products-catalog-rebuild`; code `hotfix/egress-and-job-schedules`, `hotfix/products-catalog-model`, `hotfix/products-catalog-cleanup` (all off `main`).
-- **Status:** design **approved** 2026-11-03. **Part A built** on `hotfix/egress-and-job-schedules` (plan `Technical/Product_Catalog_Rebuild_Plan_Part_A.md`): scheduler gate (prod only; dev `SCHEDULED_JOBS_ENABLED=false` set), tag-credit sweep skips settled pools, fill candidates in memory, fee lines never filled, Same-Day publication probe (measuring across Mon 2026-11-09), job audit §6.2a (decisions owed by Maxim), egress baseline `Operations/Egress/2026-11-03-before.md`, Bugs #359. Not merged, not deployed (**Priceback #528**, full suite 3362/0 fail).
+- **Status:** design **approved** 2026-11-03. **Part A built** on `hotfix/egress-and-job-schedules` (plan `Technical/Product_Catalog_Rebuild_Plan_Part_A.md`): scheduler gate (prod only; dev `SCHEDULED_JOBS_ENABLED=false` set), tag-credit sweep skips settled pools, fill candidates in memory, fee lines never filled, Same-Day publication probe (measuring across Mon 2026-11-09), job audit §6.2a (decisions owed by Maxim), egress baseline `Operations/Egress/2026-11-03-before.md`, Bugs #365. Not merged, not deployed (**Priceback #528**, full suite 3362/0 fail).
   **Parts D–E built** on `hotfix/products-catalog-model` (stacked on #528; plan `Technical/Product_Catalog_Rebuild_Plan_Part_DE.md`): migration **0044** (dev only; 0043 is #527's), channels + regular price kinds, full/receipt names, `product_regular_prices`, Same-Day in-store/delivery + costco.ca prices, refreshes in the tick, fee products never suspects, final-review fixes. **Dev fill done 2026-11-03** in partitioned <10-min runs (Maxim): Same-Day Costco 8,504 + Business Centre 5,843 products with regular prices per province, costco.ca read to the harvester's limit, Business Centre site done, channels refreshed.
   Part F: plan `Technical/Product_Catalog_Rebuild_Plan_Part_F.md`; backup/proof libs started. Owed by Maxim: I5 (show the receipt name on database-filled lines?), job cadences §6.2a, dbBackup, merges/deploys, prod 0044.
 
@@ -11632,7 +11647,7 @@ anyway).
   so low and high confidence split and auto-approve can be trusted.
 - **Branch:** `hotfix/unofficial-source-potential-drops` off `main` (Maxim: "Hotfix off main").
 - **Root cause:** a yepsavings row's `expiryDate` passed as a printed end and outlived Same-Day's
-  ended one; 4,206 social rows stamped `verified` acted as admin bypasses. Bugs #360.
+  ended one; 4,206 social rows stamped `verified` acted as admin bypasses. Bugs #366.
 - **Done:** `thirdPartyRow` / `OFFICIAL_EVIDENCE` in `priceDropRepo`; potential list splits a
   third-party card per price, labelled, dated by its post; admin actions scoped by `thirdParty`.
   Rule in `Technical/priceDrop.md` § 5. No migration. Queue rows 6032/6035 left for Maxim.
@@ -11642,4 +11657,202 @@ anyway).
   receipt-rejection reason `store_not_supported_yet` (EN + FR push), same PR.
 - **Prod regression (Maxim, same day):** 3 drumstick drops at $12.68 instead of $5 off, a
   pack-priced product in the price-group path. Hotfix Priceback #548 merged and deployed; rows
-  8824–8826 superseded; the correct $5 drops had already gone out Nov 3. Bugs #361.
+  8824–8826 superseded; the correct $5 drops had already gone out Nov 3. Bugs #367.
+
+## 2026-11-03 — Invite a friend: one rule everywhere (first purchase, 15 credits each)
+
+- **Ask (Maxim):** "the invite a friend should all be the same always. reward is on their first purchase
+  (first purchase = rewards for both of them 15 credits each) fix it in the app also … make sure also it
+  says the same on the website … and documentations".
+- **Found:** the backend already pays both sides 15 on the referee's first purchase
+  (`settleReferralOnFirstPurchase`, prod `app_config` 15/15), but the app said "Give {referee}, get
+  {referrer}", "first receipt scan", "On their first scan", a sign-up reward "(coming soon)" and an
+  instant credit on redeem; the website FAQ said "when they join"; this policy said "first scan".
+- **Done:** app PR #529 (`fix/invite-copy-first-purchase`: EN + FR copy, amounts passed to the strings,
+  `inviteCopyConsistency.test.js`); website PR #20 merged (FAQ + JSON-LD, EN + FR);
+  `Publishing-Compliance/Rewarded_Actions_Policy.md` and `Technical/database_design.md` (user_referrals).
+
+## 2026-11-03 — Kickstarter draft finished, ready for review
+
+- **Ask (Maxim):** "continue the kickstarter campaign and finalize it if possible to start as soon as
+  possible"; then: creator name Maxim Lucas, launch Tue Nov 10 at 10:00 ET with a fixed end Tue Dec 8 at
+  21:00 ET, Ottawa as the location (project and profile), the PriceBack icon as avatar.
+- **Done (Kickstarter, Chrome):** project image (two-phone still from the video scene, no captions);
+  project video v6 16:9 + Discovery Mode 9:16; Story (14 sections, from the plan, Boxing Day → Black
+  Friday, "today Costco, next Best Buy/Home Depot/Rona/Sport Chek"), Risks, Use of AI (now declares the
+  AI-generated narration voice); profile bio, avatar, Ottawa, priceback.ca; fixed deadline
+  2026-12-08T21:00-05:00. All required tabs green. **Not submitted:** Maxim clicks *Submit for review*,
+  then *Launch* on Nov 10 at 10:00 ET.
+- **Left to Maxim:** vanity URL (Kickstarter makes it permanent; suggestion `priceback`), Preferences →
+  Pledge Over Time (recommend No, so all payouts land in December), pre-launch page (only after approval).
+- **Doc:** `Marketing-Plan/11-kickstarter-campaign.md` v4 (status, timing, §6 = the story as
+  published, §11 = the AI disclosure as filed).
+
+## 2026-11-03 — Savings drops on a pack product: $5 for every buyer; confidence reads FR and short names
+
+- **Ask (Maxim):** five $5 drumstick drops (SKU 55502) showed $4.33 … $5.60 in the review queue; fix on a hotfix
+  branch off main so they show $5 and can be approved in prod, and fix the root cause. Then: the confidence must not
+  drop for a pack item or for a French / short / cut receipt name (match by SKU or by the names registers print);
+  one tap from a queue card to the shopper's full report.
+- **Done:** branch `hotfix/saving-drop-pack-price`. Bug #359 in `Operations/Bugs_Common_Fixes.md`.
+  Prod datafix of the 5 queue rows after deploy (needs Maxim's go).
+- **Follow-up 2026-11-04:** #530 merged 05:49 UTC with #531. Prod was missing migrations **0043** (#527) and
+  **0044** (#531) → the startup seed's warehouses insert failed on `channel_id`, config never warmed, admin list
+  empty → every admin route 403 "admin only". Applied 0043 + 0044 + ledger rows (ids 53, 54) to prod with Maxim's go.
+  The 05:32 UTC daily stage (old code, before the deploy) had re-staged 3 drops at the old shelf-based price
+  (4837/4838/4839) → closed as superseded; the 5 corrected $5.00 rows (4536/4537/4540/4541/4711) stay pending.
+
+## 2026-11-04 — Roadmap re-prioritised for production (P0 → P3), top tiers as hotfixes off main
+
+- **Ask (Maxim):** "start planning the roadmap file by priority now for production on main as a hotfix".
+- **Done:** `Roadmap/FUTURE_ROADMAP.md` rewritten by priority, every open row checked against `main` @ `adc94e5`
+  and prod that day. Prod ledger = `main` through 0044, 21 crons green over 48 h, RevenueCat + webhook `configured`
+  on prod `/health`. D9 already fixed. Open in code: flyer overlay lost on every deploy (L5 remnant), D3, R1′,
+  D1, D2, D12. Ledger trap noted: prod row 52 = 0042's hash at 0041's `when`.
+- **Next:** P0-2 (one prod plan-code redemption before Nov 10), P0-3 (Maxim approves the 5 Bug #359 rows), then
+  P1-1 … P1-5 as `hotfix/*` PRs off `main`.
+
+## 2026-11-05 — P0 / P1 / P2 of the roadmap as a hotfix on main
+
+- **Ask (Maxim):** "fix P0 and P1 and P2 as a hotfix on main" (after the 2026-11-04 re-prioritisation).
+- **P0 (no code; Maxim's actions):** P0-1 already ✅. P0-2 needs a real prod account and a phone: redeem ONE partner
+  plan code end to end before generating the Kickstarter reward codes. P0-3: approve the 5 corrected $5.00 drumstick
+  drops (4536/4537/4540/4541/4711) on the desk. Neither was done by Claude (prod data / Maxim's decision).
+- **P1 (server-only), branch `hotfix/p1-server-sync-gaps` off `origin/main` @ `adc94e5`, one commit per row:**
+  P1-1 flyer overlay rebuilt from price_points at boot (Bug #360); P1-2 every queued route answers failures
+  retryable — both deletes, claim, watch and PUT lines (Bug #361); P1-3 admin-repaired receipts guard the crowd pool
+  like re-read ones (Bug #362); P1-4 the price-drop queue names why a drop waits (`heldReason`) and filters drops on
+  shopper-corrected lines (admin screen part reaches Maxim with his next build); P1-5 the profile route's 400s name
+  the refused field (Bug #363). Plus the server halves of P2: D2 (`/api/watch` accepts `[]`), D7 (re-presign
+  retryable), D8 (`POST /api/observations/tag/image-upload-url`), D11 (`clientNow` + bootstrap `serverTime`), D12
+  (`deletedReceiptIdsNext` + `GET /api/receipts/deleted`). No migration.
+- **P2 (phone, for 3.5.1), branch `hotfix/p2-phone-sync-3.5.1`, stacked on P1:** D1, D2, D3, D4, D5, D6, D7, D8,
+  D10, D11, D12, D13, D14 — see `Technical/Device_Server_Sync_Audit_2026-10-23.md` §3. D9 was already fixed. **D15
+  untouched: product decision for Maxim.** New i18n keys (en + fr): `detail.backupReceiptTitle/Body`,
+  `detail.backupPhotoTitle/Body`.
+- **Decisions taken (flag if wrong):** P1 shipped as ONE PR with a commit per row (not one PR per row), so the deploy
+  is one audited change; P1-2 widened from the two delete routes to claim/watch/PUT lines (same defect, same
+  queues); D11 fixed by clock-skew correction (phone sends `clientNow`, bootstrap sends `serverTime`) instead of a
+  server-issued version, so no migration; D14 reads the scan time from the receipt id (`r_<ms>_…`), so no
+  migration; D2 only clears a list the phone knows it registered (a pre-3.5.1 leftover goes with the retention prune).
+- **Found, not fixed (pre-existing on `origin/main`):** `backend/tests/badScanRepairDb.test.js` "the admin desk's line
+  editor updates the server's in-memory registry with the database" fails on clean `main` too (`entriesWritten` 0,
+  expected 2) — verified in a clean worktree. A flaky `flyerAdminRoutes` test (an earlier test's background
+  fan-out captured by a stub) was hardened on the P1 branch. Local `nodemailer` was not installed (`npm install`).
+- **Status:** **Priceback #533** (P1 + server halves) open into `main`: backend suite 3,482 pass / 1 fail (the pre-existing
+  desk test above) / 2 skipped. **Priceback #534** (P2 phone, stacked on #533): mobile suite 397 suites, 11,274 pass, 1
+  skipped, coverage gate green. Nothing merged or deployed: a merge to `main` deploys prod (Maxim's go); merge #533
+  first, then retarget #534 to `main`. #534 reaches shoppers with 3.5.1 (tag + release per the release rule).
+
+## 2026-11-06 — Receipt review: rule 5 corrected, missed quantities, App-approved, Rejected chip, two rejection reasons
+
+Asked (Maxim): rule 5 is "always try to balance, flag only after the configured tries" (not "flag, never balance");
+digital Costco receipts (screenshot/PDF) read qty 2+ as 1 — cross the item's known unit price at the same warehouse
+(exact to the cent); apply migrations to prod; auto-approve receipts at 100 % confidence (n of n) into an
+"App-approved" filter; the desk's filters on several lines, "Not labelled" removed; scan-rejected and admin-rejected
+receipts under one "Rejected" chip; rejection reasons for "QR code only" and "total only"; a new user (iOS 3.5.0)
+with no push notifications.
+
+- **Branch** `hotfix/receipt-review-autoapprove-qty` off `origin/main` @ `826a717` — **Priceback #537**, open, not merged (a merge deploys prod: Maxim's go). Pre-existing failures on clean `main`: backend `badScanRepairDb` line-editor registry test; mobile `adminReviewEditing` "edits, adds and removes lines".
+- **Rule 5** rewritten in `CLAUDE.md` and `Technical/Receipt_Parser_Design_Rules.md` (pipeline step 6 BALANCE, rule 5);
+  new rules 14 (missed quantity) and 15 (App-approved).
+- **Migration 0045** (`auto_approved_at`, `auto_review_checked_at`, `quantity_inferred_at` on receipts + a partial
+  index). **Applied to dev and to PROD** (ledger row `aa3bc234ad48…`, `created_at` 1793700000000) before any deploy.
+  Prod was already current through 0044 (0042's ledger row sits at 1793300000000).
+- **Server:** `lib/receiptQuantityInference` (upload → after the re-read, before the drop sweep; also the backlog
+  sweep), `badScanRepair` mode `quantity`; `lib/receiptAutoApproval` (upload, shopper edit, hourly sweep + boot
+  run); desk filters `app_approved`, `rejected`; `unprocessed` no longer lists rejected scans; `deleted` no longer
+  lists admin rejections; `/api/watch` crowd guard covers quantity-corrected receipts. Switch
+  `RECEIPT_AUTO_REVIEW_ENABLED` (on; off in `test.env`). Push reasons `qr_code_only`, `total_only` (EN + FR).
+- **Desk (admin, ships with the next build):** chips wrap; App-approved + Rejected chips; "Not labelled" chip gone
+  (server key kept); row badges "App-approved" and "Rejected".
+- **Prod facts:** 0 live receipts waiting for review today (all 228 reviewed), so auto-approval starts with the next
+  uploads. The PDF corpus' `G-5` (Gloucester BC #802) shows the quantity shape: `1246719 HALLOUMI 11.98` = 2 × 5.99;
+  prod knows that SKU only at the misread 11.98, so the rule drops recorded multiples and needs a true unit price at
+  the warehouse before inferring.
+- **Push, Martine Grandmaitre:** not the old "granted without a token" bug. Her iPhone (3.5.0, build 58) reports
+  the OS permission **denied** (17:35 UTC today). iOS 3.5.0: 64 granted phones, all 64 with a token; 11 denied, 2
+  undetermined. Registration works; she declined the prompt or turned notifications off in Settings, and iOS does
+  not prompt twice. Fix is on her phone (Settings → PriceBack → Notifications) or the in-app alerts card.
+## 2026-11-06 — Best Buy launch prep on `main-test-features`: in-store denoise, Admin · Stores switch
+
+- **Ask (Maxim):** "are we ready to publish best buy store and 100% support their receipts? what is the remaining
+  roadmap" → then "port #504 onto main, do also 2 [check the parser against the noise-removal rule] … dont mingle the
+  costco receipt parser … i want the store to be enabled only for admins … with a switch to enable stores in the
+  admin desk for any store" → then "work on main test features only now, i will merge all the branch to main later".
+- **Answer to the question:** not ready. #504 merged into `main-test-features`, not `main`; v3.3.0–v3.5.0 all have
+  Best Buy on the lab lane; prod: store off, feed off, 0 Best Buy receipts, 3 shoppers waiting. Corpus = 9 captures
+  (1 in-store); no return, markdown, second in-store or Québec in-store slip. No further Best Buy receipt exists in
+  the other fixture folders. Full write-up: `Technical/BestBuy/Launch_Readiness_2026-11-06.md`.
+- **Done, branch `feat/bestbuy-launch-prep` off `main-test-features` @ `bcedbf0`:**
+  - In-store denoise (`src/services/bestBuyReceiptSections.js`, Best Buy only — no shared/Costco file touched):
+    header/payment/footer and fulfilment lines removed before extraction. Four failure cases proven non-vacuous
+    (each fails with the step removed): `SALE` welded into the item name, a header banner with an amount, the
+    `Deliver01` stub as a phantom $12 item, a fulfilment line folded into an item. Corpus parses unchanged.
+  - Admin · Stores (`src/screens/AdminStoresScreen.js`; `GET /api/admin/stores`,
+    `POST /api/admin/stores/:code/availability`; `lib/storeAvailability.js`): Coming soon / Admins only / Everyone
+    for any store. Migration `0045_store_admin_preview` (numbered past `main`'s 0042–0044), `adminPreview` in the
+    policies payload (additive), the app reads the record's own field with the bundled set as fallback, and
+    `store-content-sync.sql` now writes availability on INSERT only so a sync never undoes the desk.
+- **Dev DB:** 0045 applied (additive). Dev still has `bestbuy.enabled = true` from the 2026-09-10 audit — not
+  changed. **Prod: nothing touched.** 0045 must be applied on prod before this backend deploys.
+- **Decisions taken (flag if wrong):** did not port #504 to `main` (superseded by "main-test-features only");
+  the desk is three states, not two switches; "Everyone" clears the admin hold; the content sync stopped owning
+  `enabled` (it would otherwise reopen/close stores behind the desk's back).
+- **Open for Maxim:** keep or flag the in-store tax re-derived from the printed rate (`repairTaxFromPrintedRate`,
+  design rule 5); in-row bleed-through left in the photo's item name (image problem); French in-store vocabulary
+  unproven until a Québec slip is captured.
+
+## 2026-11-06 — Prod hotfix on `main`: 2-digit item numbers, PDF totals, refusals at Start tracking
+
+- **Asked:** "coke product has sku 84 … the SKU is always null … auto-approved with a null SKU which is should never be
+  allowed … the check database button also didnt find any recommandations … PDF receipts have sometimes (Would
+  refuse) label and low confidence (Medium) because the total_on_paper not read off … The receipt refuses for any
+  reason … should never be refused on scan but on 'Start tracking' … never mention 1 credit was used … merge the new
+  code via a PR on main". Mid-task: "make sure PDF receipts are always treated differently without regressing the
+  paper receipt parsing" / "a pdf can be multipage, the paper receipt never".
+- **Done (Priceback, branch `fix/hotfix-sku-confidence-refusal-flow` off `main`):** `shared/itemNumber` (2–12 digits)
+  across receipt paths; Costco `readItemRow` hook (84 COKE, 1722362 G2), departments (`93 PHARMACY`) left as they
+  were; `skus_present` check (no auto-approval with an unnumbered product line); server recovery for ≤ 3.5.0 uploads;
+  Check database matches `84 COKE` → `COKE 32X355`; PDF rows (`shared/pdfReceiptRows`) on the phone and, for old
+  builds, on the server (`lib/pdfReceiptText`); refusals deferred to Start tracking with Edit / Rescan / Cancel;
+  credit wording removed (EN + FR). Root causes RC-40 … RC-43.
+- **Proof:** 8 new prod PDF captures (c631, c668–c674) pinned to the PDFs' own figures; every one passes every
+  reading check; photo goldens change only for COKE's sku 84.
+- **Not done (Maxim's call):** backfill `raw_ocr` of Costco PDFs already stored as flat text; the 3 COKE receipts
+  already in prod; RC-39 (photo label-run totals) still open; the Costco tax-code reader still ignores a 2-digit item.
+
+## 2026-11-06 — In-app purchase prices stuck on "Loading" on one Android phone → store-lookup timeout
+
+- **Asked:** "I merged main-test-feature branch into main and since i can't see the in-app purchases prices, does
+  any dev configuration got into main?" → then "it is the 3.5.0 on android, live production version … saw the prices
+  2 hours ago" → "loading message, the admin health billing diagnostic is fine" → "came back now, what do you think
+  this was?" / "android was loading on 1 device, another one was working and iphone was working too" → "yes add the
+  timeout".
+- **Investigation:** no dev config in `main` (#540/#543): `app.json`/`eas.json` = `v3.5.0` but a notification icon;
+  `config/profiles/*` untouched since Sept; purchase/paywall/price files untouched since `v3.5.0`. Prod
+  `/api/v1/pricing.json` served `source: db` with the same five product ids; `/health` revenuecat configured;
+  RevenueCat status green. 3.5.0 prices come only from RevenueCat → Play on the device. Three devices at the same
+  moment (one Android stuck, one Android + iPhone fine) = device-side Play Billing hang. Bug #364.
+- **Done (Priceback, branch `fix/store-price-lookup-timeout` off `main`):** 10 s deadline on the store lookup, 3 s
+  on the storefront read (`storePrices.js`), six tests. Mobile suite: 12004 passed, 1 failed —
+  `costcoPathImmutability` (`costcoReceiptParser.js` hash), already failing on `main`, untouched here. i18n check green.
+- **Not done:** a hung `initRevenueCat` stays cached in flight in `purchaseService` (see Bug #364 "Not covered");
+  no release cut — ships in the next build.
+
+## 2026-11-07 — Automatic price-drop reminder email (+ run jobs by hand)
+
+- **Ask (Maxim):** email every shopper with price drops waiting who got no push or has not opened the
+  app for 3+ days; automated, every 3 days (easy to change); once per drop, new drops emailed again;
+  a recap (count, total, earliest end) + the missed total, open the app to claim, PS update + allow
+  notifications; the shopper's language, English by default; Zoho; nothing sent before Maxim approves
+  the list. Plus a way to force-run this job and the harvest jobs.
+- **Branch:** `hotfix/drop-reminder-emails` off `main` (Maxim's choice).
+- **Done:** migration **0047** (`price_drop_reminder_emails`, UNIQUE per receipt line);
+  `lib/dropReminderEmails` (who/what/language, pure), `jobs/dropReminderEmails` (daily 19:00 UTC check,
+  every `DROP_REMINDER_EMAILS_INTERVAL_DAYS`, HOLD until `DROP_REMINDER_EMAILS_SEND`),
+  `repos/dropReminderEmailRepo`; admin `POST /api/admin/jobs/:name/run` (dropReminderEmails,
+  harvestSavings, harvestCatalog) + preview endpoints; `scripts/runJobNow.js`; nodemailer → dependencies.
+  Doc: `Operations/Price_Drop_Reminder_Emails.md`.
+- **Owed:** 0047 on dev and prod (by hand, before deploy); `SUPPORT_SMTP_PASS` on Railway; Maxim
+  approves the preview list, then `DROP_REMINDER_EMAILS_SEND = true`.

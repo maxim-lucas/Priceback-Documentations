@@ -162,20 +162,20 @@ After signing in:
    - **Export Data** → generates a PDF report of claimed price-adjustments
      for a month / quarter / year.
 
-5. **Stores tab** — launches with Costco as the only active retailer
-   (full claim flow + weekly flyer overlay + crowdsourced warehouse
-   pricing). The 19 other Canadian retailers are visible in the list
-   with a "Coming soon" pill and full policy data so reviewers can see
-   the roadmap — they are not silently hidden. Each disabled row offers
-   a per-store "Notify me when it launches" opt-in (stored locally,
-   mirrored to the backend when signed in). Scanning a non-Costco
-   receipt is intentionally a no-op: OCR runs so the user sees we
-   detected the store correctly, but Save is replaced with the same
-   launch-notification CTA and no scan credit is consumed. Stores are
-   flipped to active by toggling `enabled: true` in
-   `backend/data/policies.json` (STORE-02 remote-refresh — no app
-   release required) or in `src/constants/stores.js` for the bundled
-   fallback.
+5. **Stores tab** — two active retailers: **Costco** (full claim flow +
+   weekly flyer overlay + crowdsourced warehouse pricing) and **Best Buy**
+   (Low Price Guarantee: a Best Buy receipt is tracked against Best Buy's
+   own current price for each item, and the claim sheet shows Best Buy's
+   policy and phone number). The other Canadian retailers are visible in
+   the list with a "Coming soon" pill and full policy data so reviewers
+   can see the roadmap — they are not silently hidden. Each disabled row
+   offers a per-store "Notify me when it launches" opt-in (stored
+   locally, mirrored to the backend when signed in). Scanning a receipt
+   from a store that is not active yet is intentionally a no-op: OCR
+   runs so the user sees we detected the store correctly, but Save is
+   replaced with the same launch-notification CTA and no scan credit is
+   consumed. Stores are opened from our server (an admin switch), so no
+   app release is required to activate one.
 
 ---
 
@@ -307,6 +307,7 @@ Profile.
 | RevenueCat | Subscription management | US |
 | Railway | Our backend hosting (US-East) | US |
 | Costco Same-Day Delivery | Read-only price scrapes | CA |
+| Best Buy Canada (bestbuy.ca) | Read-only public price lookups, once a day, only for items on receipts users are still tracking | CA |
 
 Cross-border transfer disclosed in Privacy Policy §10.
 
@@ -419,6 +420,8 @@ refund), **PriceBack's own server** adds one year of Unlimited to their account.
 - The first OCR call after install can take 5–10 seconds (cold backend).
 - Price refresh can return "no current price" for obscure SKUs that aren't
   on the Costco Same-Day Delivery catalog. This is expected.
+- Best Buy prices are checked once a day, so a newly saved Best Buy receipt
+  shows its first price comparison after the next daily check.
 - Push notifications arrive on a once-a-day cron after the receipt is saved.
   To test push delivery on-demand, the maintainer can hit
   `POST /api/check-all` on the backend.
@@ -469,6 +472,6 @@ We respond within 1 business day to reviewer questions.
 > location, contacts, microphone, advertising ID, or tracking.
 >
 > PriceBack is independent and not affiliated with or endorsed by Costco
-> Wholesale or any other retailer named in the app.
+> Wholesale, Best Buy, or any other retailer named in the app.
 >
 > Contact: maxim.lucas@viacesi.fr (engineering) · privacy@priceback.ca

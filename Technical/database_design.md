@@ -221,7 +221,7 @@ One row per (user, category) the user has EXPLICITLY set; absence folds to `noti
 `id serial PK · user_sub text → users.sub (cascade) · notification_type_id int → notification_types.id (restrict) · enabled bool NOT NULL · updated_at` · UNIQUE(user_sub, notification_type_id) · index(user_sub)
 
 #### `user_referrals`  *(NEW — referral edge / friends-invited list)*
-One row per accepted redemption; enables the "friends you invited" list and ties each redemption to the two `credit_ledger` rows that paid the bonuses. `referrer`/`referee` are real FKs with `set null` so the audit row outlives either deletion. `users.referrals_count` stays the fast denormalized counter; `referee_sub` UNIQUE enforces "redeem once".
+One row per accepted redemption; enables the "friends you invited" list and ties each redemption to the two `credit_ledger` rows that paid the bonuses. The redemption itself pays nothing: both bonuses (same amount, 15 each from `app_config`) are written when the referee makes their first purchase (`settleReferralOnFirstPurchase`, stamped `settled_at`). `referrer`/`referee` are real FKs with `set null` so the audit row outlives either deletion. `users.referrals_count` stays the fast denormalized counter; `referee_sub` UNIQUE enforces "redeem once".
 `id serial PK · referrer_sub text → users.sub (set null) · referee_sub text → users.sub (set null) · referrer_reward_ledger_id bigint → credit_ledger.id (set null) · referee_reward_ledger_id bigint → credit_ledger.id (set null) · created_at` · UNIQUE(referee_sub) · index(referrer_sub)
 
 ### Products & prices
