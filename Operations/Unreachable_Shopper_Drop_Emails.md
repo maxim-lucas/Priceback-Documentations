@@ -2,6 +2,8 @@
 
 **Asked (Maxim, 2026-11-02):** *"for shoppers not having push tokens and have price drops (active or locked) i need to send a custom email message for everyone in this list with the full details … mention that they need to update the app version and allow notifications … the full details for the active price drops with amount, date, product … (also purchase date and end date). for any expired price drops … (you missed a total of xxx $ on date) … professional email format as a support customer service … sent via the priceback support mailbox: support@priceback.ca with high importance … do it programmatically just in case this happens again … include a signature"*
 
+> **Automatic follow-up (2026-11-07):** `Price_Drop_Reminder_Emails.md` sends a short recap email by itself every 3 days, once per drop, to shoppers with no token, notifications off, or 3+ days away. This page is the detailed one-off campaign, still run by hand.
+
 `Shopper_Reachability_Check.md` flags these shoppers on the admin desk. This script is what you do about them: one email per shopper, from `support@priceback.ca`.
 
 ## Who gets an email
