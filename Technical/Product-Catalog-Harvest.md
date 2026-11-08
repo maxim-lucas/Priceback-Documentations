@@ -212,3 +212,66 @@ routes only otherwise); no route, field or status changed.
 - A wrong correction would file a line under a neighbouring item. The evidence rules, the live
   switches, `sku_read` on every corrected line and the merge records keep every change visible and
   reversible.
+
+## The product model: names, channel, regular prices (2026-11-03, migration 0044)
+
+Built on `hotfix/products-catalog-model` (Parts D–E of `Technical/Product_Catalog_Rebuild_Design.md`;
+plan `Technical/Product_Catalog_Rebuild_Plan_Part_DE.md`).
+
+| On each product | What | Written by |
+|---|---|---|
+| `display_name` / `display_name_fr` | the official name, as the most trusted source gives it — unchanged rules | `writeCatalog` |
+| `full_name` / `full_name_fr` | the name **with its size**, as Same-Day shows it ("Large Eggs" + "60 ct" → "Large Eggs, 60 ct"; the name alone when it already says its size) — same lock and trust rules | `writeCatalog` |
+| `receipt_name` / `receipt_name_fr` | the register's short text printed most often, per receipt language ("5 DOZ EGGS" / "OEUF 5 DOZ") — live lines only, never an edited, database-filled or fee line, never an admin-locked product | `refreshReceiptNames` (each good tick, `--refresh-names`) |
+| `channel_id` | `costco` (1) or `business_centre` (2): Business Centre only when nothing but Business Centre sells it (listings, savings, receipt lines at a BC warehouse, BC regular prices — vs the same from Costco, plus flyers) | `refreshChannels` (each good tick, `--refresh-channels`) |
+
+**The database fill** asks for the product's receipt name in the receipt's language, else the
+official name (`pricesRepo.productNameBySku`; a stand-in such as "ITEM #1234" never counts).
+**Not yet visible to the shopper:** a line whose name the database filled is stored with
+`printed_name` NULL, and receipt reads show `coalesce(printed_name, display_name)` — so the
+phone still shows the official name ("Large Eggs"). Showing the receipt name on filled lines is
+a visible change waiting for Maxim's decision (final review I5, 2026-11-03). What it changes
+today: the admin desk's "Check database" result and "Fix automatically" items, and on a French
+receipt the label fill of an empty official French slot.
+
+**Timeouts and partial runs:** a Same-Day catalogue run gets 240 minutes
+(`timeoutMinutesFor`; ~95 min with prices), a website run 120; the savings tick waits while the
+catalogue tick reads Same-Day. `--offset/--limit` (Same-Day) and `--partial` (websites) run a
+slice that fits a short command, written without the sanity floor — used for the dev fill of
+2026-11-03 on a memory-constrained machine. The dev fill found two real bugs (French-session
+price strings ×100; stale warehouse rows) and the final review three more (stand-in receipt
+names, badge-only "Save $X" prices, the French price pass) — all fixed with tests.
+
+**Website coverage gap (pre-existing):** the costco.ca reader only reads pages whose photo is
+named after the item number (2,015 of 5,083 pages in one sitemap version, 5,809 of 11,371 in the
+other — costco.ca serves both). Pages without that hint, and pages taken down (404, ~70 % of the
+unread hinted ones), are never resolved; the 404s are re-planned every run. Follow-ups:
+remember gone pages; read hint-less pages once to learn their item number.
+
+**Regular prices — `product_regular_prices`** (one row per product, channel, kind, province,
+warehouse; NULL province = national, NULL warehouse = the province's price):
+
+| Kind | From | How |
+|---|---|---|
+| `warehouse` | Same-Day **in-store** shop | every found product at the first `config.pricesPerProvince` (default **2**) warehouses of each province; `regularOfSamedayItem` = the struck-through price when on sale, else the price; none per weight |
+| `sameday` | Same-Day **delivery** shop | the first of those warehouses per province; also the daily savings harvest's delivery reads and the admin Costco upload (instead of `products.price_sameday`) |
+| `website` | costco.ca / costcobusinesscentre.ca JSON-LD `offers.price` (CAD) | national row |
+
+`planRegularPrices`: per product and province the most common price is the province row (ties →
+the lowest); a warehouse gets its own row only where it differs; a later write drops a warehouse
+row that now equals its province. Unknown warehouses are added with their province; the Same-Day
+storefront's own location list marks Business Centre warehouses (`warehouses.channel_id`). Fee
+products never get a price, a receipt name, a channel of their own, or a misread suspicion.
+
+A saving from the admin upload is applied to the province's Costco **warehouse** regular from this
+table when seen within `REGULAR_PRICE_FRESH_DAYS` (35), else the newest price point as before.
+The savings harvest's own drops ("Solution B") are **unchanged** — linking drops to this table is
+on the roadmap.
+
+**Cost of a weekly Same-Day run** with prices: discovery (~170 requests per warehouse read) + the
+French pass + the price pass (~170 per price warehouse × 2 per province in store + 1 delivery):
+roughly 5,000 politely spaced requests (~1 h). `pricesPerProvince: 0` in a source's config turns
+the price pass off.
+
+**Commands:** `--refresh-channels`, `--refresh-names`, and `--max-pages all` for the one-off full
+read of a website source (resumable: each run skips what the source verified within 35 days).

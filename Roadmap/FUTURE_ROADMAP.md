@@ -112,6 +112,17 @@ US's own price-adjustment policy (30 days, same as Canada, but its own claim cop
 availability (the app is Canada + Egypt only today); and `SUPPORTED_RECEIPT_COUNTRIES` gaining `"US"` only once all
 of that exists.
 
+#### 🔵 Receipt fee lines belong to the line above (Maxim, 2026-11-03)
+- An eco / enviro fee (`ENVIRO FEE`, `ECO FEE`, `ECOFRAIS`) or a container deposit (`DEPOSIT`,
+  `DEPOSIT QC`, `CONSIGNE`) is printed as **its own line right after the item it is charged on**
+  (`DEPOSIT CL` after a case of water). Today each becomes a separate line on an `ln:` placeholder
+  or on a numbered fee product (`9484 DEPOSIT`), always `ignored` (never tracked, never watched).
+- Future (parser): attach each fee line to the product line above it (e.g. a `fee_of_position`
+  link), so the item's real cost includes its fee, the fee never needs a product of its own, and
+  the database fill has nothing to guess. Needs Maxim's confirmation (Costco parser rule).
+- Until then (`Technical/Product_Catalog_Rebuild_Design.md` §6.8): never fill a fee line's item
+  number, never track or watch it — like membership fees.
+
 **🔴 Owed on launch:** notify every account holding an `unsupported_country` receipt, at minimum
 `002010.0696…0013` (receipts `r_1790986971714_tl5wo`, `r_1790986803639_sgftf`). Query: `select distinct user_sub from
 priceback.receipts r join priceback.receipt_statuses s on s.id = r.status_id where s.code in

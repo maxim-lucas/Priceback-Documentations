@@ -31,6 +31,17 @@
 - **Found:** prod has main's 0045 but **not** `0046_store_admin_preview` (`stores.admin_preview` missing) — Maxim must apply it before a backend from this branch deploys. 3 waiting shoppers confirmed on prod (none notified).
 - **Status:** waiting on Maxim — apply 0046 on prod, merge `main-test-features` → `main` at his pace, the re-derived-tax decision, the new real receipts.
 
+### 2026-11-02 — Products catalogue rebuild, regular prices per place, egress budget, job schedules
+
+- **Asked (Maxim):** *"the products table has a lot of bad data, bad and misparsed receipts created dupplicate products with bad skus or bad product names … clean the data based on a sameday website, costco.ca, business costco center website and costco business same day website for all provinces and warehouses … all receipt items should be linked correctly. create a duplicate of product table … before doing the fix"*; then: receipt short labels EN + FR on products; a regular-price table (costco.ca, warehouse, Same-Day; `price_sameday` moves there) so savings apply to the original price; a full nationwide catalogue with every source's price; a channel flag with only `costco` / `business_centre`; a proof that no production receipt's prices change (better SKU/labels allowed, price changes shown for approval); the missing shrimp saving (362866); savings run moved after Same-Day publishes; jobs scheduled only when needed; egress cut (dev + prod share one plan, quota exceeded); *"disable dev railway runs never do that again."*
+- **Decisions:** hotfix branches off `main`; dev first, prod on Maxim's go; rebuild **in place** (no delete/re-create — cascades + phones hold ids); prices as rows per place (province row + warehouse rows only where different); official names kept as sources give them + a full-length name with size; root causes one section per class. Full list: design doc §5.
+- **Done so far:** dev `app_config` `SAVINGS_HARVEST_ENABLED` / `CATALOG_HARVEST_ENABLED` → `false` (2026-11-03 04:44 UTC). Shrimp cause found: the 00:05 savings run precedes Same-Day's publication.
+- **Files / areas:** design `Technical/Product_Catalog_Rebuild_Design.md`; `backend/server.js` (scheduler), `repos/pricesRepo.js` (`namedProductsForStore`), `lib/receiptDatabaseFill.js`, `lib/dbBackup.js`, `services/catalog/*`, `services/savings/*`, `repos/costcoImportRepo.js`, `db/schema.js` + migration.
+- **Branch:** docs `docs/products-catalog-rebuild`; code `hotfix/egress-and-job-schedules`, `hotfix/products-catalog-model`, `hotfix/products-catalog-cleanup` (all off `main`).
+- **Status:** design **approved** 2026-11-03. **Part A built** on `hotfix/egress-and-job-schedules` (plan `Technical/Product_Catalog_Rebuild_Plan_Part_A.md`): scheduler gate (prod only; dev `SCHEDULED_JOBS_ENABLED=false` set), tag-credit sweep skips settled pools, fill candidates in memory, fee lines never filled, Same-Day publication probe (measuring across Mon 2026-11-09), job audit §6.2a (decisions owed by Maxim), egress baseline `Operations/Egress/2026-11-03-before.md`, Bugs #365. Not merged, not deployed (**Priceback #528**, full suite 3362/0 fail).
+  **Parts D–E built** on `hotfix/products-catalog-model` (stacked on #528; plan `Technical/Product_Catalog_Rebuild_Plan_Part_DE.md`): migration **0044** (dev only; 0043 is #527's), channels + regular price kinds, full/receipt names, `product_regular_prices`, Same-Day in-store/delivery + costco.ca prices, refreshes in the tick, fee products never suspects, final-review fixes. **Dev fill done 2026-11-03** in partitioned <10-min runs (Maxim): Same-Day Costco 8,504 + Business Centre 5,843 products with regular prices per province, costco.ca read to the harvester's limit, Business Centre site done, channels refreshed.
+  Part F: plan `Technical/Product_Catalog_Rebuild_Plan_Part_F.md`; backup/proof libs started. Owed by Maxim: I5 (show the receipt name on database-filled lines?), job cadences §6.2a, dbBackup, merges/deploys, prod 0044.
+
 ### 2026-11-02 — Support email to shoppers whose price drops reached nobody (no push token)
 
 - **Asked (Maxim):** email every shopper with no push token who has price drops: full details of the open ones (product, amount, purchase date, end date), *"you missed a total of xxx $"* for the expired ones, update the app and allow notifications, sent from support@priceback.ca with high importance and a signature, and done programmatically so it can be reused.
@@ -11627,6 +11638,26 @@ anyway).
   **0043 applied to dev; prod owes it BEFORE the backend deploys.**
 - **Done (campaign):** Kickstarter draft (Basics, CA$ goal, items) + `Marketing-Plan/11-kickstarter-campaign.md`.
   Not submitted; Maxim approves the preview first.
+
+## 2026-11-07 — Only official sources make a real price drop (third-party sites → potential)
+
+- **Ask (Maxim):** two $2 DEMP bread drops waiting for approval had an expired saving; the only
+  trace was one yepsavings offer in Ontario. From now on any non-official source (anything but
+  Costco's and Same-Day's own sites, warehouse + business) is a potential drop, not a real one,
+  so low and high confidence split and auto-approve can be trusted.
+- **Branch:** `hotfix/unofficial-source-potential-drops` off `main` (Maxim: "Hotfix off main").
+- **Root cause:** a yepsavings row's `expiryDate` passed as a printed end and outlived Same-Day's
+  ended one; 4,206 social rows stamped `verified` acted as admin bypasses. Bugs #366.
+- **Done:** `thirdPartyRow` / `OFFICIAL_EVIDENCE` in `priceDropRepo`; potential list splits a
+  third-party card per price, labelled, dated by its post; admin actions scoped by `thirdParty`.
+  Rule in `Technical/priceDrop.md` § 5. No migration. Queue rows 6032/6035 left for Maxim.
+- **Revision (Maxim, same day):** a website/social post is ONE vote of the 3 (each post, each
+  yepsavings warehouse page), pooled with non-admin shoppers; official sources need no rule of 3;
+  fewer than 3 go to potential. Replaces the separate third-party card. Plus a new
+  receipt-rejection reason `store_not_supported_yet` (EN + FR push), same PR.
+- **Prod regression (Maxim, same day):** 3 drumstick drops at $12.68 instead of $5 off, a
+  pack-priced product in the price-group path. Hotfix Priceback #548 merged and deployed; rows
+  8824–8826 superseded; the correct $5 drops had already gone out Nov 3. Bugs #367.
 
 ## 2026-11-03 — Invite a friend: one rule everywhere (first purchase, 15 credits each)
 

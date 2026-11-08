@@ -43,6 +43,19 @@ so store-scoped price queries (crowd/warehouse aggregation, the active-flyer ind
 `products` on the hottest table. This is the single allowed exception to rule #6, justified by
 read-path performance.
 
+**One deliberate, documented exception to rule #10 (migration 0044, Maxim 2026-11-02):**
+`product_regular_prices` holds the CURRENT regular (non-sale) price of a product at a place —
+warehouse shelf, Same-Day delivery, website — per (product, channel, kind, province,
+warehouse), a warehouse row only where that warehouse differs from its province. It is not an
+observation log: `price_points` stays the record of what was observed or paid; this table is
+the reference regular a saving is applied to (`costcoImportRepo.regularsForSavings`) and the
+base of the roadmap's warehouse price catalogue. Written only by
+`productCatalogRepo.writeRegularPrices`. Lookups `channels` (costco 1 | business_centre 2) and
+`regular_price_kinds` (warehouse 1 | sameday 2 | website 3) carry FIXED ids, inserted by the
+migration, because `products.channel_id` / `warehouses.channel_id` default to 1. It replaces
+`products.price_sameday` (no reader; dropped by a later migration). Design:
+`Technical/Product_Catalog_Rebuild_Design.md` §6.4.
+
 ---
 
 ## Conventions

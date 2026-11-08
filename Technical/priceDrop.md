@@ -236,6 +236,41 @@ Runs on a cron and immediately after each flyer import. On `main-test-features` 
    nothing and are not consulted; without a printed start the existing rules decide alone.
    The review-queue drain re-checks held drops with the same rule, so a misparse already
    queued is dropped at the next drain.
+   **Official sources need no rule of N; a website or social post is one vote of the N (Maxim,
+   2026-11-07).** *"a yepsavings or any unofficial savings should be considered as a user
+   verifier count (1 out of the 3 required per price). any new social post should be considered
+   as 1 source so 3 combined social post in the same province or warehouse should count as
+   verified, a combination of users (price tag scans) other than admins and unverified source
+   total 3 respect the rule so the price become verified. any offical source dont need the rule
+   of 3. any verified goes into price drops, any less than 3 users go in potential."*
+   Official = Costco's own publications: Same-Day in-store rows (`sourceKind 'sameday_instore'`,
+   costco + business_centre), costco.ca and the Business Centre pages, the weekly flyer, a
+   retailer's own API (`scrape`); admin uploads keep their bypass too. A price read off any other
+   site or post (the yepsavings harvest and the admin's social-post import, both
+   `flags.sourceKind 'social_price_tag'`):
+   - is **one vote per post** toward `PRICE_VERIFY_MIN_USERS`, pooled with shoppers' votes
+     (`priceDropRepo.VOTES_JOIN`). Yepsavings merges every warehouse page that showed the deal
+     into one province row, so each warehouse in `flags.warehouses` is one post; an import row
+     is one post per URL. A page re-read on another day is the same post, not a new vote;
+   - is never a bypass, whatever its `verified` stamp says (`ROW_VERIFIED` requires
+     `OFFICIAL_EVIDENCE`; the import had written 3,417 such rows `verified=true`);
+   - is the "seen after the purchase" sighting only when the group reached N **by votes**
+     (`by_votes`). An official row's bypass never lends itself to a post: an official saving
+     that ended, plus one post after it, is no drop;
+   - never dates a saving as printed: its end is tier 4, unverified (`_vouchedEnd`).
+   Fewer than N votes go to Admin · Potential price drops, one card per (product, province,
+   price), with `posts` (how many of the votes are posts), `sources` and each post's `site`; the
+   card is tagged **INCLUDES WEBSITE POSTS · NOT OFFICIAL**. An admin's *Verify price* stamps
+   `potentialDropVerifiedBy`, which makes the posts official evidence.
+   Case that set it: DEMP 12 Grain, ON. Same-Day's $2 off ended Nov 1, one yepsavings post
+   (warehouse 531) said Nov 8, and that date revived two dead drops into the verified queue on
+   Nov 6 (`Operations/Bugs_Common_Fixes.md` #366). A first version of the rule, the same day,
+   made a post count for nothing and gave it a separate card; Maxim revised it to one vote.
+   **A product sold by the pack never gets a price-group drop (2026-11-07, Priceback #548).**
+   When Same-Day shows it sold by the pack in the province (`priceDropRepo.soldByThePackIn`:
+   one harvest prints 3 or more regular prices), a price group's price is one pack's price: no
+   price-group drop and no potential card; the savings path prices it as paid minus the saving
+   (Bugs #367).
 3. **Charge commission — incrementally, once per item.** Commission is debited **at detection**
    (in the same tx as the notification insert), but only on the **new price difference**: a
    per-item transaction advisory lock + a lookup of the lowest previously-notified price gives a
