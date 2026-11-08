@@ -11789,3 +11789,20 @@ with no push notifications.
   `costcoPathImmutability` (`costcoReceiptParser.js` hash), already failing on `main`, untouched here. i18n check green.
 - **Not done:** a hung `initRevenueCat` stays cached in flight in `purchaseService` (see Bug #364 "Not covered");
   no release cut — ships in the next build.
+
+## 2026-11-07 — Automatic price-drop reminder email (+ run jobs by hand)
+
+- **Ask (Maxim):** email every shopper with price drops waiting who got no push or has not opened the
+  app for 3+ days; automated, every 3 days (easy to change); once per drop, new drops emailed again;
+  a recap (count, total, earliest end) + the missed total, open the app to claim, PS update + allow
+  notifications; the shopper's language, English by default; Zoho; nothing sent before Maxim approves
+  the list. Plus a way to force-run this job and the harvest jobs.
+- **Branch:** `hotfix/drop-reminder-emails` off `main` (Maxim's choice).
+- **Done:** migration **0047** (`price_drop_reminder_emails`, UNIQUE per receipt line);
+  `lib/dropReminderEmails` (who/what/language, pure), `jobs/dropReminderEmails` (daily 19:00 UTC check,
+  every `DROP_REMINDER_EMAILS_INTERVAL_DAYS`, HOLD until `DROP_REMINDER_EMAILS_SEND`),
+  `repos/dropReminderEmailRepo`; admin `POST /api/admin/jobs/:name/run` (dropReminderEmails,
+  harvestSavings, harvestCatalog) + preview endpoints; `scripts/runJobNow.js`; nodemailer → dependencies.
+  Doc: `Operations/Price_Drop_Reminder_Emails.md`.
+- **Owed:** 0047 on dev and prod (by hand, before deploy); `SUPPORT_SMTP_PASS` on Railway; Maxim
+  approves the preview list, then `DROP_REMINDER_EMAILS_SEND = true`.
