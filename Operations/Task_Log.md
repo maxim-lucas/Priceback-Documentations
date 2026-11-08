@@ -11856,3 +11856,11 @@ with no push notifications.
   Doc: `Operations/Price_Drop_Reminder_Emails.md`.
 - **Owed:** 0047 on dev and prod (by hand, before deploy); `SUPPORT_SMTP_PASS` on Railway; Maxim
   approves the preview list, then `DROP_REMINDER_EMAILS_SEND = true`.
+
+
+## 2026-11-08 — Reminder email v2: Canada App Store link, real logo, vague copy, final reminder, push-reachable included
+
+- **Ask (Maxim):** the iOS link must be the website's Get app → App Store link (Canada only); use the real app logo, not blue text; the PS shorter and merged into the "open the app" sentence; the amount first in the subject (right after "Final reminder" on the last day) and highlighted in the body; "last day today" instead of "1 day left" plus a final reminder in subject and body; vague copy (no count, never one item); the shoppers with push are always included.
+- **Done:** `lib/dropReminderEmails` (all of the above), inline logo attachment through the job's `sendMail`, `runJobNow.js` inlines the logo in saved previews, tests 28/28. First send: 17 shoppers, $147.50, 0 failed. Doc: `Operations/Price_Drop_Reminder_Emails.md`.
+- **Learned:** Avast intercepts SMTP on the dev PC (use 587 + `--use-system-ca`); `claimDeadline.daysLeft` is 1 on the last day itself; a `cid:` logo, not a hosted/data one, is what mail clients show.
+- **Open:** `unreachableDropEmails.js` still has the region-less App Store link (left alone); the send switch is still off in production.
