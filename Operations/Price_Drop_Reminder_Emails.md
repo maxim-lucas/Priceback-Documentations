@@ -130,3 +130,14 @@ Avast's mail shield intercepts SMTP, so port 465 fails with `unable to verify th
 ## First send (2026-11-08)
 
 17 shoppers, $147.50, sent by hand from `runJobNow.js --send --i-approved` (switch still off) with the vague copy. All 17 accepted by Zoho and recorded in `price_drop_reminder_emails`; a re-preview showed `already_emailed 17`. The 10 push-reachable shoppers were then added to the rule (see Who gets an email).
+
+
+## 🔴 The production server cannot send (found 2026-11-08)
+
+The first run through the production pipeline (`POST /api/admin/jobs/dropReminderEmails/run {}`, switch on, `SUPPORT_SMTP_PASS` set) listed the right 10 shoppers and then failed on the mail step: **`[DropReminderEmails] manual run failed: Connection timeout`**. Nothing was sent or recorded (a re-preview still showed the 10). The same code and password send fine from a PC (port 587), so it is the server's route to Zoho. **Cause not yet verified**; the likely one is that Railway blocks outbound SMTP on this plan (Railway documents SMTP as blocked below the Pro plan). Check that before anything else.
+
+Consequence: the **automatic job cannot deliver by itself yet**. With `DROP_REMINDER_EMAILS_SEND = true` (turned on 2026-11-08) its next scheduled run (~Nov 11) would try, fail, send nothing, record nothing and log the error. Until fixed, send by hand from a PC: `SUPPORT_SMTP_PASS` is in `backend/.env`, so `node scripts/runJobNow.js dropReminderEmails --send` (add `SUPPORT_SMTP_PORT=587 NODE_OPTIONS=--use-system-ca` behind Avast). Fix options: Railway Pro (SMTP allowed), or send through an HTTP mail API (the server already has Resend for other mail; Zoho also has an HTTP API).
+
+## Second send (2026-11-08)
+
+After #552 (push-reachable shoppers always included) the 10 shoppers who had been skipped were sent by hand: 10 sent, 0 failed, $66.50. Ledger: 27 emailed in all. `DROP_REMINDER_EMAILS_SEND` was left **on** by Maxim's choice (it is the `app_config` row, not an env var, so Admin › Config still controls it).
