@@ -11872,3 +11872,30 @@ with no push notifications.
 - **Done:** #552 merged and deployed; switch `DROP_REMINDER_EMAILS_SEND` on in `app_config` (Maxim: leave on); the production dry run picked exactly the 10 and excluded the 17 by the ledger; the real send from the server failed with `Connection timeout` (nothing recorded), so the 10 were sent by hand from a PC: 10 sent, 0 failed.
 - **Learned:** the server cannot send via Zoho SMTP (likely Railway's SMTP block, unverified): the automatic job is not deliverable yet. A `git checkout <file>` to drop one experimental edit also reverted an earlier uncommitted edit in the same file (the logo attachment); a test on the sent message now pins it.
 - **Open:** fix the server's mail route before ~Nov 11, or turn the switch off; `unreachableDropEmails.js` still has the region-less App Store link.
+
+
+## 2026-11-09 — Savings harvest: run when each site publishes, survive restarts, read more costco.ca formats; Railway cost
+
+- **Ask (Maxim):** too few savings vs the Same-Day warehouses; the Monday drop (published ~11:00) was missed because
+  every source still ran at 00:05–03:05 (the schedule was never changed since Oct 26). Catch every saving, every day,
+  on every platform, with one run when the site has published (no blind double runs); a stopped harvest must continue
+  after a restart; costco.ca must read several page formats; find what costs most on Railway and cut it; write the
+  rules down. Run a harvest now. Everything on `main` as a hotfix.
+- **Found (prod, read-only):** Mon 11-09 00:05 Same-Day run read 27,362 items of which 8,732 had already ended (last
+  week's list); warehouse 1261 listed 285 savings at 13:13 vs 86 stored. Sun 11-08 Same-Day run abandoned by a restart
+  and never re-run (an abandoned run counted as "already ran today"). costco.ca Business Centre: 0 of 30 tiles read —
+  the page now prints "Valid November 9 to 22, 2026" (no month after "to"). Coupons: no bug (book Oct 26 – Nov 22).
+- **Branch:** `hotfix/savings-publish-aware-harvest` off `main` (Maxim's choice).
+- **Done (Priceback):** watched sources (`config.watch`: hourly probe 06–20, full run only on a new saving,
+  fallback 20:00, per-day publish log in kv_state `savings_watch:<code>`); heartbeat + interrupted re-run (≤ 3/day,
+  resume tick 17 min after boot); costco.ca reader takes every window/amount shape + format-drift email.
+  Tests: harvestSavingsWatch (new, 27), harvestSavingsJob 19, savingsSources 31, savingsHarvestDb 17 (dev DB) —
+  all green. `savingsQualityDb` has 2 failures that are identical on `main` (not this change).
+- **Prod data (by hand, config only):** sameday_costco watched, probes 1261 + 163; sameday_business_centre probes
+  1668 + 1723; costco_coupons + costco_business_centre_web watched; yepsavings daily 21:00.
+- **Railway (Oct 8 – Nov 8, $4.68):** memory 68 % (prod 227 MB avg, dev 128 MB avg always-on), egress 29 % (one-off
+  Oct 21 – Nov 2 catalogue fills), CPU 3 %. Lever left to Maxim: App Sleeping on Development (~$1.1/month).
+- **Docs:** `Technical/Savings_Harvest_Schedule.md` (new), `Operations/Infrastructure_Cost_Rules.md` (new),
+  Bugs_Common_Fixes #368, design doc §6.2 row; CLAUDE.md standing rule.
+- **Learned:** the old probe script ignores the source's slug (Business Centre uses `rc-warehouse-savings`), so it
+  printed 0; six probe warehouses take 100 s — two at the country's ends is the cost/coverage balance.

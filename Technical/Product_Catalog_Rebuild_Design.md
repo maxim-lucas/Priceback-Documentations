@@ -254,7 +254,7 @@ is changed without Maxim's go; the proposals cost a little latency, never correc
 | `runStoreLaunchNotifications` | every 15 min | 96 | 0.15 s | stores just enabled — changes only when an admin enables a store | **hourly** (or fire it from the store-enable route) |
 | `pastReceiptsTipBackfill` | every 15 min | 75 | 0 ms (no work) | the past-receipts tip backlog | **hourly** |
 | `purgeRestoreLedgers` | hourly | 24 | 0.2 s | deletions older than the 2 h credit-restore window | keep |
-| `harvestSavings` tick | hourly :05 | 24 | — | which savings source is due (2 small reads); real runs: Same-Day daily, Business Centre daily, coupons daily, BC web daily, yepsavings Mon + Thu | keep the tick; **Same-Day start hour after publication** (Task 4 measurement, Mon 2026-11-09); coupon book: skip all writes when the page is unchanged |
+| `harvestSavings` tick | hourly :05 | 24 | — | which savings source is due (2 small reads); real runs: Same-Day daily, Business Centre daily, coupons daily, BC web daily, yepsavings Mon + Thu | keep the tick; **Same-Day start hour after publication** (Task 4 measurement, Mon 2026-11-09); coupon book: skip all writes when the page is unchanged — **DONE 2026-11-09, differently:** the four official sources are *watched* (hourly probe 06–20, a full run only when the site lists something new, fallback run at 20:00, restart = re-run), yepsavings daily 21:00. See `Technical/Savings_Harvest_Schedule.md`, Bugs_Common_Fixes #368 |
 | `harvestCatalog` tick | hourly :35 | 23 | — | which catalogue source is due; runs weekly (Sunday) | keep (cheap; it carries the catch-up) |
 | `ocrAuthProbe` | 6-hourly | 4 | 0.07 s | one Vision probe | keep |
 | `sweepInMemoryState` | 6-hourly | 4 | 1 ms | memory only | keep |
