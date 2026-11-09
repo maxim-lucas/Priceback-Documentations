@@ -248,6 +248,49 @@ nothing. It is now generated and pinned by
 That sequencing is a feature: the binary can ship and be device-tested before a
 single user sees the store.
 
+### 2.2 🔴 A locked store has more than one way in — and the camera is not the only one
+
+**Added 2026-11-09, because a locked store was "scanned" by a shopper without
+a single scan.** `isStoreEnabled` was enforced in exactly one place, the scan
+screen. The **mailbox import** (`emailSyncService`) builds receipts straight
+from `STORE_EMAIL_PATTERNS`, and on 3.6.0 it filed pickup notices from Home
+Depot, Rona, Sport Chek and Best Buy, all locked, as receipts. Each had the
+email's subject as its one item and no photo. `POST /api/receipts` accepted
+them because it accepted any store code. Bugs_Common_Fixes #368.
+
+So for any store that is not open yet:
+
+- **Every entry path asks `isStoreEnabled`**: the scan, the offline receipt
+  queue, and the mailbox import (`emailImportRefusal`). A new path (share
+  sheet, PDF import, …) gets the same question on day one.
+- **The server asks too.** `POST /api/receipts` refuses a new receipt under a
+  store that is not open to everyone for a non-admin (`422
+  STORE_NOT_AVAILABLE`, `storeAvailability.mayFileReceipt`). The app's gate is
+  a convenience; the server's is the guarantee, because old builds keep their
+  JS forever.
+- **A store's email domains are a commitment.** Adding a store to
+  `STORE_EMAIL_PATTERNS` makes its emails importable the day it opens. Notices
+  with no priced line are never receipts (`no_items`).
+
+### 2.3 Refused scans of a locked store are held for the admin
+
+A camera scan of a store that is not open is refused before review, free, and
+the shopper is told nothing more (Maxim, 2026-11-09). The scan is also
+reported silently (`unsupportedStoreScanReport` →
+`POST /api/receipts/unsupported-store-scans`, table `unsupported_store_scans`)
+and listed, with its photo, in **Admin · Receipt reading › Unsupported stores**.
+The admin can dismiss it or flag the account. Rows are kept 90 days with the
+OCR captures.
+
+**That list is where a new store's first real corpus comes from.** Every
+held row points at an OCR capture (the photo plus Vision's verbatim response).
+The capture is unlinked, because no receipt was saved, and
+`scripts/exportOcrCaptures.js` already exports unlinked captures
+(`unlinked__c<id>`). It writes them into Costco's `prod-captures/` tree, so
+**move the store's captures into its own fixture tree (§3) before writing a
+test against them**; otherwise they join Costco's realocr corpus. Look there
+before asking anyone for receipts.
+
 ---
 
 ## 3. The corpus — real receipts, or it does not count
@@ -720,6 +763,9 @@ DETECTION
 [ ] extractWarehouseId branch, with a second field as proof
 [ ] refund reprints of the original store/date handled
 [ ] detectPurchaseType heuristic if the store has two formats
+[ ] every entry path (scan, offline queue, mailbox import, any new one) asks
+    isStoreEnabled; the server's 422 STORE_NOT_AVAILABLE still holds (§2.2)
+[ ] the Unsupported stores list checked for real captures of this store (§2.3)
 
 STORE RECORD (five, and they must agree)
 [ ] stores.js + BUNDLED_UPDATED_AT
@@ -788,3 +834,4 @@ GO-LIVE
 | **Sport Chek** | A sibling banner's loyalty footer steals detection. A pattern id with no store record ends the scan. curl is not Node. The receipt's identifier may not address the catalogue at all. |
 | **Best Buy, again** (2026-09-13) | The parse-confidence scorer is store-gated, so a new store scores FULL MARKS on every signal it does not name — a receipt that lost every SKU reported a perfect parse and suppressed the re-OCR that could have recovered it (Bugs #248). Declare your own signals; never join another store's gate. And `node --test` does not load `.env`, so a DB-gated suite skips its whole file and exits green — which is how that store's nightly job sat at 0% function coverage on every branch. |
 | **Best Buy + Abercrombie, landing on `main`** (2026-10-28) | Two new standing rules: a finished store ships in every build **admin-only** (`ADMIN_PREVIEW_STORES`), and **Costco shares no code** a non-Costco change could reach it through — so store detection claims and parser signals live in the registry, and the shared parser is frozen by hash. Porting a month-old branch: `main` had moved the test-data markers, the Costco files and the claim-window model, so ported tests asserted September's behaviour. A bot wall can appear between two measurements: A&F served HTML to Node in September and a JavaScript "Client Challenge" in October, even from Canada. |
+| **Home Depot, Rona, Sport Chek, Best Buy — while locked** (2026-11-09) | A locked store reached a shopper's list without a single scan: the mailbox import skipped `isStoreEnabled`, and the server accepted any store code. 12 junk receipts reached one account in one second; each item was an email subject. Every entry path asks, and the server refuses (§2.2). Refused scans are now held with their photo for the admin, and that hold is the first place to look for a new store's real corpus (§2.3). |
