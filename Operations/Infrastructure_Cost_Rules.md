@@ -36,15 +36,32 @@ Current period (from Nov 8): estimated **$1.75**.
 So the harvest's schedule was never the bill — it was wasted reads and late data. The bill is memory, and a
 third of the memory is a development service that serves almost no traffic and runs no job.
 
-## 3. Open levers (Maxim decides)
+### 2a. Supabase, checked 2026-11-09 — the larger bill
 
-| lever | saving | risk |
+Both databases live in **one Pro organization** (`Prosoft Inc.`, `vrpoqvuksexuputrkrow`): `Priceback-app`
+(prod, 122 MB) and `Priceback-dev` (dev, 115 MB), both on Micro compute (`max_connections` 60). Pro is $25/month
+and includes $10 of compute credit, which covers **one** Micro project. The second project is billed on top:
+**~$10/month for the dev database**, around the clock, which is twice the whole Railway bill. A project on a paid plan
+cannot be paused (Supabase docs, *Project Pausing*), so the only ways to stop paying for it are to transfer
+it to a Free organization or delete it.
+
+### 2b. Region mismatch (performance, not cost)
+
+The Railway service runs in **Singapore** (`asia-southeast1-eqsg3a`, both environments, `railway environment
+config`), while both databases and every shopper are in Canada (`ca-central-1`). Every API request and every
+harvest query crosses the Pacific twice. Moving production to Railway's US-East region (`us-east4-eqdc4a`) puts it
+next to the database. Egress is billed the same in every region, so this barely changes the bill, but the jobs
+run faster (less time at peak memory) and the app responds faster.
+
+## 3. Levers
+
+| lever | saving | status / risk |
 | --- | --- | --- |
-| Railway **App Sleeping** (serverless) on the **Development** service: it sleeps after ~10 min without traffic and wakes on the next request | ~$1.1/month (≈ 25 % of the bill) | first request after idle waits a few seconds (device/test builds pointing at dev); nothing scheduled runs there anyway |
+| **Supabase: transfer `Priceback-dev` to a Free organization** (dashboard → project settings → General → *Transfer project*; create a Free org first) | **~$10/month** | Maxim's dashboard action (no API tool for it). Free plan: 500 MB DB (dev is 115 MB), Nano compute, auto-pause after 7 days without activity (resume in one click from the dashboard, 90-day window). The local backend suite and dev Railway keep the same connection string |
+| **Railway Development service stopped** (`railway down -e Development`) and its source branch moved from `main` to `main-test-features`, the branch the branch model assigns to dev | ~$1.1/month (≈ 25 % of the Railway bill) | Maxim approved 2026-11-09 (*"disable it completely for now and I can do it manually"*). Dev comes back on the next push to `main-test-features`, or by redeploying from the dashboard. Before this, every hotfix to `main` also rebuilt and restarted dev |
+| ~~Railway App Sleeping on Development~~ | — | Not enough on its own: Railway sleeps a service only after 10 min **without outbound traffic**, and the backend re-reads its config from the database every 5 min (`configService.startAutoRefresh`, `server.js`), so it would never go to sleep. Use it only together with a dev-only switch that turns that refresh off |
+| Railway production → US-East region | ~0 (performance) | production move; one redeploy, brief restart. Maxim decides |
 | Production stays always-on | — | it runs every cron; sleeping it would stop the harvest, the sweeps and the alerts |
-
-How to switch it: Railway dashboard → Development → Priceback → Settings → *Serverless* (or `railway`
-service settings). Reversible at any time.
 
 ## 4. How to re-measure
 
