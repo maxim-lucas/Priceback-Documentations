@@ -68,6 +68,13 @@ row can't be made safe for older builds.
 
 ## P3: features and launches (Maxim sets the order)
 
+### Unlimited: 7-day free trial for new shoppers ⚪ (later)
+Documented 2026-11-09, not started: `Roadmap/Unlimited_Free_Trial.md`. At signup, choose *7 days of
+Unlimited free, then monthly* or *75 free credits*. Decided: 7 days, **no reminder before the charge**,
+V2 paywall look; the signup-choice artboard is approved first, then where it shows. Prod data: median
+5.2 days from signup to a first drop, 54% within 7 days. Needs store offers (App Store intro offer,
+Play free-trial offer) before any code. "No refunds" can't be promised (Apple/Google own refunds).
+
 ### Best Buy: open to shoppers 🟡
 **Code finished (Priceback #504, 2026-10-28)**: the parser ships in every build as an **admin-preview** store.
 Prod `BESTBUY_SCAN_ENABLED = false` (checked 2026-11-04). Owed first (`Technical/BestBuy/Price_Feed.md` §"Owed"):
