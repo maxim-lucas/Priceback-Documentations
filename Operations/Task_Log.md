@@ -11899,3 +11899,25 @@ with no push notifications.
   Bugs_Common_Fixes #368, design doc §6.2 row; CLAUDE.md standing rule.
 - **Learned:** the old probe script ignores the source's slug (Business Centre uses `rc-warehouse-savings`), so it
   printed 0; six probe warehouses take 100 s — two at the country's ends is the cost/coverage balance.
+
+## 2026-11-09 — Deleted accounts never contacted; tag reader lost a saving; one shopper page (hotfix)
+
+- **Ask (Maxim):** (1) a deleted account must never get a notification or email (reminders, drops…), except a future
+  "why did you leave" feedback email; it may collect drops as *missed* during the 30-day window. (2) A sharp price tag
+  scanned yesterday was read with the price after savings as the original price, a regression. (3) The drop desks'
+  "full report" is not the full account page: merge the two, simpler. Hotfix on `main`, merge when done.
+- **Branch:** `hotfix/deleted-users-tag-savings-report` off `main`, merged as Priceback #557 (worktree, so the open
+  `feat/paywall-v2` tree was not touched).
+- **(1) Found:** prod has 6 deleted accounts, 0 pushes / 0 emails sent after a deletion, 0 tokens on them. One open
+  path: `PUT /api/me/profile` re-stored a push token on a tombstone. **Done:** `lib/accountReach` checked at send
+  time in `sendUserPush`, the drop drain and the reminder email job; `updateProfile` never stores a token on a deleted
+  account. Bugs #370; rule in `Technical/Deleted_Account_Contact_Rule.md`. **Not done (needs Maxim):** collecting
+  missed drops in the window. Revival restores credits but not receipts, and detection is also the commission
+  charge (written up in that doc).
+- **(2) Found:** OCR read the saving line as `1-5.00`. The parser has not changed since #14, so this is an OCR shape
+  it never handled. Same family in prod: #13 `6.00`, #40 `-100.000`. **Done:** a garbled savings line counts only when
+  the tag's arithmetic proves it; the inline "Instant Savings" regex no longer crosses a line. Prod corpus replay:
+  exactly the 3 target tags change, 88 byte-identical. Bugs #369.
+- **(3) Done:** `AdminUserReportScreen` removed. Its search moved into `AdminAccountDetail` (Admin home "Shopper
+  account" opens it with a search). The drop queue and potential drops open the account page. Quick actions are one
+  2×2 grid; the DATA RESET badge carried over.
