@@ -102,6 +102,42 @@ configuration is wrong, not the check.
    > **Do not set these in `development`, `preview`, `dev` or `device`.** The
    > build will fail on purpose if you do — see §0.
 
+### Phase B2 — Rewarded ad units + server-side verification (added 2026-11-09)
+
+"Watch a short ad, earn free credits" (Pay-as-you-go only). Design, economics and
+the code map: `Technical/Rewarded_Ads_Earn_Credits.md`.
+
+9a. **Create one Rewarded ad unit per platform** (format **Rewarded**, e.g.
+    `PriceBack Android — Rewarded credits`). Reward item `credit`, amount `1` —
+    the amount AdMob shows is cosmetic: **the server decides what a view pays**,
+    never the ad unit.
+9b. **Turn on server-side verification on each rewarded unit** → callback URL
+    `https://<production backend host>/api/ads/ssv` (no query string), then
+    **Verify URL**. The backend answers 200 to every correctly signed call, so the
+    check passes even before the unit is listed in `ADMOB_REWARDED_AD_UNITS`.
+    ⚠️ Set it only once a backend carrying `GET /api/ads/ssv` is deployed —
+    against an older backend the check fails (404).
+9c. **Rewarded UNIT ids into EAS production only**, same rule as banners:
+
+    ```bash
+    eas env:create --environment production --name ADMOB_REWARDED_UNIT_IOS \
+      --value ca-app-pub-XXXXXXXXXXXXXXXX/RRRRRRRRRR --visibility plaintext
+    eas env:create --environment production --name ADMOB_REWARDED_UNIT_ANDROID \
+      --value ca-app-pub-XXXXXXXXXXXXXXXX/SSSSSSSSSS --visibility plaintext
+    ```
+    `assertAdsConfigIsShippable()` now checks the rewarded unit by the banner's
+    rules: real unit outside production → fatal, no override; test unit in an
+    ads-enabled production build → fatal unless `ALLOW_TEST_ADS_IN_PRODUCTION=1`;
+    publisher must match the app id.
+9d. **Tell the backend which units are ours** — prod `app_config`
+    `ADMOB_REWARDED_AD_UNITS` = both unit ids, comma-separated. 🔴 This is a
+    security control, not bookkeeping: Google signs **every** publisher's
+    callbacks with the same keys, so without it anyone's AdMob app could point
+    its SSV at our URL and mint our credits.
+9e. Set `AD_REWARD_ECPM_USD` from the AdMob report (Rewarded, Canada) after the
+    first weeks; credits per view = ⌊eCPM ÷ 1000 × `AD_REWARD_REVENUE_SHARE` ÷
+    $0.01⌋. Then `AD_REWARD_ENABLED = true` (needs `ADS_ENABLED` too).
+
 ## Phase C — app-ads.txt (blocks full demand; ~24h+ crawl latency)
 
 10. AdMob → Apps → **app-ads.txt** shows the exact line to publish. Add it to
@@ -155,6 +191,13 @@ These are **mandatory** and Play will block the release without D2/D3.
     > requested on the first ad-eligible screen (Home, below the tracked
     > products list, or any scan screen) before any IDFA access. Subscribers
     > see no ads and are never shown the ATT prompt.
+    > Pay-as-you-go users can also choose to watch a rewarded video ad
+    > (Profile → "Watch a short ad") for free in-app credits; it is optional,
+    > capped per day, and never shown to subscribers.
+
+    Rewarded ads granting **in-app credits** are allowed on both stores (the
+    credit is a consumable the app already sells; nothing is paid out in real
+    money). Do not word it as "free money" or a cash reward.
 
     Reviewers reject ATT implementations they cannot reproduce — give them the
     exact path.
