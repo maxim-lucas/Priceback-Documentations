@@ -11899,3 +11899,27 @@ with no push notifications.
   Bugs_Common_Fixes #368, design doc §6.2 row; CLAUDE.md standing rule.
 - **Learned:** the old probe script ignores the source's slug (Business Centre uses `rc-warehouse-savings`), so it
   printed 0; six probe warehouses take 100 s — two at the country's ends is the cost/coverage balance.
+
+## 2026-11-09 — Paywall V2 ("Your money first") everywhere; one Profile button; Plan & credits; trial documented
+
+- **Ask (Maxim):** replace the paywall with the new designs (canvas "PriceBack paywall · 3 versions"); V2 for locked
+  drops, then "V2 everywhere, one unique design". Merge the Profile card's *Buy credits* + *Manage* into one, keep
+  real subscription management (cancel), auto-reload, how credits are spent, earn free credits, community — blended
+  without changing the designs. Use the app's own logo (and its size/framing), not the design's icon. A 7-day
+  Unlimited trial: check prod drop timing, document it in the roadmap for later, no pre-charge reminder, and draw
+  the signup-choice artboard for approval. New branch.
+- **Branch:** `feat/paywall-v2` off `main`.
+- **Done (Priceback):** `components/Paywall.js` rewritten to V2 for every entry point (top card: locked drops'
+  real total from the phone's receipts, else the lock's reason, else "how PriceBack pays for itself"/"out of
+  credits"; Unlimited monthly first with a *Pay yearly* switch and a live "Save $X + tax" chip; packs smallest-first,
+  each "covers $X in drops" / "covers your $Y · $Z left over"; folded tools list; sticky CTA; app's `BrandLockup`).
+  Profile card → one button (*Unlimited or credits* → paywall; subscribers *Manage plan*; neutral *Plan & credits*
+  while loading) + a *Plan & credits* row. ManageSubscriptionScreen = the hub (See plans → paywall for
+  non-subscribers; ledger, auto-reload with its own pack picker, spend, earn, community via new
+  `components/CreditsExtras.js`). `BuyCredits` route kept, replaces itself with the paywall. Export lock and
+  Reactivate open the paywall. `storePrices.annualSavings` gains `amount` + `currencyCode`.
+- **Tests:** mobile suite green; new `paywallPurchaseFlows.test.js`; paywall/billing/community/buy-credits tests
+  rewritten to V2. Paywall.js 98 % lines.
+- **Docs:** `Roadmap/Unlimited_Free_Trial.md` + FUTURE_ROADMAP P3 row (PR #207). Prod data: median 5.2 days
+  signup → first drop; 54 % within 7 days.
+- **Canvas:** artboard *Signup · trial or credits* added for approval (where it shows: decided after approval).
