@@ -1,6 +1,6 @@
 # Store Spaces v2 — design
 
-**Status:** draft for Maxim's approval · 2026-11-10
+**Status:** complete draft, waiting for Maxim's approval · 2026-11-10
 **App branch:** `feat/store-spaces-v2`, cut from `main` at `70991cb3` (3.6.1, build 60). **Not merged** until Maxim says so.
 **Source design:** Claude Design project `96786fd7-4201-49b9-a7f1-2143421c50fa`, file `Store Spaces v2.html` and the files it loads:
 `redesign/shared.jsx`, `redesign/spaces2-parts.jsx`, `redesign/spaces2-deals.jsx`, `redesign/spaces2-app.jsx`, `redesign/spaces2-onboarding.jsx`.
@@ -262,7 +262,17 @@ Every screen is built to the design's render (rule 1). Data replaces every place
 | 1 | Screen H's X | *"x = close and open the app but keeps a button to reopen the screen if needed to choose his trial type (button should be start your free trial)"*. X opens the app with no perk granted; a **"Start your free trial"** button stays available and reopens H until a choice is made. |
 | 2 | Console set-up timing | **After the implementation plan**, and before any build. |
 
-## 15. Still open
+## 15. Fifth-round answers (2026-11-10)
 
-1. Where the "Start your free trial" button lives (the design has no such button).
-2. After X, does H still open by itself at the next launch, or only from that button?
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Where "Start your free trial" lives | **Home, under the hero**: a strip in the guarantee strip's style, above "Your stores". Shown only while the account is eligible and has no recorded choice. |
+| 2 | Does H reopen by itself after X | *"Every launch until he chooses his trial type, then it never opens again."* |
+
+Unchanged by this design: a shopper with 0 credits who tries to scan before choosing gets today's paywall (normal
+prices, no trial wording).
+
+## 16. Still open
+
+None. Waiting for Maxim's approval of this document; then the implementation plan
+(`Technical/Store_Spaces_v2_Plan.md`), then the store consoles (§7.2), then the build.
