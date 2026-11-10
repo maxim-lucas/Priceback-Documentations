@@ -263,8 +263,13 @@ every later Store Spaces task must keep both green):
 - `POST /api/stores/:code/notify-me` records the ask and answers `{ ok: true }`.
 
 **What this work touches, route by route** (line numbers on `main` 70991cb3,
-`backend/server.js` unless noted). Between v2.8.3 and now these routes kept their
-request and response shape; they were extended additively only.
+`backend/server.js` unless noted). Checked by `git show v2.8.3:backend/...` and
+grep, not by reading the v2.8.3..HEAD diff (756 files): `/api/me`,
+`PUT /api/me/profile`, the RevenueCat webhook, `upsertFromOAuth` (with its
+`trial_credits_granted_at` guard) and the `gold_star`/`executive` whitelist all
+exist at v2.8.3 with the same shape. `lib/shopperPreview.js` and
+`POST /api/stores/:code/notify-me` do NOT exist at v2.8.3 (notify-me is newer;
+the oldest build never calls it). Per-route diffs were not read.
 
 | Touch point | Why Store Spaces v2 reaches it | Old-build rule |
 | --- | --- | --- |
@@ -272,9 +277,9 @@ request and response shape; they were extended additively only.
 | `GET /api/me` (12005) | new fields for the trial choice and Business membership | Additive keys only; pinned key lists above. |
 | `PUT /api/me/profile` (12370) | language and membership writes | New fields optional; the absent-field request is the pinned 200. |
 | `usersRepo.updateProfile` membership whitelist (894-896) | `business` becomes a third value | Accepted only with `membership-business`; without the cap an unknown value is ignored exactly as today. A stored `business` must read back as `gold_star` (or the nearest old value) for builds that do not send the cap. |
-| RevenueCat webhook `POST /api/revenuecat/webhook` (~11431; placeholder upsert at 11572) | purchase before sign-in must not become a trial grant | Unchanged for requests without the cap; the webhook is server-to-server and carries no app header, so it keeps today's path. |
+| RevenueCat webhook `POST /api/revenuecat/webhook` (11431; the `period_type === 'TRIAL'` check is at 11603-11605; placeholder upsert at 11572) | purchase before sign-in must not become a trial grant | Unchanged for requests without the cap; the webhook is server-to-server and carries no app header, so it keeps today's path. |
 | `lib/shopperPreview.js:223` | `settings.costcoMembershipType` is mapped to two values | Must keep emitting `executive` / `gold_star` only; a `business` member maps to `gold_star` there until a build that reads it exists. |
-| `POST /api/stores/:code/notify-me` (12649) | store vote / Deals reuse the launch-subscription table | Unchanged request and `{ ok: true }` response, pinned. |
+| `POST /api/stores/:code/notify-me` (12649; not in v2.8.3) | store vote / Deals reuse the launch-subscription table | Unchanged request and `{ ok: true }` response, pinned for the builds that call it. |
 
 **Gaps and notes.** The credit-ledger type for the trial grant is `signup_grant`
 (not `signup`). Nothing in this audit raises a minimum build, so no forced update
