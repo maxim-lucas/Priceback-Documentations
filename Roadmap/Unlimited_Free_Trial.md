@@ -90,6 +90,9 @@ store's policy and the law still apply.
 - RevenueCat reads the offer from the store product; no RC change beyond checking the offering shows it.
 
 ### 2. App (store build)
+**Changed 2026-11-10 (Maxim):** the free week is offered **only on onboarding screen H** (Store Spaces v2), never on the
+V2 paywall; H reopens at every launch until the shopper chooses. The two paywall bullets below are superseded.
+
 - The signup choice screen (artboard first, see Decisions).
 - When the store says the shopper is eligible, the V2 paywall's Unlimited monthly row and CTA say
   *"7 days free, then $X/month"* with the **charged price the most prominent number** (App Review 3.1.2).
