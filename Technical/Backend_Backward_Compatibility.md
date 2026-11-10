@@ -240,6 +240,47 @@ The live build is **Android 3.6.0** (build 59). Migration `0048_unsupported_stor
 
 Forcing builds: none needed.
 
+## Audit - 2026-11-10: Store Spaces v2 (`feat/store-spaces-v2`, from `main` 70991cb3)
+
+**Oldest build audited: v2.8.3** (tag exists; the oldest installed build per this
+document's "live estate" note). The live store versions on Play / App Store
+Connect were **not re-read** for this audit: every change in Store Spaces v2 is
+gated on a request header, `X-App-Caps` (`trial-choice`, `membership-business`),
+which no installed build 2.8.3 ... 3.6.1 sends, so the answer does not depend on
+which build is newest in a store. Header-based gating covers every build at once.
+
+**Contract.** A request with no `X-App-Caps` header behaves exactly as on `main`
+today. Pinned by `backend/tests/storeSpacesCompat.test.js` (the key lists) and
+`backend/tests/storeSpacesCompatDb.test.js` (the behaviour, against the dev DB;
+every later Store Spaces task must keep both green):
+
+- verified sign-in grants `FREE_TRIAL_CREDITS` (75) once: ledger row `signup_grant`;
+  a second sign-in grants nothing;
+- `GET /api/me` still returns every top-level, `profile`, `subscription`, `scans`
+  and `user` key listed in the test (additive fields allowed, none removed);
+- `PUT /api/me/profile` with no `preferences`/language still answers 200;
+- `costcoMembershipType` `executive` and `gold_star` round-trip;
+- `POST /api/stores/:code/notify-me` records the ask and answers `{ ok: true }`.
+
+**What this work touches, route by route** (line numbers on `main` 70991cb3,
+`backend/server.js` unless noted). Between v2.8.3 and now these routes kept their
+request and response shape; they were extended additively only.
+
+| Touch point | Why Store Spaces v2 reaches it | Old-build rule |
+| --- | --- | --- |
+| `usersRepo.upsertFromOAuth` and its callers (10647, 10807 reviewer, 11572 RevenueCat placeholder, 11884, 12016 `/api/me`, 12203 bootstrap, 12442 `PUT /api/me/profile`, 12999, 13064) | the trial grant becomes deferrable (`trial-choice`) | Grant stays automatic and immediate unless the request carries the cap. The reviewer and the RevenueCat placeholder (no verified email) must never defer. |
+| `GET /api/me` (12005) | new fields for the trial choice and Business membership | Additive keys only; pinned key lists above. |
+| `PUT /api/me/profile` (12370) | language and membership writes | New fields optional; the absent-field request is the pinned 200. |
+| `usersRepo.updateProfile` membership whitelist (894-896) | `business` becomes a third value | Accepted only with `membership-business`; without the cap an unknown value is ignored exactly as today. A stored `business` must read back as `gold_star` (or the nearest old value) for builds that do not send the cap. |
+| RevenueCat webhook `POST /api/revenuecat/webhook` (~11431; placeholder upsert at 11572) | purchase before sign-in must not become a trial grant | Unchanged for requests without the cap; the webhook is server-to-server and carries no app header, so it keeps today's path. |
+| `lib/shopperPreview.js:223` | `settings.costcoMembershipType` is mapped to two values | Must keep emitting `executive` / `gold_star` only; a `business` member maps to `gold_star` there until a build that reads it exists. |
+| `POST /api/stores/:code/notify-me` (12649) | store vote / Deals reuse the launch-subscription table | Unchanged request and `{ ok: true }` response, pinned. |
+
+**Gaps and notes.** The credit-ledger type for the trial grant is `signup_grant`
+(not `signup`). Nothing in this audit raises a minimum build, so no forced update
+is needed; builds <= 3.0.6 report no build header and are protected only by the
+rules above.
+
 ## Open gaps
 
 1. ~~No client version on requests~~ **Done** (3.0.7): `X-App-Platform`,
