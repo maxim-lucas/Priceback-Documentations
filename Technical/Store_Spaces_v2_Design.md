@@ -120,9 +120,10 @@ Saved through the existing `syncProfileToBackend` (postal code, province, city f
 - **Eligible** (never had either perk): two boxes as designed. "1 week of Unlimited" pre-selected with three perks and
   "Free / then $4.99/month", or "75 free credits". The CTA and its fine print follow the choice. Prices come from the live
   store product, never a literal (`$4.99` in the design is a placeholder; store-copy rule from the 2.8.20 rejection).
+- **Sticky**: an eligible account with no recorded choice opens on H at every launch until it chooses (§13 Q4).
 - **Not eligible** (already had the week, or the credits, on this account or on a tombstoned account with the same email, or
   the store reports the account as not eligible for the introductory offer): no trial perks. What screen they land on is
-  §12, Q3.
+  the Plans & credits paywall (§12 Q3).
 
 ### 7.2 Store configuration (before any build)
 
@@ -245,13 +246,15 @@ Every screen is built to the design's render (rule 1). Data replaces every place
 | 12 | French for app screens | Claude writes it; **Maxim reviews in the PR**. |
 | 13 | Home store layout | **Rows.** |
 
-## 13. Still open
+## 13. Third-round answers (2026-11-10)
 
-1. Q1's "yes": confirm the per-store tools and quick filters are a field on the `stores` row.
-2. Q6 against rule 4: does an admin account still see a held store (Best Buy) in the new screens, or is it hidden for
-   everyone until `stores.enabled` is on?
-3. `Roadmap/Unlimited_Free_Trial.md` §4 (Maxim, 2026-11-09) says *keep granting the 75 credits to every new account, trial
-   or not*. Rule 8 (2026-11-10) says a shopper who takes the week gets no credits. Confirm rule 8 replaces §4.
-4. `Roadmap/Unlimited_Free_Trial.md` §2 has the V2 paywall's monthly row say *"7 days free, then $X/month"* to an eligible
-   shopper. The new design shows the trial only on screen H. Should the paywall also offer the free week to an eligible
-   shopper, or only screen H?
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Per-store tools and quick filters | **App code**: a per-store table in the app (`src/constants/storeSpaces.js`). A new store's tools ship with a build. Proposed default for a live store with no entry: receipt scan only, no quick filters (confirm in review). |
+| 2 | Admin view of a held store | **Admins still see it** (marked "Admin preview"). Shoppers see no button, filter, pill, slide or navigation for a disabled store. |
+| 3 | 75 credits vs the week | **Today's rule wins**: the week **or** 75 credits, never both. A shopper who cancels the trial has 0 credits. `Roadmap/Unlimited_Free_Trial.md` §4 updated. |
+| 4 | Free week on the paywall | **Only screen H.** The paywall always shows normal prices. *"if the user closes the app before choosing, the app should open always on the same screen to let him choose."* Screen H is sticky: an eligible account with no recorded choice reopens on H at every launch, on any phone, until it chooses (the server's `trial_choice IS NULL` is the source, so a reinstall also lands on H). |
+
+## 14. Still open
+
+1. Screen H's close button (X). The design's X skips the choice and opens the app. With H sticky, what should X do?
