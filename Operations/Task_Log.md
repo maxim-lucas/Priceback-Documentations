@@ -11928,3 +11928,25 @@ with no push notifications.
 - **(3) Done:** `AdminUserReportScreen` removed. Its search moved into `AdminAccountDetail` (Admin home "Shopper
   account" opens it with a search). The drop queue and potential drops open the account page. Quick actions are one
   2×2 grid; the DATA RESET badge carried over.
+
+## 2026-11-09 — Missed savings: products view, Home, re-drops, prod datafix; schema.sql frozen
+
+- **Ask (Maxim):** missed savings belong under Expired in the products view, not Watching. The products-view chips
+  become Watching / To claim / Claimed / Missed or expired (no All; the receipts view keeps All). Claimed is final.
+  Show the year's missed savings next to the claimed total. A missed product whose saving returns inside the
+  window is notified again, with no second charge. Revive every rejected or expired prod case for review. Run the
+  migration on prod. Old builds must keep working. Mid-session: *"dont ever regenerate the sql.schema, this rule was
+  created only for the first production version. so update the rules and the docs"*.
+- **Branch:** `fix/missed-savings-redrops` (Priceback), `docs/redrops-and-frozen-schema` (docs).
+- **Done:**
+  - **App:** `productStatus.js`, the products-view chips and the Home "missed in {year}" line.
+  - **Server:** re-drops via migration 0049, `recordRedrops`, queue revival per run.
+  - **Prod:** migration applied (ledger id 58); 11 queue rows revived to pending (`Technical/Missed_Savings_And_Redrops.md`).
+  - **schema.sql frozen:** the build script exits 1; docs, test message and memory updated. `schema.sql` was not
+    regenerated for 0049.
+- **Tests:**
+  - mobile `npm test` green, `i18n:check` green;
+  - backend: 193/193 DB price-drop tests and the 14 new re-drop tests pass on dev;
+  - `priceDropLockedPush.test.js` has 2 failures that already fail on the base commit (push copy changed in #556).
+- **Learned:** the app needed no change to show a re-drop, because `releasedForUser` already reports the latest
+  fitting run's end. Only the push, the queue and the rejection lock were missing.

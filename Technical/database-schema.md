@@ -1,10 +1,17 @@
 # PriceBack — Database Schema Reference
 
 > **Status:** Human-readable reference for the full current schema.
-> **Source of truth:** `backend/db/deploy/schema.sql` (generated — never hand-edit)
-> and the migration chain in `backend/db/migrations/0000…0011`. Reference-table
-> seed values come from `backend/db/seed.js`. Regenerate the deploy file after any
-> migration with `node scripts/build-consolidated-schema.js`.
+> **Source of truth:** the migration chain in `backend/db/migrations/` (applied in
+> journal order) and `backend/db/schema.js`. Reference-table seed values come from
+> `backend/db/seed.js`.
+>
+> **`backend/db/deploy/schema.sql` is FROZEN (Maxim, 2026-11-09)** — *"dont ever
+> regenerate the sql.schema, this rule was created only for the first production
+> version."* It is the snapshot the first production database was built from, not a
+> file kept in step with each migration. Never run
+> `scripts/build-consolidated-schema.js` and never edit `schema.sql`: a new
+> migration ships as its own file under `db/migrations/` (plus the journal entry)
+> and nothing else.
 
 Everything lives in the dedicated Postgres schema **`priceback`** (not `public`).
 Conventions used throughout:
