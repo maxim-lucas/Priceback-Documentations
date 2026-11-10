@@ -255,6 +255,14 @@ Every screen is built to the design's render (rule 1). Data replaces every place
 | 3 | 75 credits vs the week | **Today's rule wins**: the week **or** 75 credits, never both. A shopper who cancels the trial has 0 credits. `Roadmap/Unlimited_Free_Trial.md` §4 updated. |
 | 4 | Free week on the paywall | **Only screen H.** The paywall always shows normal prices. *"if the user closes the app before choosing, the app should open always on the same screen to let him choose."* Screen H is sticky: an eligible account with no recorded choice reopens on H at every launch, on any phone, until it chooses (the server's `trial_choice IS NULL` is the source, so a reinstall also lands on H). |
 
-## 14. Still open
+## 14. Fourth-round answers (2026-11-10)
 
-1. Screen H's close button (X). The design's X skips the choice and opens the app. With H sticky, what should X do?
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Screen H's X | *"x = close and open the app but keeps a button to reopen the screen if needed to choose his trial type (button should be start your free trial)"*. X opens the app with no perk granted; a **"Start your free trial"** button stays available and reopens H until a choice is made. |
+| 2 | Console set-up timing | **After the implementation plan**, and before any build. |
+
+## 15. Still open
+
+1. Where the "Start your free trial" button lives (the design has no such button).
+2. After X, does H still open by itself at the next launch, or only from that button?
