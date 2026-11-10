@@ -12008,3 +12008,23 @@ with no push notifications.
 - **Read, never written:** prod Supabase (SELECTs), Railway logs + variable names, public /health. GitHub Actions
   not dispatched. Backend: only the CI-red files re-run locally (one real local failure: `adminConsoleRoutesDb`
   growth guard).
+
+## 2026-11-10 — One window rule: admin desk = shopper's phone; owner's local time on the desk (hotfix)
+
+- **Ask (Maxim):** *"on my personal account in production … the receipt of 696$ has expired but it appears in the
+  admin console receipt reviews filter with watching … make sure the math for the dates is well done and also the
+  filters should always work 100% the same for the users and the admin … the admin should see it not expired too
+  with the actual user local time on the receipt review in the admin side only … fix it as a hotfix"*, then
+  *"add this rule, all filters, math, rules in the app should always use the same method or class to avoid
+  problems"*.
+- **Cause (prod read, SELECT only):** `r_1791753175518_3hhhj`, $696.50, Costco, bought 2026-10-11, owner in ON.
+  2026-11-10 = purchase + 30. The phone counts exclusive (closed that day). The stored lifecycle counted inclusive
+  (`today > purchase + N`) and the desk's chips filtered on that stored column, which only the hourly heal moves.
+- **Fix:** branch `hotfix/receipt-window-one-rule`. `isPastWindow` = `!isWithinWindow`, plus `windowClosedSql` as
+  its SQL twin. `receiptsRepo.lifecycleCodeSql` gives the live lifecycle on the owner's province day, read by the
+  desk's chips, row badge, `getForAdmin` and the account report. `getForAdmin.ownerTimeZone` is new (additive). The
+  admin detail counts on it and shows **Owner's local time**. New standing rule in CLAUDE.md: one rule, one
+  function. `Technical/Adjustment_Window_Time_Model.md` §3 is marked CLOSED.
+- **Old builds:** no route, field or response changed meaning. `ownerTimeZone` is additive and admin-only. The
+  phone never reads `policyStatus`. Receipts on their last day flip to expired on the next heal, which is what
+  their owners' phones already show.
