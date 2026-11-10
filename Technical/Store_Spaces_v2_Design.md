@@ -158,10 +158,10 @@ without the field behaves exactly as today. That keeps 2.8.3 … 3.6.1 unchanged
 
 Every screen is built to the design's render (rule 1). Data replaces every placeholder.
 
-- **Home**: lockup, Admin button (admins only, opens Admin home), search, bell with the open-drop count (opens To claim).
+- **Home**: lockup, Admin button (admins only, opens Admin home), bell (no search, §12 Q11), with the open-drop count (opens To claim).
   Hero pager: "To claim" (amount, drop count, receipt count, soonest deadline) then "Total saved · all-time" (this month,
   spent this year). No chart. Guarantee strip for Pay-as-you-go only. "Your stores" rows (receipts · price drops · amount to
-  claim), in the layout chosen in §12, Q13.
+  claim), as rows (§12 Q13). With a single live store the Home tab opens that store's space instead (§12 Q2).
 - **To claim**: every open drop, store pills ("All stores" + each live store with its count), soonest first, the hint
   card. Locked-drop rules from 2026-11-07 still apply (amount shown, identity hidden, "few days left").
 - **Store space**: home button, sideways store rail (dark = current, drop count), grid button opens **All stores** sheet
@@ -227,29 +227,31 @@ Every screen is built to the design's render (rule 1). Data replaces every place
 - **No EAS build** until rule 7 (both consoles configured) holds, and then only when Maxim asks.
 - Task log entry, and this doc kept current as answers arrive.
 
-## 12. Open questions for Maxim
+## 12. Maxim's answers (2026-11-10, second round)
 
-1. **Per-store tools and quick filters.** Costco has receipt, price tag, translator and Price Checker; Best Buy has receipt
-   and Price Checker; quick filters differ too. Should this be a field on the `stores` row (set in Admin · Stores, so a new
-   store needs no build), or a per-store table in the app code?
-2. **One live store.** With only Costco live for shoppers, should Home still show the "Your stores" list and the store rail,
-   or should a single store open straight into its space?
-3. **Not eligible for a trial.** After creating the account, where does the shopper land: the Plans & credits paywall, or
-   Home with 0 credits?
-4. **Costco "Business" membership.** The design adds Business beside Gold Star and Executive. Today only `gold_star` and
-   `executive` exist. Add `business`, or keep two options?
-5. **Executive-only deals.** Is "Executive only" read from the saving's `flags` (if the harvest records it), or should the
-   chip and quick filter be dropped until the data exists?
-6. **Best Buy deals for admins.** Use Best Buy price points we already hold, or hide the Best Buy pill in Deals until a feed
-   exists?
-7. **A vote = launch notification?** Should voting for a store also subscribe the shopper to its launch push?
-8. **Deal category filter.** Products carry no category column today. Add one (filled how?), or drop the Category section
-   from the filter sheet?
-9. **Deal row "+" button.** What should it do: add the product to a watch list (`watched_items` exists), or something else?
-10. **Nearest warehouses with km.** A postal code maps only to a city today. Add postal-prefix coordinates so the list can
-    sort by distance and show "3.8 km", or list the province's warehouses by city without distances?
-11. **Home search button.** What does it search: receipts and products (today's receipt search), deals, or everything?
-12. **French for app screens.** The design has French only for onboarding. The French for the app screens (Home, store
-    space, Deals, Me, vote) will be written by Claude. Review it in the PR, or provide it?
-13. **Home store layout.** The design offers "Rows (scales)" and "Big buttons" (tiles plus a "To claim by store" list).
-    Which one ships?
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Per-store tools and quick filters: DB field or app code? | *"yes"* (read as: a field on the `stores` row, set in Admin · Stores; **to confirm**, §13) |
+| 2 | One live store | *"if you can do that it open straight into costco space and when a store is active it adapts, fine if not keep the row."* With one live store the Home tab opens that store's space; with two or more it shows the all-stores Home with rows. |
+| 3 | Not eligible for a trial | Lands on the **Plans & credits paywall** after account creation. |
+| 4 | Costco Business membership | **Add `business`** beside `gold_star` and `executive`. |
+| 5 | Executive-only deals | Read it from the saving's data **if it exists**; when there is no Executive-only data the chip and the quick filter are **hidden**. |
+| 6 | Best Buy in Deals | *"all best buy buttons, filters, navigation, ...etc (or any disabled store) shouldnt show until the store is live."* Applies to every disabled store. How this meets the earlier "admins still see it" is **to confirm**, §13. |
+| 7 | A vote = launch notification | **Yes**: a vote also subscribes the shopper to that store's launch push (`store_launch_subscriptions`). |
+| 8 | Deal category | **Add a category column** to products; the Category section of the filter sheet stays **hidden** until it can filter. How it gets filled is later work. |
+| 9 | Deal row "+" | Future **watchlist**: documented in `Roadmap/Deals_Watchlist.md`, **not built now, button hidden**. |
+| 10 | Nearest warehouses | **Coordinates based**: add postal-prefix (FSA) coordinates so warehouses sort by real distance and show km. |
+| 11 | Home search | **Remove search from Home.** Every search button searches only within its own screen (Receipts searches receipts, Deals searches deals, All stores searches stores). |
+| 12 | French for app screens | Claude writes it; **Maxim reviews in the PR**. |
+| 13 | Home store layout | **Rows.** |
+
+## 13. Still open
+
+1. Q1's "yes": confirm the per-store tools and quick filters are a field on the `stores` row.
+2. Q6 against rule 4: does an admin account still see a held store (Best Buy) in the new screens, or is it hidden for
+   everyone until `stores.enabled` is on?
+3. `Roadmap/Unlimited_Free_Trial.md` §4 (Maxim, 2026-11-09) says *keep granting the 75 credits to every new account, trial
+   or not*. Rule 8 (2026-11-10) says a shopper who takes the week gets no credits. Confirm rule 8 replaces §4.
+4. `Roadmap/Unlimited_Free_Trial.md` §2 has the V2 paywall's monthly row say *"7 days free, then $X/month"* to an eligible
+   shopper. The new design shows the trial only on screen H. Should the paywall also offer the free week to an eligible
+   shopper, or only screen H?
