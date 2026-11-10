@@ -112,43 +112,62 @@ The cost, stated: a shopper travelling out of province is tracked on their
 **home** province's day, not the phone's. That is also the day the server uses,
 so the two still agree — which the device-local model could never promise.
 
-## 3. Open disagreement #1 — the client and the DB differ on the last day
+## 3. Disagreement #1 — the client and the DB differed on the last day: CLOSED 2026-11-10
 
-**Status: known, deliberate, unchanged. Do not "fix" one side alone.**
+**Status: resolved. One rule everywhere: the window closes ON `purchase + N`
+(exclusive).**
 
 | | Rule | Day `purchase + N` |
 |---|---|---|
-| Client (`daysRemainingISO`), legacy sweep (`isWithinWindow`) | EXCLUSIVE | window CLOSED, counter reads 0 |
-| DB (`receiptsRepo` via `trackingWindow.isPastWindow`) | INCLUSIVE — expired iff `purchase_date + window < today` | still `watching` |
+| App (`daysRemainingISO`, `isWindowOpen`), sweep + claim checks (`isWithinWindow`) | EXCLUSIVE | closed, counter reads 0 |
+| Receipt lifecycle (`isPastWindow`, `windowClosedSql`, `recomputePolicyStatus`, the heal, `autoClaimExpiredDrops`) | EXCLUSIVE since 2026-11-10 (was inclusive) | `expired` / `claimed` |
+| Admin receipt desk (chips, row badge, detail, account report) | `receiptsRepo.lifecycleCodeSql`, live on the owner's day | `expired` / `claimed` |
 
-For a shopper with a province, both sides now count on the **same** day, so
-the disagreement is exactly that one day per receipt — no longer "one day plus
-the gap between UTC and local midnight". It predates both timezone fixes and
-exists at every offset.
+**What forced it.** Maxim's $696.50 Costco receipt (bought 2026-10-11, Ontario,
+30 days). On 2026-11-10 his phone said Expired. The admin desk listed it under
+Watching, and opening it said Expired. Two faults stacked:
 
-**Why it is still not resolved:**
+1. The stored lifecycle was INCLUSIVE (`today > purchase + N`), so on day
+   `purchase + N` it still said `watching`.
+2. The desk's Watching / Claimed / Expired chips filtered on the STORED
+   `receipts.policy_status_id`, which only moves when the hourly heal runs.
+   Even with one rule, the desk lagged the phone between the owner's midnight
+   and the next heal.
 
-1. **Exclusive is the conservative side.** Adopting the inclusive rule would,
-   for one day per receipt, tell a shopper they can still claim when the
-   client cannot verify the store agrees. A timezone fix is not the vehicle for
-   loosening a refund deadline.
-2. **`updateExpiredReceipts` writes, it does not render.** It persists
-   `status:"expired"`, sets `watchEnabled:false` on every item, and mirrors each
-   stop to the backend **durably**. Moving the boundary by a day is a data
-   change with a backend side effect, and not idempotently reversible — once
-   `watchEnabled:false` is mirrored, the next bootstrap merge keeps it off.
-3. **It would make a timezone fix unverifiable.** Every assertion would move by
-   a day at once.
+**Why the server moved, not the phone.** Every live build (56–60) already
+counts exclusively, and the backend can't change a shipped build's code. Exclusive is also the
+conservative side (§3 of the previous version: never tell a shopper they can
+claim when the store may disagree). The legacy sweep and every claim check were
+already exclusive, so only the lifecycle moved.
 
-Pinned on both sides by tests named for what they are
-(`__tests__/adjustmentWindow.test.js` → *"EXCLUSIVE: the window is already
-closed on day purchase+N"*, `backend/tests/trackingWindow.test.js` →
-*"isPastWindow is INCLUSIVE of the last day"*).
+**The fix (hotfix `hotfix/receipt-window-one-rule`).**
+- `trackingWindow.isPastWindow` is now `!isWithinWindow` (an unusable date
+  still reads "not passed"), and `windowClosedSql` is its SQL twin, defined
+  beside it. The heal and `autoClaimExpiredDrops` call it. No other copy of
+  `purchase_date + N` vs today remains in the lifecycle code.
+- `receiptsRepo.lifecycleCodeSql` derives watching / claimed / expired live on
+  the owner's province day. The desk's chips, its row badge, `getForAdmin` and
+  the account report all read it, never the stored column (that column is now
+  a cache the phone never reads).
+- `getForAdmin` returns `ownerTimeZone` (additive). The admin detail counts the
+  window on that zone, so an owner with no province reads Eastern, as on the
+  server, never the admin's phone day. It also shows an **Owner's local time**
+  row, so a drop is approved on the day the owner is living.
 
-**If you do take it on:** decide the rule once, move `daysRemainingISO`,
-`trackingWindow.isPastWindow` / `isWithinWindow`, and `priceDropRepo`'s SQL
-window (`f.available_from <= rc.purchase_date + adjustment_days`) together,
-and say what happens to receipts already sitting at `watchEnabled:false`.
+**Effect on data.** On deploy, the first heal moves every receipt sitting on its
+`purchase + N` day from `watching` to `expired` / `claimed`, which is what the
+owner's phone already showed. The pre-existing `priceDropRepo` candidate scans
+(`f.available_from <= rc.purchase_date + N`) are over-inclusive pre-filters.
+Each candidate is then judged by `isItemClaimable` / `isWithinWindow`, which
+were already exclusive, so they were left alone.
+
+Pinned by `backend/tests/trackingWindow.test.js` (*"isPastWindow is the exact
+complement of isWithinWindow"*, 41-day sweep), `adminReceiptLifecycleDb.test.js`
+and `policyStatusProvinceDb.test.js` (fixture moved one day so the last OPEN day
+is still the one under test).
+
+Standing rule (CLAUDE.md, Maxim 2026-11-10): *"all filters, math, rules in the
+app should always use the same method or class to avoid problems."*
 
 ## 4. Disagreement #2 — the push emoji and the in-app chip: CLOSED for shoppers with a province
 
