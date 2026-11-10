@@ -227,6 +227,19 @@ Live build: **Android 3.5.0** (main-test-features merged into main and deployed 
 
 Forcing builds: none needed.
 
+## Audit — 2026-11-09: locked stores refused on `POST /api/receipts`, unsupported-store hold (hotfix → `main`, migration 0048)
+
+The live build is **Android 3.6.0** (build 59). Migration `0048_unsupported_store_scans` is a new table and must be applied on prod **before** the deploy.
+
+| Change | Why old builds are fine |
+|---|---|
+| `POST /api/receipts` answers **`422 STORE_NOT_AVAILABLE`** (`retryable: false`) when a non-admin files a NEW receipt under a store that is not open to everyone. Admins and re-posts of an existing receipt id are untouched. Refused before the charge. | Camera scans in every build since the Costco-first launch (2.3.0) refuse a disabled store in the app, so only the mailbox import ever sent one. The import's first rows came on 2026-11-07, from 3.6.0. Any build back to 2.8.3 takes a 4xx as terminal (`isRetryableStatus` → `recordSyncOutcome`): the receipt stays on the phone with `syncError`, nothing is retried in a loop and nothing is deleted. Only `INSUFFICIENT_CREDITS` deletes a local copy. |
+| New `POST /api/receipts/unsupported-store-scans` | New route; no shipped build calls it. |
+| New `GET /api/admin/unsupported-store-scans`, `POST …/:id/review` | Admin only, new. |
+| `pruneOcrCaptures` also deletes held scans older than `RETENTION_OCR_CAPTURES_DAYS` | Server-side only. |
+
+Forcing builds: none needed.
+
 ## Open gaps
 
 1. ~~No client version on requests~~ **Done** (3.0.7): `X-App-Platform`,

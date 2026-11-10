@@ -162,8 +162,8 @@ guarded), but the feature does nothing and the daily job fails until it is appli
    `created_at = 1790400000000`, guarded by `WHERE NOT EXISTS (… hash = …)`.
 3. Verify: both tables exist with `relrowsecurity = true`; after the deploy boots,
    `guarantee_statuses` has 10 rows.
-4. Regenerate `backend/db/deploy/schema.sql` (`scripts/build-consolidated-schema.js`) —
-   **still owed**: the session that built this could not run it.
+4. ~~Regenerate `backend/db/deploy/schema.sql`~~ — **not owed**: `schema.sql` is
+   frozen at the first production version and is never regenerated (Maxim, 2026-11-09).
 5. Dev (`gnedluuylimjwdmtvswl`) was migrated on 2026-09-25 (ledger id 36).
 
 **Done 2026-09-26:** production (`xjfrlzwonyaorwktnkpj`) migrated through the Supabase

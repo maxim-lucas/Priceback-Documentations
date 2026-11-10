@@ -16,6 +16,30 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-09 — Locked-store "receipts" from the mailbox import; refused non-Costco scans held for the admin
+
+- **Asked (Maxim):** a monthly subscriber has expired, unpreviewable, item-less receipts from Best Buy, Home Depot and others, which the parser should have refused. Then: *"this is a hotfix on main, these stores are locked, users should get rejection on parse"*, and *"if any user scan a non costco receipt, i want the app to save them temporarily until the admin review even if store is not supported"*.
+- **Decisions (Maxim, 2026-11-09):**
+  - the shopper's refusal is unchanged, with no mention of a review (*"this review is only to flag if the user has to be flagged or not"*);
+  - admin actions: view the photo, dismiss, flag the user;
+  - the mailbox import applies the scan's rules, and the server refuses locked stores;
+  - the 12 prod rows are skipped for now (already expired).
+- **Found:** all 12 of that user's ghost receipts (5 from locked stores, 7 "Costco" notices) were **mailbox imports**, not scans. There are no real receipts for those stores to tune a parser on. Details: `Bugs_Common_Fixes.md` #368.
+- **Done:** branch `hotfix/locked-store-email-import-and-scan-holds` (off `main`):
+  - email import gate;
+  - `422 STORE_NOT_AVAILABLE` on `POST /api/receipts`;
+  - migration `0048_unsupported_store_scans` (applied to **dev only**);
+  - silent report from the scan and the offline queue;
+  - Admin · Receipt reading › Unsupported stores.
+- **Status:** PR open, waiting on Maxim. He will apply 0048 on prod **before** the backend deploys, merge, and decide when the binary release goes out.
+
+### 2026-11-09 — Ads: bring the AdMob work onto main's line; rewarded ads earn free credits (Pay-as-you-go only)
+
+- **Asked (Maxim):** *"work on a new branch, from main, add the changes for the ads in this new branch and start integrationg the ads in the app as a earn free credit option based on ads cost and choose the places where we can add some ads in small blanks spaces for Pay as you go only plan, subscribers should never get ads"*; then *"the ads changes where in dev i think, you can use claude in chrome to add or create configurations"*.
+- **Decisions:** branch `feat/ads-rewarded-credits` off `main` (`267505da`); #309 + #310 cherry-picked from `development`. Ads stay on the **lab lane** (production binaries still compile no SDK). Credits per view **derived from the ad's revenue**, ⌊eCPM ÷ 1000 × share ÷ $0.01⌋ (defaults $15 × 0.7 → 1 credit = 1 scan); 5 a day; only Google's signed SSV callback grants, once per transaction, ad unit must be ours. Subscribers: two proofs (local entitlement + the server's `ads.payg`). Reward offer on Profile + Plan & credits, **not** on the paywall. New banner slots: Credit history, FAQ, Tutorials. All server switches ship OFF.
+- **Files / areas:** `backend/lib/adRewards.js`, `backend/lib/admobSsv.js`, `repos/creditsRepo.js` (`grantAdRewardOnce`, `adRewardUsage`), `server.js` (`/api/ads/reward`, `/api/ads/ssv`, `/api/me` `ads.payg`/`ads.reward`), `config/defaults.js`, `db/seed.js` (`ad_reward`); app `services/adsService.js`, `services/rewardedAds.js`, `components/WatchAdForCredits.js`, `AdBanner.js`, `CreditsExtras.js`, Profile, Credit history, FAQ, Tutorials, `config/profiles/*`, `app.config.js`. Docs: `Technical/Rewarded_Ads_Earn_Credits.md`, AdMob runbook Phase B2.
+- **Status:** committed on `feat/ads-rewarded-credits` (`c1c48f3f`), not pushed. Mobile 12,507 pass, 3 fail (`paywallAnnualBadge`, fails identically on clean `main`, not this change); backend blast radius 261 pass / 0 fail / 0 skipped on the dev DB incl. `adRewardsDb` 9/9. Owed: AdMob account + units + SSV URL (runbook A–D), a `lab` EAS build to prove the 16.0.0 SDK compiles.
+
 ### 2026-11-07 — Locked price drops: show the amount, a fixed "few days left", and a missed counter
 
 - **Asked (Maxim):** correcting the 2026-11-06 count-only lock — *"the locked price drops should always show the amount … and a fixed message like 'few days left, unlock before it is too late' and once they expire they can show for the total missed counter. the tracking by product or receipts should always have a tile as a row … for the total amount with locked row (to unlock) … hide any identification for the receipt or the product but have the amount with less time to react"*; then *"merge everything into main once you finish"*.
@@ -11923,3 +11947,47 @@ with no push notifications.
 - **Docs:** `Roadmap/Unlimited_Free_Trial.md` + FUTURE_ROADMAP P3 row (PR #207). Prod data: median 5.2 days
   signup → first drop; 54 % within 7 days.
 - **Canvas:** artboard *Signup · trial or credits* added for approval (where it shows: decided after approval).
+
+## 2026-11-09 — Deleted accounts never contacted; tag reader lost a saving; one shopper page (hotfix)
+
+- **Ask (Maxim):** (1) a deleted account must never get a notification or email (reminders, drops…), except a future
+  "why did you leave" feedback email; it may collect drops as *missed* during the 30-day window. (2) A sharp price tag
+  scanned yesterday was read with the price after savings as the original price, a regression. (3) The drop desks'
+  "full report" is not the full account page: merge the two, simpler. Hotfix on `main`, merge when done.
+- **Branch:** `hotfix/deleted-users-tag-savings-report` off `main`, merged as Priceback #557 (worktree, so the open
+  `feat/paywall-v2` tree was not touched).
+- **(1) Found:** prod has 6 deleted accounts, 0 pushes / 0 emails sent after a deletion, 0 tokens on them. One open
+  path: `PUT /api/me/profile` re-stored a push token on a tombstone. **Done:** `lib/accountReach` checked at send
+  time in `sendUserPush`, the drop drain and the reminder email job; `updateProfile` never stores a token on a deleted
+  account. Bugs #370; rule in `Technical/Deleted_Account_Contact_Rule.md`. **Not done (needs Maxim):** collecting
+  missed drops in the window. Revival restores credits but not receipts, and detection is also the commission
+  charge (written up in that doc).
+- **(2) Found:** OCR read the saving line as `1-5.00`. The parser has not changed since #14, so this is an OCR shape
+  it never handled. Same family in prod: #13 `6.00`, #40 `-100.000`. **Done:** a garbled savings line counts only when
+  the tag's arithmetic proves it; the inline "Instant Savings" regex no longer crosses a line. Prod corpus replay:
+  exactly the 3 target tags change, 88 byte-identical. Bugs #369.
+- **(3) Done:** `AdminUserReportScreen` removed. Its search moved into `AdminAccountDetail` (Admin home "Shopper
+  account" opens it with a search). The drop queue and potential drops open the account page. Quick actions are one
+  2×2 grid; the DATA RESET badge carried over.
+
+## 2026-11-09 — Missed savings: products view, Home, re-drops, prod datafix; schema.sql frozen
+
+- **Ask (Maxim):** missed savings belong under Expired in the products view, not Watching. The products-view chips
+  become Watching / To claim / Claimed / Missed or expired (no All; the receipts view keeps All). Claimed is final.
+  Show the year's missed savings next to the claimed total. A missed product whose saving returns inside the
+  window is notified again, with no second charge. Revive every rejected or expired prod case for review. Run the
+  migration on prod. Old builds must keep working. Mid-session: *"dont ever regenerate the sql.schema, this rule was
+  created only for the first production version. so update the rules and the docs"*.
+- **Branch:** `fix/missed-savings-redrops` (Priceback), `docs/redrops-and-frozen-schema` (docs).
+- **Done:**
+  - **App:** `productStatus.js`, the products-view chips and the Home "missed in {year}" line.
+  - **Server:** re-drops via migration 0049, `recordRedrops`, queue revival per run.
+  - **Prod:** migration applied (ledger id 58); 11 queue rows revived to pending (`Technical/Missed_Savings_And_Redrops.md`).
+  - **schema.sql frozen:** the build script exits 1; docs, test message and memory updated. `schema.sql` was not
+    regenerated for 0049.
+- **Tests:**
+  - mobile `npm test` green, `i18n:check` green;
+  - backend: 193/193 DB price-drop tests and the 14 new re-drop tests pass on dev;
+  - `priceDropLockedPush.test.js` has 2 failures that already fail on the base commit (push copy changed in #556).
+- **Learned:** the app needed no change to show a re-drop, because `releasedForUser` already reports the latest
+  fitting run's end. Only the push, the queue and the rejection lock were missing.
