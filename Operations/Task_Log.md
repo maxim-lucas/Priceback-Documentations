@@ -16,6 +16,23 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-09 — Locked-store "receipts" from the mailbox import; refused non-Costco scans held for the admin
+
+- **Asked (Maxim):** a monthly subscriber has expired, unpreviewable, item-less receipts from Best Buy, Home Depot and others, which the parser should have refused. Then: *"this is a hotfix on main, these stores are locked, users should get rejection on parse"*, and *"if any user scan a non costco receipt, i want the app to save them temporarily until the admin review even if store is not supported"*.
+- **Decisions (Maxim, 2026-11-09):**
+  - the shopper's refusal is unchanged, with no mention of a review (*"this review is only to flag if the user has to be flagged or not"*);
+  - admin actions: view the photo, dismiss, flag the user;
+  - the mailbox import applies the scan's rules, and the server refuses locked stores;
+  - the 12 prod rows are skipped for now (already expired).
+- **Found:** all 12 of that user's ghost receipts (5 from locked stores, 7 "Costco" notices) were **mailbox imports**, not scans. There are no real receipts for those stores to tune a parser on. Details: `Bugs_Common_Fixes.md` #368.
+- **Done:** branch `hotfix/locked-store-email-import-and-scan-holds` (off `main`):
+  - email import gate;
+  - `422 STORE_NOT_AVAILABLE` on `POST /api/receipts`;
+  - migration `0048_unsupported_store_scans` (applied to **dev only**);
+  - silent report from the scan and the offline queue;
+  - Admin · Receipt reading › Unsupported stores.
+- **Status:** PR open, waiting on Maxim. He will apply 0048 on prod **before** the backend deploys, merge, and decide when the binary release goes out.
+
 ### 2026-11-09 — Ads: bring the AdMob work onto main's line; rewarded ads earn free credits (Pay-as-you-go only)
 
 - **Asked (Maxim):** *"work on a new branch, from main, add the changes for the ads in this new branch and start integrationg the ads in the app as a earn free credit option based on ads cost and choose the places where we can add some ads in small blanks spaces for Pay as you go only plan, subscribers should never get ads"*; then *"the ads changes where in dev i think, you can use claude in chrome to add or create configurations"*.

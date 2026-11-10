@@ -14796,6 +14796,31 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Detect next time: a queue row with `saving_id IS NULL` on a product whose Same-Day harvest prints 3 or more regular prices in one run.
 - Prevent: `priceDropWindowSourceDb.test.js` › *sold by the pack — one pack's price is no other pack's drop* (both tests fail without the fix: the verified pack, and the unverified pack on Potential drops).
 
+## 368. A shopper's list fills with "receipts" from Home Depot, Rona, Sport Chek and Best Buy — stores that are locked — each one an email subject with no photo (reported 2026-11-09; `hotfix/locked-store-email-import-and-scan-holds`)
+
+- Date: 2026-11-09 · Area: both
+- Symptom: Maxim saw a monthly subscriber with receipts from locked stores (Best Buy ×2, Home Depot, Rona, Sport Chek). They had no preview, couldn't be seen in the app, and their parser had not refused them. In prod, all five sat on user …6603046 (Android 3.6.0 build 59) with `policy_status = expired` and no `image_object_key`. Their only item was the email's subject: "Your receipt is ready #1027418633", "Order ready for pickup at store locker – digital receipt enclosed". The same import also created **7 "Costco" receipts** at $0, made from shipping and marketing emails ("Pre-order the latest Apple products on Costco.ca!").
+- Root cause: **none of them was a camera scan.** Their ids were all minted in the same second (2026-11-07 02:44:12 UTC), and none has an OCR capture. They came from the **mailbox import** (`EmailSyncScreen` → `emailSyncService.syncGmailReceipts` / `syncOutlookReceipts` → `saveReceipt`), which skipped every gate a scan goes through:
+  - no `isStoreEnabled` check, so any store in `STORE_EMAIL_PATTERNS` was imported;
+  - with no priced line, `parseGmailMessage` / `parseOutlookMessage` invented one from the subject (`items.length > 0 ? items : [{ name: subject, price: total || 0 }]`), so every pickup, shipping or marketing email became a receipt;
+  - no expiry judgement.
+
+  `POST /api/receipts` accepted any store code. The Gmail Limited-Use gate is in 3.6.0, so the rows that reached the server came from a connected **Outlook** inbox; Gmail-sourced ones stayed on the phone. "Can't see them": they are expired, so the Receipts screen's default *watching* chip hides them. "No preview": an email has no photo.
+- Fix:
+  - **App** (needs a new binary): an email is imported only if `emailImportRefusal` returns null. It refuses a store not open to the account (`store_locked`), no priced line or no total (`no_items`, which covers Costco notices too), and a purchase already past the store's window when the admin's "Refuse expired receipts" switch is on (`expired`). The subject fallback item is gone.
+  - **Server:** `POST /api/receipts` answers `422 STORE_NOT_AVAILABLE` (terminal, before the charge) when a non-admin files a NEW receipt under a store that isn't open to everyone (`storeAvailability.mayFileReceipt`). A re-post of an existing receipt is untouched.
+  - **Held for review:** camera scans of locked stores were already refused before review. Now they are also reported silently to `POST /api/receipts/unsupported-store-scans` (table `unsupported_store_scans`, migration 0048). They're listed with their photo in Admin · Receipt reading › Unsupported stores, where the admin can **Dismiss** or **Flag user**. Rows are kept for 90 days with the captures.
+- Data: the 12 prod rows were left as they are (Maxim: *"they are already expired, we can skip for now"*).
+- Files:
+  - app: `src/services/emailSyncService.js`, `src/services/unsupportedStoreScanReport.js`, `src/screens/ScanScreen.js`, `src/services/receiptScanQueue.js`, `src/screens/AdminReceiptReaderScreen.js`;
+  - server: `backend/server.js`, `backend/lib/storeAvailability.js`, `backend/lib/unsupportedStoreScans.js`, `backend/repos/unsupportedStoreScansRepo.js`, `backend/repos/storePoliciesRepo.js`, `backend/jobs/pruneOcrCaptures.js`, `backend/db/migrations/0048_unsupported_store_scans.sql`.
+- Detect next time: `select s.code, count(*) from priceback.receipts r join priceback.stores s on s.id = r.store_id where not s.enabled group by 1;` A receipt with no `ocr_captures` row, no image and a one-line `raw_ocr` whose name reads like an email subject is a mailbox import.
+- Prevent:
+  - `emailSyncEndToEnd.test.js` (a locked store, a notice and an expired purchase are each not imported);
+  - `emailSyncService.extended.test.js` › `emailImportRefusal`;
+  - `receiptLockedStoreDb.test.js` (422, uncharged, not created; admin allowed; existing receipt untouched);
+  - `unsupportedStoreScans*.test.js`.
+
 ## 368. Same-Day's Monday drop missed for a day, Sunday not harvested at all, and the Business Centre page read 0 of 30 offers (reported 2026-11-09; `hotfix/savings-publish-aware-harvest`)
 
 - Date: 2026-11-09 · Branch: `hotfix/savings-publish-aware-harvest` off `main` · Area: `backend/jobs/harvestSavings.js`, `services/savings/sources/{index,samedaySource,costcoWebSource}.js`, `repos/savingsRepo.js`, `server.js`. No migration, no route removed (one additive field, `watch`, on the admin-console `GET /api/admin/savings/sources`).
