@@ -272,7 +272,20 @@ Every screen is built to the design's render (rule 1). Data replaces every place
 Unchanged by this design: a shopper with 0 credits who tries to scan before choosing gets today's paywall (normal
 prices, no trial wording).
 
-## 16. Still open
+## 16. Approval and sixth-round answers (2026-11-10)
 
-None. Waiting for Maxim's approval of this document; then the implementation plan
-(`Technical/Store_Spaces_v2_Plan.md`), then the store consoles (§7.2), then the build.
+**Approved by Maxim** (*"approved, write the plan, also keep in mind that all previous builds should be considered and
+still works. i dont want to publish the new design and then all previous users break"*). The plan is
+`Technical/Store_Spaces_v2_Plan.md`; its Phase 1 is the old-build compatibility work.
+
+Push notifications (added after approval):
+
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Notifications at account creation | **Android: required** (Create account stays disabled until notifications are allowed). **iOS: the OS prompt fires during account creation; a denial is allowed** (Apple guideline 4.5.4 forbids requiring push for the app to function). |
+| 2 | Scanning a receipt with notifications off | *"block the scan receipt instead or popup to enable push notification, if blocking the scan receipt on push notification will get us a rejection we can just popup the screen with a allow and cancel. but you should write something to let the user understands that he wouldnt get the price drop notifications witout allowing the push notifications"*. Blocking a scan would meet the same 4.5.4 objection, so: a popup on every receipt scan while notifications are off, saying the shopper won't get price-drop alerts without them, with a button and Cancel. iOS after a denial cannot show the OS prompt again and 5.1.1(iv) forbids "Allow" wording, so the button reads **"Open Settings"**; on Android before a permanent denial it fires the OS prompt. |
+| 3 | Today's accounts with no push token | **Roadmap**: `Roadmap/Push_Token_Gap.md`. Not in this branch. |
+
+## 17. Still open
+
+None.
