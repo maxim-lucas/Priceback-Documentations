@@ -14,6 +14,23 @@ multi-day latency.
 
 ---
 
+## ✅ Done 2026-11-09 — account, apps, units (record)
+
+| What | Value | Where it lives |
+| --- | --- | --- |
+| Publisher | `pub-4663837040719790` (Google identity maxim.louka) | AdMob |
+| Android app | `ca-app-pub-4663837040719790~9487798112` (Play `com.priceback`) | `app.json` |
+| iOS app | `ca-app-pub-4663837040719790~8238065080` (App Store `6795860374`) | `app.json` |
+| Banner, Android | `ca-app-pub-4663837040719790/5611901740` | EAS production `ADMOB_BANNER_UNIT_ANDROID` |
+| Banner, iOS | `ca-app-pub-4663837040719790/3439540683` | EAS production `ADMOB_BANNER_UNIT_IOS` |
+| Rewarded, Android | `ca-app-pub-4663837040719790/6545709469` (item `credit`, 1) | EAS production `ADMOB_REWARDED_UNIT_ANDROID` |
+| Rewarded, iOS | `ca-app-pub-4663837040719790/9813377341` (item `credit`, 1) | EAS production `ADMOB_REWARDED_UNIT_IOS` |
+
+- Account status: **being verified** (Maxim confirmed the program-policy attestation and resubmitted). Both apps: *Requires review — limited ad serving* until `app-ads.txt` is crawled.
+- `app-ads.txt`: `google.com, pub-4663837040719790, DIRECT, f08c47fec0942fa0`, in Priceback-Website PR #21 (not live until merged).
+- **Not done yet:** server-side verification URL on the two rewarded units (needs a backend with `/api/ads/ssv` deployed); prod `app_config` `ADMOB_REWARDED_AD_UNITS` = `6545709469,9813377341` (needs that backend too); payments/tax (W-8BEN-E) in AdMob → Payments; store declarations (Phase D).
+- The build guard no longer requires TEST units to share the app id's publisher (Google serves them under any app id), so lab builds use the real app ids with the committed test units.
+
 ## 0. Read this first — expectations and the one irreversible risk
 
 **Revenue at current scale will be small.** Store availability is Canada +
