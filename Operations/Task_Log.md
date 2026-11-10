@@ -16,6 +16,14 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-10 — Store Spaces v2: redesign from Claude Design, trial choice, Deals, store vote
+
+- **Asked (Maxim):** implement the Claude Design project *Store Spaces v2* (`Store Spaces v2.html` + `redesign/spaces2-*.jsx`) on a new branch from `main`, not merged; paywall hero colours chosen on an artifact first; Best Buy hidden; postal code never empty; account needs language, province (calculated) and postal code; the 1-week Unlimited configured in Google and Apple before any build; stores from the database only; *"Dont take decisions by yourself … dont change the actual app behavior without asking"*; then *"all previous builds should be considered and still works"*; then Android requires notifications at account creation.
+- **Decisions:** six rounds of answers recorded in `Technical/Store_Spaces_v2_Design.md` §12–16 (approved 2026-11-10). Highlights: hero colour B (total only); one trial per account (week **or** 75 credits, never both, replaces `Roadmap/Unlimited_Free_Trial.md` §4); screen H sticky at every launch until chosen, X opens the app with a "Start your free trial" strip under the Home hero; free week only on H; Deals + vote built fully; Stores tab removed; admins still see `adminPreview` stores; Business membership added; FSA coordinates; no Home search.
+- **Files / areas:** plan `Technical/Store_Spaces_v2_Plan.md` (24 tasks; Phase 1 = old-build compatibility, `X-App-Caps`). Roadmaps added: `Roadmap/Deals_Watchlist.md`, `Roadmap/Push_Token_Gap.md`.
+- **Branch:** app `feat/store-spaces-v2` (to cut from `main` 70991cb3); docs `docs/store-spaces-v2`.
+- **Status:** plan written, waiting for Maxim's review and the execution method. Nothing built, no console touched.
+
 ### 2026-11-09 — Locked-store "receipts" from the mailbox import; refused non-Costco scans held for the admin
 
 - **Asked (Maxim):** a monthly subscriber has expired, unpreviewable, item-less receipts from Best Buy, Home Depot and others, which the parser should have refused. Then: *"this is a hotfix on main, these stores are locked, users should get rejection on parse"*, and *"if any user scan a non costco receipt, i want the app to save them temporarily until the admin review even if store is not supported"*.

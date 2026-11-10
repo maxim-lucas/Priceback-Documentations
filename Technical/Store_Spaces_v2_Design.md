@@ -150,10 +150,13 @@ Documented in `Operations/` with screenshots.
 
 ### 7.4 Old builds (backend rule)
 
-Old builds have no step H and expect the 75 credits at signup. The automatic grant in ensure-user **stays** for every
-request that does not prove it comes from a build with step H. A new build sends a new optional request field
-(`deferTrialCredits: true`) on the ensure-user call, and only then is the grant deferred to the choice route. A request
-without the field behaves exactly as today. That keeps 2.8.3 … 3.6.1 unchanged.
+Old builds have no step H and expect the 75 credits at signup. The automatic grant **stays** for every request that does
+not prove it comes from a build with step H. A new build announces itself with a new request header,
+`X-App-Caps: trial-choice` (sent on every request by the existing header wrapper), and only then is the grant deferred
+to the choice route. A request without it behaves exactly as today, which keeps 2.8.3 … 3.6.1 unchanged.
+*(Planning detail, 2026-11-10: the draft said a body field on "the ensure-user call", but the grant runs from nine
+sign-in and hydrate routes, so a header every request carries is the only marker that reaches all of them. A build
+number was rejected as the marker because a hotfix build from `main` without step H would then lose its credits.)*
 
 ## 8. App screens
 
