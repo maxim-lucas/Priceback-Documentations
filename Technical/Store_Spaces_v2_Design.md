@@ -127,11 +127,18 @@ Saved through the existing `syncProfileToBackend` (postal code, province, city f
 
 ### 7.2 Store configuration (before any build)
 
+**Changed 2026-11-10 (Maxim: "approved, use the rc-ignore-offer and separate Apple product").** An introductory offer on
+the existing monthly product would reach installed builds too: Apple applies an intro offer automatically to any
+eligible buyer of that product, and RevenueCat's Android default option picks the longest free trial. A 3.6.1 shopper
+would get the free week on top of their 75 credits, with no trial wording on their paywall. So the week is configured
+so that only the new build can start it:
+
 | Store | Where | Setting |
 | --- | --- | --- |
-| Google Play | Monetize → Subscriptions → Unlimited → monthly base plan → **Add offer** | Free-trial phase **7 days**, eligibility **New customer acquisition**, regions = the base plan's (Canada + Egypt), offer tag for RevenueCat |
-| App Store Connect | Subscriptions → Unlimited monthly → **Introductory Offers** | **Free**, **1 week**, all territories the subscription sells in (Canada + Egypt) |
-| RevenueCat | Offerings | confirm the monthly package surfaces the intro offer and `checkTrialOrIntroDiscountEligibility` returns per-product status |
+| Google Play | `priceback_unlimited_monthly` → monthly base plan → **Add offer** | Free-trial phase **7 days**, eligibility **New customer acquisition**, regions = the base plan's (Canada + Egypt), **offer tag `rc-ignore-offer`** so RevenueCat never selects it by default; the new build requests this subscription option explicitly |
+| App Store Connect | **new product `priceback_unlimited_monthly_trial`** in the same subscription group as `priceback_unlimited_monthly`, same price | **Introductory offer: Free, 1 week**, Canada + Egypt. Sold only by the new build. `priceback_unlimited_monthly` never gets an intro offer |
+| RevenueCat | Offerings / products | attach `priceback_unlimited_monthly_trial` to the Unlimited entitlement; a package the new build uses for screen H; confirm `checkTrialOrIntroDiscountEligibility` per product |
+| Backend | product-id mapping | `priceback_unlimited_monthly_trial` is treated exactly as Unlimited monthly everywhere a product id is mapped to a plan (additive) |
 
 Done through Chrome with Maxim watching; every value read back after saving (Play Console stages edits).
 Documented in `Operations/` with screenshots.
