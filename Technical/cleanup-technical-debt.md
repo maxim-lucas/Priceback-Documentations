@@ -132,8 +132,9 @@ operator tools:
   `google-services.json` from any machine using a service-account key.
 - `scripts/gen_brand_assets.py` — brand asset generator.
 - `backend/scripts/{backfill-warehouse-coords,gen-warehouses-json,build-consolidated-schema,upsert-personal-care-barcodes}.js`
-  — `build-consolidated-schema.js` in particular regenerates `backend/db/deploy/schema.sql`,
-  the official fresh-deploy reference.
+  — `build-consolidated-schema.js` regenerated `backend/db/deploy/schema.sql` for the
+  first production version only. That file is now frozen and the script must never be
+  run again (Maxim, 2026-11-09); it refuses to run.
 - `backend/data/flyer-imports/costco-on-2026-05-11.json` — sample payload for the
   `POST /api/flyer/import` operator route.
 - `backend/db/deploy/store-content-sync.sql` — hand-run data-sync SQL.
