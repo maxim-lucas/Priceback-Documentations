@@ -522,7 +522,7 @@ DATABASE_URL=postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com
 ```
 
 - [ ] Confirm each migration applied: `npm run db:migrate` should report `No pending migrations` on the second run.
-- [ ] Regenerate `backend/db/deploy/schema.sql` if you add more migrations: `node backend/db/build-consolidated-schema.js`.
+- [ ] Do **not** regenerate or edit `backend/db/deploy/schema.sql` — it is frozen at the first production version (Maxim, 2026-11-09). A new migration ships as its own file in `backend/db/migrations/` plus its journal entry, nothing else.
 
 > **Do not run migrations against dev Supabase** when targeting prod — double-check `DATABASE_URL` first. Dev project ref: `gnedluuylimjwdmtvswl`; prod project ref: `xjfrlzwonyaorwktnkpj`.
 
