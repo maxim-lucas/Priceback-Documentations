@@ -26,6 +26,38 @@ How to work this file:
 
 ---
 
+## P0′: from the 2026-11-09 audit — do before/at launch, no deploy needed
+
+Full evidence and proposed fixes: `Roadmap/App_Audit_2026-11-09.md` (main @ `70991cb`, v3.6.1 / 60).
+
+| # | Item | Status 2026-11-09 | What to do |
+|---|---|---|---|
+| A-H2 | **Vision OCR monthly cap** — prod at **195 / 1 000** on Nov 10; past it every scan is `503` until Dec 1 | open ✔ | Raise `OCR_MONTHLY_LIMIT` in Admin · Quotas today (≈US$1.50 per extra 1 000); confirm GCP billing is on. Roadmap: a soft cap (alert + per-device tightening) instead of a global refusal. |
+| A-H3 | **42 drops pending manual approval**; rows 6032 and 716 have claim windows ending **2026-11-10**, 4837/8825 on 11-11 | open ✔ | Approve the queue today. Roadmap (server): alert when a pending row's window closes in ≤ 3 days; auto-approve official-source (Same-Day / costco.ca) savings drops that pass every check. |
+| A-H4 | **Kickstarter plan codes never exercised on prod** (`partner_attributions` = 0, no code with plan months) — P0-2 still open | open ✔ | Generate one plan code, redeem it on a real prod account, verify RC entitlement + `plan_granted_at`, then generate backer codes. |
+
+## P1″: server-side rows from the 2026-11-09 audit
+
+| # | Item | Fix (server only) | Old builds |
+|---|---|---|---|
+| A-H1 | **Auto-claimed expired drops show as Claimed and count as saved** — `AUTO_CLAIM_EXPIRED_DROPS` (10-17) vs the products-view rules (#560, 11-09). Prod: 58 of 76 claimed lines, $231.44 of $287 "saved", were never refunded | Emit `claimSource` on items (additive); decide the flag (or heal `policy_status` without setting `claimed_at`); optional datafix | Builds keep showing them as claimed until 3.6.2 — unchanged from today |
+| A-M1 | **`main` CI red**: 2 stale assertions in `priceDropLockedPush.test.js` (#556 copy); `adminConsoleRoutesDb` growth-guard test fails locally too — settle whether the purge guard skips when the scan has no count for a group | Fix tests; fix the guard if it is the guard | n/a |
+| A-M2 | **$0 one-line "Costco" receipts from Outlook on builds 56–59** (#368's phone-only half) | Refuse a NEW receipt with no priced line and no image: `422`, terminal, before the charge | 3.5.1+ show "not backed up"; ≤ 3.5.0 silent — both better than a phantom receipt |
+| A-L1 | Drizzle ledger: 0042 under 0041's `when`; no row for 0046 | Insert the two rows by hand | n/a |
+| A-L2/L3 | `/health` says `version 2.7.0`; `NODE_ENV` unset on Railway | Bump/report SHA; set `NODE_ENV=production` | n/a |
+| A-L5 | Dead routes `POST /api/check-all`, `DELETE /api/me/observations` | Remove or label | no caller on any build |
+
+## P2″: phone rows from the 2026-11-09 audit → 3.6.2
+
+| # | Gap | Proposed fix |
+|---|---|---|
+| A-H1 | Products view / Home sums treat `claimSource = expired` as claimed | `productChip` → `expired`; `missedSavingsInYear` and the claimed sums skip them (needs the P1″ field) |
+| A-M3 | A drop pending review looks like plain *Watching*; a rejection shows nothing | A "Being verified" state from the released-drops list |
+| A-L4 | Paywall *Restore* has no in-flight guard | Reuse `_buying` |
+| A-L6 | `ocrService` 4xx fall-through throws English | Tag it with a code so `describeHandledError` translates it |
+
+---
+
 ## P1: server-side hotfixes (one deploy fixes every build)
 
 | # | Item | Status | Fix (server only) | Old builds |

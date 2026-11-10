@@ -11991,3 +11991,20 @@ with no push notifications.
   - `priceDropLockedPush.test.js` has 2 failures that already fail on the base commit (push copy changed in #556).
 - **Learned:** the app needed no change to show a re-drop, because `releasedForUser` already reports the latest
   fitting run's end. Only the push, the queue and the rejection lock were missing.
+
+## 2026-11-09 — Full audit of `main` (v3.6.1 / 60) before the Kickstarter launch
+
+- **Ask (Maxim):** *"run a full audit on main branch and identify any potential problems, bugs or gaps that could
+  have a real impact on final users. make sure that the app is stable. Every bug should be documentated and will be
+  included in the roadmap for future fixes next week."*
+- **Branch:** `docs/app-audit-2026-11-09` (docs only; no code changed).
+- **Done:** `Roadmap/App_Audit_2026-11-09.md` — 0 Critical, 4 High (auto-claimed expired drops shown as Claimed /
+  counted as saved; Vision budget 195/1000 with a hard 503 past it; 42 drops pending approval with 2 windows ending
+  11-10; Kickstarter plan codes never run on prod), 3 Medium (main CI red incl. one test failing locally; $0 Outlook
+  receipts on builds 56–59; no "being verified" state), 6 Low. §1 lists 20 checks verified clean (imports, assets,
+  routes, API contract 131/131, i18n 1891×2, typecheck, mobile suite 12 403 green, prod schema = main, 27 crons
+  green, /health, logs, admin-token guards, secrets, backend removals since v3.3.0). `FUTURE_ROADMAP.md` gained
+  P0′/P1″/P2″ sections with every finding as a row.
+- **Read, never written:** prod Supabase (SELECTs), Railway logs + variable names, public /health. GitHub Actions
+  not dispatched. Backend: only the CI-red files re-run locally (one real local failure: `adminConsoleRoutesDb`
+  growth guard).
