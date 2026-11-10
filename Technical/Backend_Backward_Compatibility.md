@@ -286,6 +286,55 @@ the oldest build never calls it). Per-route diffs were not read.
 is needed; builds <= 3.0.6 report no build header and are protected only by the
 rules above.
 
+### Backend gate (Phase 1 exit, Task 7)
+
+Proof, not argument: `backend/tests/storeSpacesHeaderMatrixDb.test.js` replays the
+old-build contract under three header sets - none (builds <= 3.0.6), `X-App-Platform:
+android` + `X-App-Build: 60` (3.6.1: reports itself, sends no caps), and those plus
+`X-App-Caps: trial-choice,membership-business` (a Store Spaces v2 build). Sets 1 and 2
+behave identically: 75 credits once at a verified sign-in, no `trial` key on
+`GET /api/me`, a stored `business` served as `gold_star`, and `POST /api/me/trial-choice`
+indistinguishable from an unknown route (404, same body). Only set 3 defers the grant,
+returns `trial` and serves `business`. The build header alone changes nothing: no
+behaviour is gated on the build number, only on the cap.
+
+Per route, which installed builds call it and why they are unaffected:
+
+| Route / module | Installed builds (2.8.3 ... 3.6.1) | Why unaffected |
+| --- | --- | --- |
+| `GET /api/me`, `GET /api/me/bootstrap` | all | Every pinned key still present (`storeSpacesCompat*.test.js`). New `trial` key is added only when the request carries `trial-choice`; `business` is served as `gold_star` unless the request carries `membership-business`. |
+| `PUT /api/me/profile` | all | `business` is accepted only with `membership-business`; without it the value is ignored exactly as before. A `gold_star` write without the cap never downgrades a stored `business`. |
+| `usersRepo.upsertFromOAuth` (all callers) | all | Grant stays automatic unless the request carries `trial-choice` (`deferTrialCredits`). Reviewer and RevenueCat placeholder paths never defer. |
+| RevenueCat webhook, subscription sync | server-to-server | Same path. New side effect: an applied free-week event stamps `trial_choice = 'week'` on an account with no choice and no credits granted yet; it never grants or removes credits. |
+| `POST /api/me/trial-choice` (new) | none | Steps aside before authentication without the cap, so it answers exactly as an unknown route. |
+| `GET /api/deals` (new) | none | New route, no installed build calls it. |
+| `GET` / `POST /api/stores/vote` (new) | none | New routes. Registered next to `/api/stores/:code/notify-me`; no existing route shares the path. |
+| `POST /api/stores/:code/notify-me` | 3.x builds that have it | Unchanged; pinned. |
+| `lib/dataCleanup.js` `CASCADE_TABLES` | n/a | Adds `store_votes` to account deletion; no client contract. |
+| Migration `0050_store_spaces_v2.sql` | n/a | Additive and idempotent: `users.trial_choice`, `users.trial_chosen_at`, `products.category`, `store_votes`. |
+
+**One narrow behaviour change for an installed build, accepted deliberately.** Because
+"one trial per account" now counts a recorded free week (`trial_choice IS NOT NULL`)
+as a used trial, an account whose store free-trial webhook arrived BEFORE it first
+signed in on an old build no longer receives the automatic 75-credit signup grant on
+that sign-in (and `emailEverGrantedTrial` also treats such an email as used). Before
+this change that shopper got both the week and the 75 credits. It touches only
+accounts with a post-deploy trial webhook and no grant yet; every ordinary sign-up is
+unchanged (pinned by the matrix test).
+
+**Deploy order.** Apply migration 0050 to production FIRST (expand), verify with the
+schema fingerprint, THEN deploy this backend. The code reads `trial_choice`,
+`trial_chosen_at`, `products.category` and `store_votes`, so the reverse order breaks
+`/api/me` for every build. Rollback of the backend is safe (columns are additive and
+unread by the previous code); never drop them in the same release.
+
+**Open release item (not code): store free-trial offers.** Once a store free-trial
+offer exists, an installed build's paywall could start it, bypassing the choice
+screen, because installed builds cannot be told to hide it. The webhook stamp above
+keeps the ledger honest, but whether the offer must be hidden from builds that lack
+`trial-choice` (and by what mechanism) is pending Maxim's decision. Do not create the
+store offer before that is settled.
+
 ## Open gaps
 
 1. ~~No client version on requests~~ **Done** (3.0.7): `X-App-Platform`,
