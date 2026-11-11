@@ -296,6 +296,16 @@ Push notifications (added after approval):
 | 2 | Scanning a receipt with notifications off | *"block the scan receipt instead or popup to enable push notification, if blocking the scan receipt on push notification will get us a rejection we can just popup the screen with a allow and cancel. but you should write something to let the user understands that he wouldnt get the price drop notifications witout allowing the push notifications"*. Blocking a scan would meet the same 4.5.4 objection, so: a popup on every receipt scan while notifications are off, saying the shopper won't get price-drop alerts without them, with a button and Cancel. iOS after a denial cannot show the OS prompt again and 5.1.1(iv) forbids "Allow" wording, so the button reads **"Open Settings"**; on Android before a permanent denial it fires the OS prompt. |
 | 3 | Today's accounts with no push token | **Roadmap**: `Roadmap/Push_Token_Gap.md`. Not in this branch. |
 
+## 16b. Answers during implementation (2026-11-10 / 11)
+
+| # | Question | Answer |
+| --- | --- | --- |
+| 1 | Free week vs installed builds | *"approved, use the rc-ignore-offer and separate Apple product"* (§7.2). |
+| 2 | Guarantee strip wording (the design's "Next year's on us" trips the 3.1.2(c) guard) | *"choose what is best for you to hook a user"*: "No drop this year? We add another year" / "Nous ajoutons une année". |
+| 3 | Home elements the design drops | *"no dont drop keep the same logic as of today"*: the urgent "Expiring soon" banner and the first-receipt card stay on Home with today's logic. (Tracked products → Receipts, tutorials → Me, full guarantee card → Plan & credits, as built.) |
+| 4 | Single live store | *"yes keep costco only strip"*: while one store is live, its space also shows the notices, the expiring banner, the first-receipt card, the trial strip and the guarantee strip. |
+| 5 | Privacy row sub-line (the design's "Your data stays on your device" is untrue) | *"do it if necessary"*: "How we collect, use and protect your data" / "Comment nous recueillons, utilisons et protégeons vos données". |
+
 ## 17. Still open
 
 None.
