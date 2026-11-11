@@ -11945,7 +11945,7 @@ with no push notifications.
   - A file that still fails leaves the run `partial`; the run fails only when no image sitemap reads.
   - A failed/blocked run re-runs the same slot (2 h apart, ≤ 3 per slot).
   - The stale email names the last good run and the last run's error.
-  - Tests: catalogSources 34→37, harvestCatalogJob 27→30 (61/61, mutation-checked); catalogHarvestDb 21/21 on dev.
+  - Tests: catalogSources 28→31, harvestCatalogJob 27→30 (61/61, mutation-checked); catalogHarvestDb 21/21 on dev.
   - Live, after the fix: sitemap reader 8/8, full adapter 3/3 (one with a live 404 retried).
 - **Docs:** Bugs_Common_Fixes #371; `Technical/Product-Catalog-Harvest.md` (the sitemap servers note, same-day retry,
   the email's content).
