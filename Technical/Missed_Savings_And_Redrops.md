@@ -149,3 +149,31 @@ Also queued, by the sweep and not the datafix: 9631 and 9632, the QC lines 4336 
   - the racing election, with no charge and no ledger row;
   - queue revival: rejected or sent of the ended run is revived; rejected of the running run, or with no end, is not;
   - end to end: re-pushed, 0 credits, once per run.
+
+## 2026-11-10 — the datafix put closed rows back on the desk; queue hygiene
+
+The datafix above revived eleven rows **by hand**, trusting the drain's re-check. The re-check runs only when an
+admin approves a row, so every one of them was listed for approval again the next morning: two with a saving that
+had ended, three priced at another shopper's pack (#367), three at a pre-pack-rule shelf price on lines already
+sent a lower price, and one whose line had been re-linked to another product (a Coke line carrying the orange
+bag's $6.99). Maxim, 2026-11-10: *"dont approve any price drop but run an audit and fix all the bugs … keep only
+the good ones for admin approvals"*. Bug `Operations/Bugs_Common_Fixes.md` #372.
+
+What changed (`hotfix/price-drop-queue-hygiene`):
+
+- **`priceDropQueueRepo.closeIneligible`** also closes a waiting row whose evidence was deleted (price point gone,
+  no saving), whose evidence is for another product than the line's, or whose saving has ended on the buyer's day
+  (`isItemClaimable`, the rule the push counts with).
+- **`priceDropNotifier.closeStaleQueue`** (new) re-runs the drain's two checks — is the line still billable, is it
+  still a drop under `findNotifiable` — on every pending/approved row, and closes the rest as superseded. Called by
+  the admin list route after `closeIneligible`, and by every global sweep after staging. Each close is logged
+  with the queue id, SKU, price and reason.
+- **`priceDropQueueRepo.supersedeCovered`** (new): when a line is recorded at a price, its other waiting rows at
+  that price or higher close at delivery (`_deliver` bookkeeping). A deeper row is left: it bills the extra
+  difference when it leaves.
+- Only `superseded` is ever written by these: the revivable status, so a drop the sweep finds again comes back by
+  itself (and a later run of a saving still revives a sent or rejected row, as above).
+
+**Rule from this:** a queue row is never set back to pending by hand. To re-offer a drop, let the sweep find it
+(`runVerifiedDropSweep`) — it is judged on the way in; a hand-revived row is judged by nobody until an admin
+approves it.

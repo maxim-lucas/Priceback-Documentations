@@ -16,6 +16,14 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-10 — Price-drop queue audit: closed rows back on the desk; queue hygiene (hotfix on main)
+
+- **Asked (Maxim):** *"the price drop queue have few problems: already approved before price drops are again in the price drop queue to approve also having bad saving (example 55502 drumsticks …), an expired price drop came back today … (1274091 … SKU: 84 coke, same problem with a scrambled price that isnt true) and few other problems, dont approve any price drop but run an audit and fix all the bugs and problems for this. dont take decisions by yourself ask me if needed"*; then *"also cleanup bad price drops when finished, keep only the good ones for admin approvals"*.
+- **Found:** the rows came back because the **2026-11-09 datafix** (#371) revived them by hand; the desk never re-judged a waiting row (only the drain did, after approval); a send never closed the line's other waiting rows. 13 stale rows among the 38 pending: 4837, 4838, 4839, 6032, 6035, 6048, 8824, 8825, 8826 (the datafix), 10968 (negative saving after a quantity edit), 11302 (evidence deleted). Nothing was charged or pushed. Details: `Bugs_Common_Fixes.md` #372, `Technical/Missed_Savings_And_Redrops.md`.
+- **Done:** branch `hotfix/price-drop-queue-hygiene` (off `main` v3.6.1): `closeIneligible` + new `closeStaleQueue` run before the admin list and after every global sweep; `supersedeCovered` at delivery; 6 new DB tests + 1 tightened. No migration, no app change, no route change.
+- **Prod cleanup:** the 13 rows → superseded, on Maxim's go (the deployed code does the same on the first admin list load).
+- **Status:** PR open, waiting on Maxim. No drop was approved.
+
 ### 2026-11-09 — Locked-store "receipts" from the mailbox import; refused non-Costco scans held for the admin
 
 - **Asked (Maxim):** a monthly subscriber has expired, unpreviewable, item-less receipts from Best Buy, Home Depot and others, which the parser should have refused. Then: *"this is a hotfix on main, these stores are locked, users should get rejection on parse"*, and *"if any user scan a non costco receipt, i want the app to save them temporarily until the admin review even if store is not supported"*.
