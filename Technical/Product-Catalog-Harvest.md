@@ -56,6 +56,17 @@ French name, 7,636 new products, 274 English names made official, 519 French nam
   receipts that Same-Day did not verify (`productCatalogRepo.wantedSkus`); the rest of the budget walks
   the sitemap in a different order each week, skipping what this source verified lately.
   Costco's internal APIs are deliberately not used.
+- **Costco's sitemap servers disagree** (measured 2026-11-11 from a Canadian IP; Bugs_Common_Fixes
+  #371). On costcobusinesscentre.ca the same URL gets a different server per request:
+  `sitemap_lw_i_mod_001.xml` answered a 404 HTML page on 5–8 requests in 20, the index listed that
+  file on only 11 of 20 answers, and the sitemap generation varied (5,641 / 2,004 / 5,277 pages in
+  three reads). So **every sitemap GET is retried** after a 404, 5xx or timeout: 4 tries, 2/5/10 s
+  apart, never after a 403/429. The image sitemaps list the same products (`i_001` the old
+  `…product.N.html` URLs, which still resolve, and `i_mod_001` the `/p/-/…` ones), so a file that
+  still fails is a `sitemap_failed` failure on a `partial` run, not a dead run. The number of item
+  numbers listed per run therefore moves with the generation served (203–385 on the Business
+  Centre); a listing stays fresh for `CATALOG_LISTING_FRESH_DAYS` (35), so a thin week un-lists
+  nothing.
 
 ## What is stored
 
@@ -187,7 +198,14 @@ probably a misread, held for the admin rather than guessed.
   r.names_updated, r.names_fr_filled, r.skus_merged, r.error from priceback.catalog_runs r join
   priceback.catalog_sources s on s.id = r.source_id join priceback.catalog_run_statuses st on
   st.id = r.status_id order by r.id desc limit 20;` A source with no good run in a week + 36 h is
-  emailed at 09:00 (Toronto).
+  emailed at 09:00 (Toronto). The email names each stale source's last good run and its last run's
+  status, time and error (since 2026-11-11).
+- **Same-day retry**: a run that ends `failed` or `blocked` (a restart's `abandoned` run is
+  `failed`) is run again 2 h after it ended, up to `config.maxAttempts` (default 3, 1–6) runs per
+  slot, within the catch-up window (`config.catchUpHours`, 24). `sanity_skipped` is never retried:
+  it is the source saying its data changed shape. So a source is only emailed as stale after every
+  attempt of its slot failed. Before 2026-11-11 one failed Sunday run waited a full week, and the
+  email went out every morning in between.
 - **Production**: migration 0037 must be applied (by hand, then the ledger row) **before** the
   code deploys — every receipt save writes `receipt_items.sku_read`.
 
