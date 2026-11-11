@@ -1,5 +1,7 @@
 # Kickstarter campaign: "PriceBack: Your receipts are hiding money. We find it." (v4, 2026-11-03)
 
+> **Superseded timing (2026-11-11):** the project was approved on 2026-11-10 and NOT launched. Launch plan, date and the road to CA$500K: [12-kickstarter-launch-plan.md](12-kickstarter-launch-plan.md).
+
 Status: **draft complete, not submitted (2026-11-03).** Kickstarter project id `1124340796/1412635062` (Maxim's account). Every required tab is green: Basics, Funding, Rewards, Story, People, Payment. Maxim reviews the preview, then clicks *Submit for review* himself (1–3 business days). The pre-launch page can only be activated **after** approval.
 
 **Timing (Maxim, 2026-11-03):** launch **Tue 2026-11-10 at 10:00 ET** (Maxim clicks *Launch*: Kickstarter can't schedule it) → fixed end **Tue 2026-12-08 at 21:00 ET** (stored `deadline=2026-12-08T21:00:00-05:00`). The end is in the evening, so the last-hours rush happens when people are home on both coasts. Goal CA$5,000; payout ~Dec 22.
