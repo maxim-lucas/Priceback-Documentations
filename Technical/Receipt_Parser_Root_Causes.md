@@ -1982,6 +1982,35 @@ change of the hotfix that reaches photos: on the 168 captures exported on 11-12,
 still removed; the word rows, which the parser reads first, keep it. A general rule "an item row is never payment
 noise" was measured and **rejected**: `00 APPROVED : $ 182.24` and `01 APPROUVE : 20.97` have the same shape.
 
+## 2026-11-12 · Photos of 11-06 → 11-12 that do not close — open cases, first pass (cause not isolated)
+
+Each capture's reading by the current parser (with the hotfix above), compared line by line with the receipt's
+corrected rows in production. This says **what** is wrong on each, not yet why: no replay against the build that
+scanned, no shape neutralised, so no `RC-n` is named. Captures are parked outside the repo until each has ground
+truth. A receipt is scanned in two passes (1200 px, then 2000 px) and the phone keeps the better one: where one pass
+closes, the shopper most likely saw the right reading.
+
+| Receipt | Pass | Parser vs paper (lines) | What differs |
+|---|---|---|---|
+| `o31au` | c652 | 308.81 / 306.81 | PLMLIVE's 2.00 coupon not applied; its row read `YUR 3862780 PLMLIVE 4.3L`, item number lost. **c653 closes.** |
+| `bquwu` | c654 | lines right | TAX read as the TOTAL (94.23). **c655 closes.** |
+| `97zj1` | c716, c717 | 483.69 and 530.67 / 546.64 | 3 to 4 items lost, prices paired a row off (CLEMENTINES 8.69 for 10.99), `1254041` read `1254` + `41 BURRATA`. 40 lines; photo quality to check. |
+| `egy2e` | c719 | 195.40 / 198.33 | one item lost, NEXXUS's 9.00 coupon not applied, a 4-cent misread, TOTAL read `2`. |
+| `egy2e` | c720 | 203.33 / 198.33 | BIOSTEEL's 5.00 coupon not applied. |
+| `215cu` | c725 | 124.39 / 122.39 | KRAFT TRANCH's 2.00 coupon not applied; TOTAL read as the tax (6.04). **c727 closes.** |
+| `yk4ud` | c733, c734 | 195.92 and 184.93 / 192.92 | a `/ MULTIPLE` coupon read as an item at 34.99; ADIDAS quantity lost; PEKKLE's 3.00 coupon not applied. |
+| `6ijmw` | c762, c763 | 424.47 and 427.47 / 476.46 | FIRE EXTING 44.99 read 11.99 / 14.99 (the price of a neighbour), OTTAVIO `2 @` lost, an eco fee took an item's amount. |
+| `c8ncy` | c766, c767 | 166.86 / 162.86 | FRAISES's 4.00 coupon not applied (two lines of the same item); `3373517` read `33 3517`. |
+| `68zqn` | c771, c772 | 65.04 / 248.77 | 5 of 10 items lost in both passes. |
+| `5z1ue` | c795 | 140.32 / 137.32 | POMMES AMBRO's 3.00 coupon not applied. |
+| `j3b5t` | c802, c803 | 16.82 and 40.89 / 118.90 | most items lost; 6.99 read 6.91. Photo quality to check. |
+| `bqxuz` | c829, c830 | lines right (327.85) | TAX read 15.69 for 47.00. |
+| `6bwdq` | c779, c780 | 823.70 and 803.71 for a printed 849.76 | deleted by the shopper; no corrected rows to compare. |
+
+The common shape is a **coupon not applied** (7 of 13 receipts), then a **tax or total misread** on lines that are
+right (3), then rows lost on photos whose quality has to be checked first (3). Each needs its replay before a cause
+is named, and any fix is in the Costco parser or the photo geometry, which are frozen: Maxim's confirmation first.
+
 ---
 
 ## Earlier root causes (before this register)
