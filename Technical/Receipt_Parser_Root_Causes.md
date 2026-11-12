@@ -2007,8 +2007,9 @@ closes, the shopper most likely saw the right reading.
 | `bqxuz` | c829, c830 | lines right (327.85) | TAX read 15.69 for 47.00. |
 | `6bwdq` | c779, c780 | 823.70 and 803.71 for a printed 849.76 | deleted by the shopper; no corrected rows to compare. |
 
-The common shape is a **coupon not applied** (7 of 13 receipts), then a **tax or total misread** on lines that are
-right (3), then rows lost on photos whose quality has to be checked first (3). Each needs its replay before a cause
+The common shape is a **coupon not applied** (6 of the 13 receipts with corrected rows), then a **tax or total
+misread** on lines that are right (3), then rows lost or prices paired a row off on photos whose quality has to be
+checked first (4). Each needs its replay before a cause
 is named, and any fix is in the Costco parser or the photo geometry, which are frozen: Maxim's confirmation first.
 
 ---
