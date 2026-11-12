@@ -63,6 +63,19 @@ run faster (less time at peak memory) and the app responds faster.
 | Railway production → US-East region | ~0 (performance) | production move; one redeploy, brief restart. Maxim decides |
 | Production stays always-on | — | it runs every cron; sleeping it would stop the harvest, the sweeps and the alerts |
 
+### AI readers (Gemini): $0 today, and how to keep it there
+
+Measured 2026-11-12. Production reads about 9 receipts a day (274 in 30 days, peak day 26). The paid Gemini key has
+answered 402 (no credit) since October, so every AI read is on the free key: **$0**. The free tier is not the
+1,400 a day the server was configured with (`LLM_GLOBAL_DAILY_LIMIT`): third-party reports put it near 20 requests a
+day on Flash and 500 on Flash-Lite, per **project**. The server now records the quota Google itself states in each
+429 (`/health` → `checks.llm.keyStatus.*.quotas`), so the real number is read, not assumed.
+
+The levers, in order, are in `Technical/Receipt_Readers_One_Rule_Set.md` §7: ask an AI reader only when the parser's
+reading is not proven; ask Flash-Lite first on the free key; add a third free reader behind the same rules. None of
+them costs money. Every receipt read goes through one provider chain (`lib/receiptReaderProviders`) and one budget
+function (`reserveAiRead`), so a per-reader budget is a change in one place.
+
 ## 4. How to re-measure
 
 ```bash

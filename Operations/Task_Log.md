@@ -12080,3 +12080,59 @@ with no push notifications.
   as before. See `Technical/Backend_Backward_Compatibility.md`, audit of 2026-11-11.
 - **Learned:** `node --test tests/<x>.test.js` alone **skips every DB test** (no `DATABASE_URL`). Run a single
   file the way the suite does: `node --env-file=.env --env-file=test.env --test --test-concurrency=1 tests/<x>.test.js`.
+
+## 2026-11-12 — Every receipt reader under one rule set; the provider chain for a third reader (hotfix)
+
+- **Ask (Maxim):** from the two items left open on 2026-11-11 (best-of-two readers, a smarter app approval):
+  *"start with Gemini free tier plan as the paid is blocked for now and can be blocked in the future, i want you to
+  consider that the Gemini free tier is the fallback of the first one, i want a free Gemini or OCR (smart based on AI)
+  that has a free quota to cover the daily scans and monthly scans to be added as a 3rd option in the future so give
+  me your recommandations for the next round, for this round focus that all parsers (local, Gemini paid, Gemini free
+  tier, future ocr, ...) has always the same behavior, logic and rules and these rules should be centralized without
+  any regression for today's behavior"*. Hotfix on `main`.
+- **Second step, asked during the work, NOT started in this PR:** *"i also want to optimize the parsers logic because
+  last few days we had a lot of problems with pdf versions which should be the easiest and also with good quality
+  scans that were missing a lot of items and Gemini fixed it or sometimes i did that manualy, i want the logic to be
+  receipt proof for any kind of receipt even having quality problems to focus and get the job i do manualy done"* —
+  *"but this is the 2nd step"*.
+- **Found (audit):** the proof was already one piece of code (2026-10-29). Eight rules about readers were still
+  written twice or more; two copies had drifted (the shortest OCR an AI reader may read: 20 characters on the phone,
+  any on the server; the re-read's proof did not read the footer OCR the phone's read and the desk read).
+- **Branch:** `hotfix/receipt-readers-one-rule-set` (Priceback), `docs/receipt-readers-one-rule-set` (docs, based on
+  the open docs PR #217).
+- **Done:**
+  - `shared/receiptReaders.js` (new, synced to `backend/shared/`): the reader codes, `wasReadByAi`, `aiReadRefusal`,
+    `matchDraftLines`, the two waits. Read by the phone's `geminiReader` and upload, the re-read, `receiptsRepo`,
+    `badScanRepair` and the upload route.
+  - `backend/lib/receiptReaderProviders.js` (new): the AI readers in order (Gemini paid key, then free key, then a
+    later reader), one request, one answer, one failure vocabulary. Every receipt read goes through it; a provider
+    only transports and never sees a rule.
+  - `reserveAiRead` in `server.js`: the day's AI budget, reserved in one place (it was written out six times).
+  - The re-read proves on the footer OCR too.
+  - **Measurement only:** `lib/gemini` keeps the quota Google states in each 429, per key and model; `/health` shows
+    it (`keyStatus.*.quotas`).
+  - New standing rule in `CLAUDE.md` (*Every receipt reader follows one rule set*) and design rule 17.
+  - Docs: `Technical/Receipt_Readers_One_Rule_Set.md` (rule map, how to add a reader, measured volumes and free
+    quotas, recommendations for the next round), compatibility audit of 2026-11-12, the AI-reader note in
+    `Operations/Infrastructure_Cost_Rules.md`.
+- **No regression:** the Gemini request is pinned byte for byte; no prompt, schema, timeout or retry changed; no
+  route or field removed. The only behaviour differences are on the re-read, which is off in production.
+- **Left as it is, on purpose:** `/api/ocr-llm` keeps its own prompt, schema and answer normalizer (frozen wire for
+  builds from 2.8.3). Three edge cases differ from the reader's normalizer; listed in the technical doc §3.
+- **Tests:**
+  - mobile `npm test` green (434 suites, 12 474 passed, 1 skipped as before: the fixture-fidelity suite needs live
+    envelopes), `i18n:check` green;
+  - backend, on dev: the 36-file blast radius, 537 tests, 0 failed, 0 skipped; the Gemini suite re-run after the
+    quota measurement (124 tests with its dependants, green);
+  - new: `backend/tests/receiptReaderProviders.test.js`, `backend/tests/receiptReaders.test.js`,
+    `__tests__/receiptReadersParity.test.js`;
+  - full backend suite and GitHub Actions not run.
+- **Prod:** read only (receipt counts per day and per month). Nothing written. No flag changed.
+- **Measured:** 274 receipts in 30 days (9.4 a day, peak 26), all read by the parser. Free quotas found: Gemini Flash
+  about 20 a day, Flash-Lite about 500 (third-party reports; Google's page gives no number and says limits are per
+  project); Groq 1,000 requests and 200,000 tokens a day per model; Cloudflare Workers AI 10,000 Neurons a day;
+  OpenRouter free models 50 a day, 1,000 after a one-time $10.
+- **For Maxim to decide (next round):** the third reader (recommended: Groq, then Cloudflare Workers AI); best of two
+  as "ask an AI reader only when the parser's reading is not proven"; whether a free tier may be sent the receipt
+  photo (the desk sends it today); which of the approval checks in the doc §7.5 to add.
+- **Old builds:** unaffected. See `Technical/Backend_Backward_Compatibility.md`, audit of 2026-11-12.
