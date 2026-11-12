@@ -12136,3 +12136,40 @@ with no push notifications.
   as "ask an AI reader only when the parser's reading is not proven"; whether a free tier may be sent the receipt
   photo (the desk sends it today); which of the approval checks in the doc §7.5 to add.
 - **Old builds:** unaffected. See `Technical/Backend_Backward_Compatibility.md`, audit of 2026-11-12.
+
+### Step 2 (parser hardening) — diagnosis started the same day, NOT fixed, blocked on the capture export
+
+- **Measured (prod, SELECT only, receipts created 2026-11-03 → 11-12):** about 105 receipts. At scan, the parser's
+  reading did not close on **8 of the 14 PDFs** and on about **15 photos**; every one of them closes now, after a
+  person's fix or Gemini's.
+- **PDFs, the pattern:** every PDF uploaded since 11-09 that has a *wrapped* row failed, and each ended short by
+  about the number of wrapped rows:
+
+  | Receipt | Day | Gap at scan | Lines at scan → now | Wrapped item rows | Wrapped coupon rows | French |
+  |---|---|---|---|---|---|---|
+  | `uudf6` | 11-09 | 3.97 % | 25 → 25 | 0 | 1 | no |
+  | `dgxv6` | 11-11 | 6.89 % | 11 → 12 | 1 | 0 | no |
+  | `qpwyg` | 11-12 | 27.41 % | 12 → 10 | 8 | 1 | yes |
+  | `hattg` | 11-12 | 16.49 % | 10 → 11 | 7 | 1 | yes |
+  | `2laj6` | 11-12 | 5 % | 12 → 13 | 1 | 1 | yes |
+  | `7uozf` | 11-12 | 7.4 % | 18 → 19 | 2 | 0 | no |
+
+  A wrapped row is an item (or a coupon) whose name is too long for its column: the PDF prints the name on two
+  lines and centres the item number and the price between them, so the rows read `NAME-1` / `135836 4,39 N` /
+  `NAME-2`. On `qpwyg` (Quebec, 10 items, 14 units, 184.40) eight of ten items are wrapped, with `2 @ 24,99` rows and
+  two coupons.
+- **Replay, text path only (not the code the phone ran):** the rows of `qpwyg` through `parseCostcoReceipt` give 12
+  lines, 13 units, 234.55. Every wrapped item loses its item number, `2 @ 24,99` / `3 @ 19,99` / `2 @ 8,16` are read
+  as the price of a name fragment, `1130713 JUS ASSORTIS 12,99` is dropped, and the wrapped coupon `392216 10,00-` is
+  not applied. The phone's own reading at scan (through the word geometry) was 12 lines, 13 units, 239.38: the same
+  class, not the same figures.
+- **Not proven yet, so no RC section is written.** The shape exists in the local corpus in small doses and passes
+  there (`3xtvv`: `PARKER / 3364230 179.99 Y / FRAME`, gap 0 at scan), so the wrapped row alone is not the whole
+  cause. The exact replay needs the word boxes of the failing PDFs. They are captures c675 and later; the local
+  corpus stops at c674.
+- **Blocked on:** `railway run -e production node scripts/exportOcrCaptures.js --since 2026-11-06` (read-only: it
+  pulls the captures into `__tests__/fixtures/receipts/prod-captures/`). The session was not allowed to run a
+  production read with production credentials. Maxim runs it, or allows it.
+- **Then:** replay each failing PDF until it reproduces the reading at scan; fix in the PDF-only path
+  (`shared/pdfReceiptRows` / `src/services/receiptPdf`, design rule 16) so the frozen Costco parser and the photo
+  geometry are not touched; prove on all 39 PDF fixtures plus the new captures; then the photos.
