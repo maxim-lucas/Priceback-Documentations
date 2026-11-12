@@ -12036,3 +12036,47 @@ with no push notifications.
 - **Old builds:** no route, field or response changed meaning. `ownerTimeZone` is additive and admin-only. The
   phone never reads `policyStatus`. Receipts on their last day flip to expired on the next heal, which is what
   their owners' phones already show.
+
+## 2026-11-11 — The same receipt uploaded twice; reject a receipt and reverse its price drops (hotfix)
+
+- **Ask (Maxim):** a hotfix on `main` for five things: duplicate receipts must be caught; *"i should be able to
+  reject a receipt and reverse all the price drops on this receipt … so i could approve the one on the good
+  receipt"*; a smarter app approval; both readers (the parser and Gemini) under one rule set; and *"the Gemini
+  quota of 1400 is never true"* — a permanent free solution.
+- **Cause (prod read, SELECT only):** one shopper uploaded a cropped screenshot (`r_1794399021648_kxuag`, 9 lines,
+  date read as 11-11, $171.79) and then the PDF of the same receipt (`r_1794416482467_dgxv6`, 12 lines, 11-05,
+  $232.23). The exact duplicate rule needs the same date, total, tax and line count, so it saw two receipts. The
+  same drop was sent and charged on both (queue 12303 and 12310, 38 credits each). Reject answered `HAS_HISTORY`.
+  Maxim refunded 38 by hand and approved the second drop.
+- **Branch:** `hotfix/receipt-duplicates-and-reject-reversal` (Priceback), `docs/receipt-copies-and-reject-reversal`
+  (docs). Two sessions: the first was cut by the usage limit with everything uncommitted; the second finished it.
+- **Done (this PR — the first two asks, and the copy part of the third):**
+  - **The copy rule:** `duplicateReceipt.comparePapers` — the same lines in the same order (80 % of the shorter
+    receipt, never fewer than 3; 1 or 2 lines need the same date). Read by `getForAdmin.possibleCopies`,
+    `listForAdmin.possibleCopyOf`, the reading confidence (`not_a_copy`), the app's approval, and the drop queue.
+  - **The app approves neither read** and takes back its own approval of the first.
+  - **The drop queue** marks and holds a drop that is already on the other read (`heldReason "copy_receipt"`).
+  - **Reject with reversal:** `reverseDrops: true` refunds the drop charges (`refund`, `drop-reversal:<line>`),
+    removes the drops and claims with the lines, clears the guarantee stamp. `409 SENDING` while a drain writes.
+  - **Desk:** banner on the receipt, **Possible copy** badge on the list, note and button on the queue card, the
+    reverse-and-reject confirmation.
+  - **Shopper label:** the refund's Credit History note, EN + FR (`credits.note.dropChargeReversed`).
+  - **Docs:** `Technical/Receipt_Copies_And_Reject_Reversal.md`, bug #373, the compatibility audit of 2026-11-11.
+- **Tests:**
+  - mobile `npm test` green (433 suites, 12 419 tests), `i18n:check` green (1 892 keys × 2);
+  - backend, on dev: the 41-file blast radius, 489 tests, green after the two below; the changed files re-run
+    alone (41 tests, 0 skipped);
+  - `priceDropLockedPush.test.js`: its 2 failures were already red on `main` (the locked copy changed on
+    2026-11-07, the test was not updated). Fixed here to pin the shipped copy.
+  - GitHub Actions not dispatched.
+- **Prod:** nothing written. Both receipts and both drops are as they were.
+- **For Maxim to decide:**
+  - Rejecting `kxuag` with reversal after the deploy refunds 38 more, on top of the manual +38. Take the manual
+    38 back afterwards, or leave it as goodwill.
+  - Not started, each needs a decision: best-of-two readers; a smarter app approval beyond the copy check; the
+    Gemini quota (prod: the paid key answers 402, only the free key works, only `flash-lite` answers, both
+    `RECEIPT_GEMINI_*` flags are off).
+- **Old builds:** every change is admin-only or additive. `reverseDrops` is optional; a request without it behaves
+  as before. See `Technical/Backend_Backward_Compatibility.md`, audit of 2026-11-11.
+- **Learned:** `node --test tests/<x>.test.js` alone **skips every DB test** (no `DATABASE_URL`). Run a single
+  file the way the suite does: `node --env-file=.env --env-file=test.env --test --test-concurrency=1 tests/<x>.test.js`.

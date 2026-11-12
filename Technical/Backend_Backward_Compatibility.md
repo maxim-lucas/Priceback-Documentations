@@ -240,6 +240,25 @@ The live build is **Android 3.6.0** (build 59). Migration `0048_unsupported_stor
 
 Forcing builds: none needed.
 
+## Audit — 2026-11-11: receipt copies and reject-with-reversal (hotfix → `main`, no migration)
+
+The newest tag is **v3.6.1** (build 60); the 2026-11-09 audit recorded Android 3.6.0 (build 59) as live. `creditLedger.js` was read at `v2.8.3`, `v3.0.5` and `v3.6.1`; the desk screens at `v3.6.1`. Full description: `Technical/Receipt_Copies_And_Reject_Reversal.md`.
+
+| Change | Why old builds are fine |
+|---|---|
+| `POST /api/admin/receipts/:id/reject` takes an optional `reverseDrops`. Only the literal `true` reverses. | Admin only. Every desk build up to 3.6.1 sends `{ reason }` or nothing and gets the same refusal as before. |
+| The `409 HAS_HISTORY` answer carries a new `history` object and a reworded `message`. | Additive. A 3.6.1 desk shows `message` in its "Could not reject" alert. |
+| New `409 SENDING` for a receipt with a drop being sent this minute (it answered `HAS_HISTORY` before). | Same status, same alert on an old desk: it shows the message. |
+| `GET /api/admin/receipts/:id` gains `possibleCopies`; `GET /api/admin/receipts` rows gain `possibleCopyOf`. | Additive, admin only. `duplicateOf` is unchanged. |
+| `readingConfidence.checks` gains `not_a_copy` (admin detail), and it fails on both reads of one paper. | A desk that does not know the key shows "Another safety check" (`checkLabel`'s fallback since it shipped). |
+| `GET /api/admin/price-drop-queue` rows gain `copyDrop`; `heldReason` can be `"copy_receipt"`. | Additive. A 3.6.1 desk's `heldText` returns nothing for an unknown reason, so the card shows no note. |
+| A reversal writes a `refund` ledger row with the note `price-drop charge reversed: receipt rejected`. | **Shopper-visible.** The `refund` type has a label in every build back to 2.8.3. Builds up to 3.6.1 show the note as the server's English sentence (their documented fallback); the next build translates it. The row's amount and balance are right in all of them. |
+| A reversal deletes a receipt that had a sent drop. | No new state for the phone: an admin delete (`softDeleteForAdmin`, which has no history guard) and a shopper deleting their own receipt already remove a receipt that had a drop. The receipt leaves on the next sync and its drop with it. A tap on the old push does what it does today for a deleted receipt (not re-tested here). |
+| The drain holds a drop that is already on another read of the same receipt. | Server-side. The shopper is told once instead of twice. |
+| The app's own approval skips both reads of one paper and withdraws its approval of the first. | Server-side; only `auto_approved_at` / `admin_reviewed_at` that the app itself set. No shopper build reads them. |
+
+Forcing builds: none needed.
+
 ## Open gaps
 
 1. ~~No client version on requests~~ **Done** (3.0.7): `X-App-Platform`,
