@@ -12036,3 +12036,43 @@ with no push notifications.
 - **Old builds:** no route, field or response changed meaning. `ownerTimeZone` is additive and admin-only. The
   phone never reads `policyStatus`. Receipts on their last day flip to expired on the next heal, which is what
   their owners' phones already show.
+
+## 2026-11-12 — Database performance audit: receipt lists read their warehouses once; a slow job now emails (hotfix)
+
+- **Ask (Maxim):** continue the 2026-11-11 plan-flip work (#566): *"optimize all queries to the database to have the
+  best response time and give both users and admins the smoothest experience (but users are always the priority) and
+  also to optimize the use of the database when needed only and the server consumption … a load balance between
+  optimal response time, resource cost reduction and avoid concurrence timeout or deadlocks. no regression allowed"*.
+  Hotfix on `main`. Mid-task: *"we can simplify the load for screens in admin desk … to load only the last data since
+  the last admin check … if this would help the load"*.
+- **Branch:** `hotfix/db-query-performance` off `main` (worktree `Priceback-hotfix`); docs
+  `docs/db-query-performance-2026-11-12`.
+- **Found (prod, read-only):** the database is 122 MB and its statements run in milliseconds; routes wait on round
+  trips (~16 ms each). `GET /api/admin/receipts` p50 796 ms with queries under 10 ms: `decorateReceiptRow` read the
+  warehouse number one receipt at a time (155,108 calls since June), 200 a desk page, and one per receipt on every
+  app opening. #566 is live: `adminAlerts` 15–16 s → 0.4–0.7 s since 2026-11-12 01:00 UTC. No lock wait, cancelled
+  statement or deadlock in 24 h of Postgres log.
+- **Done (Priceback):**
+  - Receipt lists read their page's warehouse numbers in one query (`warehouseCodesForRows`). Dev, 200 receipts:
+    desk page 203 statements / 651 ms → 4 / 74 ms; a shopper's list 201 / 587 ms → 2 / 23 ms.
+  - Bootstrap: released drops and deleted ids go out with the other reads; one account read removed.
+    `PUT /api/me/profile`: one read removed. `warehousesRepo.resolveProvinceId` remembers a found province.
+  - `lib/jobBudget`: `adminAlerts` (5 s), `priceSweep` and `priorityPriceCheck` (15 s) send one alert email after
+    three runs in a row over their limit. The 11-11 incident would have emailed 15 minutes in.
+  - `backend/scripts/profile-routes.js`: counts the round trips each busy route makes (dev database).
+  - Tests: `receiptListWarehouseBatchDb` 6 (3 red on the old code), `jobBudget` 10, `jobRunsTracker` +3; 10 of 10
+    mutations killed. Blast radius on dev: 1,026 tests, 1,021 pass, 1 skipped, 4 fail — none from this change:
+    `priceDropCommission` ×3 fail identically on unmodified `main`; `adminReviewEditingDb` ×1 was two files of an
+    ad-hoc batch drawing the same test warehouse code (12/12 alone, three times).
+- **Not done, and why:** the "since my last check" desk load — measured, it would not help now (a full page reads in
+  74 ms), needs an app release and hides receipts not yet opened. Backlog with numbers in
+  `Operations/Database_Performance_Audit_2026-11-12.md` § 5 (`/api/watch` per-line ingest, `adminAlerts` cadence,
+  the data-cleanup scan on Admin home, `findNotifiable`).
+- **Docs:** `Operations/Database_Performance_Audit_2026-11-12.md` (new), Bugs_Common_Fixes #374 (the plan flip, which
+  #566 never logged; the code cited it as #372, a number already taken) and #375, a correction note on
+  `Infrastructure_Cost_Rules.md` § 2b.
+- **For Maxim to decide:** two database settings (`log_min_duration_statement = 1s`,
+  `idle_in_transaction_session_timeout = 5min`; audit § 6); `adminAlerts` every 15 minutes; why
+  `priceDropCommission` fails on the dev database.
+- **Learned:** when a route's time is many times the sum of its queries' times, count round trips before reading a
+  plan. Railway's config says Singapore but the database round trip measures 16 ms.
