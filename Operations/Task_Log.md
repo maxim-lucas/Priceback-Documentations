@@ -12230,9 +12230,9 @@ with no push notifications.
 
 ### Photos, the next step: where it stands
 
-- Of the 161 new captures that are not PDFs: 85 close with the current parser, 28 read a total and do not close, 26
-  read no total (a frame cut above the totals, or the totals unread), 22 are not recognised as a store (cropped
-  logos, several Best Buy), 7 are price tags (some captures are in two groups by pass).
+- Of the 168 new captures, with the updated parser: 85 close (the 7 PDFs and 78 photo captures), 28 read a total
+  and do not close, 26 read no total (a frame cut above the totals, or the totals unread; four are Best Buy), 22 are
+  not recognised as a store (cropped logos), 7 are price tags. A receipt scanned in two passes counts twice.
 - The 28 that do not close, by receipt: `o31au`, `bquwu`, `97zj1`, `egy2e`, `215cu`, `yk4ud`, `6ijmw`, `c8ncy`,
   `68zqn`, `6bwdq`, `5z1ue`, `j3b5t`, `bqxuz`, and unlinked scans c774, c791, c792, c808, c809, c817.
 - Open from RC-46: a paper receipt prints the tax code `2` too. Fixing it there is a change in the frozen Costco
