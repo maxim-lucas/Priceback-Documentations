@@ -244,6 +244,15 @@ better parse is adopted as before. Curl and fold stay in the geometry (RC-12).
     both. A shared fix goes into the shared path; only a structural difference gets a PDF branch, and a photo never
     enters it (its word boxes are in pixels). RC-41.
 
+    **A PDF's rows are known, not searched for (2026-11-12; RC-44 … RC-46).** A PDF is a table of exact boxes. A
+    name too long for its column is printed on two lines with the item number and the amount centred between them:
+    three text lines, one row. `shared/pdfReceiptRows` joins a line to the row it wraps on its distance (under 1.1
+    text heights; rows are never closer than 1.7) and its place (right of the row's number, no amount in it). That
+    one definition gives the paper (`pdfRows` → `raw_ocr`, phone and server) and the Costco parser's input
+    (`pdfRowWords` → `receiptPdf.pdfParserInput`: the rows as words and as text). The parser is the one every
+    receipt runs; only what it is handed differs. What a PDF prints that the parser's patterns do not know (the tax
+    code `2`) is translated in `pdfParserInput`, never in the paper.
+
 17. **Every reader, one rule set (Maxim, 2026-11-12).** *"All parsers (local, Gemini paid, Gemini free tier, future
     ocr, ...) has always the same behavior, logic and rules and these rules should be centralized without any
     regression."* The readers are the phone's parser and the AI readers behind
@@ -258,6 +267,11 @@ better parse is adopted as before. Curl and fold stay in the geometry (RC-12).
     same answer from the paid key, the free key and a non-Gemini reader is the same reading) and
     `__tests__/receiptReadersParity.test.js` (the phone and the server decide alike; an AI reader's lines are
     grouped as the parser groups them).
+
+    **A free tier is sent text only (Maxim, 2026-11-12).** A free tier may use what it receives to improve its
+    provider's products. So the receipt's photo or PDF goes to a paid tier only; a free tier reads the OCR text,
+    which the cleanup already took the member and card numbers out of. One definition for every reader:
+    `receiptReaderProviders.requestFor(tier, request)`.
 
 ## 4. Edge cases that are data, not noise
 

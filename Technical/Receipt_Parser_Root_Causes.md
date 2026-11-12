@@ -1838,6 +1838,150 @@ used."*
 - No refusal or error copy mentions credits (`scan.rejectedCreditNote` removed; `retakeBody`, `unreadableBody`,
   `rejectedStoreBody` and `sourceGoneBody` rewritten, EN + FR).
 
+## 2026-11-12 · The seven Costco PDFs uploaded 11-09 → 11-12 — cases (RC-44 … RC-47)
+
+Every Costco PDF uploaded between 2026-11-09 and 11-12 was wrong at scan; each was then corrected by hand or by
+Gemini. Their captures (c724 … c842) were exported on 2026-11-12 and each PDF was replayed with the code the phone
+ran until it gave the reading stored at scan. Then one input shape at a time was neutralised in the capture (never
+the parser), through the same feed:
+
+| Receipt | Warehouse | Paper (lines sum) | Stored at scan (replayed exactly) | Wrapped rows put back on their row only | Tax code `2` given a letter only | Both |
+|---|---|---|---|---|---|---|
+| `uudf6` (c724) | Nepean #540 | 338.94 | 25 lines, 352.94 | 352.94 | **338.94** | 338.94 |
+| `dgxv6` (c790) | Sherbrooke #1367 | 215.76 | 11 lines, 199.77 | not run alone | not run alone | 199.77; **215.76** with the `TAP` rule narrowed and nothing else |
+| `qpwyg` (c813) | Saint-Jérôme #529 | 184.40 | 12 lines, 239.38 | **184.40** (10 lines, 14 units) | 239.38 | 184.40 |
+| `hattg` (c814) | Saint-Jérôme #529 | 126.23 | 10 lines, 104.74 | 104.74 | 131.73 | **126.23** |
+| `2laj6` (c815) | Sherbrooke #1367 | 184.10 | 13 lines, 186.10 | **184.10** | 186.10 | 184.10 |
+| `7uozf` (c816) | S Winnipeg #549 | 432.80 | 18 lines, 398.82 | 398.82 | **432.80** (19 lines, 20 units) | 432.80 |
+| `7r7fx` (c842) | Montréal #515 | 169.26 | 9 lines, 169.16 | **169.26** | 169.16 | 169.26 |
+
+Each receipt closes to the cent on its printed Total Partiel / SUBTOTAL, tax, TOTAL and both items-sold counters
+once its own shape is neutralised, so there is no fifth cause among them. Production's corrected rows agree with the
+paper on every amount (SELECT, 2026-11-12).
+
+Two things the stored rows still have wrong, **not corrected** (no production write was asked):
+- `qpwyg` is stored with 11 units and `hattg` with 12; the papers print 14 and 11. The amounts are right.
+- `tmvzm` (a photo, RC-47) is stored without its first line, `347937 ROTI CHICKEN 7.99`: its lines sum to 399.32 and
+  the paper's to 407.31 (TOTAL 441.26, tax 33.95).
+
+## RC-44 · A PDF name printed on two lines is read as three rows; beside an `N @ price` line a line of the name becomes an item (fixed, hotfix 2026-11-12)
+
+**Printed shape.** A Costco PDF (costco.ca / the app's "download receipt") is a table: quantity line, item number,
+name, amount, tax code. A name too long for its column is printed on two lines and the row's other cells are centred
+between them:
+
+```
+POULET
+347937        7,99 B
+ROTI
+2 @ 24,99
+JACHS
+1915043      49,98 B
+JACKET
+```
+
+Measured on every Costco PDF in the corpus (37 fixtures): the lines of one cell are 0.7 to 0.9 of a text height
+apart, two rows of the table never closer than 1.7.
+
+**What goes wrong.** The parser read a PDF as it reads a photo: `receiptGeometry.reconstructRowsFromAnnotation`
+clusters words into rows by their height, so the three lines are three rows, and the Costco parser's row repairs
+(`joinNameAboveShortTailSkuRow`, the column-split reshape) decide which name line goes with which number. One wrapped
+name alone was usually re-joined (which is why 3xtvv and the G-n fixtures closed). Beside an `N @ price` line it was
+not: `ROTI` / `2 @ 24,99` was read as an item named ROTI at 24.99, and `JACKET` / `3 @ 19,99` as JACKET at 19.99.
+The same lines also shifted names between items on receipts that closed: `hattg` read `1072225 POULET PAINS` for
+`PAINS QUINOA`, and the corpus held `FRAG COTT CHS 2KG`, `TOMATO REESE PIE`, `Item #2607455` and `Item #1450776`
+(two "placeholder name" warnings). A wrapped fee row lost its amount (`DEPOSIT` / `9481 0.10` / `CL/2067612`).
+
+**Since.** The geometry reading of PDFs (2026-06-03); every build in the stores. Not a regression: the first
+French PDFs with many wrapped rows arrived on 2026-11-12.
+
+**Cases.** `qpwyg` (8 of 10 items wrapped, +44.98 of phantom items), `7r7fx` (DEPOSIT 0.10 lost), and the names of
+`hattg`, `7uozf` (`WNDSHLD` for `WNDSHLD WASH`), `dgxv6`.
+
+**Fix.** `shared/pdfReceiptRows`: a PDF's rows are known, not searched for. A line is joined to the row it wraps
+only when it is closer than 1.1 text heights **and** every word of it is right of the row's number **and** none of
+it is an amount; the row is then read number, name top to bottom, amount, tax code. `pdfRows` (the paper every check
+reads, phone and server) and the new `pdfRowWords` (the same rows as words) share that one definition.
+`src/services/receiptPdf.pdfParserInput` hands the Costco parser those rows, as words and as text; the parser itself,
+the photo geometry and `receiptParsingShared` are not changed, and a photo never takes the branch
+(`costcoPathImmutability` passes unchanged).
+
+**Proof.** Table above (`qpwyg`, `7r7fx`). On the 30 older Costco PDF fixtures no figure moved; the golden diff
+holds only the row text and 22 names: 21 corrected or completed (the two placeholder names read), and one read with
+a space it did not have (`OMG ! CINNABN` for `OMG CINNABN`: Vision returns the `!` as its own word and the rows join
+words with a space).
+
+## RC-45 · A PDF coupon whose name is wrapped is not applied (fixed, hotfix 2026-11-12)
+
+**Printed shape.** The coupon row of an item with a wrapped name is wrapped the same way:
+
+```
+KRAFT
+390241        2,00-
+TRANCH
+```
+
+**What goes wrong.** Read as three rows, `390241 2,00-` is a coupon number with no name and no item reference; the
+name lines around it join the neighbouring items (`680 KRAFT TRANCH KRAFT`). The coupon is not applied and the
+receipt is over by its amount.
+
+**Cases.** `2laj6` (2.00 over), `qpwyg` (JACHS JACKET 10.00), `hattg` (CASHMERE PRE 5.50, hidden behind RC-46).
+
+**Fix.** The same row join as RC-44: the row reads `390241 KRAFT TRANCH 2,00-`, the named-coupon shape the parser
+already resolves (`3282174 AIGLEFIN 24,99` / `397722 AIGLEFIN 5,00-` closed before).
+
+**Proof.** Table above (`2laj6`; `hattg` needs RC-46 too).
+
+## RC-46 · A row whose tax code is the digit `2` is not a priced row (fixed for PDFs, hotfix 2026-11-12)
+
+**Printed shape.** `2268801 PEKKLE 3PC 14.99 2`, `8884321 TUFF LEGGING 33.98 2`, `1424970 CASHMERE PRE 26,99 2`.
+The code `2` marks a row taxed with the receipt's second tax only: on `uudf6` the tax summary prints
+`(A) HST 13.12` and `(B) 5% GST 0.75`, and 0.75 is 5 % of PEKKLE's 14.99 (children's clothing); on `hattg`
+`(B) 5% GST 2,07` is 5 % of CASHMERE's 21.49 plus QUANTUM's 19.99.
+
+**What goes wrong.** Every price pattern of the engine allows one tax **letter** after an amount
+(`[HPFRYNGB*]`), and `costcoReceiptParser.normalizeStrayTaxFlags` (2026-10-09, #413) rewrites a stray letter only.
+A row closed by a digit is not a priced row: the flat-text reading drops the item. On `uudf6` the geometry reading
+kept the row but the parser preferred the other reading, which had lost three coupons (14.00 over).
+
+**Cases.** `uudf6` (14.00 over), `7uozf` (33.98 short, 2 units), `hattg` (21.49 short). Blast radius (prod, SELECT
+on `raw_ocr`, 2026-11-12): 9 receipts print the code. 5 PDFs: these three plus `pxzjm` and `vuozi` (uploaded
+10-18 and 10-20, both close today, captures not exported). 4 photos: `41ub6`, `5clwk`, `f3nej`, `yvflx`.
+
+**Fix (PDF only).** `receiptPdf.pdfParserInput` hands the parser the digit as `F`, the parser's own rule for a tax
+code it does not know (the code is only evidence that the row carries a price; the tax is read from the printed TAX
+row). Only on a row that opens with an item number and whose last two words are an amount and one digit. The paper
+(`raw_ocr`) keeps its `2`.
+
+**Open.** The photo path is unchanged: a paper receipt prints the code too (the four photos above; two were deleted
+by their shoppers, the other two close today). To be checked in the photo step, with the proposal to add digits to `normalizeStrayTaxFlags` (a change to
+the frozen Costco parser: Maxim's call).
+
+**Proof.** Table above (`uudf6`, `7uozf`; `hattg` with RC-45).
+
+## RC-47 · An item named `WALL TAP` is removed as the contactless payment (fixed, hotfix 2026-11-12)
+
+**Printed shape.** `1949500 WALL TAP 19.99 B` (a Wi-Fi wall plug), with its coupon `393460/1949500 4.00-` under it.
+
+**What goes wrong.** `shared/ocrCleanup.js`, noise rule `chip-tap` (commit `02e9ec6`, 2026-07-02, first shipped in
+v2.8.2): `\bTAP\b` anywhere on a line marks a payment line. The item row left the text and the words before any
+parser saw it; the coupon then had no item and was dropped too. The receipt is 15.99 short, and the row is not in
+`raw_ocr` either, so no later reader (Gemini, the desk) could see it.
+
+**Cases.** `dgxv6` (PDF, 2026-11-11), `tmvzm` (photo, Guelph #1168, 2026-11-08, both passes: 391.32 for 407.31),
+`kxuag` (a photo of `dgxv6`'s receipt, cut above its totals). Blast radius: every receipt holding item 1949500, on
+every build; three in the exported captures of 11-06 → 11-12. Measured on all 341 fixtures with word boxes: these
+are the only item rows the cleanup removes.
+
+**Fix.** `TAP` is not the payment word on a row that opens with an item number (3 to 7 digits) and a name. The
+payment lines (`TAP`, `MASTERCARD TAP`, `VISA TAP 25.00`, `01 TAP 25.00`) are removed as before. This is the one
+change of the hotfix that reaches photos: on the 168 captures exported on 11-12, the only readings it changes are
+`tmvzm` (closes) and `kxuag` (gains the line).
+
+**Not covered.** A flat-text line holding the name alone (`WALL TAP`, the number and the amount on other lines) is
+still removed; the word rows, which the parser reads first, keep it. A general rule "an item row is never payment
+noise" was measured and **rejected**: `00 APPROVED : $ 182.24` and `01 APPROUVE : 20.97` have the same shape.
+
 ---
 
 ## Earlier root causes (before this register)

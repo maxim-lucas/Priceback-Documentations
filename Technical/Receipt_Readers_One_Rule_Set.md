@@ -29,7 +29,7 @@ Who calls an AI reader:
 |---|---|---|---|---|
 | The phone's scan, *Gemini reads first* | `POST /api/receipts/gemini-read` | the parser's reading | never | 1 |
 | The server re-read | after `POST /api/receipts` | the stored lines | never | 1 |
-| The desk's *Fix automatically* | `POST /api/admin/receipts/:id/auto-fix` | the stored lines | yes, when stored | up to 3 |
+| The desk's *Fix automatically* | `POST /api/admin/receipts/:id/auto-fix` | the stored lines | to the **paid** key only, when stored; the free key reads the text (§7.4, decided 2026-11-12) | up to 3 |
 | The old reconcile (builds from 2.8.3) | `POST /api/ocr-llm` | none | never | 1 |
 
 Both switches (`RECEIPT_GEMINI_FIRST`, `RECEIPT_GEMINI_REREAD`) are **off** in production. This hotfix does not turn
@@ -47,6 +47,7 @@ them on.
 | **Which draft line a reader's line is** (same item number and amount first, then the item number, one to one) — decides which line keeps the scan's tax class and barcode | `shared/receiptReaders.js` → `matchDraftLines` | the phone's adoption, the re-read |
 | **How long the phone waits, and the server's cut inside it** (30 s / 25 s) | `shared/receiptReaders.js` → `PHONE_AI_READ_WAIT_MS`, `SERVER_AI_READ_TIMEOUT_MS` | the phone, both server reads |
 | **How an AI reader is reached** (provider order, time handed on, one failure vocabulary, JSON parsing) | `backend/lib/receiptReaderProviders.js` → `ask`, `askJson` | every receipt read: `/api/ocr-llm`, the phone's read, the re-read, the desk |
+| **What a tier is sent** (a free tier: the text only, never the photo or the PDF) | `backend/lib/receiptReaderProviders.js` → `requestFor(tier, request)`, `sentImage` | the chain, for a reader with one tier; Gemini's adapter, once per key |
 | **What a reader is given** (the OCR with the parser's noise removed, EN + FR) | `backend/lib/receiptLlmRules.js` → `denoiseReceiptText` (vocabulary: `shared/ocrCleanup`, `shared/costcoReceiptNoise.fr` — the parser's own lists) | both prompts |
 | **The parser's rules, as a reader is told them** | `backend/lib/receiptLlmRules.js` → `PARSER_RULES_PROMPT` | both prompts |
 | **How a line is named** (banner scrub, noise and totals labels are never items) | `backend/lib/receiptLlmRules.js` → `cleanItemName`, `isNoiseItemName` | both answer normalizers |
@@ -122,7 +123,7 @@ best-of-two (§7.1): a current build then never needs `/api/ocr-llm`, which stay
 
 | Test | What it requires |
 |---|---|
-| `backend/tests/receiptReaderProviders.test.js` | the Gemini request is unchanged; the free key is the fallback of the paid key and reads the same reading; a non-Gemini reader given the same answer yields the same reading; the chain hands time on; one failure vocabulary; no receipt path calls `lib/gemini` directly; the budget is reserved in one place |
+| `backend/tests/receiptReaderProviders.test.js` | the Gemini request is unchanged; the free key is the fallback of the paid key and reads the same reading; **a free tier is never sent the image** (the paid key gets it, the free key gets the same text without it, a later free reader is handed the text by the chain); a non-Gemini reader given the same answer yields the same reading; the chain hands time on; one failure vocabulary; no receipt path calls `lib/gemini` directly; the budget is reserved in one place |
 | `backend/tests/receiptReaders.test.js` | the codes are one list (seed, repo, shared); `aiReadRefusal`, `matchDraftLines`; the re-read's skip reasons, its footer OCR, its carry-over; no reader code spelled out where a rule is decided |
 | `__tests__/receiptReadersParity.test.js` | loads the backend next to the app: the phone's scan and the server's re-read agree on which receipt may be read for all 48 combinations of the facts; both carry the same tax class to the same line; **an AI reader's lines are grouped exactly as the parser groups the same printed lines** |
 | `__tests__/sharedMirrorParity.test.js` | `shared/receiptReaders.js` and `backend/shared/receiptReaders.js` are byte-identical |
@@ -134,7 +135,9 @@ best-of-two (§7.1): a current build then never needs `/api/ocr-llm`, which stay
 1. Write one adapter with this contract and add it to `PROVIDERS` in `backend/lib/receiptReaderProviders.js`, after
    Gemini:
    - `id` (what `source.provider` says), `label` (how a failure names it);
-   - `ask(request, opts)` → `{ text, model, tier, usage: { input, output, cached } }`;
+   - `tier`: `"free"` or `"paid"`, for a reader with one tier. The chain then hands it `requestFor(tier, request)`,
+     so a free reader's adapter never holds the image;
+   - `ask(request, opts)` → `{ text, model, tier, sentImage, usage: { input, output, cached } }`;
    - it throws an `Error` with `.status` and `.code` in `lib/gemini`'s vocabulary (`no_provider`, `quota`,
      `overloaded`, `no_credit`, `no_model`, `timeout`, `empty_answer`, `bad_request`, `upstream`), so the desk words
      the failure the same way.
@@ -143,7 +146,7 @@ best-of-two (§7.1): a current build then never needs `/api/ocr-llm`, which stay
 3. Change nothing else. The prompt, the denoise, the naming, the grouping, the proof and the adoption are applied by
    the pipeline to whatever the adapter returns.
 4. Update `providerIds()`'s test (it lists the order on purpose) and run the parity tests.
-5. Decide what the reader may be sent (§7.4): a free tier that may train on what it receives gets text only.
+5. State its tier. What it may be sent follows from it (§7.4): a free tier gets text only.
 6. Give it its own budget in `reserveAiRead` (§7.2).
 
 ---
@@ -226,12 +229,30 @@ it safe: a weaker model's wrong reading is unproven, and the parser's stands.
 Do not create a second Google project to double the free quota: limits are per project, and splitting usage across
 projects to get around them is against Google's terms.
 
-### 7.4 What a free tier may be sent (a decision for Maxim)
+### 7.4 What a free tier may be sent — decided 2026-11-12: text only
 
 A free tier may use what it receives to improve its products. The phone's read and the re-read send the **OCR text
-with the member line and the payment block removed**. The desk's *Fix automatically* sends the **photo** (member
-number, card digits) to whichever key answers, the free one included. Recommended: a free tier gets text only; the
-photo goes only to a tier that does not train on it.
+with the member line and the payment block removed**. Until 2026-11-12 the desk's *Fix automatically* sent the
+**photo** (member number, card digits) to whichever key answered, the free one included. The recommendation was: a
+free tier gets text only. Maxim: *"yes"*.
+
+**Shipped (hotfix `hotfix/free-tier-text-only`):**
+
+- The rule is `receiptReaderProviders.requestFor(tier, request)`: for a free tier the request loses its image and
+  nothing else (same prompt, same OCR text, same schema).
+- Gemini's adapter builds one body per key: the paid key (`GEMINI_API_KEY`) is sent the whole request, the free key
+  (`GEMINI_API_KEY_FREE`) the text. `lib/gemini.generateContent` takes the second body as `backupBody`; without it
+  both keys get `body`, so the flyer scan and every text-only read send what they always sent.
+- A later reader states `tier: "free"` and the chain strips the image before its adapter is called.
+- The desk says which it was: `source.usedImage` is true only when the reader that answered was sent the image
+  (the existing line *"read the receipt file and the OCR text"* / *"read the OCR text only"*).
+
+**What it costs today.** The paid key is out of credit, so every *Fix automatically* is answered by the free key
+and now reads the text only. A fix that needs the photo (a line the OCR did not read at all) is no longer found by
+the free key; it waits for the paid key or a person. The proof is unchanged, so nothing wrong is applied.
+
+**Which key is "free".** The tier follows the variable, not the account: `GEMINI_API_KEY` is treated as paid and
+`GEMINI_API_KEY_FREE` as free. A free-tier key put in `GEMINI_API_KEY` would be sent photos.
 
 ### 7.5 A smarter app approval
 

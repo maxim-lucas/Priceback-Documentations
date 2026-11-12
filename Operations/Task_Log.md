@@ -12173,3 +12173,73 @@ with no push notifications.
 - **Then:** replay each failing PDF until it reproduces the reading at scan; fix in the PDF-only path
   (`shared/pdfReceiptRows` / `src/services/receiptPdf`, design rule 16) so the frozen Costco parser and the photo
   geometry are not touched; prove on all 39 PDF fixtures plus the new captures; then the photos.
+
+## 2026-11-12 (later) — Step 2, PDFs: a Costco PDF is read from its own rows; a free tier is sent text only (two hotfixes)
+
+- **Ask (Maxim):** *"continue last session work"*, with two answers. To the open decision (may a free tier be sent the
+  receipt photo; recommended: text only): *"my answer is yes"*. To the blocked capture export: *"I allow you to run it
+  yourself"*.
+- **Done first:** `railway run -e production node scripts/exportOcrCaptures.js --since 2026-11-06` (read-only). 168
+  new captures, c675 to c843.
+- **PRs:** Priceback **#570** `hotfix/free-tier-text-only` (server), Priceback **#571** `hotfix/pdf-receipt-rows`
+  (phone parser + two shared modules). Both open, not merged: a merge is a production deploy.
+
+### Free tiers get text only (#570)
+
+- `receiptReaderProviders.requestFor(tier, request)`: the one rule. Gemini's paid key is sent the whole request, its
+  free key the same request without the photo or PDF (`lib/gemini.generateContent`, optional `backupBody`). A later
+  reader states its `tier` and the chain strips the image for it.
+- `source.usedImage` is true only when the reader that answered was sent the image.
+- Standing rule added to `CLAUDE.md` (under *Every receipt reader follows one rule set*) and to design rule 17.
+- Cost today: the paid key is out of credit, so every *Fix automatically* now reads the text only.
+
+### PDFs (#571)
+
+- **Replay.** Each of the 7 PDFs uploaded 11-09 → 11-12 was replayed until it gave the reading stored at scan
+  (`qpwyg`: 12 lines, 13 units, 239.38, exactly). Then one input shape at a time was neutralised. The table is in
+  `Technical/Receipt_Parser_Root_Causes.md`, section *2026-11-12 · The seven Costco PDFs*.
+- **Root causes:** RC-44 (a name printed on two lines read as three rows; beside an `N @ price` line a line of the
+  name becomes an item), RC-45 (a wrapped coupon not applied), RC-46 (the tax code `2` is a digit, the price patterns
+  allow a letter), RC-47 (`1949500 WALL TAP` removed as the contactless payment, on a PDF and two photos).
+- **Fix:** `shared/pdfReceiptRows` joins a wrapped line to its row (closer than 1.1 text heights, right of the row's
+  number, no amount in it); `receiptPdf.pdfParserInput` hands the Costco parser those rows as words and as text, a
+  digit tax code as `F`; `ocrCleanup`'s `TAP` rule spares a row that opens with an item number and a name.
+- **Not changed:** `costcoReceiptParser`, `receiptParsingShared`, `receiptGeometry`. The `TAP` rule is the only
+  change that reaches photos.
+- **Result:** all 7 PDFs close to the cent with the printed unit counts; `tmvzm` (photo) closes. On the 30 older
+  Costco PDF fixtures no figure moved (22 names changed: 21 corrected, `OMG ! CINNABN` gains a space). On the 168
+  exported captures the only readings that change are the 7 PDFs, `tmvzm` and `kxuag`.
+- **Fixtures:** the 7 PDFs and `tmvzm` (both passes) are committed with their ground truth, cross-checked against
+  production's corrected rows. The other 159 captures are parked in `E:\tools\priceback\captures-pending\` (their
+  `.vision.json` only) until each has ground truth: the corpus test refuses a capture without it.
+
+### Tests
+
+- Mobile `npm test`: 434 suites, 12,745 passed, 1 skipped as before, 499 snapshots; `i18n:check` in sync.
+- Backend, on dev: the four files of #570 (96 tests) and the blast radius of both changes (29 files, 434 tests),
+  0 failed, 0 skipped.
+- Full backend suite, GitHub Actions and a device test: not run.
+
+### Prod
+
+- Read only: the capture export and five SELECTs (the corrected rows of the nine receipts, the lines of `tmvzm`, the
+  receipts printing the tax code `2`). Nothing written.
+- **Found, not corrected (no write was asked):** `tmvzm` is stored without its first line `347937 ROTI CHICKEN 7.99`
+  (lines 399.32, paper 407.31). `qpwyg` and `hattg` have the right amounts and wrong unit counts (11 and 12; the
+  papers print 14 and 11).
+
+### Photos, the next step: where it stands
+
+- Of the 161 new captures that are not PDFs: 85 close with the current parser, 28 read a total and do not close, 26
+  read no total (a frame cut above the totals, or the totals unread), 22 are not recognised as a store (cropped
+  logos, several Best Buy), 7 are price tags (some captures are in two groups by pass).
+- The 28 that do not close, by receipt: `o31au`, `bquwu`, `97zj1`, `egy2e`, `215cu`, `yk4ud`, `6ijmw`, `c8ncy`,
+  `68zqn`, `6bwdq`, `5z1ue`, `j3b5t`, `bqxuz`, and unlinked scans c774, c791, c792, c808, c809, c817.
+- Open from RC-46: a paper receipt prints the tax code `2` too. Fixing it there is a change in the frozen Costco
+  parser (`normalizeStrayTaxFlags`): Maxim's call.
+
+### Still for Maxim to decide (unchanged from the morning)
+
+- Best of two (ask an AI reader only when the parser's reading is not proven); Flash-Lite first on the free key; the
+  third reader (Groq, then Cloudflare Workers AI); which approval checks of §7.5 to add.
+- Reject `kxuag` with reversal refunds 38 on top of the manual +38.

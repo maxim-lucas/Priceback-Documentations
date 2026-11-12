@@ -14901,3 +14901,28 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Detect next time: a **Possible copy** badge on the review list; `[VerifiedDrop] n drop(s) held for an admin: the same drop is on another read of the same receipt` in the Railway log; on the database, two `price_drop_charge` rows of one shopper for the same product inside a day whose lines sit on different receipts.
 - Prevent: `backend/tests/receiptCopies.test.js` (9), `receiptCopiesDb.test.js` (4, the incident's pair on the database), `receiptRejectionDb.test.js` › *reject with drops sent*, *a subscriber charged nothing is refunded nothing*, *reverseDrops clears the guarantee's drop stamp*.
 - Also fixed here: `backend/tests/priceDropLockedPush.test.js` had 2 tests red on `main` since the locked-push copy changed on 2026-11-07 (they still expected the real days left and a receipt id in a locked alert). They now pin the shipped copy and the empty payload.
+
+## 376. Every Costco PDF uploaded in four days was read wrong — a name printed on two lines, a tax code `2` (reported 2026-11-12; `hotfix/pdf-receipt-rows`)
+
+- Date: 2026-11-12 · Branch: `hotfix/pdf-receipt-rows` (off `main` v3.6.1) · Area: `shared/pdfReceiptRows.js` (`pdfRows`, new `pdfRowWords`), `src/services/receiptPdf.js` (new `pdfParserInput`), `src/services/receiptParser.js` (the Costco PDF branch). The Costco parser, `receiptParsingShared` and `receiptGeometry` are not changed.
+- Ask (Maxim): *"last few days we had a lot of problems with pdf versions which should be the easiest … i want the logic to be receipt proof."*
+- Symptom (prod, read only): the 7 Costco PDFs uploaded 2026-11-09 → 11-12 did not close at scan (0.10 to 54.98 off, 6 % to 27 %); every one was fixed afterwards by hand or by Gemini. `qpwyg` was stored as 12 lines for 239.38; its paper is 10 lines for 184.40.
+- Cause, three shapes (root causes RC-44, RC-45, RC-46 in `Technical/Receipt_Parser_Root_Causes.md`, each proved by replaying the capture and neutralising one shape):
+  1. **A name too long for its column is printed on two lines, the item number and the amount centred between them.** The parser read a PDF as a photo, so those were three rows. Beside an `N @ price` line a line of the name became an item (`ROTI 24.99`); a wrapped coupon was not applied; a wrapped deposit lost its amount.
+  2. **The tax code `2`** (taxed with the second tax only) is a digit, and every price pattern allows a letter: the row was not a priced row.
+  3. On receipts that closed, the same lines put names on the wrong items (`FRAG COTT CHS 2KG`, `Item #2607455`).
+- Fix: a PDF's rows are known, not searched for. `shared/pdfReceiptRows` joins a line to the row it wraps (closer than 1.1 text heights, right of the row's number, no amount in it); the Costco parser is handed those rows as words and as text, with a digit tax code handed over as the parser's own letter for an unknown code. The paper (`raw_ocr`) is the same rows and keeps its `2`.
+- Result: all 7 close to the cent, with the printed unit counts. On the 30 older Costco PDF fixtures no figure moved; 21 names are corrected.
+- Not fixed for builds ≤ 3.6.1: the parser runs on the phone. They keep the old reading until they update.
+- Detect next time: a PDF receipt on the desk that does not close; `select id from priceback.receipts r where exists (select 1 from priceback.ocr_captures c where c.receipt_id = r.id and c.image_object_key ilike '%.pdf') and admin_reviewed_at is null and auto_approved_at is null`.
+- Prevent: `__tests__/receiptPdfRows.test.js` (the row join, 9 tests; the five shapes on their real captures, 5 tests; every PDF of the corpus keeps every word), `receiptProdCaptures` (the 7 PDFs pinned to their paper), the goldens.
+
+## 377. An item named `WALL TAP` was removed as a contactless payment line, on PDFs and photos (found 2026-11-12; `hotfix/pdf-receipt-rows`)
+
+- Date: 2026-11-12 · Area: `shared/ocrCleanup.js`, noise rule `chip-tap` (since 2026-07-02, v2.8.2).
+- Symptom: `1949500 WALL TAP 19.99 B` and the 4.00 coupon under it missing from the reading **and from `raw_ocr`**; the receipt 15.99 short. Three receipts in six days: `dgxv6` (PDF), `tmvzm` (photo), `kxuag` (photo).
+- Cause: `\bTAP\b` anywhere on a line marked a payment line (RC-47).
+- Fix: `TAP` is not the payment word on a row that opens with an item number and a name. `TAP`, `MASTERCARD TAP`, `VISA TAP 25.00` are removed as before.
+- Measured before choosing the narrow rule: on all 341 fixtures with word boxes these are the only item rows the cleanup removes. A general "an item row is never payment noise" rule would keep `00 APPROVED : $ 182.24`, so it was rejected.
+- Open in prod (not corrected, no write asked): `tmvzm` is stored without its first line, `347937 ROTI CHICKEN 7.99` (lines 399.32, paper 407.31).
+- Prevent: `__tests__/ocrCleanup.test.js` › *'TAP' is the contactless payment, not an item named with it* (3 tests); `receiptProdCaptures` pins `tmvzm` (both passes) and `dgxv6`.

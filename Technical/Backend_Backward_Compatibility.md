@@ -279,6 +279,27 @@ The newest tag is still **v3.6.1** (build 60). `src/services/ocrService.js` was 
 Forcing builds: none needed. The phone-side half (the shared module in `geminiReader` and the upload) ships with the
 next build and changes no request it sends.
 
+## Audit — 2026-11-12 (second): a free tier is sent text only; a PDF's wrapped rows; `WALL TAP` (two hotfixes → `main`, no migration)
+
+The newest tag is still **v3.6.1** (build 60). Two PRs.
+
+**`hotfix/free-tier-text-only` (server only).**
+
+| Change | Why old builds are fine |
+|---|---|
+| `POST /api/admin/receipts/:id/auto-fix`: the receipt's photo or PDF is sent to the paid Gemini key only; the free key is sent the same request without it. | Admin only. Same response shape; `source.usedImage` (read by the 3.6.1 desk for its *"read the receipt file…"* line) is now true only when the key that answered was sent the image. |
+| `lib/gemini.generateContent` takes an optional `backupBody`. | Not passed by `/api/ocr-llm`, the phone's read, the re-read or the flyer scan (none sends an image through a receipt read), so each sends both keys the body it always sent (pinned by tests). |
+
+**`hotfix/pdf-receipt-rows` (phone parser + two shared modules the server mirrors).**
+
+| Change | Why old builds are fine |
+|---|---|
+| `shared/pdfReceiptRows.pdfRows` joins a wrapped name to its row. On the server it is used by `lib/pdfReceiptText` (a PDF an old build stored as flat text is re-read as rows) and `ocrCapture.envelopeText`. | Same rule for replacing `raw_ocr` (only when the stored totals do not add up and the rows' do): the totals rows are not wrapped rows, so the decision is the same on every capture in the corpus. The stored rows read `347937 POULET ROTI 7,99 B` where they read three lines. No build parses `raw_ocr`; the review screen shows it as text. |
+| `shared/ocrCleanup`: `TAP` no longer removes a row that opens with an item number and a name. On the server the cleanup runs in `receiptLlmRules.denoiseReceiptText` (what an AI reader is given) and `pdfReceiptText`. | Server-side reading only. An AI reader now sees the `WALL TAP` row. No route, field or status changed. |
+| The parser change itself (`receiptPdf.pdfParserInput`) is on the phone. | It reaches shoppers with the next build. Builds ≤ 3.6.1 keep reading a wrapped PDF as before; the server does not re-parse lines, so those receipts still need the desk until the shopper updates. No forced update: an old build's reading is flagged, as today, not broken. |
+
+Forcing builds: none needed.
+
 ## Open gaps
 
 1. ~~No client version on requests~~ **Done** (3.0.7): `X-App-Platform`,
