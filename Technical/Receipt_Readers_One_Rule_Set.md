@@ -18,9 +18,10 @@ has **one definition**. This page maps every rule to that definition.
 | 0 | **The parser** | on the phone | — | Always reads first. It reads the store, the warehouse, the date, the refusals, and the **draft** every other reader is given. It is the reading every fallback keeps. |
 | 1 | **Gemini, paid key** | server | `GEMINI_API_KEY` | Out of credit (HTTP 402) since October. A key that answers 402 is skipped for an hour. |
 | 2 | **Gemini, free key** | server | `GEMINI_API_KEY_FREE` | **The fallback of the first.** The only AI reader answering in production today. |
-| 3 | *A third free AI reader* | server | — | Not built. The slot exists (§5); the choice is §7. |
+| 3 | **Groq** (`openai/gpt-oss-120b`) | server | `GROQ_API_KEY` | Free tier, text only. Off until its key is set (#576, 2026-11-13). |
+| 4 | **Cloudflare Workers AI** (`llama-3.3-70b-instruct-fp8-fast`) | server | `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_AI_API_TOKEN` | Free tier, text only. Off until its key is set. The account id is the one R2 uses (`lib/cloudflareAccount`; `R2_ACCOUNT_ID` is no longer read). |
 
-Readers 1 to 3 are **AI readers**. They sit behind one module, `backend/lib/receiptReaderProviders.js`, in a fixed
+Readers 1 to 4 are **AI readers**. They sit behind one module, `backend/lib/receiptReaderProviders.js`, in a fixed
 order. A reader that cannot answer hands what is left of the caller's time to the next one.
 
 Who calls an AI reader:
@@ -184,6 +185,32 @@ This matches production: Flash answers 429 or hangs, and only Flash-Lite answers
 describes no real quota.** It is our own ceiling, set when the free tier was 1,500 a day.
 
 ---
+
+## 6b. Best of two, mixed item by item — shipped (#576, 2026-11-13)
+
+**Maxim, 2026-11-13:** *"Best of the two responded AI parsers + local parser. also we can mix and match if needed
+between few results to get the best of each reader."*
+
+| Rule | The one definition |
+|---|---|
+| **Two readers at once** — the first two configured readers in `PROVIDERS` order, each with the caller's full time; a reader that fails hands its slot to the next (with what is left of the time, not under 5 s); a reader with no key is skipped | `receiptReaderProviders.askEach` |
+| **Each extra reader is one unit of the day's budget** (the caller paid for the first) | `askEach`'s `reserve` → `server.reserveAiRead` |
+| **The parser's reading competes** with every answer | `receiptAutoFix.storedReading` |
+| **The mix** — per item number (each reader's version of it: its lines, or none), every combination while there are at most 256, each with each reading's printed TOTAL / TAX; the one reader who read a coupon right can replace a wrong line the other two agree on | `lib/receiptReadingMerge.candidates` |
+| **Which candidate wins** — proven first, then more checks passed, then more agreement, then fewer minority versions, then a reading as it came over a mix, then fewer changes | `receiptReadingMerge.better` |
+| **The proof** is the one every reading goes through; a mix is applied only when proven | `receiptAutoFix.checkProposal` |
+| **Who read it** — `source.provider` (`gemini`, `the parser+groq` …), `source.mixed`, `source.from`, `source.readers` (who answered, proven or not, who refused) | `receiptAutoFix.proposeFromSeveral` |
+
+Callers: the desk's *Fix automatically* (`readers: 2`, then up to 2 retries with one reader each, every answer kept in
+the pool), the phone's *Gemini reads first* and the re-read (`readers: 2`, one round, 25 s). `readers: 1` (the default)
+is the single reader of before. Both phone switches stay off in production.
+
+Proven on production's `afuor` (Nepean #540): reader A misses LIQUID IV's coupon, reader B and the parser miss
+CRMYDILLPCKL's — no reading closes, the mix closes to the cent (`backend/tests/receiptReadingMerge.test.js`).
+
+**Item numbers from the database** (same PR, RC-53): a line with no readable number is matched on the digits printed
+for it first, in their positions, then on its name; when not clearly one product it keeps no number
+(`services/catalog/skuMatch.choosePositionalMatch`).
 
 ## 7. Recommendations for the next round
 

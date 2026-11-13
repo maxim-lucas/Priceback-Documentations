@@ -12408,3 +12408,28 @@ with no push notifications.
 - **To check after #575 is live:** #12341 closed, and its line on Potential price drops.
 - **Learned:** #573's tests covered the door I had found, not the question "can a listing still decide anything?".
   The post-deploy check on the real row is what answered it.
+
+
+## 2026-11-13 — Best of two + the parser, Groq and Cloudflare, item numbers on the printed digits, the open photos, one Cloudflare account id
+
+**Asked (Maxim):** where the API keys go (Railway, never the chat); fix the remaining photos; *"Best of the two responded AI parsers + local parser. also we can mix and match if needed between few results"*; item numbers loaded from the database must keep the digits read, in their positions, and *"if not sure skip it"*; do both recommendations (replay one real receipt of each province; let the cleanup keep a coupon reference row). Privacy decision: *"Add both to policy first"*. Later: *"use only the new variable [CLOUDFLARE_ACCOUNT_ID] and point the R2 code for it so i can delete the old variable R2_ACCOUNT_ID"*.
+
+### Done
+
+- **Priceback #576** (`feat/ai-readers-groq-cloudflare`): Groq and Cloudflare Workers AI after Gemini (free tier, text only, off without a key); `askEach` (two readers at once); `lib/receiptReadingMerge` (the parser's reading and every answer, mixed item by item, under the one proof); `/health` lists every reader; RC-53, the item-number fill matched on the printed digits first (`skuMatch.digitPattern` / `digitCost` / `choosePositionalMatch`); `lib/cloudflareAccount`, the one reader of `CLOUDFLARE_ACCOUNT_ID` for R2, product images and Workers AI. Tests listed in the PR; DB blast radius run against dev.
+- **Priceback #577** (`fix/photos-remaining-and-coupon-ref`): RC-54 (`o31au`), RC-55 (`yk4ud`), RC-52's coupon reference kept by the cleanup. 150 parked captures: 81 → 83 close, nothing else moved. Mobile suite green.
+- **Priceback-Website #22**: the privacy policy says free-tier AI readers get the receipt's text only and may use it to improve their models (EN + FR).
+- **Province replay.** Production holds Costco receipts from QC 177, ON 115, AB 3, BC 2, MB 1, NB 1, and none yet from NS, NL or SK. The corpus covers AB (`bfjc0`), BC (`68zqn`, `f3nej`), MB (`7uozf`). New Brunswick (`4sxdt`, the only one, HST 15 %) and Alberta's `ocada` replayed from their stored OCR: both close to the cent on today's parser.
+
+### To do next
+
+1. Merge Website #22, then set the Groq / Cloudflare keys on production (done by Maxim on 2026-11-13, per his message), then merge #576. **`CLOUDFLARE_ACCOUNT_ID` must be on every Railway service before #576 deploys**; delete `R2_ACCOUNT_ID` after.
+2. App release for #571 / #572 / #577 (the parser fixes reach shoppers only with a build).
+3. The first NS, NL or SK receipt: replay it before trusting it (none in production yet).
+4. **Ask Maxim:** `mkxkq` (SW Calgary #1391) stores tax 16.17 and lines 553.23. The paper prints TAX 8.12 (`TOTAL TAX … 8.12`) and SUBTOTAL 561.28, and the 11-02 repair matched that. It was written from the desk on 11-03 01:44 UTC; 16.17 is the water's `3 @ 5.39` amount.
+5. Still waiting for Maxim: Flash-Lite first on the free key; which approval checks of §7.5; reject `kxuag` with reversal; RC-39 (the section reader and a block of labels / an intermediate totals block — `qzjpq` c666, c667, now `yk4ud` c733).
+
+### Findings
+
+- The name-only fill was the "far away" item number (RC-53): v0leb `#249003` → `1325111`. Lines whose paper printed no digits keep the name match.
+- `j3b5t` is a photo cut at the right edge (every amount loses its last digit); `6ijmw` and `97zj1` are welded rows from curl and tilt. The quality check refused all three in production, which is right.

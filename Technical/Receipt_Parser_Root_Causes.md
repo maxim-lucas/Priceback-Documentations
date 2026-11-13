@@ -2120,6 +2120,87 @@ the exported capture shows `[ID]` in its place).
 number, no coupon yet, one unit and costs more, and the next row is not a coupon reference.
 
 **Open.** The cleanup still removes the reference row; the amount is recovered, the coupon number is not.
+*Covered by #577 (2026-11-13, Maxim: "Do both of them"):* `shared/ocrCleanup` keeps the fused zero-padded form
+(`0{3,4}3\d{5}` + a 3–8 digit item number, e.g. `0000397215214203`) over a coupon amount, on the row or right under
+it, in the flat text (past the `long-id` line rule) and in the word rows (past the 10+-digit word rule), never on the
+member row. `resolveSlashlessCouponRefs` puts the slash back only for an item number printed on the receipt.
+
+## 2026-11-13 · The second round of open photos
+
+| Receipt | Pass | After #577 | Cause |
+|---|---|---|---|
+| `o31au` | c652 | **closes** (306.81) | RC-54 |
+| `yk4ud` | c733 | **closes** (192.92, 8 of 8); refused by the quality check as `totals_unread` (RC-39 family: an intermediate block before the final one) | RC-55 |
+| `yk4ud` | c734 | open: the geometry reading is right (192.92) but its `TAXE` row is empty and `**** TOTAL 220.62 27.70` carries both amounts; moving 27.70 back would be the "re-zip one label later" design rule 2 forbids | — |
+| `215cu` | c725 | open: TOTAL printed `128,13` for 128.43 (one OCR digit). c727 closes | OCR, no rule |
+| `egy2e` | c719 | open: `9.0 - FP`, `11.45` for 11.49, TOTAL `2`. c720 closes | OCR, no rule |
+| `j3b5t` | c802, c803 | open: the photo's right edge cuts the last digit of every amount (`6.9)`, `12.4)`, `3,0)-`, `118.9)`). Refused in production (`totals_unread`) | photo, the gate's |
+| `6ijmw` | c762, c763 | open: tilt 0.7° but rows welded across each other (`2003373 FATRLIFE / 1121754 49.99`, `1950599 / LUNCH 1487204 PLATES 15.99 7.00 H`) and prices a row off; refused in production (`items_sold_mismatch`) | photo (curl), geometry |
+| `97zj1` | c716, c717 | open: tilt 4.8°; coupon rows welded into item rows with the coupon number split around the item number (`0000392 2077977 50/1254041 NAKED & SAUCY 9.99 4.00-`), `1254041` read `1254 41`; refused in production | photo (tilt), geometry |
+
+Measured on the 150 parked captures of 11-03 → 11-12: 81 closed, 83 close; no other reading changed.
+
+## RC-53 · An item number filled from the name alone, against the digits the paper printed (fixed, #576)
+
+**Printed shape.** `#249003 KS SPANISH` / `29.99` (v0leb, Gloucester, 2026-11-13). The `#` is the 4 of `4249003`.
+
+**What goes wrong.** The phone read no item number (a `#` is not a digit), so the line reached the save with a name
+and no number. `lib/receiptDatabaseFill.fillLines` filled the number from the **name alone**, by bigram similarity over
+the store's ~15,000 products, ignoring the digits printed on the row: `KS SPANISH` → Spanish Onion `1325111`. Every
+line whose number did not read as a number went this way (`SG-2154720 MADEGOOD B`, `2O51308`, `1797636 HAVARTI` on a
+row the line lost) — a right pick was luck when the name was unique.
+
+**Case.**
+
+| Receipt | Store | Date | Build | What | Status |
+|---|---|---|---|---|---|
+| `v0leb` | Gloucester (ON) | 2026-11-13 | phone | KS SPANISH 29.99 stored as Spanish Onion 1325111 for the paper's `#249003` | Repaired by hand (Maxim, 2026-11-13, to 4249003); *covered by #576* |
+
+**Proof.** `backend/tests/skuPositionalMatch.test.js` replays the line: today's fill gives `4249003` (digit cost 0.25,
+its receipts print `KS SPANISH`), `1325111` is not a candidate (cost above 2). Production scan (SELECT, 2026-11-13) of
+every live line whose number is not printed on its own paper: the other name-only fills are right or plausible
+(`UNSALTED` 73328, `BRIOCHE HAMB` 1130697, `HAVARTI TRAN` 1791636); the rest are hand repairs.
+
+**Fix.** `services/catalog/skuMatch`: `digitPattern` keeps the digits printed for the line in their positions (the
+line's own unreadable read, or the token in front of its name on its OCR row); `digitCost` is a weighted edit distance
+(a lost digit or a look-alike letter ¼, a commonly confused pair ½ — 8↔3, 1↔7, 3↔6, 5↔6, 0↔8 … — anything else 1, at
+most 2 in all); `choosePositionalMatch` needs the name to fit too (0.5), a combined confidence of 0.72 and a lead of 0.1
+over the next candidate, else the line keeps no number. A line whose paper printed no digits is matched on its name as
+before.
+
+**Not changed.** The catalogue correction of a number that IS read (`lib/receiptCatalogMatch`, one edit away). `iiead`
+`2039721 BC CREW` → `2039720` (the Small) was looked at: Maxim, "this example is not a bug if this is the good product".
+
+## RC-54 · A stray word in front of an item number (fixed, #577)
+
+**Printed shape.** `YUR 3862780 PLMLIVE 4.3L 9.99 FP` over `0000392185/3862780 2,00 - FP` (o31au c652, Brossard #521).
+
+**What goes wrong.** A fragment of the photo's edge glued to the row; the row no longer opened with its item number, so
+it was read as a nameless line and PLMLIVE's 2.00 coupon found no item (308.81 for 306.81).
+
+**Fix.** `dropStrayWordBeforeItemNumber`: a 1–4 letter word is dropped only on a full item row (a 4- to 7-digit number,
+a name, an amount with no minus), never a word the receipt prints there (TPD, CPN, TAX/TAXE, TPS, TVQ, SOUS, …).
+
+## RC-55 · A MULTIPLE coupon under the second unit of an item rung twice (fixed, #577)
+
+**Printed shape (yk4ud c733, Trois-Rivières #518).**
+
+```
+2268801 PEKKLE 3PCE 14.99 F
+0000394391 / MULTIPLE 3.00 - F        ← first PEKKLE's
+…
+307244 LEVURE 7.99
+2268801 PEKKLE 3PCE 14.99 F
+0000394391 / MULTIPLE 3.00 - F        ← second PEKKLE's
+```
+
+**What goes wrong.** `/ MULTIPLE` names no item, so `handleCostcoTpdLine` gave it to "the item parsed last". The engine
+folds a second unit at the same unit price into the first line (one product, one line), so the line parsed last was
+LEVURE: the second PEKKLE's 3.00 came off LEVURE, and ADIDAS CHAUS's second 10.00 was lost the same way (195.92 for
+192.92). `splitMixedValueLines` then split the half-couponed lines back in two.
+
+**Fix.** A MULTIPLE coupon reduces the item printed on the row right above it (its item number's line); when that row is
+not an item row (the flat text's bare price), the line parsed last, as before.
 
 ---
 
