@@ -14924,5 +14924,5 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Cause: `\bTAP\b` anywhere on a line marked a payment line (RC-47).
 - Fix: `TAP` is not the payment word on a row that opens with an item number and a name. `TAP`, `MASTERCARD TAP`, `VISA TAP 25.00` are removed as before.
 - Measured before choosing the narrow rule: on all 341 fixtures with word boxes these are the only item rows the cleanup removes. A general "an item row is never payment noise" rule would keep `00 APPROVED : $ 182.24`, so it was rejected.
-- Open in prod (not corrected, no write asked): `tmvzm` is stored without its first line, `347937 ROTI CHICKEN 7.99` (lines 399.32, paper 407.31).
+- Prod, closed 2026-11-12: `tmvzm`'s lines summed to 399.32 for the paper's 407.31 because its first line, `347937 ROTI CHICKEN 7.99`, had been removed from the owner's own phone on 11-12 (not a parser miss, as first noted here). Restored on Maxim's decision (`backend/data/bad-scan-repairs/2026-11-12-tmvzm-restore-line.sql`).
 - Prevent: `__tests__/ocrCleanup.test.js` › *'TAP' is the contactless payment, not an item named with it* (3 tests); `receiptProdCaptures` pins `tmvzm` (both passes) and `dgxv6`.
