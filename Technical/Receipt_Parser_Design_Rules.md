@@ -244,6 +244,21 @@ better parse is adopted as before. Curl and fold stay in the geometry (RC-12).
     both. A shared fix goes into the shared path; only a structural difference gets a PDF branch, and a photo never
     enters it (its word boxes are in pixels). RC-41.
 
+17. **Every reader, one rule set (Maxim, 2026-11-12).** *"All parsers (local, Gemini paid, Gemini free tier, future
+    ocr, ...) has always the same behavior, logic and rules and these rules should be centralized without any
+    regression."* The readers are the phone's parser and the AI readers behind
+    `backend/lib/receiptReaderProviders.js`, asked in a fixed order: Gemini on the paid key, Gemini on the free key
+    (the fallback of the first), then any later reader. **A provider only transports**: it is handed the request
+    every reader gets and returns the answer's JSON; the denoise, the naming, the grouping, the proof and the
+    adoption are applied by the pipeline to whatever any provider answers, so no provider can read a receipt
+    differently. A rule about readers that the phone and the server both need (the reader codes, which receipt an
+    AI reader may read, which draft line a reader's line is, the waits) is `shared/receiptReaders.js`. Each rule has
+    one definition; the map is `Technical/Receipt_Readers_One_Rule_Set.md` §2. Adding a reader is one adapter and
+    one line in `PROVIDERS` (§5 there), never a rule. Pinned by `backend/tests/receiptReaderProviders.test.js` (the
+    same answer from the paid key, the free key and a non-Gemini reader is the same reading) and
+    `__tests__/receiptReadersParity.test.js` (the phone and the server decide alike; an AI reader's lines are
+    grouped as the parser groups them).
+
 ## 4. Edge cases that are data, not noise
 
 | Printed | Treatment |

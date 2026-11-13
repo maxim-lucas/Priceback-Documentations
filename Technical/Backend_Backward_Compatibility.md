@@ -259,6 +259,26 @@ The newest tag is **v3.6.1** (build 60); the 2026-11-09 audit recorded Android 3
 
 Forcing builds: none needed.
 
+## Audit — 2026-11-12: one rule set for every receipt reader (hotfix → `main`, no migration)
+
+The newest tag is still **v3.6.1** (build 60). `src/services/ocrService.js` was read at `v2.8.3` and `v3.6.1`,
+`src/services/geminiReader.js` at `v3.6.1`. This is a refactor: every AI read now reaches Gemini through
+`lib/receiptReaderProviders`, and the reader rules the phone shares are `shared/receiptReaders`. Full description:
+`Technical/Receipt_Readers_One_Rule_Set.md`.
+
+| Change | Why old builds are fine |
+|---|---|
+| `POST /api/ocr-llm` calls Gemini through the provider chain. | Same request to Google (pinned by a test), same response: `items` (`name`, `price`, `sku`, `quantity`), `subtotal`, `tax`, `total`, `date`, `confidence`, `model`, `usage`, `provider: "gemini"`, `proven`, `checks`. 2.8.3 reads `items`, `total`, `tax`, `date`, `confidence`; 3.6.1 also `proven`. Same statuses: 429 and 503 are still "keep my own parse" in every build. |
+| `POST /api/receipts/gemini-read`: same change, and its timeout is the shared constant (25 s, as before). | Same response (`read`, `reason`, `proven`, `items`, `total`, `tax`, `checks`, `model`). 3.6.1 reads exactly those. |
+| `POST /api/receipts`: "an AI reader already read it" is `wasReadByAi(body.reader)`. | Same decision for every code a phone sends (`parser`, `parser_checked`, `gemini`, or none). |
+| The server re-read (switch **off** in production) proves on the footer OCR too, and skips a receipt with under 20 characters of OCR (`no_ocr`). | Server-side. No build is told; the phone takes re-read lines on its next sync exactly as before. |
+| `POST /api/admin/receipts/:id/auto-fix` answers `source.tier` (`"paid"` or `"free"`). | Additive, admin only. A 3.6.1 desk reads `source.model` and `source.usedImage`. |
+| `/health` → `checks.llm.keyStatus.*.quotas`: the quota Google stated in its last 429, per model. | Additive, admin view. No build parses it. |
+| The day's AI budget is reserved by one function (`reserveAiRead`). | Same counter, same limit, same order at all six call sites. |
+
+Forcing builds: none needed. The phone-side half (the shared module in `geminiReader` and the upload) ships with the
+next build and changes no request it sends.
+
 ## Open gaps
 
 1. ~~No client version on requests~~ **Done** (3.0.7): `X-App-Platform`,
