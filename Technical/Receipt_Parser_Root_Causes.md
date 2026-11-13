@@ -1876,6 +1876,10 @@ problems you found in production"):
   (`receiptsRepo.softDeleteItemForUser`). Maxim chose to restore it: one guarded UPDATE cleared that line's delete
   stamp (`backend/data/bad-scan-repairs/2026-11-12-tmvzm-restore-line.sql`); 28 lines, 407.31, 36 units. No root
   cause: no receipt line was wrong.
+Two things the stored rows still have wrong, **not corrected** (no production write was asked):
+- `qpwyg` is stored with 11 units and `hattg` with 12; the papers print 14 and 11. The amounts are right.
+- `tmvzm` (a photo, RC-47) is stored without its first line, `347937 ROTI CHICKEN 7.99`: its lines sum to 399.32 and
+  the paper's to 407.31 (TOTAL 441.26, tax 33.95).
 
 ## RC-44 · A PDF name printed on two lines is read as three rows; beside an `N @ price` line a line of the name becomes an item (fixed, hotfix 2026-11-12)
 

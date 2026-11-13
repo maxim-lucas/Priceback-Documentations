@@ -11978,6 +11978,31 @@ with no push notifications.
   account" opens it with a search). The drop queue and potential drops open the account page. Quick actions are one
   2×2 grid; the DATA RESET badge carried over.
 
+## 2026-11-11 — Catalogue harvest: the daily "Business Centre catalogue stale" email, fixed at the source (hotfix)
+
+- **Ask (Maxim):** *"i have a daily alert on the support email for catalogue harvest fail for costco business centre
+  catalog, i need this to be fixed once and for all"*. Production hotfix on `main`.
+- **Found (prod, read-only):** `costco_business_centre_catalog` (the costcobusinesscentre.ca website source): run 4
+  `success` 11-01, run 60 `failed` 11-08 `image sitemap HTTP 404`. Stale from 11-09 17:04 UTC, so the 09:00 email went
+  out 11-10 and 11-11 and would have repeated until the 11-15 slot. From a Canadian IP, the BC servers disagree:
+  `sitemap_lw_i_mod_001.xml` 404s on 25–40 % of requests (the same URL and headers), the index omits that file about
+  half the time, and the sitemap generation varies. One 404 on one file failed the whole run, nothing re-ran it, and
+  the next try was a week away.
+- **Branch:** `hotfix/catalog-sitemap-flap` off `main`; docs `docs/catalog-sitemap-flap-2026-11-11`.
+- **Done (Priceback):**
+  - Sitemap GETs retried 4× (2/5/10 s), never on a wall.
+  - A file that still fails leaves the run `partial`; the run fails only when no image sitemap reads.
+  - A failed/blocked run re-runs the same slot (2 h apart, ≤ 3 per slot).
+  - The stale email names the last good run and the last run's error.
+  - Tests: catalogSources 28→31, harvestCatalogJob 27→30 (61/61, mutation-checked); catalogHarvestDb 21/21 on dev.
+  - Live, after the fix: sitemap reader 8/8, full adapter 3/3 (one with a live 404 retried).
+- **Docs:** Bugs_Common_Fixes #371; `Technical/Product-Catalog-Harvest.md` (the sitemap servers note, same-day retry,
+  the email's content).
+- **Learned:** Costco serves several sitemap generations at once, so a single read of a Costco sitemap is never proof
+  of anything. That includes "the file is gone" (it was a 404 on one server) and "the catalogue shrank" (2,004 vs 5,641
+  pages).
+- **Still open:** the email continues until the source has a good run. That happens at the 11-15 slot after the
+  deploy, or sooner with a manual `POST /api/admin/catalog/sources/costco_business_centre_catalog/run` (Maxim's call).
 ## 2026-11-09 — Missed savings: products view, Home, re-drops, prod datafix; schema.sql frozen
 
 - **Ask (Maxim):** missed savings belong under Expired in the products view, not Watching. The products-view chips
@@ -12269,3 +12294,117 @@ with no push notifications.
 - **The cleanup removes coupon reference rows read as one digit run.** The amount is now recovered; recommendation: let the Costco path keep a 10-digit number starting `0000` when a minus amount follows (a change to the shared cleanup: Maxim's call).
 - **Free quotas (documented 2026-11-12, to be measured on /health once keys exist):** Groq Developer base plan, `openai/gpt-oss-120b`: 30 requests/min, 1,000 requests/day, 8,000 tokens/min, 200,000 tokens/day. Cloudflare Workers AI: 10,000 Neurons/day per account, refused (not billed) past it on a Workers Free account. The 8,000 tokens/min of Groq is close to one long receipt: measure a real read before relying on it.
 - **Triage tools kept** in `E:\tools\priceback\triage\` (`zzTriage.test.js` to copy into `__tests__/`, `tri.sh`, the baseline of 11-12): replays every parked capture and diffs against a baseline. It needs a temporary debug hook in the parser to show the judge's scores.
+## 2026-11-12 — Database performance audit: receipt lists read their warehouses once; a slow job now emails (hotfix)
+
+- **Ask (Maxim):** continue the 2026-11-11 plan-flip work (#566): *"optimize all queries to the database to have the
+  best response time and give both users and admins the smoothest experience (but users are always the priority) and
+  also to optimize the use of the database when needed only and the server consumption … a load balance between
+  optimal response time, resource cost reduction and avoid concurrence timeout or deadlocks. no regression allowed"*.
+  Hotfix on `main`. Mid-task: *"we can simplify the load for screens in admin desk … to load only the last data since
+  the last admin check … if this would help the load"*.
+- **Branch:** `hotfix/db-query-performance` off `main` (worktree `Priceback-hotfix`); docs
+  `docs/db-query-performance-2026-11-12`.
+- **Found (prod, read-only):** the database is 122 MB and its statements run in milliseconds; routes wait on round
+  trips (~16 ms each). `GET /api/admin/receipts` p50 796 ms with queries under 10 ms: `decorateReceiptRow` read the
+  warehouse number one receipt at a time (155,108 calls since June), 200 a desk page, and one per receipt on every
+  app opening. #566 is live: `adminAlerts` 15–16 s → 0.4–0.7 s since 2026-11-12 01:00 UTC. No lock wait, cancelled
+  statement or deadlock in 24 h of Postgres log.
+- **Done (Priceback):**
+  - Receipt lists read their page's warehouse numbers in one query (`warehouseCodesForRows`). Dev, 200 receipts:
+    desk page 203 statements / 651 ms → 4 / 74 ms; a shopper's list 201 / 587 ms → 2 / 23 ms.
+  - Bootstrap: released drops and deleted ids go out with the other reads; one account read removed.
+    `PUT /api/me/profile`: one read removed. `warehousesRepo.resolveProvinceId` remembers a found province.
+  - `lib/jobBudget`: `adminAlerts` (5 s), `priceSweep` and `priorityPriceCheck` (15 s) send one alert email after
+    three runs in a row over their limit. The 11-11 incident would have emailed 15 minutes in.
+  - `backend/scripts/profile-routes.js`: counts the round trips each busy route makes (dev database).
+  - Tests: `receiptListWarehouseBatchDb` 6 (3 red on the old code), `jobBudget` 10, `jobRunsTracker` +3; 10 of 10
+    mutations killed. Blast radius on dev: 1,026 tests, 1,021 pass, 1 skipped, 4 fail — none from this change:
+    `priceDropCommission` ×3 fail identically on unmodified `main`; `adminReviewEditingDb` ×1 was two files of an
+    ad-hoc batch drawing the same test warehouse code (12/12 alone, three times).
+- **Not done, and why:** the "since my last check" desk load — measured, it would not help now (a full page reads in
+  74 ms), needs an app release and hides receipts not yet opened. Backlog with numbers in
+  `Operations/Database_Performance_Audit_2026-11-12.md` § 5 (`/api/watch` per-line ingest, `adminAlerts` cadence,
+  the data-cleanup scan on Admin home, `findNotifiable`).
+- **Docs:** `Operations/Database_Performance_Audit_2026-11-12.md` (new), Bugs_Common_Fixes #374 (the plan flip, which
+  #566 never logged; the code cited it as #372, a number already taken) and #375, a correction note on
+  `Infrastructure_Cost_Rules.md` § 2b.
+- **For Maxim to decide:** two database settings (`log_min_duration_statement = 1s`,
+  `idle_in_transaction_session_timeout = 5min`; audit § 6); `adminAlerts` every 15 minutes; why
+  `priceDropCommission` fails on the dev database.
+- **Learned:** when a route's time is many times the sum of its queries' times, count round trips before reading a
+  plan. Railway's config says Singapore but the database round trip measures 16 ms.
+
+## 2026-11-12 — Price-drop queue rules: the savings table first, high confidence only, missed claims flagged (hotfix)
+
+- **Ask (Maxim):** *"fix the price sweep and price drop queue … a price drop that is waiting to claim or claimed should
+  never be in the queue again, only missed claims can be renotified and should create a new filter … and also a badge
+  … price drop should be verified if it is in the flyer in the province (confidence should be high …, the source
+  should be as a badge …) if not and we arent confident go for potential price drop queue instead … the verification
+  should always be based on the savings table as first source for the trusted sources (not social, social go for
+  potential price drops) … THE TARGET IS TO SET THE PRICE DROP QUEUE WITH ALL THE DROPS WITH HIGH CONFIDENCE … flag
+  auto approve for now … with a summary in top of the screen of the latest auto approve daily count"*. Then: *"the
+  mussels in the price drop queue are in savings but sameday mention no savings so where did it come from … i cant
+  trust the workflow today"*.
+- **Branch:** asked first; `hotfix/price-drop-queue-rules` off `main` (worktree `Priceback-hotfix`), rebased on
+  `d166b28c`. Docs `docs/price-drop-queue-rules-2026-11-12`.
+- **Found (prod, SELECT only):** the mussels drop (#12341) stood on a Same-Day price row read as verified for all of
+  Ontario; the saving is listed at 38 warehouses and not at 1362, where the line was bought. 4 of 60 open lines under
+  a running Same-Day price were at an unlisted warehouse, 3 already sent. Fanta is a Same-Day saving at 23 Ontario
+  warehouses (the shoppers' 540 included), labelled "admin or flyer". Downy (#726) is a genuine missed claim. Every
+  past re-entry in the queue was a missed claim (2) or a deeper price (3).
+- **Done (Priceback):** the savings path answers first; a Same-Day row verifies nothing by itself; a flyer saving is
+  province-wide and Same-Day checks that could not run do not lower it; only shoppers vote (posts go to Potential —
+  replaces the 2026-11-07 rule); every waiting drop carries `tier`, `basis`, `reentry`, the true charge and
+  `autoApprovable`; the queue screen lists high confidence only with source badges, a Missed claims filter and an
+  auto-approval summary; Potential price drops lists the low-confidence drops with their reasons. Bug #378.
+  `Technical/Price_Drop_Queue_Rules_2026-11-12.md`.
+- **Old builds:** no route or field changed or removed; all new fields additive and admin-only. The installed admin
+  build keeps listing every pending drop.
+- **Tests:** backend 33 files on dev, mobile full suite, `i18n:check`; 10 of 10 mutations caught. Figures in the PR.
+- **Also found:** the dev database held a leftover test product ("Costco product") that made 24 price-drop tests and
+  the three commission tests fail on clean `main` — purged with Maxim's permission, bug #379. This is the answer to
+  "why `priceDropCommission` fails on the dev database". A time-of-day flaw in `priceDropQueueDb`, bug #380.
+- **Decided without asking (listed in the doc for Maxim):** a deeper price on a told line still enters the queue; a
+  shoppers-only price is low confidence; a Same-Day read that found the item with no saving still lowers a flyer
+  drop; an admin-verified price is high but never auto-approved.
+- **Not measured:** `listPotential` on production after the change (dev: 29 → 33 ms). Watch `adminAlerts` in
+  `job_runs`.
+- **Learned:** when one fact is stored twice (a saving, and its price row), only one copy may decide. The copy with
+  less information (no warehouses) decided here for weeks.
+
+## 2026-11-13 — The audit's follow-ups: database settings applied; the watch registration records its lines together (hotfix)
+
+- **Ask (Maxim), answering the 2026-11-12 audit:** the two database settings — *"do it"*; `adminAlerts` every 15
+  minutes — *"keep it as is"*; why `priceDropCommission` fails on dev — *"dont do it for now, document"*; the
+  watch-list registration's ~10 round trips a line — *"do it"*.
+- **Settings:** `log_min_duration_statement = 1s` and `idle_in_transaction_session_timeout = 5min` set on the
+  `postgres` role, production and dev, 2026-11-13 ~04:20 UTC. New sessions read them; sessions older than the change
+  pick them up when they reconnect (the next deploy). Undo statements in the audit § 9.
+- **`priceDropCommission`:** explained by bug #379 (a leftover test product on the dev database), found during the
+  price-drop queue work. Passing since the purge.
+- **Watch registration (Priceback #574, `hotfix/watch-ingest-round-trips`):** `crowdRepo.recordReceiptObservations`.
+  20 new lines 198 → 74 statements; 19 known lines 63 → 9. The response is unchanged. One difference on failure
+  only: a line's product and price point are no longer in a transaction of their own, so a failed price insert can
+  leave the product row (as a products-only line does). A line whose warehouse cannot be registered is still
+  refused and writes nothing.
+- **Tests:** `crowdBatchParityDb` (8), 8 of 8 mutations caught; 29 files on dev, 382 of 382.
+- **Not done:** the batch still makes 3 statements a new line (product upsert, warehouse lookup inside
+  `recordPricePoint`, insert). A bulk insert would need `pricesRepo.recordPricePoint` changed, which every price
+  writer shares.
+- **Learned:** a rewrite of a path that decides money (the crowd pool feeds the rule of N) is safest proven by
+  running the old and the new path side by side on the same inputs and comparing rows, not by re-deriving the rules.
+
+## 2026-11-13 — Post-deploy check of #573 found the mussels row still pending; the second door closed (hotfix)
+
+- **Why:** not asked for. Maxim merged #573 and #574; the checks listed in the rules doc were run on production
+  (SELECT only) and on the deployment's log.
+- **Found:** Fanta re-pointed to its saving; every new drop comes from a saving; drops are flagged with the switch
+  off; `adminAlerts` 524 → 540 ms; `priceSweep` 1.3 → 4.6 s (the live Same-Day reads). **#12341 (mussels) was still
+  pending**: an admin's own Oct 24 receipt verifies $11.99 for Ontario and the Same-Day listing was taken as the
+  after-purchase sighting.
+- **Done (Priceback #575, `hotfix/price-drop-listing-not-a-sighting`):** a listing no admin confirmed is never the
+  after-purchase sighting in the sweep; the line waits on Potential price drops, also when its price group is
+  verified. Tests +3, 5 of 5 mutations caught, 35 files 508 of 508.
+- **To check after #575 is live:** #12341 closed, and its line on Potential price drops.
+- **Learned:** #573's tests covered the door I had found, not the question "can a listing still decide anything?".
+  The post-deploy check on the real row is what answered it.
