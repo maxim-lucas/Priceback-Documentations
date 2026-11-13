@@ -12136,3 +12136,18 @@ with no push notifications.
   writer shares.
 - **Learned:** a rewrite of a path that decides money (the crowd pool feeds the rule of N) is safest proven by
   running the old and the new path side by side on the same inputs and comparing rows, not by re-deriving the rules.
+
+## 2026-11-13 — Post-deploy check of #573 found the mussels row still pending; the second door closed (hotfix)
+
+- **Why:** not asked for. Maxim merged #573 and #574; the checks listed in the rules doc were run on production
+  (SELECT only) and on the deployment's log.
+- **Found:** Fanta re-pointed to its saving; every new drop comes from a saving; drops are flagged with the switch
+  off; `adminAlerts` 524 → 540 ms; `priceSweep` 1.3 → 4.6 s (the live Same-Day reads). **#12341 (mussels) was still
+  pending**: an admin's own Oct 24 receipt verifies $11.99 for Ontario and the Same-Day listing was taken as the
+  after-purchase sighting.
+- **Done (Priceback #575, `hotfix/price-drop-listing-not-a-sighting`):** a listing no admin confirmed is never the
+  after-purchase sighting in the sweep; the line waits on Potential price drops, also when its price group is
+  verified. Tests +3, 5 of 5 mutations caught, 35 files 508 of 508.
+- **To check after #575 is live:** #12341 closed, and its line on Potential price drops.
+- **Learned:** #573's tests covered the door I had found, not the question "can a listing still decide anything?".
+  The post-deploy check on the real row is what answered it.

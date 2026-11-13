@@ -1,8 +1,9 @@
 # Price-drop queue rules (2026-11-12)
 
-**Status:** built on `hotfix/price-drop-queue-rules`. The server part is live with the backend deploy. The two
-admin screens change with the next app build; until then the installed admin build keeps working and shows the
-new confidence and source data in its existing fields (see "Old app builds").
+**Status:** Priceback #573 merged and live 2026-11-13 05:42 UTC. A follow-up, #575, closes a second way the same
+drop got through (see "After the deploy"). The two admin screens change with the next app build; until then the
+installed admin build keeps working and shows the new confidence and source data in its existing fields (see "Old
+app builds").
 
 ## What Maxim asked
 
@@ -166,11 +167,37 @@ It used to show the full charge on a missed claim.
   Dev holds little data. **Production was not measured.** `adminAlerts` runs `listPotential` every 5 minutes and
   the slow-job alert (5 s, three runs) from #374 watches it.
 
-## What to check after the deploy
+## After the deploy (checked on production, 2026-11-13 17:10 UTC)
 
-1. Queue #12341 (mussels) closes on the next sweep and appears on Potential price drops.
-2. #12351 and #12352 (Fanta) stay pending and show a saving as their evidence.
-3. `adminAlerts` duration in `job_runs` stays under 1 s.
+| Check | Result |
+| --- | --- |
+| #12351, #12352 (Fanta) stay pending with a saving as evidence | Yes: both now point at saving 139111 (`sameday_costco`) |
+| New drops come from the savings table | Yes: all 5 rows staged since the deploy stand on a saving. One (#4524) is a missed claim re-notified |
+| Drops are flagged for automatic approval with the switch off | Yes: the log reads "2 savings drop(s) re-read on Same-Day, 2 flagged at 100%" |
+| `adminAlerts` stays under 1 s | Yes: 524 ms average before, 540 ms after (136 runs, max 2.0 s) |
+| `priceSweep` | 1.3 s average before, **4.6 s after** (3 runs, max 7.0 s). The sweep now makes the live Same-Day reads that flag drops. Its alert limit is 15 s |
+| #12341 (mussels) closes | **No.** It was still pending. See below |
+
+### The second door (#575)
+
+The mussels row survived #573. The savings path refused it and the Same-Day price row no longer verified the price.
+But an **admin's own receipt** of Oct 24 at $11.99 verifies that price for Ontario (the admin bypass, an older
+rule), and the Nov 9–15 Same-Day listing was then accepted as the *"seen after the purchase"* sighting. The log of
+that deployment shows the queue re-check ran and kept the row.
+
+The same door is open to any price shoppers verified in an earlier run of a saving, because the rule-of-N stamp
+is sticky.
+
+Fix (`hotfix/price-drop-listing-not-a-sighting`):
+
+- In the sweep, a Same-Day listing no admin confirmed (`LISTING_ONLY_ROW`) is never the after-purchase sighting.
+- That line waits on **Potential price drops**, also when its price group is verified. "Verify price" on the card
+  makes the listing count.
+- A real sighting after the purchase still makes the drop.
+
+Tests: `priceDropQueueRulesDb` +3; 5 of 5 mutations caught; 35 files, 508 of 508.
+
+After #575 is live, check again that #12341 is closed and listed on Potential price drops.
 
 ## Tests
 
