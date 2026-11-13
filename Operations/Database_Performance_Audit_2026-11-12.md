@@ -157,3 +157,15 @@ select calls, round(mean_exec_time::numeric, 1) mean_ms, round(max_exec_time) ma
 
 A route whose total time is many times the sum of its statements' times is paying round trips. Count them
 before reading a single query plan.
+
+## 9. Follow-up, 2026-11-13 (Maxim's answers)
+
+| Item | Answer | State |
+| --- | --- | --- |
+| § 6: log statements slower than 1 s; end transactions idle for 5 minutes | "do it" | **Applied to production and dev**, 2026-11-13 ~04:20 UTC: `ALTER ROLE postgres SET log_min_duration_statement = '1s';` and `ALTER ROLE postgres SET idle_in_transaction_session_timeout = '5min';`. `pg_roles.rolconfig` shows both, and a new session reads `1s` / `5min`. A role setting applies to **new sessions**: the 6 production sessions older than the change keep the old values until they reconnect. The next backend deploy restarts the pool. To undo: `ALTER ROLE postgres RESET log_min_duration_statement;` and `ALTER ROLE postgres RESET idle_in_transaction_session_timeout;` |
+| § 5 #2: `adminAlerts` every 15 minutes | "keep it as is" | Stays at 5 minutes. Closed |
+| Why `priceDropCommission` fails on the dev database | "dont do it for now, document" | Found while testing the price-drop queue change: a leftover test product named "Costco product" on the dev database. It broke 24 price-drop tests as well as these three. `Operations/Bugs_Common_Fixes.md` #379. The dev database was purged (1,090 test rows) with Maxim's permission and all of them pass. The suites that stay exposed to the next leftover are listed there; that clean-up is not done |
+| § 5 #1: `POST /api/watch` per-line ingest | "do it" | See the task log entry for its own change |
+
+Reading slow statements once the setting is live: Supabase dashboard → Logs → Postgres, search `duration:`. Each
+line carries the statement text and its time.

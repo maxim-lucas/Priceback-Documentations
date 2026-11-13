@@ -12076,3 +12076,41 @@ with no push notifications.
   `priceDropCommission` fails on the dev database.
 - **Learned:** when a route's time is many times the sum of its queries' times, count round trips before reading a
   plan. Railway's config says Singapore but the database round trip measures 16 ms.
+
+## 2026-11-12 — Price-drop queue rules: the savings table first, high confidence only, missed claims flagged (hotfix)
+
+- **Ask (Maxim):** *"fix the price sweep and price drop queue … a price drop that is waiting to claim or claimed should
+  never be in the queue again, only missed claims can be renotified and should create a new filter … and also a badge
+  … price drop should be verified if it is in the flyer in the province (confidence should be high …, the source
+  should be as a badge …) if not and we arent confident go for potential price drop queue instead … the verification
+  should always be based on the savings table as first source for the trusted sources (not social, social go for
+  potential price drops) … THE TARGET IS TO SET THE PRICE DROP QUEUE WITH ALL THE DROPS WITH HIGH CONFIDENCE … flag
+  auto approve for now … with a summary in top of the screen of the latest auto approve daily count"*. Then: *"the
+  mussels in the price drop queue are in savings but sameday mention no savings so where did it come from … i cant
+  trust the workflow today"*.
+- **Branch:** asked first; `hotfix/price-drop-queue-rules` off `main` (worktree `Priceback-hotfix`), rebased on
+  `d166b28c`. Docs `docs/price-drop-queue-rules-2026-11-12`.
+- **Found (prod, SELECT only):** the mussels drop (#12341) stood on a Same-Day price row read as verified for all of
+  Ontario; the saving is listed at 38 warehouses and not at 1362, where the line was bought. 4 of 60 open lines under
+  a running Same-Day price were at an unlisted warehouse, 3 already sent. Fanta is a Same-Day saving at 23 Ontario
+  warehouses (the shoppers' 540 included), labelled "admin or flyer". Downy (#726) is a genuine missed claim. Every
+  past re-entry in the queue was a missed claim (2) or a deeper price (3).
+- **Done (Priceback):** the savings path answers first; a Same-Day row verifies nothing by itself; a flyer saving is
+  province-wide and Same-Day checks that could not run do not lower it; only shoppers vote (posts go to Potential —
+  replaces the 2026-11-07 rule); every waiting drop carries `tier`, `basis`, `reentry`, the true charge and
+  `autoApprovable`; the queue screen lists high confidence only with source badges, a Missed claims filter and an
+  auto-approval summary; Potential price drops lists the low-confidence drops with their reasons. Bug #378.
+  `Technical/Price_Drop_Queue_Rules_2026-11-12.md`.
+- **Old builds:** no route or field changed or removed; all new fields additive and admin-only. The installed admin
+  build keeps listing every pending drop.
+- **Tests:** backend 33 files on dev, mobile full suite, `i18n:check`; 10 of 10 mutations caught. Figures in the PR.
+- **Also found:** the dev database held a leftover test product ("Costco product") that made 24 price-drop tests and
+  the three commission tests fail on clean `main` — purged with Maxim's permission, bug #379. This is the answer to
+  "why `priceDropCommission` fails on the dev database". A time-of-day flaw in `priceDropQueueDb`, bug #380.
+- **Decided without asking (listed in the doc for Maxim):** a deeper price on a told line still enters the queue; a
+  shoppers-only price is low confidence; a Same-Day read that found the item with no saving still lowers a flyer
+  drop; an admin-verified price is high but never auto-approved.
+- **Not measured:** `listPotential` on production after the change (dev: 29 → 33 ms). Watch `adminAlerts` in
+  `job_runs`.
+- **Learned:** when one fact is stored twice (a saving, and its price row), only one copy may decide. The copy with
+  less information (no warehouses) decided here for weeks.
