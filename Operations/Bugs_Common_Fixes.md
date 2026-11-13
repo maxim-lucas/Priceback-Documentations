@@ -14856,6 +14856,27 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Detect next time: `select count(*) from priceback.users where deletion_requested_at is not null and push_token is not null` must be 0; pushes/emails after `deletion_requested_at` via `price_drop_notifications.sent_at` / `price_drop_reminder_emails.sent_at`.
 - Prevent: the tests above; rule written in `Technical/Deleted_Account_Contact_Rule.md`.
 
+## 371. "Catalogue harvest: 1 source(s) stale" every morning — one 404 from Costco's Business Centre sitemap failed the week's run (reported 2026-11-11; `hotfix/catalog-sitemap-flap`)
+
+- Date: 2026-11-11 · Branch: `hotfix/catalog-sitemap-flap` off `main` · Area: `backend/services/catalog/sources/costcoWebCatalogSource.js` (`readImageSitemaps`, new `fetchSitemap`), `backend/jobs/harvestCatalog.js` (`tick`, new `isRetryDue` / `maxAttempts`). No migration, no route, field or status changed.
+- Symptom: the support inbox got the 09:00 email *Catalogue harvest: 1 source(s) stale* every day from 2026-11-10, for `costco_business_centre_catalog`. Prod `catalog_runs` for that source: run 4 `success` 2026-11-01, run 60 `failed` 2026-11-08 08:09 UTC, `image sitemap HTTP 404`, after 1.2 s. The stale threshold (a week + 36 h) passed 2026-11-09 17:04 UTC. Nothing re-ran it before the next Sunday slot, so the email would have repeated through 2026-11-15.
+- Root cause (measured 2026-11-11 from a Canadian IP): **costcobusinesscentre.ca's servers do not all hold the same sitemap.** The same URL, same headers, request after request:
+  - `sitemap_lw_i_mod_001.xml` answered a **404 HTML page (113 KB)** on 5 of 20 requests, then 8 of 20 in a later sample. The rest got the 2.3 MB file.
+  - `sitemap_lw_index.xml` lists `i_mod_001` on only 11 of 20 answers. The stale servers' index omits it.
+  - Whole sitemap generations differ: one live read saw 5,641 pages, another 2,004, another 5,277.
+  
+  `readImageSitemaps` read each file once and returned an `error` on the first non-2xx, so one stale server meant a dead run. costco.ca's files answered 20/20 in the same test. It has the same exposure but hasn't been hit yet.
+- Not the cause: headers or bot walls (a bare `fetch` and the browser-header `httpFetch` both see both answers, and the 404 is a 404, not a 403). The old product URLs from `i_001` also resolve (6/6 live, item number = photo hint), so a run that reads only `i_001` is complete.
+- Fix:
+  1. Every sitemap fetch (the index and each image sitemap) is retried after a 404, 5xx, timeout or network error. That's 4 tries, 2 / 5 / 10 s apart (`SITEMAP_RETRY_DELAYS_MS`). A wall (403/429) is never retried. At 40 % that takes a file from 1-in-2.5 to ~1-in-40, and at the 25 % first measured, 1-in-256.
+  2. The image sitemaps list the same products, so one that still fails is reported as a `sitemap_failed` error, and the run reads the others and ends `partial` (a good run). Only when none reads is the run `failed`.
+  3. The job retries a `failed`/`blocked` run (an abandoned run is `failed`) in the same slot: 2 h after it ended, at most `config.maxAttempts` (default 3, 1–6) runs per slot, inside the 24 h catch-up window. `sanity_skipped` is never retried, because it is the data-shape signal.
+  4. The stale email now names each source's last good run and its last run's status, time and error.
+- Live proof (after the fix, 2026-11-11): `readImageSitemaps` 8/8 ok (5,277 entries), the full adapter 3/3 ok. One of those runs took 10 requests = index + `i_001` + `i_mod` twice (a 404, then the file).
+- Cost: a sitemap retry is one extra GET of a ~2.3 MB file only when a server answers 404, averaging under one per run. A run retry happens only after a failure, at most 2 per source per week, each the source's normal budget (BC: ~3 sitemap GETs + 200 page GETs). No new scheduled job and no new process.
+- Files: as Area. Tests: `catalogSources.test.js` (+3: a 404 that flaps then answers, including the index and a timeout; a file that never answers leaves the run partial; a wall is not retried) and `harvestCatalogJob.test.js` (+3: `isRetryDue` window, spacing, cap and statuses; the tick re-runs a failed source and leaves a good one; the email says why). Mutation-checked: removing the retry, retrying walls, treating one failed file as fatal, retrying `sanity_skipped`, dropping the 2 h spacing or the cap each turn a test red.
+- Detect next time: a `costco_web` run with `details.failures[].code = 'sitemap_failed'` means a sitemap file never answered in 4 tries. Two or more of them in a row means the file is really gone, not flapping. Check `curl -s -o /dev/null -w '%{http_code}' <url>` about 20 times. Several runs of one source on one Sunday means the same-day retry worked.
+- Prevent: the tests above. A sitemap read never fails a run on a single answer.
 ## 371. A saving that ended and came back was never sent again — and a rejected run blocked every later run (reported 2026-11-09)
 
 - Date: 2026-11-09 · Branch: `fix/missed-savings-redrops` · Area: `backend/repos/priceDropRepo.js` (`findNotifiable`, `recordNotified`, new `recordRedrops` / `toldSavingEnds` / `redropClause`), `repos/savingDropRepo.js`, `repos/priceDropQueueRepo.js` (`stage`), `priceDropNotifier.js` (`_revalidate`, `_deliver`); migration `0049_price_drop_redrops` (applied to dev + prod 2026-11-09). App: `src/services/productStatus.js` (new), `ReceiptsScreen`, `HomeScreen`.

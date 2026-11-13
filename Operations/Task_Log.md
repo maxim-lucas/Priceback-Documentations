@@ -11978,6 +11978,31 @@ with no push notifications.
   account" opens it with a search). The drop queue and potential drops open the account page. Quick actions are one
   2×2 grid; the DATA RESET badge carried over.
 
+## 2026-11-11 — Catalogue harvest: the daily "Business Centre catalogue stale" email, fixed at the source (hotfix)
+
+- **Ask (Maxim):** *"i have a daily alert on the support email for catalogue harvest fail for costco business centre
+  catalog, i need this to be fixed once and for all"*. Production hotfix on `main`.
+- **Found (prod, read-only):** `costco_business_centre_catalog` (the costcobusinesscentre.ca website source): run 4
+  `success` 11-01, run 60 `failed` 11-08 `image sitemap HTTP 404`. Stale from 11-09 17:04 UTC, so the 09:00 email went
+  out 11-10 and 11-11 and would have repeated until the 11-15 slot. From a Canadian IP, the BC servers disagree:
+  `sitemap_lw_i_mod_001.xml` 404s on 25–40 % of requests (the same URL and headers), the index omits that file about
+  half the time, and the sitemap generation varies. One 404 on one file failed the whole run, nothing re-ran it, and
+  the next try was a week away.
+- **Branch:** `hotfix/catalog-sitemap-flap` off `main`; docs `docs/catalog-sitemap-flap-2026-11-11`.
+- **Done (Priceback):**
+  - Sitemap GETs retried 4× (2/5/10 s), never on a wall.
+  - A file that still fails leaves the run `partial`; the run fails only when no image sitemap reads.
+  - A failed/blocked run re-runs the same slot (2 h apart, ≤ 3 per slot).
+  - The stale email names the last good run and the last run's error.
+  - Tests: catalogSources 28→31, harvestCatalogJob 27→30 (61/61, mutation-checked); catalogHarvestDb 21/21 on dev.
+  - Live, after the fix: sitemap reader 8/8, full adapter 3/3 (one with a live 404 retried).
+- **Docs:** Bugs_Common_Fixes #371; `Technical/Product-Catalog-Harvest.md` (the sitemap servers note, same-day retry,
+  the email's content).
+- **Learned:** Costco serves several sitemap generations at once, so a single read of a Costco sitemap is never proof
+  of anything. That includes "the file is gone" (it was a 404 on one server) and "the catalogue shrank" (2,004 vs 5,641
+  pages).
+- **Still open:** the email continues until the source has a good run. That happens at the 11-15 slot after the
+  deploy, or sooner with a manual `POST /api/admin/catalog/sources/costco_business_centre_catalog/run` (Maxim's call).
 ## 2026-11-09 — Missed savings: products view, Home, re-drops, prod datafix; schema.sql frozen
 
 - **Ask (Maxim):** missed savings belong under Expired in the products view, not Watching. The products-view chips
