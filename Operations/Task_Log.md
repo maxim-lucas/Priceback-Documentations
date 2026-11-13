@@ -12114,3 +12114,25 @@ with no push notifications.
   `job_runs`.
 - **Learned:** when one fact is stored twice (a saving, and its price row), only one copy may decide. The copy with
   less information (no warehouses) decided here for weeks.
+
+## 2026-11-13 — The audit's follow-ups: database settings applied; the watch registration records its lines together (hotfix)
+
+- **Ask (Maxim), answering the 2026-11-12 audit:** the two database settings — *"do it"*; `adminAlerts` every 15
+  minutes — *"keep it as is"*; why `priceDropCommission` fails on dev — *"dont do it for now, document"*; the
+  watch-list registration's ~10 round trips a line — *"do it"*.
+- **Settings:** `log_min_duration_statement = 1s` and `idle_in_transaction_session_timeout = 5min` set on the
+  `postgres` role, production and dev, 2026-11-13 ~04:20 UTC. New sessions read them; sessions older than the change
+  pick them up when they reconnect (the next deploy). Undo statements in the audit § 9.
+- **`priceDropCommission`:** explained by bug #379 (a leftover test product on the dev database), found during the
+  price-drop queue work. Passing since the purge.
+- **Watch registration (Priceback #574, `hotfix/watch-ingest-round-trips`):** `crowdRepo.recordReceiptObservations`.
+  20 new lines 198 → 74 statements; 19 known lines 63 → 9. The response is unchanged. One difference on failure
+  only: a line's product and price point are no longer in a transaction of their own, so a failed price insert can
+  leave the product row (as a products-only line does). A line whose warehouse cannot be registered is still
+  refused and writes nothing.
+- **Tests:** `crowdBatchParityDb` (8), 8 of 8 mutations caught; 29 files on dev, 382 of 382.
+- **Not done:** the batch still makes 3 statements a new line (product upsert, warehouse lookup inside
+  `recordPricePoint`, insert). A bulk insert would need `pricesRepo.recordPricePoint` changed, which every price
+  writer shares.
+- **Learned:** a rewrite of a path that decides money (the crowd pool feeds the rule of N) is safest proven by
+  running the old and the new path side by side on the same inputs and comparing rows, not by re-deriving the rules.
