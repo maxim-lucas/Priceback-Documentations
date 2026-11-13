@@ -1859,10 +1859,23 @@ Each receipt closes to the cent on its printed Total Partiel / SUBTOTAL, tax, TO
 once its own shape is neutralised, so there is no fifth cause among them. Production's corrected rows agree with the
 paper on every amount (SELECT, 2026-11-12).
 
-Two things the stored rows still have wrong, **not corrected** (no production write was asked):
-- `qpwyg` is stored with 11 units and `hattg` with 12; the papers print 14 and 11. The amounts are right.
-- `tmvzm` (a photo, RC-47) is stored without its first line, `347937 ROTI CHICKEN 7.99`: its lines sum to 399.32 and
-  the paper's to 407.31 (TOTAL 441.26, tax 33.95).
+Two things the stored rows still had wrong after those corrections, **corrected on 2026-11-12** (Maxim: "Fix the
+problems you found in production"):
+- `qpwyg` was stored with 11 units and `hattg` with 12; the papers print 14 and 11. The amounts were right. The
+  corrections of 02:03 and 02:07 UTC had left `1915043 JACHS JACKET` x1 for `2 @ 24,99`, `2029105 LEGGING LOLE` x1
+  for `3 @ 19,99` and `1424970 CASHMERE PRE` x2 for one, so three price points were a multiple or a half of the unit
+  price (39.98 / 49.98, 59.97 and 10.75 / 13.50 for 19.99 / 24.99, 19.99 and 21.49 / 26.99). The names were the
+  shifted ones of RC-44, and they had filled the French label of 12 products (`LOLE 2BITE` on the brownies,
+  `PACANE JUS` on the juice, `SUCRE KS` on the hazelnut spread). Both rebuilt from the paper with the repair tool
+  (specs `backend/data/bad-scan-repairs/r_1794448793842_qpwyg.json` and `r_1794449022531_hattg.json`, `language: fr`):
+  10 lines / 184.40 / 14 units / savings 15.00 and 11 lines / 126.23 / 11 units / savings 12.50; 4 and 8 French labels
+  put back to the printed names. Cases of RC-44, RC-45 and RC-46, *covered by #571* for new scans.
+- `tmvzm` (a photo, RC-47) had its lines summing to 399.32 for the paper's 407.31 (TOTAL 441.26, tax 33.95). **This
+  was not a parser miss**, as first written here: the line `347937 ROTI CHICKEN 7.99` was read and stored at scan
+  (item 6445, position 0) and was removed from the owner's own phone on 2026-11-12 02:27:18 UTC
+  (`receiptsRepo.softDeleteItemForUser`). Maxim chose to restore it: one guarded UPDATE cleared that line's delete
+  stamp (`backend/data/bad-scan-repairs/2026-11-12-tmvzm-restore-line.sql`); 28 lines, 407.31, 36 units. No root
+  cause: no receipt line was wrong.
 
 ## RC-44 · A PDF name printed on two lines is read as three rows; beside an `N @ price` line a line of the name becomes an item (fixed, hotfix 2026-11-12)
 
@@ -2011,6 +2024,102 @@ The common shape is a **coupon not applied** (6 of the 13 receipts with correcte
 misread** on lines that are right (3), then rows lost or prices paired a row off on photos whose quality has to be
 checked first (4). Each needs its replay before a cause
 is named, and any fix is in the Costco parser or the photo geometry, which are frozen: Maxim's confirmation first.
+
+**Second pass, 2026-11-12 (Maxim: "you can do your proposal").** Each capture was replayed with a debug view of
+what the parser is handed (the cleaned geometry rows and the flat text) and of the judge's scores. Five causes are
+named below (RC-48 … RC-52) and fixed in #572. Status of the table above after it:
+
+| Receipt | After #572 | Cause |
+|---|---|---|
+| `egy2e` c720 | closes | RC-48 |
+| `68zqn` c771, c772 | close (248.77) | RC-48 |
+| `bqxuz` c829, c830 | close | RC-50 |
+| `bquwu` c654 | closes (the quality check refuses the frame as tilted; c655 is the kept one) | RC-50 |
+| `c8ncy` c766, c767 | close | RC-51 |
+| `5z1ue` c795 | closes | RC-52 |
+| `215cu` c725 | lines right (122.39); TOTAL read `128,13` for 128.43, so it stays flagged. c727 closes | RC-51; the misread digit is OCR |
+| `o31au` c652 | open: `YUR 3862780 PLMLIVE 4.3L 9.99 FP`, a stray word before the item number, so the coupon finds no item. c653 closes | not fixed (proposal: drop a 1-4 letter word before an item number on a full item row) |
+| `egy2e` c719 | open: `9.0 - FP` (a digit lost), `14.89 /`, `11.45` for 11.49 | OCR damage, no rule |
+| `yk4ud` c733, c734 | open: two totals blocks (RC-7 family); the second block's `/ MULTIPLE 3,00-` goes to LEVURE, not PEKKLE | not isolated |
+| `97zj1`, `6ijmw`, `j3b5t` | open | photo quality not checked yet |
+| `6bwdq` | open, deleted by the shopper | no corrected rows |
+
+Measured on the 159 captures: 79 closed before, 89 after. Every reading that changed was diffed; none that closed
+lost a line. Two that closed were first made worse by a draft of the change and are why the two tie rules exist
+(`c698`, `bfjc0`).
+
+## RC-48 · A pair of tax letters after an amount is not a tax flag: BC's `GP`, Quebec's `FP` misread (fixed, #572)
+
+**Printed shape.** British Columbia prints `GP` on a row taxed with both taxes: `2037924 TH GLOVE 36.99 GP`
+(Vancouver #552). Quebec prints `FP`, which Vision misreads as another pair: `24.99 FR`, `34.99 FR`, and glued to a
+coupon's minus, `5,00-FF` (St-Hubert #1359).
+
+**What goes wrong.** Every price pattern allows one tax letter. `collapseBothTaxesFlag` knows `FP`;
+`costcoReceiptParser.normalizeStrayTaxFlags` (#413, 2026-10-09) rewrote a pair only from `[FPH]{2}` and only after a
+space. A row closed by `GP` or `FR` was not a priced row: the item fell out. `5.00-FF` was not a coupon amount.
+
+**Cases.** `68zqn` (4 of 10 items lost, 65.04 read for 248.77), `egy2e` c720 (BIOSTEEL CRE and TIDE PODS out of the
+geometry reading, BIOSTEEL's 5.00 coupon out of the flat one: 203.33 for 198.33). Blast radius (prod, SELECT on
+`raw_ocr`, 2026-11-12): 1 receipt prints `GP`; production holds 2 British Columbia receipts in all. Every BC receipt
+with an item taxed twice was exposed.
+
+**Fix.** Any two tax letters after an amount, spaced or glued to a minus, are one flag.
+
+**Proof.** Both captures close to the cent and are pinned in `receiptProdCaptures`; `costcoPhotoShapes` › RC-48.
+
+## RC-49 · A tax code printed as a digit, on paper (RC-46 on a photo) (fixed, #572)
+
+RC-46 fixed the PDF path only. The same rule now runs on a photo: a row that opens with an item number and closes
+with an amount and one digit carries a price (`normalizeStrayTaxFlags`). No capture of the 159 needed it to close;
+4 photos in production print the code (`41ub6`, `5clwk`, `f3nej`, `yvflx`, see RC-46).
+
+## RC-50 · The tax summary's `TOTAL TAXES` was taken for the totals block's `TAXE` (fixed, #572)
+
+**Printed shape.** The totals block prints `TAXE 47.00`. Further down, the tax summary prints
+`P T.V.Q. 9.975 %`, `F T.P.S. 5 %`, `TOTAL TAXES`; on a tilted photo its amounts sit a row off their labels:
+`F T.P.S. 5 % 31.31` / `TOTAL TAXES 15.69` (15.69 is the T.P.S. alone).
+
+**What goes wrong.** `receiptParsingShared.extractTax` reads the tax label by label over the whole text and prefers
+an aggregate label (`TOTAL TAXES`) to the block's `TAXE` row. Design rule 11 (the tax is the row before the grand
+total) was applied by the checks, not by the parser.
+
+**Cases.** `bqxuz` (lines right, 327.85; tax 15.69 for 47.00), `t7iig` c260 (the RC-12 tax misread: closes now),
+`bquwu` c654 and `5n79y` (the TOTAL read off the TAX row), `v3u8j` c257 and `PXL_…005` (tax unread).
+
+**Fix.** `takeTaxFromClosedTotalsBlock`: each candidate reading and the chosen one take the tax of their own text's
+totals block, only when that block is read whole from the paper and closes on itself (SUBTOTAL + TAX = TOTAL to the
+cent, `shared/receiptPrintedFigures`). `unreadImpossibleTax`: a tax not below the lines and at most 20 % above them,
+with no other total read, is the grand total on the TAX row; the tax is then unread, never derived.
+`receiptParsingShared` is not changed.
+
+## RC-51 · An item row welded word by word with its own coupon row (fixed, #572)
+
+**Printed shape, as the tilted photo's rows come out.** `2430233 FRAISES 2430233 15.99 4.00-`,
+`0000393832 2430233 / FRAISES 2430233 15.99 4.00-`, `0000392174 680 KRAFT / 680 TRANCH 2.00- 9.99`.
+
+**What goes wrong.** `splitWeldedCouponRows` reads the neighbour shape only (the coupon of another item). No coupon
+rule reads this one: the coupon is lost.
+
+**Cases.** `c8ncy` both passes (4.00 over), `215cu` c725 (2.00 over).
+
+**Fix.** `splitSelfWeldedCouponRows`: split back into `2430233 FRAISES 15.99` and `/2430233 4.00-` only when the row
+opens with an item number, that same number is on it at least twice and no other number is, and it holds one amount
+with a minus and a larger one without.
+
+## RC-52 · A coupon amount whose reference row the cleanup removed (fixed, #572)
+
+**Printed shape.** `214203 POMMES AMBRO` / `9.99` / `3.00-`. The row between, `0000397… /214203`, was read as one
+run of digits and removed by the compliance cleanup as a long number (it is absent from `raw_ocr` in production, and
+the exported capture shows `[ID]` in its place).
+
+**What goes wrong.** A bare amount with a minus and no reference is skipped by `handleCostcoTpdLine`.
+
+**Case.** `5z1ue` c795 (140.32 for 137.32).
+
+**Fix.** The bare amount is the coupon of the item above when the row above is that item's price, the item has a
+number, no coupon yet, one unit and costs more, and the next row is not a coupon reference.
+
+**Open.** The cleanup still removes the reference row; the amount is recovered, the coupon number is not.
 
 ---
 

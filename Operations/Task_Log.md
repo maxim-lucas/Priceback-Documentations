@@ -12268,6 +12268,32 @@ with no push notifications.
 - Best of two (ask an AI reader only when the parser's reading is not proven); Flash-Lite first on the free key; the
   third reader (Groq, then Cloudflare Workers AI); which approval checks of §7.5 to add.
 - Reject `kxuag` with reversal refunds 38 on top of the manual +38.
+
+## 2026-11-12 (night) — Prod repairs, the photo step of the Costco parser (#572, merged), AI readers started
+
+**Asked (Maxim):** continue the last session; fix the problems found in production; do the photo proposal; then add Groq and Cloudflare Workers AI as readers 3 and 4 if both have a free quota. Rule restated for every task: when an answer is needed from him, ask first and wait. Later: merge the parser code into main, stop, and leave a to-do.
+
+### Done
+
+- **Prod repairs (applied).** `qpwyg` and `hattg` rebuilt from the paper with the repair tool (unit counts 11 → 14 and 12 → 11, three wrong price points, 12 French labels put back). `tmvzm`: its first line had been removed from the owner's phone, not missed by the parser; Maxim chose to restore it (one guarded UPDATE). Runbook log and root-causes doc updated.
+- **Photo step, #572, merged to main `d166b28`.** RC-48 … RC-52 in `Technical/Receipt_Parser_Root_Causes.md`. All in `costcoReceiptParser.js` and the Costco French noise list. The 159 captures of 11-06 → 11-12: 79 closed, 89 close; no reading that closed lost a line. 8 captures joined the corpus (151 still parked in `E:\tools\priceback\captures-pending\`). Mobile suite 435 suites green; backend blast radius 31 tests; full backend suite, GitHub Actions and a device test not run.
+- **AI readers, started and stopped.** Branch `feat/ai-readers-groq-cloudflare` holds `backend/lib/openAiCompatReader.js` (one transport for Groq and Cloudflare, text only, errors in lib/gemini's vocabulary). NOT wired, no tests.
+
+### To do next session
+
+1. **Release.** #572 and #571 fix the phone's parser: shoppers get them only with a new app version (bump, tag, build, GitHub release).
+2. **AI readers.** On `feat/ai-readers-groq-cloudflare`: add `groq` and `cloudflare` to `receiptReaderProviders.PROVIDERS` (after Gemini), tests (`receiptReaderProviders.test.js` + a new file for the transport), `/health` (each reader's `status()`), `Technical/Receipt_Readers_One_Rule_Set.md`, CLAUDE.md reader list.
+3. **Needed from Maxim for item 2:** a Groq API key (`GROQ_API_KEY`); a Cloudflare account id and a Workers AI API token (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_API_TOKEN`), set on Railway. And a decision: the privacy policy's list of processors (website repo) names neither Groq nor Cloudflare; both would receive receipt text.
+4. **Photos still open:** `o31au` c652 (a stray word before the item number), `yk4ud` (two totals blocks, a MULTIPLE coupon on the wrong item), `97zj1` / `6ijmw` / `j3b5t` (photo quality to check first), `egy2e` c719 and `215cu` c725 (OCR digits).
+5. **Still waiting for Maxim:** best of two; Flash-Lite first on the free key; which approval checks of §7.5; reject `kxuag` with reversal (refunds 38 on top of the manual +38).
+
+### Findings and recommendations
+
+- **British Columbia was read wrong on every receipt with an item taxed twice** (`GP`). Only 2 BC receipts exist in production, so it was invisible. Recommendation: before opening a province, replay one real receipt of it.
+- **The tax was read from the wrong section on tilted photos.** Fixed in the parser; the generic engine (`extractTax`) still prefers an aggregate label for the other stores.
+- **The cleanup removes coupon reference rows read as one digit run.** The amount is now recovered; recommendation: let the Costco path keep a 10-digit number starting `0000` when a minus amount follows (a change to the shared cleanup: Maxim's call).
+- **Free quotas (documented 2026-11-12, to be measured on /health once keys exist):** Groq Developer base plan, `openai/gpt-oss-120b`: 30 requests/min, 1,000 requests/day, 8,000 tokens/min, 200,000 tokens/day. Cloudflare Workers AI: 10,000 Neurons/day per account, refused (not billed) past it on a Workers Free account. The 8,000 tokens/min of Groq is close to one long receipt: measure a real read before relying on it.
+- **Triage tools kept** in `E:\tools\priceback\triage\` (`zzTriage.test.js` to copy into `__tests__/`, `tri.sh`, the baseline of 11-12): replays every parked capture and diffs against a baseline. It needs a temporary debug hook in the parser to show the judge's scores.
 ## 2026-11-12 — Database performance audit: receipt lists read their warehouses once; a slow job now emails (hotfix)
 
 - **Ask (Maxim):** continue the 2026-11-11 plan-flip work (#566): *"optimize all queries to the database to have the
