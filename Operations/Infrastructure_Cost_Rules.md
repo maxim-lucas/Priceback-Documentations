@@ -47,6 +47,10 @@ it to a Free organization or delete it.
 
 ### 2b. Region mismatch (performance, not cost)
 
+> **Checked 2026-11-12 — verify before acting on this section.** The config still names Singapore, but requests
+> do not behave that way: the database round trip measures ~16 ms (`/health`) and a one-query route answers in
+> 19 ms, which is not possible across the Pacific. See `Operations/Database_Performance_Audit_2026-11-12.md` § 7.
+
 The Railway service runs in **Singapore** (`asia-southeast1-eqsg3a`, both environments, `railway environment
 config`), while both databases and every shopper are in Canada (`ca-central-1`). Every API request and every
 harvest query crosses the Pacific twice. Moving production to Railway's US-East region (`us-east4-eqdc4a`) puts it
