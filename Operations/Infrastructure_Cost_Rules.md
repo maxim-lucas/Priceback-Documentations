@@ -47,6 +47,10 @@ it to a Free organization or delete it.
 
 ### 2b. Region mismatch (performance, not cost)
 
+> **Checked 2026-11-12 — verify before acting on this section.** The config still names Singapore, but requests
+> do not behave that way: the database round trip measures ~16 ms (`/health`) and a one-query route answers in
+> 19 ms, which is not possible across the Pacific. See `Operations/Database_Performance_Audit_2026-11-12.md` § 7.
+
 The Railway service runs in **Singapore** (`asia-southeast1-eqsg3a`, both environments, `railway environment
 config`), while both databases and every shopper are in Canada (`ca-central-1`). Every API request and every
 harvest query crosses the Pacific twice. Moving production to Railway's US-East region (`us-east4-eqdc4a`) puts it
@@ -62,6 +66,19 @@ run faster (less time at peak memory) and the app responds faster.
 | ~~Railway App Sleeping on Development~~ | — | Not enough on its own: Railway sleeps a service only after 10 min **without outbound traffic**, and the backend re-reads its config from the database every 5 min (`configService.startAutoRefresh`, `server.js`), so it would never go to sleep. Use it only together with a dev-only switch that turns that refresh off |
 | Railway production → US-East region | ~0 (performance) | production move; one redeploy, brief restart. Maxim decides |
 | Production stays always-on | — | it runs every cron; sleeping it would stop the harvest, the sweeps and the alerts |
+
+### AI readers (Gemini): $0 today, and how to keep it there
+
+Measured 2026-11-12. Production reads about 9 receipts a day (274 in 30 days, peak day 26). The paid Gemini key has
+answered 402 (no credit) since October, so every AI read is on the free key: **$0**. The free tier is not the
+1,400 a day the server was configured with (`LLM_GLOBAL_DAILY_LIMIT`): third-party reports put it near 20 requests a
+day on Flash and 500 on Flash-Lite, per **project**. The server now records the quota Google itself states in each
+429 (`/health` → `checks.llm.keyStatus.*.quotas`), so the real number is read, not assumed.
+
+The levers, in order, are in `Technical/Receipt_Readers_One_Rule_Set.md` §7: ask an AI reader only when the parser's
+reading is not proven; ask Flash-Lite first on the free key; add a third free reader behind the same rules. None of
+them costs money. Every receipt read goes through one provider chain (`lib/receiptReaderProviders`) and one budget
+function (`reserveAiRead`), so a per-reader budget is a change in one place.
 
 ## 4. How to re-measure
 

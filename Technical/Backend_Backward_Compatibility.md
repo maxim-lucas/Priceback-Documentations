@@ -227,6 +227,58 @@ Live build: **Android 3.5.0** (main-test-features merged into main and deployed 
 
 Forcing builds: none needed.
 
+## Audit — 2026-11-09: locked stores refused on `POST /api/receipts`, unsupported-store hold (hotfix → `main`, migration 0048)
+
+The live build is **Android 3.6.0** (build 59). Migration `0048_unsupported_store_scans` is a new table and must be applied on prod **before** the deploy.
+
+| Change | Why old builds are fine |
+|---|---|
+| `POST /api/receipts` answers **`422 STORE_NOT_AVAILABLE`** (`retryable: false`) when a non-admin files a NEW receipt under a store that is not open to everyone. Admins and re-posts of an existing receipt id are untouched. Refused before the charge. | Camera scans in every build since the Costco-first launch (2.3.0) refuse a disabled store in the app, so only the mailbox import ever sent one. The import's first rows came on 2026-11-07, from 3.6.0. Any build back to 2.8.3 takes a 4xx as terminal (`isRetryableStatus` → `recordSyncOutcome`): the receipt stays on the phone with `syncError`, nothing is retried in a loop and nothing is deleted. Only `INSUFFICIENT_CREDITS` deletes a local copy. |
+| New `POST /api/receipts/unsupported-store-scans` | New route; no shipped build calls it. |
+| New `GET /api/admin/unsupported-store-scans`, `POST …/:id/review` | Admin only, new. |
+| `pruneOcrCaptures` also deletes held scans older than `RETENTION_OCR_CAPTURES_DAYS` | Server-side only. |
+
+Forcing builds: none needed.
+
+## Audit — 2026-11-11: receipt copies and reject-with-reversal (hotfix → `main`, no migration)
+
+The newest tag is **v3.6.1** (build 60); the 2026-11-09 audit recorded Android 3.6.0 (build 59) as live. `creditLedger.js` was read at `v2.8.3`, `v3.0.5` and `v3.6.1`; the desk screens at `v3.6.1`. Full description: `Technical/Receipt_Copies_And_Reject_Reversal.md`.
+
+| Change | Why old builds are fine |
+|---|---|
+| `POST /api/admin/receipts/:id/reject` takes an optional `reverseDrops`. Only the literal `true` reverses. | Admin only. Every desk build up to 3.6.1 sends `{ reason }` or nothing and gets the same refusal as before. |
+| The `409 HAS_HISTORY` answer carries a new `history` object and a reworded `message`. | Additive. A 3.6.1 desk shows `message` in its "Could not reject" alert. |
+| New `409 SENDING` for a receipt with a drop being sent this minute (it answered `HAS_HISTORY` before). | Same status, same alert on an old desk: it shows the message. |
+| `GET /api/admin/receipts/:id` gains `possibleCopies`; `GET /api/admin/receipts` rows gain `possibleCopyOf`. | Additive, admin only. `duplicateOf` is unchanged. |
+| `readingConfidence.checks` gains `not_a_copy` (admin detail), and it fails on both reads of one paper. | A desk that does not know the key shows "Another safety check" (`checkLabel`'s fallback since it shipped). |
+| `GET /api/admin/price-drop-queue` rows gain `copyDrop`; `heldReason` can be `"copy_receipt"`. | Additive. A 3.6.1 desk's `heldText` returns nothing for an unknown reason, so the card shows no note. |
+| A reversal writes a `refund` ledger row with the note `price-drop charge reversed: receipt rejected`. | **Shopper-visible.** The `refund` type has a label in every build back to 2.8.3. Builds up to 3.6.1 show the note as the server's English sentence (their documented fallback); the next build translates it. The row's amount and balance are right in all of them. |
+| A reversal deletes a receipt that had a sent drop. | No new state for the phone: an admin delete (`softDeleteForAdmin`, which has no history guard) and a shopper deleting their own receipt already remove a receipt that had a drop. The receipt leaves on the next sync and its drop with it. A tap on the old push does what it does today for a deleted receipt (not re-tested here). |
+| The drain holds a drop that is already on another read of the same receipt. | Server-side. The shopper is told once instead of twice. |
+| The app's own approval skips both reads of one paper and withdraws its approval of the first. | Server-side; only `auto_approved_at` / `admin_reviewed_at` that the app itself set. No shopper build reads them. |
+
+Forcing builds: none needed.
+
+## Audit — 2026-11-12: one rule set for every receipt reader (hotfix → `main`, no migration)
+
+The newest tag is still **v3.6.1** (build 60). `src/services/ocrService.js` was read at `v2.8.3` and `v3.6.1`,
+`src/services/geminiReader.js` at `v3.6.1`. This is a refactor: every AI read now reaches Gemini through
+`lib/receiptReaderProviders`, and the reader rules the phone shares are `shared/receiptReaders`. Full description:
+`Technical/Receipt_Readers_One_Rule_Set.md`.
+
+| Change | Why old builds are fine |
+|---|---|
+| `POST /api/ocr-llm` calls Gemini through the provider chain. | Same request to Google (pinned by a test), same response: `items` (`name`, `price`, `sku`, `quantity`), `subtotal`, `tax`, `total`, `date`, `confidence`, `model`, `usage`, `provider: "gemini"`, `proven`, `checks`. 2.8.3 reads `items`, `total`, `tax`, `date`, `confidence`; 3.6.1 also `proven`. Same statuses: 429 and 503 are still "keep my own parse" in every build. |
+| `POST /api/receipts/gemini-read`: same change, and its timeout is the shared constant (25 s, as before). | Same response (`read`, `reason`, `proven`, `items`, `total`, `tax`, `checks`, `model`). 3.6.1 reads exactly those. |
+| `POST /api/receipts`: "an AI reader already read it" is `wasReadByAi(body.reader)`. | Same decision for every code a phone sends (`parser`, `parser_checked`, `gemini`, or none). |
+| The server re-read (switch **off** in production) proves on the footer OCR too, and skips a receipt with under 20 characters of OCR (`no_ocr`). | Server-side. No build is told; the phone takes re-read lines on its next sync exactly as before. |
+| `POST /api/admin/receipts/:id/auto-fix` answers `source.tier` (`"paid"` or `"free"`). | Additive, admin only. A 3.6.1 desk reads `source.model` and `source.usedImage`. |
+| `/health` → `checks.llm.keyStatus.*.quotas`: the quota Google stated in its last 429, per model. | Additive, admin view. No build parses it. |
+| The day's AI budget is reserved by one function (`reserveAiRead`). | Same counter, same limit, same order at all six call sites. |
+
+Forcing builds: none needed. The phone-side half (the shared module in `geminiReader` and the upload) ships with the
+next build and changes no request it sends.
+
 ## Open gaps
 
 1. ~~No client version on requests~~ **Done** (3.0.7): `X-App-Platform`,

@@ -16,6 +16,31 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-10 — Price-drop queue audit: closed rows back on the desk; queue hygiene (hotfix on main)
+
+- **Asked (Maxim):** *"the price drop queue have few problems: already approved before price drops are again in the price drop queue to approve also having bad saving (example 55502 drumsticks …), an expired price drop came back today … (1274091 … SKU: 84 coke, same problem with a scrambled price that isnt true) and few other problems, dont approve any price drop but run an audit and fix all the bugs and problems for this. dont take decisions by yourself ask me if needed"*; then *"also cleanup bad price drops when finished, keep only the good ones for admin approvals"*.
+- **Found:** the rows came back because the **2026-11-09 datafix** (#371) revived them by hand; the desk never re-judged a waiting row (only the drain did, after approval); a send never closed the line's other waiting rows. 13 stale rows among the 38 pending: 4837, 4838, 4839, 6032, 6035, 6048, 8824, 8825, 8826 (the datafix), 10968 (negative saving after a quantity edit), 11302 (evidence deleted). Nothing was charged or pushed. Details: `Bugs_Common_Fixes.md` #372, `Technical/Missed_Savings_And_Redrops.md`.
+- **Done:** branch `hotfix/price-drop-queue-hygiene` (off `main` v3.6.1): `closeIneligible` + new `closeStaleQueue` run before the admin list and after every global sweep; `supersedeCovered` at delivery; 6 new DB tests + 1 tightened. No migration, no app change, no route change.
+- **Prod cleanup:** the 13 rows → superseded, on Maxim's go (the deployed code does the same on the first admin list load).
+- **Status:** PR open, waiting on Maxim. No drop was approved.
+
+### 2026-11-09 — Locked-store "receipts" from the mailbox import; refused non-Costco scans held for the admin
+
+- **Asked (Maxim):** a monthly subscriber has expired, unpreviewable, item-less receipts from Best Buy, Home Depot and others, which the parser should have refused. Then: *"this is a hotfix on main, these stores are locked, users should get rejection on parse"*, and *"if any user scan a non costco receipt, i want the app to save them temporarily until the admin review even if store is not supported"*.
+- **Decisions (Maxim, 2026-11-09):**
+  - the shopper's refusal is unchanged, with no mention of a review (*"this review is only to flag if the user has to be flagged or not"*);
+  - admin actions: view the photo, dismiss, flag the user;
+  - the mailbox import applies the scan's rules, and the server refuses locked stores;
+  - the 12 prod rows are skipped for now (already expired).
+- **Found:** all 12 of that user's ghost receipts (5 from locked stores, 7 "Costco" notices) were **mailbox imports**, not scans. There are no real receipts for those stores to tune a parser on. Details: `Bugs_Common_Fixes.md` #368.
+- **Done:** branch `hotfix/locked-store-email-import-and-scan-holds` (off `main`):
+  - email import gate;
+  - `422 STORE_NOT_AVAILABLE` on `POST /api/receipts`;
+  - migration `0048_unsupported_store_scans` (applied to **dev only**);
+  - silent report from the scan and the offline queue;
+  - Admin · Receipt reading › Unsupported stores.
+- **Status:** PR open, waiting on Maxim. He will apply 0048 on prod **before** the backend deploys, merge, and decide when the binary release goes out.
+
 ### 2026-11-09 — Ads: bring the AdMob work onto main's line; rewarded ads earn free credits (Pay-as-you-go only)
 
 - **Asked (Maxim):** *"work on a new branch, from main, add the changes for the ads in this new branch and start integrationg the ads in the app as a earn free credit option based on ads cost and choose the places where we can add some ads in small blanks spaces for Pay as you go only plan, subscribers should never get ads"*; then *"the ads changes where in dev i think, you can use claude in chrome to add or create configurations"*.
@@ -11907,6 +11932,30 @@ with no push notifications.
 - **Learned:** the old probe script ignores the source's slug (Business Centre uses `rc-warehouse-savings`), so it
   printed 0; six probe warehouses take 100 s — two at the country's ends is the cost/coverage balance.
 
+## 2026-11-09 — Paywall V2 ("Your money first") everywhere; one Profile button; Plan & credits; trial documented
+
+- **Ask (Maxim):** replace the paywall with the new designs (canvas "PriceBack paywall · 3 versions"); V2 for locked
+  drops, then "V2 everywhere, one unique design". Merge the Profile card's *Buy credits* + *Manage* into one, keep
+  real subscription management (cancel), auto-reload, how credits are spent, earn free credits, community — blended
+  without changing the designs. Use the app's own logo (and its size/framing), not the design's icon. A 7-day
+  Unlimited trial: check prod drop timing, document it in the roadmap for later, no pre-charge reminder, and draw
+  the signup-choice artboard for approval. New branch.
+- **Branch:** `feat/paywall-v2` off `main`.
+- **Done (Priceback):** `components/Paywall.js` rewritten to V2 for every entry point (top card: locked drops'
+  real total from the phone's receipts, else the lock's reason, else "how PriceBack pays for itself"/"out of
+  credits"; Unlimited monthly first with a *Pay yearly* switch and a live "Save $X + tax" chip; packs smallest-first,
+  each "covers $X in drops" / "covers your $Y · $Z left over"; folded tools list; sticky CTA; app's `BrandLockup`).
+  Profile card → one button (*Unlimited or credits* → paywall; subscribers *Manage plan*; neutral *Plan & credits*
+  while loading) + a *Plan & credits* row. ManageSubscriptionScreen = the hub (See plans → paywall for
+  non-subscribers; ledger, auto-reload with its own pack picker, spend, earn, community via new
+  `components/CreditsExtras.js`). `BuyCredits` route kept, replaces itself with the paywall. Export lock and
+  Reactivate open the paywall. `storePrices.annualSavings` gains `amount` + `currencyCode`.
+- **Tests:** mobile suite green; new `paywallPurchaseFlows.test.js`; paywall/billing/community/buy-credits tests
+  rewritten to V2. Paywall.js 98 % lines.
+- **Docs:** `Roadmap/Unlimited_Free_Trial.md` + FUTURE_ROADMAP P3 row (PR #207). Prod data: median 5.2 days
+  signup → first drop; 54 % within 7 days.
+- **Canvas:** artboard *Signup · trial or credits* added for approval (where it shows: decided after approval).
+
 ## 2026-11-09 — Deleted accounts never contacted; tag reader lost a saving; one shopper page (hotfix)
 
 - **Ask (Maxim):** (1) a deleted account must never get a notification or email (reminders, drops…), except a future
@@ -11954,3 +12003,312 @@ with no push notifications.
   pages).
 - **Still open:** the email continues until the source has a good run. That happens at the 11-15 slot after the
   deploy, or sooner with a manual `POST /api/admin/catalog/sources/costco_business_centre_catalog/run` (Maxim's call).
+## 2026-11-09 — Missed savings: products view, Home, re-drops, prod datafix; schema.sql frozen
+
+- **Ask (Maxim):** missed savings belong under Expired in the products view, not Watching. The products-view chips
+  become Watching / To claim / Claimed / Missed or expired (no All; the receipts view keeps All). Claimed is final.
+  Show the year's missed savings next to the claimed total. A missed product whose saving returns inside the
+  window is notified again, with no second charge. Revive every rejected or expired prod case for review. Run the
+  migration on prod. Old builds must keep working. Mid-session: *"dont ever regenerate the sql.schema, this rule was
+  created only for the first production version. so update the rules and the docs"*.
+- **Branch:** `fix/missed-savings-redrops` (Priceback), `docs/redrops-and-frozen-schema` (docs).
+- **Done:**
+  - **App:** `productStatus.js`, the products-view chips and the Home "missed in {year}" line.
+  - **Server:** re-drops via migration 0049, `recordRedrops`, queue revival per run.
+  - **Prod:** migration applied (ledger id 58); 11 queue rows revived to pending (`Technical/Missed_Savings_And_Redrops.md`).
+  - **schema.sql frozen:** the build script exits 1; docs, test message and memory updated. `schema.sql` was not
+    regenerated for 0049.
+- **Tests:**
+  - mobile `npm test` green, `i18n:check` green;
+  - backend: 193/193 DB price-drop tests and the 14 new re-drop tests pass on dev;
+  - `priceDropLockedPush.test.js` has 2 failures that already fail on the base commit (push copy changed in #556).
+- **Learned:** the app needed no change to show a re-drop, because `releasedForUser` already reports the latest
+  fitting run's end. Only the push, the queue and the rejection lock were missing.
+
+## 2026-11-09 — Full audit of `main` (v3.6.1 / 60) before the Kickstarter launch
+
+- **Ask (Maxim):** *"run a full audit on main branch and identify any potential problems, bugs or gaps that could
+  have a real impact on final users. make sure that the app is stable. Every bug should be documentated and will be
+  included in the roadmap for future fixes next week."*
+- **Branch:** `docs/app-audit-2026-11-09` (docs only; no code changed).
+- **Done:** `Roadmap/App_Audit_2026-11-09.md` — 0 Critical, 4 High (auto-claimed expired drops shown as Claimed /
+  counted as saved; Vision budget 195/1000 with a hard 503 past it; 42 drops pending approval with 2 windows ending
+  11-10; Kickstarter plan codes never run on prod), 3 Medium (main CI red incl. one test failing locally; $0 Outlook
+  receipts on builds 56–59; no "being verified" state), 6 Low. §1 lists 20 checks verified clean (imports, assets,
+  routes, API contract 131/131, i18n 1891×2, typecheck, mobile suite 12 403 green, prod schema = main, 27 crons
+  green, /health, logs, admin-token guards, secrets, backend removals since v3.3.0). `FUTURE_ROADMAP.md` gained
+  P0′/P1″/P2″ sections with every finding as a row.
+- **Read, never written:** prod Supabase (SELECTs), Railway logs + variable names, public /health. GitHub Actions
+  not dispatched. Backend: only the CI-red files re-run locally (one real local failure: `adminConsoleRoutesDb`
+  growth guard).
+
+## 2026-11-10 — One window rule: admin desk = shopper's phone; owner's local time on the desk (hotfix)
+
+- **Ask (Maxim):** *"on my personal account in production … the receipt of 696$ has expired but it appears in the
+  admin console receipt reviews filter with watching … make sure the math for the dates is well done and also the
+  filters should always work 100% the same for the users and the admin … the admin should see it not expired too
+  with the actual user local time on the receipt review in the admin side only … fix it as a hotfix"*, then
+  *"add this rule, all filters, math, rules in the app should always use the same method or class to avoid
+  problems"*.
+- **Cause (prod read, SELECT only):** `r_1791753175518_3hhhj`, $696.50, Costco, bought 2026-10-11, owner in ON.
+  2026-11-10 = purchase + 30. The phone counts exclusive (closed that day). The stored lifecycle counted inclusive
+  (`today > purchase + N`) and the desk's chips filtered on that stored column, which only the hourly heal moves.
+- **Fix:** branch `hotfix/receipt-window-one-rule`. `isPastWindow` = `!isWithinWindow`, plus `windowClosedSql` as
+  its SQL twin. `receiptsRepo.lifecycleCodeSql` gives the live lifecycle on the owner's province day, read by the
+  desk's chips, row badge, `getForAdmin` and the account report. `getForAdmin.ownerTimeZone` is new (additive). The
+  admin detail counts on it and shows **Owner's local time**. New standing rule in CLAUDE.md: one rule, one
+  function. `Technical/Adjustment_Window_Time_Model.md` §3 is marked CLOSED.
+- **Old builds:** no route, field or response changed meaning. `ownerTimeZone` is additive and admin-only. The
+  phone never reads `policyStatus`. Receipts on their last day flip to expired on the next heal, which is what
+  their owners' phones already show.
+
+## 2026-11-11 — The same receipt uploaded twice; reject a receipt and reverse its price drops (hotfix)
+
+- **Ask (Maxim):** a hotfix on `main` for five things: duplicate receipts must be caught; *"i should be able to
+  reject a receipt and reverse all the price drops on this receipt … so i could approve the one on the good
+  receipt"*; a smarter app approval; both readers (the parser and Gemini) under one rule set; and *"the Gemini
+  quota of 1400 is never true"* — a permanent free solution.
+- **Cause (prod read, SELECT only):** one shopper uploaded a cropped screenshot (`r_1794399021648_kxuag`, 9 lines,
+  date read as 11-11, $171.79) and then the PDF of the same receipt (`r_1794416482467_dgxv6`, 12 lines, 11-05,
+  $232.23). The exact duplicate rule needs the same date, total, tax and line count, so it saw two receipts. The
+  same drop was sent and charged on both (queue 12303 and 12310, 38 credits each). Reject answered `HAS_HISTORY`.
+  Maxim refunded 38 by hand and approved the second drop.
+- **Branch:** `hotfix/receipt-duplicates-and-reject-reversal` (Priceback), `docs/receipt-copies-and-reject-reversal`
+  (docs). Two sessions: the first was cut by the usage limit with everything uncommitted; the second finished it.
+- **Done (this PR — the first two asks, and the copy part of the third):**
+  - **The copy rule:** `duplicateReceipt.comparePapers` — the same lines in the same order (80 % of the shorter
+    receipt, never fewer than 3; 1 or 2 lines need the same date). Read by `getForAdmin.possibleCopies`,
+    `listForAdmin.possibleCopyOf`, the reading confidence (`not_a_copy`), the app's approval, and the drop queue.
+  - **The app approves neither read** and takes back its own approval of the first.
+  - **The drop queue** marks and holds a drop that is already on the other read (`heldReason "copy_receipt"`).
+  - **Reject with reversal:** `reverseDrops: true` refunds the drop charges (`refund`, `drop-reversal:<line>`),
+    removes the drops and claims with the lines, clears the guarantee stamp. `409 SENDING` while a drain writes.
+  - **Desk:** banner on the receipt, **Possible copy** badge on the list, note and button on the queue card, the
+    reverse-and-reject confirmation.
+  - **Shopper label:** the refund's Credit History note, EN + FR (`credits.note.dropChargeReversed`).
+  - **Docs:** `Technical/Receipt_Copies_And_Reject_Reversal.md`, bug #373, the compatibility audit of 2026-11-11.
+- **Tests:**
+  - mobile `npm test` green (433 suites, 12 419 tests), `i18n:check` green (1 892 keys × 2);
+  - backend, on dev: the 41-file blast radius, 489 tests, green after the two below; the changed files re-run
+    alone (41 tests, 0 skipped);
+  - `priceDropLockedPush.test.js`: its 2 failures were already red on `main` (the locked copy changed on
+    2026-11-07, the test was not updated). Fixed here to pin the shipped copy.
+  - GitHub Actions not dispatched.
+- **Prod:** nothing written. Both receipts and both drops are as they were.
+- **For Maxim to decide:**
+  - Rejecting `kxuag` with reversal after the deploy refunds 38 more, on top of the manual +38. Take the manual
+    38 back afterwards, or leave it as goodwill.
+  - Not started, each needs a decision: best-of-two readers; a smarter app approval beyond the copy check; the
+    Gemini quota (prod: the paid key answers 402, only the free key works, only `flash-lite` answers, both
+    `RECEIPT_GEMINI_*` flags are off).
+- **Old builds:** every change is admin-only or additive. `reverseDrops` is optional; a request without it behaves
+  as before. See `Technical/Backend_Backward_Compatibility.md`, audit of 2026-11-11.
+- **Learned:** `node --test tests/<x>.test.js` alone **skips every DB test** (no `DATABASE_URL`). Run a single
+  file the way the suite does: `node --env-file=.env --env-file=test.env --test --test-concurrency=1 tests/<x>.test.js`.
+
+## 2026-11-12 — Every receipt reader under one rule set; the provider chain for a third reader (hotfix)
+
+- **Ask (Maxim):** from the two items left open on 2026-11-11 (best-of-two readers, a smarter app approval):
+  *"start with Gemini free tier plan as the paid is blocked for now and can be blocked in the future, i want you to
+  consider that the Gemini free tier is the fallback of the first one, i want a free Gemini or OCR (smart based on AI)
+  that has a free quota to cover the daily scans and monthly scans to be added as a 3rd option in the future so give
+  me your recommandations for the next round, for this round focus that all parsers (local, Gemini paid, Gemini free
+  tier, future ocr, ...) has always the same behavior, logic and rules and these rules should be centralized without
+  any regression for today's behavior"*. Hotfix on `main`.
+- **Second step, asked during the work, NOT started in this PR:** *"i also want to optimize the parsers logic because
+  last few days we had a lot of problems with pdf versions which should be the easiest and also with good quality
+  scans that were missing a lot of items and Gemini fixed it or sometimes i did that manualy, i want the logic to be
+  receipt proof for any kind of receipt even having quality problems to focus and get the job i do manualy done"* —
+  *"but this is the 2nd step"*.
+- **Found (audit):** the proof was already one piece of code (2026-10-29). Eight rules about readers were still
+  written twice or more; two copies had drifted (the shortest OCR an AI reader may read: 20 characters on the phone,
+  any on the server; the re-read's proof did not read the footer OCR the phone's read and the desk read).
+- **Branch:** `hotfix/receipt-readers-one-rule-set` (Priceback), `docs/receipt-readers-one-rule-set` (docs, based on
+  the open docs PR #217).
+- **Done:**
+  - `shared/receiptReaders.js` (new, synced to `backend/shared/`): the reader codes, `wasReadByAi`, `aiReadRefusal`,
+    `matchDraftLines`, the two waits. Read by the phone's `geminiReader` and upload, the re-read, `receiptsRepo`,
+    `badScanRepair` and the upload route.
+  - `backend/lib/receiptReaderProviders.js` (new): the AI readers in order (Gemini paid key, then free key, then a
+    later reader), one request, one answer, one failure vocabulary. Every receipt read goes through it; a provider
+    only transports and never sees a rule.
+  - `reserveAiRead` in `server.js`: the day's AI budget, reserved in one place (it was written out six times).
+  - The re-read proves on the footer OCR too.
+  - **Measurement only:** `lib/gemini` keeps the quota Google states in each 429, per key and model; `/health` shows
+    it (`keyStatus.*.quotas`).
+  - New standing rule in `CLAUDE.md` (*Every receipt reader follows one rule set*) and design rule 17.
+  - Docs: `Technical/Receipt_Readers_One_Rule_Set.md` (rule map, how to add a reader, measured volumes and free
+    quotas, recommendations for the next round), compatibility audit of 2026-11-12, the AI-reader note in
+    `Operations/Infrastructure_Cost_Rules.md`.
+- **No regression:** the Gemini request is pinned byte for byte; no prompt, schema, timeout or retry changed; no
+  route or field removed. The only behaviour differences are on the re-read, which is off in production.
+- **Left as it is, on purpose:** `/api/ocr-llm` keeps its own prompt, schema and answer normalizer (frozen wire for
+  builds from 2.8.3). Three edge cases differ from the reader's normalizer; listed in the technical doc §3.
+- **Tests:**
+  - mobile `npm test` green (434 suites, 12 474 passed, 1 skipped as before: the fixture-fidelity suite needs live
+    envelopes), `i18n:check` green;
+  - backend, on dev: the 36-file blast radius, 537 tests, 0 failed, 0 skipped; the Gemini suite re-run after the
+    quota measurement (124 tests with its dependants, green);
+  - new: `backend/tests/receiptReaderProviders.test.js`, `backend/tests/receiptReaders.test.js`,
+    `__tests__/receiptReadersParity.test.js`;
+  - full backend suite and GitHub Actions not run.
+- **Prod:** read only (receipt counts per day and per month). Nothing written. No flag changed.
+- **Measured:** 274 receipts in 30 days (9.4 a day, peak 26), all read by the parser. Free quotas found: Gemini Flash
+  about 20 a day, Flash-Lite about 500 (third-party reports; Google's page gives no number and says limits are per
+  project); Groq 1,000 requests and 200,000 tokens a day per model; Cloudflare Workers AI 10,000 Neurons a day;
+  OpenRouter free models 50 a day, 1,000 after a one-time $10.
+- **For Maxim to decide (next round):** the third reader (recommended: Groq, then Cloudflare Workers AI); best of two
+  as "ask an AI reader only when the parser's reading is not proven"; whether a free tier may be sent the receipt
+  photo (the desk sends it today); which of the approval checks in the doc §7.5 to add.
+- **Old builds:** unaffected. See `Technical/Backend_Backward_Compatibility.md`, audit of 2026-11-12.
+
+### Step 2 (parser hardening) — diagnosis started the same day, NOT fixed, blocked on the capture export
+
+- **Measured (prod, SELECT only, receipts created 2026-11-03 → 11-12):** about 105 receipts. At scan, the parser's
+  reading did not close on **8 of the 14 PDFs** and on about **15 photos**; every one of them closes now, after a
+  person's fix or Gemini's.
+- **PDFs, the pattern:** every PDF uploaded since 11-09 that has a *wrapped* row failed, and each ended short by
+  about the number of wrapped rows:
+
+  | Receipt | Day | Gap at scan | Lines at scan → now | Wrapped item rows | Wrapped coupon rows | French |
+  |---|---|---|---|---|---|---|
+  | `uudf6` | 11-09 | 3.97 % | 25 → 25 | 0 | 1 | no |
+  | `dgxv6` | 11-11 | 6.89 % | 11 → 12 | 1 | 0 | no |
+  | `qpwyg` | 11-12 | 27.41 % | 12 → 10 | 8 | 1 | yes |
+  | `hattg` | 11-12 | 16.49 % | 10 → 11 | 7 | 1 | yes |
+  | `2laj6` | 11-12 | 5 % | 12 → 13 | 1 | 1 | yes |
+  | `7uozf` | 11-12 | 7.4 % | 18 → 19 | 2 | 0 | no |
+
+  A wrapped row is an item (or a coupon) whose name is too long for its column: the PDF prints the name on two
+  lines and centres the item number and the price between them, so the rows read `NAME-1` / `135836 4,39 N` /
+  `NAME-2`. On `qpwyg` (Quebec, 10 items, 14 units, 184.40) eight of ten items are wrapped, with `2 @ 24,99` rows and
+  two coupons.
+- **Replay, text path only (not the code the phone ran):** the rows of `qpwyg` through `parseCostcoReceipt` give 12
+  lines, 13 units, 234.55. Every wrapped item loses its item number, `2 @ 24,99` / `3 @ 19,99` / `2 @ 8,16` are read
+  as the price of a name fragment, `1130713 JUS ASSORTIS 12,99` is dropped, and the wrapped coupon `392216 10,00-` is
+  not applied. The phone's own reading at scan (through the word geometry) was 12 lines, 13 units, 239.38: the same
+  class, not the same figures.
+- **Not proven yet, so no RC section is written.** The shape exists in the local corpus in small doses and passes
+  there (`3xtvv`: `PARKER / 3364230 179.99 Y / FRAME`, gap 0 at scan), so the wrapped row alone is not the whole
+  cause. The exact replay needs the word boxes of the failing PDFs. They are captures c675 and later; the local
+  corpus stops at c674.
+- **Blocked on:** `railway run -e production node scripts/exportOcrCaptures.js --since 2026-11-06` (read-only: it
+  pulls the captures into `__tests__/fixtures/receipts/prod-captures/`). The session was not allowed to run a
+  production read with production credentials. Maxim runs it, or allows it.
+- **Then:** replay each failing PDF until it reproduces the reading at scan; fix in the PDF-only path
+  (`shared/pdfReceiptRows` / `src/services/receiptPdf`, design rule 16) so the frozen Costco parser and the photo
+  geometry are not touched; prove on all 39 PDF fixtures plus the new captures; then the photos.
+## 2026-11-12 — Database performance audit: receipt lists read their warehouses once; a slow job now emails (hotfix)
+
+- **Ask (Maxim):** continue the 2026-11-11 plan-flip work (#566): *"optimize all queries to the database to have the
+  best response time and give both users and admins the smoothest experience (but users are always the priority) and
+  also to optimize the use of the database when needed only and the server consumption … a load balance between
+  optimal response time, resource cost reduction and avoid concurrence timeout or deadlocks. no regression allowed"*.
+  Hotfix on `main`. Mid-task: *"we can simplify the load for screens in admin desk … to load only the last data since
+  the last admin check … if this would help the load"*.
+- **Branch:** `hotfix/db-query-performance` off `main` (worktree `Priceback-hotfix`); docs
+  `docs/db-query-performance-2026-11-12`.
+- **Found (prod, read-only):** the database is 122 MB and its statements run in milliseconds; routes wait on round
+  trips (~16 ms each). `GET /api/admin/receipts` p50 796 ms with queries under 10 ms: `decorateReceiptRow` read the
+  warehouse number one receipt at a time (155,108 calls since June), 200 a desk page, and one per receipt on every
+  app opening. #566 is live: `adminAlerts` 15–16 s → 0.4–0.7 s since 2026-11-12 01:00 UTC. No lock wait, cancelled
+  statement or deadlock in 24 h of Postgres log.
+- **Done (Priceback):**
+  - Receipt lists read their page's warehouse numbers in one query (`warehouseCodesForRows`). Dev, 200 receipts:
+    desk page 203 statements / 651 ms → 4 / 74 ms; a shopper's list 201 / 587 ms → 2 / 23 ms.
+  - Bootstrap: released drops and deleted ids go out with the other reads; one account read removed.
+    `PUT /api/me/profile`: one read removed. `warehousesRepo.resolveProvinceId` remembers a found province.
+  - `lib/jobBudget`: `adminAlerts` (5 s), `priceSweep` and `priorityPriceCheck` (15 s) send one alert email after
+    three runs in a row over their limit. The 11-11 incident would have emailed 15 minutes in.
+  - `backend/scripts/profile-routes.js`: counts the round trips each busy route makes (dev database).
+  - Tests: `receiptListWarehouseBatchDb` 6 (3 red on the old code), `jobBudget` 10, `jobRunsTracker` +3; 10 of 10
+    mutations killed. Blast radius on dev: 1,026 tests, 1,021 pass, 1 skipped, 4 fail — none from this change:
+    `priceDropCommission` ×3 fail identically on unmodified `main`; `adminReviewEditingDb` ×1 was two files of an
+    ad-hoc batch drawing the same test warehouse code (12/12 alone, three times).
+- **Not done, and why:** the "since my last check" desk load — measured, it would not help now (a full page reads in
+  74 ms), needs an app release and hides receipts not yet opened. Backlog with numbers in
+  `Operations/Database_Performance_Audit_2026-11-12.md` § 5 (`/api/watch` per-line ingest, `adminAlerts` cadence,
+  the data-cleanup scan on Admin home, `findNotifiable`).
+- **Docs:** `Operations/Database_Performance_Audit_2026-11-12.md` (new), Bugs_Common_Fixes #374 (the plan flip, which
+  #566 never logged; the code cited it as #372, a number already taken) and #375, a correction note on
+  `Infrastructure_Cost_Rules.md` § 2b.
+- **For Maxim to decide:** two database settings (`log_min_duration_statement = 1s`,
+  `idle_in_transaction_session_timeout = 5min`; audit § 6); `adminAlerts` every 15 minutes; why
+  `priceDropCommission` fails on the dev database.
+- **Learned:** when a route's time is many times the sum of its queries' times, count round trips before reading a
+  plan. Railway's config says Singapore but the database round trip measures 16 ms.
+
+## 2026-11-12 — Price-drop queue rules: the savings table first, high confidence only, missed claims flagged (hotfix)
+
+- **Ask (Maxim):** *"fix the price sweep and price drop queue … a price drop that is waiting to claim or claimed should
+  never be in the queue again, only missed claims can be renotified and should create a new filter … and also a badge
+  … price drop should be verified if it is in the flyer in the province (confidence should be high …, the source
+  should be as a badge …) if not and we arent confident go for potential price drop queue instead … the verification
+  should always be based on the savings table as first source for the trusted sources (not social, social go for
+  potential price drops) … THE TARGET IS TO SET THE PRICE DROP QUEUE WITH ALL THE DROPS WITH HIGH CONFIDENCE … flag
+  auto approve for now … with a summary in top of the screen of the latest auto approve daily count"*. Then: *"the
+  mussels in the price drop queue are in savings but sameday mention no savings so where did it come from … i cant
+  trust the workflow today"*.
+- **Branch:** asked first; `hotfix/price-drop-queue-rules` off `main` (worktree `Priceback-hotfix`), rebased on
+  `d166b28c`. Docs `docs/price-drop-queue-rules-2026-11-12`.
+- **Found (prod, SELECT only):** the mussels drop (#12341) stood on a Same-Day price row read as verified for all of
+  Ontario; the saving is listed at 38 warehouses and not at 1362, where the line was bought. 4 of 60 open lines under
+  a running Same-Day price were at an unlisted warehouse, 3 already sent. Fanta is a Same-Day saving at 23 Ontario
+  warehouses (the shoppers' 540 included), labelled "admin or flyer". Downy (#726) is a genuine missed claim. Every
+  past re-entry in the queue was a missed claim (2) or a deeper price (3).
+- **Done (Priceback):** the savings path answers first; a Same-Day row verifies nothing by itself; a flyer saving is
+  province-wide and Same-Day checks that could not run do not lower it; only shoppers vote (posts go to Potential —
+  replaces the 2026-11-07 rule); every waiting drop carries `tier`, `basis`, `reentry`, the true charge and
+  `autoApprovable`; the queue screen lists high confidence only with source badges, a Missed claims filter and an
+  auto-approval summary; Potential price drops lists the low-confidence drops with their reasons. Bug #378.
+  `Technical/Price_Drop_Queue_Rules_2026-11-12.md`.
+- **Old builds:** no route or field changed or removed; all new fields additive and admin-only. The installed admin
+  build keeps listing every pending drop.
+- **Tests:** backend 33 files on dev, mobile full suite, `i18n:check`; 10 of 10 mutations caught. Figures in the PR.
+- **Also found:** the dev database held a leftover test product ("Costco product") that made 24 price-drop tests and
+  the three commission tests fail on clean `main` — purged with Maxim's permission, bug #379. This is the answer to
+  "why `priceDropCommission` fails on the dev database". A time-of-day flaw in `priceDropQueueDb`, bug #380.
+- **Decided without asking (listed in the doc for Maxim):** a deeper price on a told line still enters the queue; a
+  shoppers-only price is low confidence; a Same-Day read that found the item with no saving still lowers a flyer
+  drop; an admin-verified price is high but never auto-approved.
+- **Not measured:** `listPotential` on production after the change (dev: 29 → 33 ms). Watch `adminAlerts` in
+  `job_runs`.
+- **Learned:** when one fact is stored twice (a saving, and its price row), only one copy may decide. The copy with
+  less information (no warehouses) decided here for weeks.
+
+## 2026-11-13 — The audit's follow-ups: database settings applied; the watch registration records its lines together (hotfix)
+
+- **Ask (Maxim), answering the 2026-11-12 audit:** the two database settings — *"do it"*; `adminAlerts` every 15
+  minutes — *"keep it as is"*; why `priceDropCommission` fails on dev — *"dont do it for now, document"*; the
+  watch-list registration's ~10 round trips a line — *"do it"*.
+- **Settings:** `log_min_duration_statement = 1s` and `idle_in_transaction_session_timeout = 5min` set on the
+  `postgres` role, production and dev, 2026-11-13 ~04:20 UTC. New sessions read them; sessions older than the change
+  pick them up when they reconnect (the next deploy). Undo statements in the audit § 9.
+- **`priceDropCommission`:** explained by bug #379 (a leftover test product on the dev database), found during the
+  price-drop queue work. Passing since the purge.
+- **Watch registration (Priceback #574, `hotfix/watch-ingest-round-trips`):** `crowdRepo.recordReceiptObservations`.
+  20 new lines 198 → 74 statements; 19 known lines 63 → 9. The response is unchanged. One difference on failure
+  only: a line's product and price point are no longer in a transaction of their own, so a failed price insert can
+  leave the product row (as a products-only line does). A line whose warehouse cannot be registered is still
+  refused and writes nothing.
+- **Tests:** `crowdBatchParityDb` (8), 8 of 8 mutations caught; 29 files on dev, 382 of 382.
+- **Not done:** the batch still makes 3 statements a new line (product upsert, warehouse lookup inside
+  `recordPricePoint`, insert). A bulk insert would need `pricesRepo.recordPricePoint` changed, which every price
+  writer shares.
+- **Learned:** a rewrite of a path that decides money (the crowd pool feeds the rule of N) is safest proven by
+  running the old and the new path side by side on the same inputs and comparing rows, not by re-deriving the rules.
+
+## 2026-11-13 — Post-deploy check of #573 found the mussels row still pending; the second door closed (hotfix)
+
+- **Why:** not asked for. Maxim merged #573 and #574; the checks listed in the rules doc were run on production
+  (SELECT only) and on the deployment's log.
+- **Found:** Fanta re-pointed to its saving; every new drop comes from a saving; drops are flagged with the switch
+  off; `adminAlerts` 524 → 540 ms; `priceSweep` 1.3 → 4.6 s (the live Same-Day reads). **#12341 (mussels) was still
+  pending**: an admin's own Oct 24 receipt verifies $11.99 for Ontario and the Same-Day listing was taken as the
+  after-purchase sighting.
+- **Done (Priceback #575, `hotfix/price-drop-listing-not-a-sighting`):** a listing no admin confirmed is never the
+  after-purchase sighting in the sweep; the line waits on Potential price drops, also when its price group is
+  verified. Tests +3, 5 of 5 mutations caught, 35 files 508 of 508.
+- **To check after #575 is live:** #12341 closed, and its line on Potential price drops.
+- **Learned:** #573's tests covered the door I had found, not the question "can a listing still decide anything?".
+  The post-deploy check on the real row is what answered it.
