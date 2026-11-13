@@ -30,6 +30,7 @@ Who calls an AI reader:
 | The phone's scan, *Gemini reads first* | `POST /api/receipts/gemini-read` | the parser's reading | never | 1 |
 | The server re-read | after `POST /api/receipts` | the stored lines | never | 1 |
 | The desk's *Fix automatically* | `POST /api/admin/receipts/:id/auto-fix` | the stored lines | to the **paid** key only, when stored; the free key reads the text (§7.4, decided 2026-11-12) | up to 3 |
+| The desk's *Fix automatically* | `POST /api/admin/receipts/:id/auto-fix` | the stored lines | yes, when stored | up to 3 |
 | The old reconcile (builds from 2.8.3) | `POST /api/ocr-llm` | none | never | 1 |
 
 Both switches (`RECEIPT_GEMINI_FIRST`, `RECEIPT_GEMINI_REREAD`) are **off** in production. This hotfix does not turn
@@ -124,6 +125,7 @@ best-of-two (§7.1): a current build then never needs `/api/ocr-llm`, which stay
 | Test | What it requires |
 |---|---|
 | `backend/tests/receiptReaderProviders.test.js` | the Gemini request is unchanged; the free key is the fallback of the paid key and reads the same reading; **a free tier is never sent the image** (the paid key gets it, the free key gets the same text without it, a later free reader is handed the text by the chain); a non-Gemini reader given the same answer yields the same reading; the chain hands time on; one failure vocabulary; no receipt path calls `lib/gemini` directly; the budget is reserved in one place |
+| `backend/tests/receiptReaderProviders.test.js` | the Gemini request is unchanged; the free key is the fallback of the paid key and reads the same reading; a non-Gemini reader given the same answer yields the same reading; the chain hands time on; one failure vocabulary; no receipt path calls `lib/gemini` directly; the budget is reserved in one place |
 | `backend/tests/receiptReaders.test.js` | the codes are one list (seed, repo, shared); `aiReadRefusal`, `matchDraftLines`; the re-read's skip reasons, its footer OCR, its carry-over; no reader code spelled out where a rule is decided |
 | `__tests__/receiptReadersParity.test.js` | loads the backend next to the app: the phone's scan and the server's re-read agree on which receipt may be read for all 48 combinations of the facts; both carry the same tax class to the same line; **an AI reader's lines are grouped exactly as the parser groups the same printed lines** |
 | `__tests__/sharedMirrorParity.test.js` | `shared/receiptReaders.js` and `backend/shared/receiptReaders.js` are byte-identical |
@@ -138,6 +140,7 @@ best-of-two (§7.1): a current build then never needs `/api/ocr-llm`, which stay
    - `tier`: `"free"` or `"paid"`, for a reader with one tier. The chain then hands it `requestFor(tier, request)`,
      so a free reader's adapter never holds the image;
    - `ask(request, opts)` → `{ text, model, tier, sentImage, usage: { input, output, cached } }`;
+   - `ask(request, opts)` → `{ text, model, tier, usage: { input, output, cached } }`;
    - it throws an `Error` with `.status` and `.code` in `lib/gemini`'s vocabulary (`no_provider`, `quota`,
      `overloaded`, `no_credit`, `no_model`, `timeout`, `empty_answer`, `bad_request`, `upstream`), so the desk words
      the failure the same way.
@@ -147,6 +150,7 @@ best-of-two (§7.1): a current build then never needs `/api/ocr-llm`, which stay
    the pipeline to whatever the adapter returns.
 4. Update `providerIds()`'s test (it lists the order on purpose) and run the parity tests.
 5. State its tier. What it may be sent follows from it (§7.4): a free tier gets text only.
+5. Decide what the reader may be sent (§7.4): a free tier that may train on what it receives gets text only.
 6. Give it its own budget in `reserveAiRead` (§7.2).
 
 ---
@@ -253,6 +257,12 @@ the free key; it waits for the paid key or a person. The proof is unchanged, so 
 
 **Which key is "free".** The tier follows the variable, not the account: `GEMINI_API_KEY` is treated as paid and
 `GEMINI_API_KEY_FREE` as free. A free-tier key put in `GEMINI_API_KEY` would be sent photos.
+### 7.4 What a free tier may be sent (a decision for Maxim)
+
+A free tier may use what it receives to improve its products. The phone's read and the re-read send the **OCR text
+with the member line and the payment block removed**. The desk's *Fix automatically* sends the **photo** (member
+number, card digits) to whichever key answers, the free one included. Recommended: a free tier gets text only; the
+photo goes only to a tier that does not train on it.
 
 ### 7.5 A smarter app approval
 
