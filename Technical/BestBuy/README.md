@@ -4,6 +4,10 @@ Everything specific to Best Buy Canada as a PriceBack store. Per the standing
 rule — **one store = one parser file and one documentation folder** — nothing
 here describes another retailer, and no other store's folder describes Best Buy.
 
+**Status (2026-11-14): the in-store parser failed the admin's first production scans (1 capture of 6 read) and is
+to be rebuilt — see `Receipt_Parser_Rebuild_Plan_2026-11-14.md`** (the six captures, root causes BB-RC-1 … BB-RC-7,
+the plan; waiting for Maxim's approval). Still admin-only; no shopper can scan Best Buy.
+
 **Status (2026-11-06): not ready for shoppers — see `Launch_Readiness_2026-11-06.md`** (the readiness check, the
 parser audited against the design rules, the in-store denoise step, Admin · Stores, and the remaining roadmap).
 `feat/bestbuy-launch-prep` → `main-test-features`: the in-store slip is now denoised before extraction
