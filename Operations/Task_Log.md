@@ -12433,3 +12433,32 @@ with no push notifications.
 
 - The name-only fill was the "far away" item number (RC-53): v0leb `#249003` → `1325111`. Lines whose paper printed no digits keep the name match.
 - `j3b5t` is a photo cut at the right edge (every amount loses its last digit); `6ijmw` and `97zj1` are welded rows from curl and tilt. The quality check refused all three in production, which is right.
+
+## 2026-11-13 — Stock availability: the harvest and the queue track it; the shopper route is ready (hotfix branch off main)
+
+- **Ask (Maxim):** item 2833285 showed a saving "on all provinces" while costco.ca showed none and Same-Day had no
+  stock; make sure the harvest works; get the stock by warehouse; Costco refunds a drop only while the item is in
+  stock. Then, while the work ran: no shopper button yet (backend only, admin desk only); store the stock on the
+  saving so every sweep updates it; the desk check must use the right province; an out-of-stock drop stays a drop,
+  with a badge; put what is left in the roadmap.
+- **Found (SELECT on production, and a read of the item at all 104 Same-Day warehouses):** the saving is real and
+  comes from Same-Day. 63 warehouses carried it (ON, QC, NB, NL), 18 had stock. The AB, BC and MB rows came from one
+  Business Centre each. Same-Day states the stock on every item; the code read it and used it nowhere. The savings
+  list holds in-stock items only, so a warehouse stayed linked after it sold out. The desk "Check on Sameday" read
+  the shopper profile province, not the province of the purchase. The last 30 harvest runs were healthy.
+- **Done (Priceback, `feat/saving-stock-availability`):** `stockStatus` (the one rule); `savings.flags.stock`
+  written by every Same-Day run; `in_stock_at_warehouse` on the confidence, advisory, with a `stock` field; the
+  desk badge; `receiptProvinceCode`; `POST /api/receipts/:id/items/:index/stock-check` with a 10-minute cache and
+  a limit of 10 a minute; the three copies of the line-finding rule (claim, watch, delete) folded into
+  `receiptsRepo.locateLine`. No migration.
+- **Tests:** backend 12 files on dev: 209 of 210 on the full pass (the one failure is the clock tolerance below, fixed), then its files re-run twice at 95 of 95; plus the 11 files that pin `server.js`,
+  154 of 154. Mobile 13133 of 13144: the 11 failures are `trackingClock`, `paywallAnnualBadge` and
+  `adjustmentWindowTimezone.matrix`, which fail the same way on untouched `main` on this machine.
+- **Seen once, not reproduced:** three tests of `priceDropQueueRulesDb` failed in the first sequential run and
+  passed in every later one, alone and in sequence, with and without the change.
+- **Not done:** the shopper button; stock of every warehouse on Admin · Saving dates; the warehouses never linked
+  because they were out of stock at every run; warehouse prices of items not on saving. All in
+  `Roadmap/Stock_Availability_Roadmap.md`.
+- **Learned:** a reading stamped by the reader a few milliseconds after the judge took its clock was refused as
+  "from the future". A time guard between two clocks needs a tolerance, and the test that caught it was the one
+  that went through the real route, not the unit test with one fixed clock.
