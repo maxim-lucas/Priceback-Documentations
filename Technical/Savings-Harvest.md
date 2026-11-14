@@ -237,6 +237,58 @@ the amount is the same at every warehouse of the province.
   `receipt_reads` asked the WHOLE receipt to read "high", held five correct drops for a
   misread TAX label or another line's item number — hence the line-level check.
 
+## Stock per warehouse (2026-11-13)
+
+Costco adjusts a price only while the item is still in stock at the warehouse. The harvest and the queue now track
+it. What is left to build: `Roadmap/Stock_Availability_Roadmap.md`.
+
+**What Same-Day says.** Every item at every warehouse carries `availability.available` (true / false). Only that
+field decides: on 2026-11-13 Laval read `available: false` with `stockLevel: "inStock"` and the label "Out of
+stock". The savings list ("Warehouse Savings") holds **only the items in stock** when it is read (0 out-of-stock
+items in four warehouses' lists; item 2833285 absent from every list where its own page said "Out of stock").
+
+**The case that showed it.** Item 2833285, $3.50 off, Nov 12 to 22, read at all 104 warehouses on 2026-11-13:
+
+| Province | Saving, in stock | Saving, out of stock | No saving |
+| --- | --- | --- | --- |
+| ON | 11 | 27 | 0 |
+| QC | 4 | 17 | 1 |
+| NB | 2 | 1 | 0 |
+| NL | 1 | 0 | 0 |
+| AB, BC, MB, SK, NS | 0 | 0 | 37 (and 5 not listed) |
+
+The saving was real. It came from Same-Day, so costco.ca never showed it. The Alberta, British Columbia and
+Manitoba rows on file came from one Business Centre each, and apply to receipts of those warehouses only.
+
+**One rule.** `services/savings/stockStatus.js`: `stockStatusOf(read)` answers `in_stock`, `out_of_stock` or
+`unknown`. A read that did not find the item, states no availability, or is too old is `unknown`, never a guess.
+`newestStockRead(flags, warehouse)` picks the newest of the two readings a saving holds.
+
+**Where it is stored** (on the saving, no migration):
+
+| Field | Written by | Meaning |
+| --- | --- | --- |
+| `savings.flags.stock.<warehouse>` = `{ available, at, by: "harvest" }` | every Same-Day run (`savingsRepo.recordHarvestStock`, after the harvest is written) | listed at that warehouse this run = in stock; linked by an earlier run and not listed now = out of stock (or the saving ended there). A warehouse the run could not read is left as it was |
+| `savings.flags.liveChecks.<warehouse>.available` | every live read of the item's own page (the queue's sweep every 6 hours per saving and warehouse; the desk's Auto-check) | the item's stock there, with or without a saving |
+
+Only savings Same-Day knows (`flags.samedayProductId`) get a harvest stock. A failure of the stock write costs the
+badge, never the savings: it runs outside the harvest's transaction and its error goes to the run's details.
+
+**In the queue.** `dropConfidence` adds the check `in_stock_at_warehouse`. It is **advisory**: an out-of-stock drop
+is still a price drop and keeps its score (Maxim: "all unavailable stock items should still be flagged as price
+drops"). The confidence carries `stock: { status, at, by, warehouseCode }`, and the desk shows `IN STOCK · WH 540`
+or `OUT OF STOCK · WH 505` on the drop. No badge when the stock is not known.
+
+**The desk's manual "Check on Sameday".** It read Same-Day as a shopper of the buyer's **profile** province. It now
+reads the province the item was **bought** in (`receiptProvinceCode`, the receipt's warehouse), else the profile's.
+
+**For shoppers.** `POST /api/receipts/:id/items/:index/stock-check` reads the item at the receipt's warehouse and
+answers the status. No screen calls it yet (the button comes with the next design).
+
+**Cost.** The harvest adds one UPDATE a Same-Day run (about 3,000 savings rows on production, no request to
+Same-Day). The queue's live reads are unchanged. A shopper's check is 0 requests when answered from the 10-minute
+cache, 1 to 3 on an open session, 7 on a cold one, and at most 10 checks a minute per shopper.
+
 ## Operating it
 
 - **Sources** (admin token, `x-admin-token`): `GET/POST /api/admin/savings/sources`,
