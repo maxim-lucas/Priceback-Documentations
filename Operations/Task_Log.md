@@ -12462,3 +12462,67 @@ with no push notifications.
 - **Learned:** a reading stamped by the reader a few milliseconds after the judge took its clock was refused as
   "from the future". A time guard between two clocks needs a tolerance, and the test that caught it was the one
   that went through the real route, not the unit test with one fixed clock.
+
+## 2026-11-13 (night) — The open decisions answered "yes for all": RC-39, the payment-line total, Flash-Lite and the measured reader order, two approval checks (hotfix, Priceback #579)
+
+- **Ask (Maxim):** *"My answer is yes for all. Hotfix on main branch."* to the four items left by the last session
+  (`mkxkq`'s tax; `yk4ud` c733 and RC-39; the TOTAL from the payment line; Flash-Lite first, the approval checks,
+  rejecting `kxuag` with the reversal). Then, while the work ran: *"Flash lite if it is frequently unavailable compared
+  to the new AI we added then they can become before flash lite."*
+- **Branch:** `hotfix/totals-from-payment-flashlite-approval-checks` off `main` (`8066712`). PR #579.
+
+### Done
+
+- **RC-39 closed** (`shared/costcoReceiptSections`). The replay showed a narrower cause than the register's proposal:
+  a stray mark (`#`, `•`, `.`) ended the totals block before its amounts (c666, `yk4ud` c733), and the amounts above
+  the labels were read past one line only (c667). `RC39_TOTALS_UNREAD` is deleted.
+- **RC-56, design rule 2's one exception:** a TOTAL row one digit off is the amount paid printed below the block,
+  only when that amount is the block's own SUBTOTAL + TAX (`215cu` c725).
+- **Readers:** Flash-Lite first on the free Gemini key for receipt reads; the order is measured
+  (`receiptReaderProviders.orderFor`), a paid key that can answer keeps its place; `/health` shows position and
+  availability per reader.
+- **Approval checks:** `date_on_paper` and `tax_possible` in `shared/receiptChecks`, run by `readingConfidence` for
+  Costco warehouse receipts. `shared/salesTax` is the one rate table; the unknown-province cap is 15 %, was 14.975 %.
+- **Docs:** RC-39 (fixed), RC-56, the two photo tables, design rule 10, `Receipt_Readers_One_Rule_Set.md` §1, §7.2,
+  §7.5; `CLAUDE.md` rule 2 and the reader order.
+
+### Measured
+
+- 242 captures judged: the quality check passes 139, was 133. The 6 that changed are c666, c667 (three copies),
+  `yk4ud` c733 and `215cu` c725. 150 parked captures: 83 parses close before and after, no reading changed.
+- Tests: mobile 435 suites, 13,142 passed. Backend blast radius: 297 (16 files), 46 DB-backed on dev (8 files, none
+  skipped), 173 (shared mirror). The full backend suite was not run.
+
+### Found on production (SELECT only), `mkxkq` (SW Calgary #1391)
+
+The 11-03 01:44 UTC desk edit changed four lines of the 11-02 repair and the tax followed:
+
+| Line | 11-02 repair | Stored now | Difference |
+|---|---|---|---|
+| Eggs | `DOZ EGGS` 11.49 and `669` 19.99 (two lines) | `669` × 2, 38.98 (one line) | +7.50 |
+| Tomato paste `1553` | 19.99 | 5.99 | −14.00 |
+| Bear Paws `5428146` | 10.49 (was 13.49) | 8.99 (was 11.99) | −1.50 |
+| Chicken breasts `55503`, second pack | 32.05 | 32.00 | −0.05 |
+| **Lines** | 561.28 | 553.23 | −8.05 |
+| **Tax** | 8.12 | 16.17 | +8.05 |
+
+So 16.17 is not a misread: it is 569.40 − 553.23, the total less the edited lines. The paper prints SUBTOTAL 561.28
+and TAX 8.12. With the paper's tax back, the edited lines are 8.05 short of the printed subtotal, and the cropped
+photo does not say which line holds it. **No repair spec was written:** which of the four line edits stands is
+Maxim's (he made them). Asked.
+
+### Not done, and why
+
+- **Four of the six approval checks** (payment amount, known warehouse, two readers agree, same paper on another
+  account): each needs data the server does not have today. Reasons in `Receipt_Readers_One_Rule_Set.md` §7.5.
+- **Rejecting `kxuag` with the reversal:** not run. Production still holds both reads, live and reviewed (checked by
+  SELECT). The reject sends the shopper a push for the chosen reason and refunds 38 on top of the manual +38. Asked:
+  the reason to send, and whether the manual 38 stays.
+- `yk4ud` c734, `egy2e` c719, `j3b5t`, `6ijmw`, `97zj1`: the lines are wrong there, not the totals.
+
+### To do next
+
+1. Merge #579 (deploys the backend), then read `/health` → `checks.llm.readers` after a day: position and availability.
+2. Maxim's answers: `mkxkq`'s lines; `kxuag`'s rejection reason and the manual 38.
+3. The four approval checks, one PR each. The payment amount needs a new optional upload field and a build.
+4. App release for #571 / #572 / #577 / #579 (the phone's quality check reads the new sections only with a build).

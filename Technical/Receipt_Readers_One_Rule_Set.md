@@ -21,8 +21,28 @@ has **one definition**. This page maps every rule to that definition.
 | 3 | **Groq** (`openai/gpt-oss-120b`) | server | `GROQ_API_KEY` | Free tier, text only. Off until its key is set (#576, 2026-11-13). |
 | 4 | **Cloudflare Workers AI** (`llama-3.3-70b-instruct-fp8-fast`) | server | `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_AI_API_TOKEN` | Free tier, text only. Off until its key is set. The account id is the one R2 uses (`lib/cloudflareAccount`; `R2_ACCOUNT_ID` is no longer read). |
 
-Readers 1 to 4 are **AI readers**. They sit behind one module, `backend/lib/receiptReaderProviders.js`, in a fixed
-order. A reader that cannot answer hands what is left of the caller's time to the next one.
+Readers 1 to 4 are **AI readers**. They sit behind one module, `backend/lib/receiptReaderProviders.js`. A reader that
+cannot answer hands what is left of the caller's time to the next one.
+
+**The order is measured (#579, 2026-11-13).** Maxim: *"Flash lite if it is frequently unavailable compared to the new
+AI we added then they can become before flash lite."* The table above is the order of a fresh process. After that:
+
+- Each reader's last outcomes are kept in the process: answered, or refused (quota, overloaded, timeout, an empty or
+  malformed answer, no credit). At most 20 per reader, none older than 6 hours. Our own bad request and a missing key
+  are not outcomes.
+- A reader is asked before the one in front of it only when it is measured to answer **at least 25 points more
+  often**. Fewer than 4 asks is not a measure: the reader counts as answering and keeps its place.
+- **A reader whose paid key can answer keeps its place**, whatever was measured. It is the only one sent the photo.
+  For Gemini that is: `GEMINI_API_KEY` is set and not paused for no credit. Today the paid key is out of credit, so
+  Gemini is measured like Groq and Cloudflare, and what is measured is its free key.
+- On the free Gemini key a receipt read asks **Flash-Lite first** (`backupLiteFirst`, set by the Gemini adapter). The
+  flyer scan does not set it and keeps Flash first.
+- Best of two (`askEach`) takes its two readers from the same order.
+- One definition: `receiptReaderProviders.orderFor`. `/health` shows it under `checks.llm.readers[]`: `position`
+  (1 = asked first, null = not asked) and `availability` `{ asked, answered }`.
+
+A deploy or a restart starts again from the table's order. The 6 hours mean a reader whose daily quota ran out is
+tried in front again within the day; if it still refuses, four asks later it is behind again.
 
 Who calls an AI reader:
 
@@ -236,7 +256,8 @@ It needs the checks on the phone before the call (they are already in `shared/`)
 - Next: `reserveAiRead` takes a budget per reader (the paid key, the free key, the third reader), each from its
   measured quota, in place of one number for all.
 - On the free key, ask **Flash-Lite first**. Flash's 20 a day are gone by mid-morning, and every later call pays a
-  refused round trip (or a 90 s hang) before Flash-Lite answers.
+  refused round trip (or a 90 s hang) before Flash-Lite answers. **Shipped in #579 (Maxim, 2026-11-13: "yes")**, for
+  receipt reads; with it, the readers are asked by measured availability (§1).
 
 ### 7.3 The third reader
 
@@ -294,6 +315,23 @@ Today the app approves a receipt when every check passed and it is not a copy. E
 | The tax is possible for the province and the taxed lines | a tax misread that still closes |
 | **Two readers agree** (the AI reader's proven reading equals the parser's) | lets the app approve a receipt whose items-sold count is unread, which today always waits for a person |
 | The same paper on another account | a shared receipt |
+
+**Decided 2026-11-13 (Maxim: "yes" to all). Two shipped in #579, four are their own PRs:**
+
+| Check | State | Notes |
+|---|---|---|
+| Purchase date | **Shipped**: `date_on_paper` | The register stamps a date with its time several times (payment, summary, footer). Pass: every stamp prints the purchase date, or at least two do and they outnumber the rest (OCR misreads a digit of one stamp now and then). Fail: no stamp prints it, or it is after the owner's today (`shared/trackingTime`). Unverified: no stamp in the photo, no date read, or one stamp against one. A year-last stamp (`03/09/2026`) is read both ways. A date without a time is not a stamp. |
+| Tax possible | **Shipped**: `tax_possible` | The tax is at most the province's rate × the lines, plus a cent per line; never negative on a purchase. The province is the warehouse's (`taxProvince`); unknown is judged on 15 %. One rate table, `shared/salesTax` (the phone's validator re-exports it). It does not use the tax codes of each line yet, so it catches an impossible tax, not a slightly wrong one. |
+| Payment amount equals the TOTAL | Not built | The compliance cleanup removes the payment lines before the text is stored, and on most receipts the amount goes with its label. The stored text cannot answer it. It needs the phone to read the amount before the cleanup and send it (a new optional field, a new build). Where the amount does survive, it is now used the other way: a TOTAL one digit off is taken from it (RC-56). |
+| Warehouse is a known one | Not built | The reference list is the phone's `src/constants/costcoWarehouses.js` (a frozen Costco file). The server's `warehouses` table is filled from receipts, so a misread creates the warehouse it is checked against. Needs the list moved to `shared/`. |
+| Two readers agree | Not built | Needs the AI reading's agreement with the parser stored with the receipt, and changes what the app may approve (an unread items-sold count). |
+| Same paper on another account | Not built | `lib/duplicateReceipt` compares one shopper's receipts. Across accounts it needs a fingerprint column and an index (a migration). |
+
+Both shipped checks run for a **Costco warehouse** receipt only (`readingConfidence`), are counted in "n of n", and
+inform a Gemini proof without blocking it. Measured on 268 captures (every store, before the two-of-three rule for a
+misread stamp was added): the date passes on 195 and fails on 3, all Best Buy online orders (the order date against
+the invoice date, which is why another store is not judged). 12 have no stamp in the photo, 5 had stamps that
+disagreed, and on 53 the parser read no date. The tax passes on all 268.
 
 ---
 
