@@ -6,6 +6,9 @@
 per the rule *one store = one parser file and one documentation folder*. The
 registry, the parser contract and the lab lane stay in that store-neutral doc.
 
+> **2026-11-14: read `Receipt_Parser_Rebuild_Plan_2026-11-14.md` before changing this parser.** The in-store path
+> described below read 1 of 6 production captures of one receipt; its root causes and the rebuild plan are there.
+
 **Where it stands (2026-10-28):** `bestbuy` is in `STORE_PARSERS`, so every build
 carries the parser, and in `ADMIN_PREVIEW_STORES` (`src/constants/stores.js`):
 admins can scan Best Buy, shoppers see "Coming soon". `LAB_STORE_PARSERS` /

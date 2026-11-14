@@ -332,6 +332,11 @@ not treat the parser as validated.
 `src/services/<store>ReceiptParser.js`, registered in
 `src/services/receiptParsers/index.js`.
 
+> **Read `Technical/Receipt_Parser_Specification.md` first (draft of 2026-11-14, waiting for Maxim's approval).**
+> It is the build specification for a store parser: the thirteen stages, the robustness rules, the files, the
+> corpus of receipts × captures and the promotion bar. Where it and this section disagree, it is the newer one;
+> §4.2 below is the open point (its decision 1).
+
 ### 4.1 The contract
 
 ```js
@@ -353,6 +358,12 @@ The result carries everything `parseReceiptEngine` stamps, plus:
 items; the scan pipeline decides what an empty parse means.
 
 ### 4.2 Build on the engine; never fork it
+
+> **Under review (2026-11-14).** Best Buy was built this way and its in-store parser read 1 production capture of
+> 6: the engine takes any row ending in an amount as a product, and it is frozen for Costco, so the store's file
+> can only hide rows from it. The specification proposes the store's own row grammar over a kit shared by
+> non-Costco stores (`Receipt_Parser_Specification.md` §5, §9 decision 1). Until Maxim decides, this section
+> stands for parsers already built on the engine.
 
 Reuse `parseReceiptEngine` with the `reshapeLines` and `handleDiscountLine`
 hooks. Do not re-implement item extraction.
@@ -834,4 +845,5 @@ GO-LIVE
 | **Sport Chek** | A sibling banner's loyalty footer steals detection. A pattern id with no store record ends the scan. curl is not Node. The receipt's identifier may not address the catalogue at all. |
 | **Best Buy, again** (2026-09-13) | The parse-confidence scorer is store-gated, so a new store scores FULL MARKS on every signal it does not name — a receipt that lost every SKU reported a perfect parse and suppressed the re-OCR that could have recovered it (Bugs #248). Declare your own signals; never join another store's gate. And `node --test` does not load `.env`, so a DB-gated suite skips its whole file and exits green — which is how that store's nightly job sat at 0% function coverage on every branch. |
 | **Best Buy + Abercrombie, landing on `main`** (2026-10-28) | Two new standing rules: a finished store ships in every build **admin-only** (`ADMIN_PREVIEW_STORES`), and **Costco shares no code** a non-Costco change could reach it through — so store detection claims and parser signals live in the registry, and the shared parser is frozen by hash. Porting a month-old branch: `main` had moved the test-data markers, the Costco files and the claim-window model, so ported tests asserted September's behaviour. A bot wall can appear between two measurements: A&F served HTML to Node in September and a JavaScript "Client Challenge" in October, even from Canada. |
+| **Best Buy, the admin's first production scan** (2026-11-14) | One receipt, six captures, one read. The format (slip or online order) hung on one exactly-read `S` in a shared detector; a denoise step that fails open let a damaged `SUBTOTAL` label through as a product; "reconciled" was true with no printed total read. The corpus held one capture of that receipt, and it passed. A corpus is receipts × captures, and a decision never rests on one glyph. → `Receipt_Parser_Specification.md`, `BestBuy/Receipt_Parser_Rebuild_Plan_2026-11-14.md`. |
 | **Home Depot, Rona, Sport Chek, Best Buy — while locked** (2026-11-09) | A locked store reached a shopper's list without a single scan: the mailbox import skipped `isStoreEnabled`, and the server accepted any store code. 12 junk receipts reached one account in one second; each item was an email subject. Every entry path asks, and the server refuses (§2.2). Refused scans are now held with their photo for the admin, and that hold is the first place to look for a new store's real corpus (§2.3). |
