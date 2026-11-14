@@ -12451,7 +12451,7 @@ with no push notifications.
   desk badge; `receiptProvinceCode`; `POST /api/receipts/:id/items/:index/stock-check` with a 10-minute cache and
   a limit of 10 a minute; the three copies of the line-finding rule (claim, watch, delete) folded into
   `receiptsRepo.locateLine`. No migration.
-- **Tests:** backend 12 files on dev, 210 of 210 on the last full pass, plus the 11 files that pin `server.js`,
+- **Tests:** backend 12 files on dev: 209 of 210 on the full pass (the one failure is the clock tolerance below, fixed), then its files re-run twice at 95 of 95; plus the 11 files that pin `server.js`,
   154 of 154. Mobile 13133 of 13144: the 11 failures are `trackingClock`, `paywallAnnualBadge` and
   `adjustmentWindowTimezone.matrix`, which fail the same way on untouched `main` on this machine.
 - **Seen once, not reproduced:** three tests of `priceDropQueueRulesDb` failed in the first sequential run and
