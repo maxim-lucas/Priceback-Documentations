@@ -165,7 +165,13 @@ better parse is adopted as before. Curl and fold stay in the geometry (RC-12).
     then closes (Priceback #515, from the prod comparison of 2026-10-30): a starred price line (`* 24.79 F`) does not
     end the block; an amount whose decimal point OCR lost (`5725`) or read as a space (`153 71`) counts only in a
     closing assignment, never zipped; the three totals printed just ABOVE the labels (past at most one item or coupon
-    line) count only when they close with a tax at most 20 % of the subtotal. The items-sold count comes from BOTH
+    line, or two when neither carries an amount: RC-39, #579) count only when they close with a tax at most 20 % of the
+    subtotal; a stray mark Vision reads alone on a line (`#`, `•`, `.`) or in front of an amount does not end the block
+    (RC-39). **One exception to "never guessed" (Maxim, 2026-11-13: "yes"; RC-56, #579):** a TOTAL row misread by one
+    digit is the amount paid printed below the block, when and only when that amount is exactly the block's own
+    SUBTOTAL + TAX, the TOTAL as read has the same number of digits and differs in one, the amount is printed above the
+    footer, and only one reading of the block gives it (`bound.total = "payment"`). The SUBTOTAL and the TAX are never
+    taken from below. The items-sold count comes from BOTH
     counters (summary and footer); a count printed beside its label beats a scanned one; two printed counts that
     disagree are no count; the pre-scan count is never the items sold. A count streamed away from its label is found
     by a scan that crosses only amounts, the summary's own labels and the register's date stamp, up to 10 lines (a

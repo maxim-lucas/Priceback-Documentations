@@ -1704,7 +1704,7 @@ items-sold count. It is read only, and *Mark reviewed* clears it. Nothing about 
 |---|---|---|---|---|---|
 | `r_1794004639294_qzjpq` | Gloucester #1362 | 2026-11-06 | Android 3.5.0 | −56.38 → 56.38 | Maxim's test scan; to be deleted at his say. Covered by the fix |
 
-## RC-39 · The quality check reads no totals when a label run's amounts stream outside it (open)
+## RC-39 · The quality check reads no totals when a label run's amounts stream outside it (fixed, #579, 2026-11-13)
 
 **Printed shape.** The same Gloucester #1362 receipt. Its SUBTOTAL / TAX / `**** TOTAL` labels are one run. On c667
 the run's amounts stream **before** the labels, and on c666 **after** the grand-total row, behind a coupon.
@@ -1725,6 +1725,34 @@ unique-closing rule the block already applies to its own amounts.
 
 **2026-11-06.** Still open for photos (c666, c667 are photos). A PDF with the same streamed shape is no longer affected:
 see RC-41.
+
+**Fixed 2026-11-13 (#579; Maxim: "yes").** The replay of each capture showed the proposal above was wider than
+needed. What kept the reader out was narrower, and each is fixed where it was, in `readTotalsSection`
+(`shared/costcoReceiptSections.js`), still under the block's own unique-closing rule:
+
+| Capture | What the text holds | What stopped the reader | Fix |
+|---|---|---|---|
+| `qzjpq` c666 | `SUBTOTAL` / `TAX` / `**** TOTAL` / `5.00-` / `•` / `⚫ 7.99` / `56.38` / `0.00` / `56.38` | the `•` line ended the block before its amounts | a stray mark (a line with no letter and no digit, at most 3 characters) is filler; a mark in front of an amount is dropped |
+| `yk4ud` c733 | `SOUS-TOTAL` / `TAXE` / `**** TOTAL` / `#` / `3.00-F` / `44.99 F` / `10.00-F` / `192.92` / `27.70` / `220.62` | the `#` line | the same |
+| c667 (`uj09h`, unlinked) | `56.38` / `0.00` / `56.38` / `0000397010 / 1941821` / `8888188 BLACKOYSTERS` / the three labels | the amounts above the labels were read past one line only | past two lines, when neither carries an amount |
+
+c733 was listed under "an intermediate block before the final one". The replay shows the intermediate block is not
+the cause: the final block's `#` is.
+
+**Proof.** The three captures read 56.38 / 0.00 / 56.38 and 192.92 / 27.70 / 220.62 off the paper and pass the
+quality check. `RC39_TOTALS_UNREAD` is deleted and the test asserts no right parse is refused.
+`__tests__/costcoReceiptSections.test.js` › *RC-39* pins each shape and its limits (amounts behind a mark that do not
+close stay unread; a second line is crossed only when amountless; a third never).
+
+**Blast radius, measured.** 242 captures judged (the committed corpus and the 150 parked): 6 change, all of them these
+papers and `215cu` c725 (RC-56). The quality check passes 139, was 133. No parser reading changed: 83 of the 150 parked
+close before and after.
+
+| Receipt | Warehouse | Scanned | Build | What | Status |
+|---|---|---|---|---|---|
+| `r_1794004639294_qzjpq` (c666) | Gloucester #1362 | 2026-11-06 | Android 3.5.0 | right parse refused `totals_unread` | *covered by #579* |
+| `r_1794010193111_uj09h` (c667) | Gloucester #1362 | 2026-11-06 | Android 3.5.0 | the same | *covered by #579* |
+| `r_1794275895723_yk4ud` (c733) | Trois-Rivières #518 | 2026-11-09 | not looked up | the same | *covered by #579* |
 
 ## RC-40 · A two-digit Costco item number stays in the name (84 COKE) (fixed, hotfix 2026-11-06)
 
@@ -2130,9 +2158,9 @@ member row. `resolveSlashlessCouponRefs` puts the slash back only for an item nu
 | Receipt | Pass | After #577 | Cause |
 |---|---|---|---|
 | `o31au` | c652 | **closes** (306.81) | RC-54 |
-| `yk4ud` | c733 | **closes** (192.92, 8 of 8); refused by the quality check as `totals_unread` (RC-39 family: an intermediate block before the final one) | RC-55 |
+| `yk4ud` | c733 | **closes** (192.92, 8 of 8); refused by the quality check as `totals_unread` (RC-39 family: an intermediate block before the final one). *Covered by #579: the quality check passes it* | RC-55, RC-39 |
 | `yk4ud` | c734 | open: the geometry reading is right (192.92) but its `TAXE` row is empty and `**** TOTAL 220.62 27.70` carries both amounts; moving 27.70 back would be the "re-zip one label later" design rule 2 forbids | — |
-| `215cu` | c725 | open: TOTAL printed `128,13` for 128.43 (one OCR digit). c727 closes | OCR, no rule |
+| `215cu` | c725 | open: TOTAL printed `128,13` for 128.43 (one OCR digit). c727 closes. *Covered by #579: the TOTAL is the amount paid* | RC-56 |
 | `egy2e` | c719 | open: `9.0 - FP`, `11.45` for 11.49, TOTAL `2`. c720 closes | OCR, no rule |
 | `j3b5t` | c802, c803 | open: the photo's right edge cuts the last digit of every amount (`6.9)`, `12.4)`, `3,0)-`, `118.9)`). Refused in production (`totals_unread`) | photo, the gate's |
 | `6ijmw` | c762, c763 | open: tilt 0.7° but rows welded across each other (`2003373 FATRLIFE / 1121754 49.99`, `1950599 / LUNCH 1487204 PLATES 15.99 7.00 H`) and prices a row off; refused in production (`items_sold_mismatch`) | photo (curl), geometry |
@@ -2201,6 +2229,52 @@ LEVURE: the second PEKKLE's 3.00 came off LEVURE, and ADIDAS CHAUS's second 10.0
 
 **Fix.** A MULTIPLE coupon reduces the item printed on the row right above it (its item number's line); when that row is
 not an item row (the flat text's bare price), the line parsed last, as before.
+
+## RC-56 · The TOTAL row misread by one digit (fixed, #579, 2026-11-13)
+
+**Printed shape (215cu c725, Pointe-Claire #528, 2026-11-05).** The paper prints `**** TOTAL 128.43`. Vision read the
+row as `128,13`. Below the block the payment prints the amount paid again, and the summary the tax:
+
+```
+SOUS-TOTAL
+TAXE
+18.99 F
+6.00-F
+122.39
+**** TOTAL
+6.04
+128.13            ← the paper prints 128.43
+2026/11/05 16:17:48
+…
+TOTAL TAXES
+128.43            ← the amount paid (its MONTANT label is removed by the compliance cleanup)
+0.00
+3.59
+2.45
+6.04
+```
+
+**What goes wrong.** 122.39 + 6.04 is not 128.13, so no assignment of the block's amounts closes and
+`readTotalsSection` reads nothing: subtotal, tax and total unread. The lines are right (122.39 after RC-51) and the
+phone's total is right (128.43), but the quality check answers **refuse · totals_unread** and the desk shows the total
+unverified. Design rule 2 said an amount that cannot be placed is never guessed, so the paid amount was not looked at.
+
+**Fix (design rule 2's one exception; Maxim, 2026-11-13: "yes").** When the block does not close, and its own
+SUBTOTAL and TAX (in print order, tax at most 20 % of the subtotal) add up to an amount printed on its own line below
+the block and above the footer, and the TOTAL as read has the same number of digits as that amount and differs in
+exactly one, the TOTAL is that amount (`bound.total = "payment"`). Only one reading of the block may give it. It
+also applies when the three amounts print beside their labels. The SUBTOTAL and the TAX are never taken from below.
+
+**Proof.** c725 reads 122.39 / 6.04 / 128.43 and passes. `costcoReceiptSections.test.js` › *a TOTAL misread by one
+digit* pins the refusals: no amount below, a different amount below, two digits off, a lost digit, an amount in the
+footer, and a block that already closes.
+
+**Blast radius.** Production was not searched for the shape (it needs each receipt's OCR replayed); on the 242
+captures only c725 takes this path.
+
+| Receipt | Warehouse | Scanned | Build | What | Status |
+|---|---|---|---|---|---|
+| `r_1794274792193_215cu` (c725) | Pointe-Claire #528 | 2026-11-09 | not looked up | right reading refused `totals_unread`; c727 of the same paper closes | *covered by #579* |
 
 ---
 
