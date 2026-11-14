@@ -15013,3 +15013,20 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Root cause: the test set the queue row's `saving_ends` to `dateStr(1)`, which is yesterday **in UTC**. From 00:00 to 05:00 UTC that date is still today in Ontario, where the saving's end is judged (`isItemClaimable`, the buyer's province day). The saving had not ended, the row stayed pending, and the next test drained it as a third drop.
 - Fix: `dateStr(2)`. Two days ago is past in every Canadian time zone.
 - Detect next time: a date test that fails only in the evening (Eastern) is this. Memory note `ci-runs-at-utc-date-tests`: a date test must hold for every hour, not only the hour CI runs at.
+
+## 381. Every receipt photo stopped uploading and the admin desk lost every photo: an env variable was renamed and the code still read the old name (reported 2026-11-14; `hotfix/receipt-desk-missing-deposits-queue-ui`)
+
+- Date: 2026-11-14 · Area: `backend/storage/r2.js`, `backend/lib/productImages.js`, new `backend/storage/r2Account.js`.
+- Symptom: from ~04:00 UTC, every receipt saved with no photo (`image_object_key` NULL: 6 of 6 receipts in the first two hours), and every receipt the admin opened on the desk had no photo. Production log: `[receipts] presign failed: R2 storage requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET` and `[admin] receipt image get-presign failed: …`.
+- Root cause: #576 (2026-11-13) made `CLOUDFLARE_ACCOUNT_ID` the one Cloudflare account id (R2 and Workers AI), and `R2_ACCOUNT_ID` was then deleted from every Railway service, as planned. Both R2 clients still read only `R2_ACCOUNT_ID`. The name on Railway was checked and correct (`CLOUDFLARE_ACCOUNT_ID`, 32 hex characters, no whitespace). The deletion only took effect at the next restart, which is why it showed up hours after the variable was removed.
+- Fix: `storage/r2Account.r2AccountId()` reads `CLOUDFLARE_ACCOUNT_ID` and nothing else (Maxim: the old name is cleaned up, not kept as a fallback). Both clients call it. `tests/r2Account.test.js` fails if either client, `.env.example` or `server.js` names the old variable again.
+- Recovery: a receipt saved without its photo is not lost. The phone keeps the photo and asks for a new upload URL later (`NO_RECEIPT_UPLOAD_STORE_DOWN`, sync audit D7), and that request succeeds once the fix is deployed.
+- Detect next time: before deleting an env variable, `grep -rn "<NAME>" backend --include=*.js`. A rename is code first, then the variable deleted on Railway, never the reverse. `/health`'s storage probe used `CLOUDFLARE_ACCOUNT_ID` already, so it read green the whole time: a health probe has to use the same account id as the feature it reports on.
+
+## 382. A receipt that matched its printed items-sold count failed the count check: deposit and eco-fee lines without the fee flag were counted as items (reported 2026-11-14; `hotfix/receipt-desk-missing-deposits-queue-ui`)
+
+- Date: 2026-11-14 · Area: `shared/receiptChecks.js` (`items_sold`, `skus_present`), new `shared/feeLines.js`.
+- Symptom: `r_1794632314163_5put6` prints `ITEMS SOLD 16`. The reading confidence counted 18, `items_sold` failed, and the app could not approve the receipt.
+- Root cause: the register never counts a deposit or an eco fee as an item sold. The check counted every line not flagged `ignored`. The receipt's `ENVIRO FEE N CL/2067612` and `DEPOSIT` lines were saved from the desk's line editor with no flag (typed lines carry none; desk log `17 → 18 lines`). The server already knew they were fees (`lib/feeLines.isFeeLine`: the flag, or a fee name) and never priced or watched them. The check ignored that rule.
+- Fix: the fee rule moved to `shared/feeLines.js` (one definition, synced to `backend/shared`; `lib/feeLines` re-exports it). `evaluateReading` treats a line as a fee by that rule, so `items_sold` and `skus_present` leave out an unflagged fee. Test: `__tests__/receiptChecks.test.js` "a fee line is never an item sold" (fails without the change).
+- Detect next time: when `items_sold` reads `printed N, lines N+k`, look for fee lines first.
