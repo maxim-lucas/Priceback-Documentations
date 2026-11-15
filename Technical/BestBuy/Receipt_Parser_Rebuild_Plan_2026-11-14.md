@@ -161,6 +161,20 @@ the specification as a second step, when it has a reason to change.
 Later, each its own piece of work: the SKU catalogue check on save (stage 12, against the Best Buy feed); the
 online format moved onto the kit; Best Buy's sections on the server (specification §8); a Best Buy `email` format.
 
+### Outcome (2026-11-15, `feat/bestbuy-instore-parser-rebuild`)
+
+Steps 1 to 10 are done. Measured with `RECEIPT_REPORT=1 npx jest __tests__/bestBuyCaptureVariance.test.js`:
+`c678` and `c679` proven with every field right (date 2025-11-28, store 627, SKU 19204882, 3,699.99 / 481.00 /
+4,180.99); `c773` and `c774` unreadable (`photo_quality`); `c775` and `c776` unproven, totals right, the name
+marked as hard to read; **0 wrong fields in six captures**. The earlier capture and the eight online fixtures pass
+their pinned expectations; the Costco freeze is green and no frozen file was touched. The shape as built:
+`Receipt_Parser.md` §1.
+
+The hardening pass found one regression of the rebuild itself before it shipped: the new slip reader stamped
+`ignored` on every line with its service rule only, and the pipeline's later fee stamp keeps an explicit flag, so
+an eco fee or a deposit would have been watched as a product. The reader now takes the pipeline's own fee rule
+(`deps.isFeeLine = isIgnoredItemName`); pinned by the eco-fee case in `bestBuyReceiptParser.test.js`.
+
 ### What "done" means for this plan
 
 - All seven captures of the Orleans receipt: **0 wrong fields**. The three sharp ones (`PXL…`, `c678`, `c679`)
