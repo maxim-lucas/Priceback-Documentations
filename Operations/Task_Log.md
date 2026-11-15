@@ -25,7 +25,7 @@
 - **Status (2026-11-14):** docs PR open (#227), no code changed.
 - **Rebuild done (2026-11-15, `feat/bestbuy-instore-parser-rebuild`):** plan steps 1 to 10. New: `src/services/storeReceiptKit/` (the non-Costco pre-filter), `src/services/bestBuyReceipt/` (format, sections, identity, grammar, balance, inStore), `src/utils/readingReview.js`, the scan screen's unproven / unreadable states (EN + FR). Deleted: `bestBuyReceiptSections.js`. Six production captures are fixtures.
 - **Measured:** scorecard 0 wrong fields in six captures (`c678`, `c679` proven; `c773`, `c774` unreadable; `c775`, `c776` unproven with totals right). Mobile suite 13,341 of 13,352: the 11 failures are the ones already red on `main` (trackingClock, paywallAnnualBadge, adjustmentWindowTimezone.matrix). `i18n:check` in sync (1,900 keys). Costco freeze green. No backend file changed, so no backend test was run.
-- **Caught before shipping:** the new reader skipped the pipeline's fee flag (eco fee, deposit); it now takes the pipeline's own rule. Bugs #383.
+- **Caught before shipping:** the new reader skipped the pipeline's fee flag (eco fee, deposit); it now takes the pipeline's own rule. Bugs #384.
 - **Old app builds:** none affected; the parser runs on the phone and no route, field or migration changed.
 - **Open:** more real Best Buy paper receipts (still one receipt, one product); the online format on the kit; the SKU catalogue check; the generic email body parser.
 
@@ -12593,3 +12593,12 @@ Maxim's (he made them). Asked.
 - **Done:** `storage/r2Account.js` (reads `CLOUDFLARE_ACCOUNT_ID` only, old name removed from the code and `.env.example`); `shared/feeLines.js`, which the checks now use for the count; the clearance "send" responds every time, shows dimmed when nothing qualifies, and explains why, with a way to skip; the queue card's links are one row of small chips (Receipt · Shopper · Other read).
 - **Tests:** mobile full suite 13,160 of 13,171 (the same 11 pre-existing failures as on untouched `main`: trackingClock, paywallAnnualBadge, adjustmentWindowTimezone.matrix); backend 13 files in the blast radius on dev, 196 of 197 (1 skipped: no R2 keys locally).
 - **Not done:** `r_1794632314163_5put6`'s two fee lines are still stored without the flag. The check no longer counts them, so no datafix is needed for the count.
+
+## 2026-11-15 — Hotfix: the price-drop reminder email never sent from the server (hotfix off main)
+
+- **Ask (Maxim):** the drop-reminder job emailed last week should have fired a few times since and did not. Fix it and send it now.
+- **Found:** every server run since 2026-11-08 failed with `Connection timeout`. Railway blocks outbound SMTP, so Zoho is unreachable from the container. Nov 8 had been sent from a PC. Bugs #383.
+- **Sent now:** 39 shoppers, 57 drop lines, from this PC on Zoho port 587 (Avast intercepts 465 with an untrusted root). `lastRun` = 2026-11-15 14:49 UTC.
+- **Code:** Resend HTTPS route in `lib/supportMailer.js`; the job stops on a fatal refusal and does not restart the cadence when it sent nothing; `failureAlert` + `raiseAlert` in `server.js`.
+- **Tests:** `tests/dropReminderEmails.test.js` + `tests/unreachableDropEmails.test.js`, 66 of 66 (no DB). The cadence mutation turns 2 tests red.
+- **Owed:** Maxim verifies `priceback.ca` in Resend. Until then the next scheduled run (≈ 2026-11-18 19:00 UTC) is refused, and that refusal raises the alert.
