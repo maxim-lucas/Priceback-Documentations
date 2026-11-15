@@ -806,6 +806,15 @@ PARSER
     store-gated and a new store inherits none of Costco's
 [ ] the negative case is written (proof the signal CAN fire)
 
+GROUND RULES (Receipt_Ground_Rules.md)
+[ ] no figure comparison written in the parser, a screen or a route: G1 … G5
+    come from shared/receiptGroundRules.js, paper checks from receiptChecks
+[ ] if the store has its own totals reader, ONE entry in ESTABLISHERS
+    (receiptPrintedTotalTrust.js) — never joined to another store's entry
+[ ] the store's captures run in receiptGroundRules.corpus.test.js, green:
+    no capture shown with impossible figures the paper does not establish
+[ ] a total that cannot be placed is UNREAD, never the next bare amount
+
 LANE
 [ ] LAB_STORE_PARSERS + LAB_ONLY_STORES both updated
 [ ] promotion bar stated honestly in the PR
@@ -847,4 +856,5 @@ GO-LIVE
 | **Best Buy + Abercrombie, landing on `main`** (2026-10-28) | Two new standing rules: a finished store ships in every build **admin-only** (`ADMIN_PREVIEW_STORES`), and **Costco shares no code** a non-Costco change could reach it through — so store detection claims and parser signals live in the registry, and the shared parser is frozen by hash. Porting a month-old branch: `main` had moved the test-data markers, the Costco files and the claim-window model, so ported tests asserted September's behaviour. A bot wall can appear between two measurements: A&F served HTML to Node in September and a JavaScript "Client Challenge" in October, even from Canada. |
 | **Best Buy, the admin's first production scan** (2026-11-14) | One receipt, six captures, one read. The format (slip or online order) hung on one exactly-read `S` in a shared detector; a denoise step that fails open let a damaged `SUBTOTAL` label through as a product; "reconciled" was true with no printed total read. The corpus held one capture of that receipt, and it passed. A corpus is receipts × captures, and a decision never rests on one glyph. → `Receipt_Parser_Specification.md`, `BestBuy/Receipt_Parser_Rebuild_Plan_2026-11-14.md`. |
 | **Best Buy, the in-store slip rebuilt** (2026-11-15) | A store reader that returns its own `ignored` flag on every line switches off every later stamp that respects an explicit flag: the rebuilt slip reader would have watched eco fees and deposits as products. A rule the pipeline already owns (the fee rule) is handed to the store's reader, never re-written or skipped inside it. And a scorecard per capture (right / honest / wrong, bar: zero wrong) is what shows a rebuild is better, where a green suite on one capture did not. → `BestBuy/Receipt_Parser.md` §1.3, §1.4. |
+| **Costco, the ground rules** (2026-11-15) | A receipt was shown as Subtotal $192.89 · Total $7.45: a total reader borrowed the next bare amount under a label-only TOTAL, and nothing anywhere asked whether a total can be below its lines. What any receipt must be (G1 … G5) is now one shared function every screen, check and reader calls, and a new store adds no comparison of its own: it declares how its paper establishes a total, and its captures enter the corpus test. → `Receipt_Ground_Rules.md`, RC-57. |
 | **Home Depot, Rona, Sport Chek, Best Buy — while locked** (2026-11-09) | A locked store reached a shopper's list without a single scan: the mailbox import skipped `isStoreEnabled`, and the server accepted any store code. 12 junk receipts reached one account in one second; each item was an email subject. Every entry path asks, and the server refuses (§2.2). Refused scans are now held with their photo for the admin, and that hold is the first place to look for a new store's real corpus (§2.3). |

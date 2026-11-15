@@ -2276,6 +2276,57 @@ captures only c725 takes this path.
 |---|---|---|---|---|---|
 | `r_1794274792193_215cu` (c725) | Pointe-Claire #528 | 2026-11-09 | not looked up | right reading refused `totals_unread`; c727 of the same paper closes | *covered by #579* |
 
+## RC-57 · A bare amount borrowed under a label-only TOTAL, below the lines (ground rule G4; open, 2026-11-15)
+
+**Printed shape (k06zo, Candiac #556, 2026-11-14).** The photo lost the amounts of the last rows and of the totals
+block. What Vision kept of the block is two labels read (`TAKE` is `TAXE`) and one amount, which is an item's price:
+
+```
+417607 PAINS BELGE
+17911 CANARD FRAIS
+1043818 PAINS C ABAT
+88426 CONCOMBRES
+SOUS-TOTAL
+TAKE
+**** TOTAL
+7.45             ← an item's price, not the total
+```
+
+**What goes wrong.** The phone stamps `printedTotal` with the older reader,
+`receiptParsingShared.extractPrintedTotal` (`src/services/receiptParsingShared.js`, introduced in `c1fe69a6` #133,
+first shipped in **v2.8.2**; the next-line borrow in `0524e160`, 2026-07-09). Under a label-only `**** TOTAL` it
+takes the next bare amount: 7.45. The scan screen then locked 7.45 as the printed total against 15 lines summing
+192.89, and the receipt was stored and shown as *Subtotal $192.89 · Total $7.45*. The sections reader
+(`readTotalsSection`, design rule C4) reads **no** total from the same block: two labels read, one amount, nothing
+closes. Two readings of the same paper disagreed, and the screen trusted the one that guesses.
+
+**Proof.** `__tests__/receiptGroundRules.test.js` replays the stored OCR (`receipts.raw_ocr`) and the 15 stored line
+totals: `groundRuleViolations` returns G4; `establishPrintedFigures` establishes no total; `settlePrintedTotal`
+clears the borrowed 7.45 and shows lines + tax with `totalUnread`. Neutralising only the input (an amount on the
+`**** TOTAL` row equal to the lines) keeps the printed total locked.
+
+**Fix shipped (hotfix/receipt-ground-rules).** Not a parser change. The ground rules
+(`Technical/Receipt_Ground_Rules.md`): the scan review keeps a printed total that breaks G4 only when the paper
+establishes it (`src/services/receiptPrintedTotalTrust.js`), otherwise the total is unread and the shopper types it;
+both receipt screens say when stored figures break G3/G4/G5; the desk and every AI proof run `ground_rules`.
+
+**Proposed parser change (needs Maxim's confirmation, frozen Costco files).** Replace `extractPrintedTotal` inside the
+Costco parse with `establishPrintedFigures` (`shared/receiptPrintedFigures`), so the phone has one reading of the
+totals block, not two.
+
+**Blast radius (prod, SELECT only, 2026-11-15).** 352 live receipts, 3 break G4. 120 committed captures: one has a
+borrowed total cleared (`vdxrw`, whose re-OCR reads the TOTAL as `× 13.62` for 313.62); none would be shown with
+impossible figures.
+
+| Receipt | Store | Scanned | Build | What | Status |
+|---|---|---|---|---|---|
+| `r_1794697475248_k06zo` | Costco Candiac #556 | 2026-11-14 | not looked up | lines 192.89, tax 0.00, total 7.45 (borrowed) | still wrong; not reviewed, not repaired |
+| `r_1793483582333_nomr1` | Costco | 2026-10-31 (reviewed) | not looked up | lines 117.43, tax 6.44, total 77.88; edited by the shopper 2026-11-12 | still wrong; root cause not replayed |
+| `r_1794019452286_cj1k9` | Home Depot (mailbox import) | 2026-11-07 | n/a (server import) | lines 119.96, tax 7.80, total 67.78 | still wrong; a locked-store import, root cause not replayed |
+
+The last two break the same ground rule but have not been replayed to the stored lines, so RC-57 is not yet proven
+for them (register rule 1). They are listed so the G4 case list is complete.
+
 ---
 
 ## Earlier root causes (before this register)

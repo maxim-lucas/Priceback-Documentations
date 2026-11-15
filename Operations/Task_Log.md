@@ -16,6 +16,14 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-15 — Receipt ground rules: checks that must never fail, for every store (hotfix off main)
+
+- **Asked (Maxim):** *"some receipts (one example from yesterday showing subtotal 192.89$ and 7.45$ in total) doesnt make any sense … make sure that everything should seem logic and meaningful when a receipt is scanned on both UI (user and admin) and create ground rules as checks that should never fail on parsing, developing (coding), roadmap … available for all store parser and you can create some for costco in depth … documented and cross checked on future development too."* Branch: `hotfix/receipt-ground-rules`.
+- **Found:** `r_1794697475248_k06zo` (Candiac #556): the photo lost the totals column, `extractPrintedTotal` borrowed an item's 7.45 under a label-only `**** TOTAL`, the scan screen locked it. RC-57, Bugs #385. Prod (SELECT only): 3 of 352 live receipts break G4.
+- **Done:** `shared/receiptGroundRules.js` (G1 … G5) + the `ground_rules` check in `shared/receiptChecks`; `src/services/receiptPrintedTotalTrust.js` (scan review); `receiptFiguresNotice` (both receipt screens); desk label; corpus test. Doc: `Technical/Receipt_Ground_Rules.md`; standing rule in `CLAUDE.md`; PR template line.
+- **Not done (Maxim's call):** replacing `extractPrintedTotal` in the frozen Costco parser (RC-57 proposed change); turning on the quality check's `totals` / `balance` refusal; repairing the 3 stored receipts.
+- **Old app builds:** server change additive (one more check row); no refusal added.
+
 ### 2026-11-14 — Receipt parser specification for every store; Best Buy in-store parser rebuild (base: main)
 
 - **Asked (Maxim):** *"when i scanned a best buy receipt (admin activated only now) in production the result is really bad, no sku was catched, no product was detected … i want the best buy to have a specific parser as costco … parser (others than costco) can have shared code as a prefilter, all parser should remove noise and filter the real receipt content, header and footer then proceed (same logic always) … another user used email sync and a lot of receipts for other store came and all was not parser correctly. i want you to plan the full specifications on how to create a successful parser then attack the best buy receipt problem. plan should be documented and available always for next developments"*. Branch asked → **`main`**.
