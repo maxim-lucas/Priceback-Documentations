@@ -12580,3 +12580,12 @@ Maxim's (he made them). Asked.
 - **Done:** `storage/r2Account.js` (reads `CLOUDFLARE_ACCOUNT_ID` only, old name removed from the code and `.env.example`); `shared/feeLines.js`, which the checks now use for the count; the clearance "send" responds every time, shows dimmed when nothing qualifies, and explains why, with a way to skip; the queue card's links are one row of small chips (Receipt · Shopper · Other read).
 - **Tests:** mobile full suite 13,160 of 13,171 (the same 11 pre-existing failures as on untouched `main`: trackingClock, paywallAnnualBadge, adjustmentWindowTimezone.matrix); backend 13 files in the blast radius on dev, 196 of 197 (1 skipped: no R2 keys locally).
 - **Not done:** `r_1794632314163_5put6`'s two fee lines are still stored without the flag. The check no longer counts them, so no datafix is needed for the count.
+
+## 2026-11-15 — Hotfix: the price-drop reminder email never sent from the server (hotfix off main)
+
+- **Ask (Maxim):** the drop-reminder job emailed last week should have fired a few times since and did not. Fix it and send it now.
+- **Found:** every server run since 2026-11-08 failed with `Connection timeout`. Railway blocks outbound SMTP, so Zoho is unreachable from the container. Nov 8 had been sent from a PC. Bugs #383.
+- **Sent now:** 39 shoppers, 57 drop lines, from this PC on Zoho port 587 (Avast intercepts 465 with an untrusted root). `lastRun` = 2026-11-15 14:49 UTC.
+- **Code:** Resend HTTPS route in `lib/supportMailer.js`; the job stops on a fatal refusal and does not restart the cadence when it sent nothing; `failureAlert` + `raiseAlert` in `server.js`.
+- **Tests:** `tests/dropReminderEmails.test.js` + `tests/unreachableDropEmails.test.js`, 66 of 66 (no DB). The cadence mutation turns 2 tests red.
+- **Owed:** Maxim verifies `priceback.ca` in Resend. Until then the next scheduled run (≈ 2026-11-18 19:00 UTC) is refused, and that refusal raises the alert.
