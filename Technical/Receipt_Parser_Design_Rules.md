@@ -10,7 +10,9 @@
 >
 > Related: `Technical/Receipt_Parser_Root_Causes.md` (what went wrong, case by case — the *input* to this design,
 > never the design itself), `Technical/Receipt_Parser_Registry_And_Store_Parsers.md` (one parser per store),
-> `Technical/Adding_A_New_Store.md`, `Technical/Receipt_Photo_Quality_Gate.md`.
+> `Technical/Adding_A_New_Store.md`, `Technical/Receipt_Photo_Quality_Gate.md`,
+> `Technical/Receipt_Parser_Specification.md` (the build specification for any store's parser: stages, contracts,
+> corpus and bar; draft of 2026-11-14).
 
 ---
 
