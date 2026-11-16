@@ -12642,3 +12642,14 @@ can be called for them.
 
 **Reverted from 11-12 without being asked before, now asked:** posts cast a vote again; a rule-of-N price is a real
 drop.
+
+## 2026-11-16 — Support: an Unlimited subscriber cannot scan; hotfix: the RevenueCat key's byte-order mark (hotfix off main)
+
+- **Ask (Maxim):** Jason (Unlimited, monthly, Android 3.6.2) wrote that he cannot scan a new receipt, even after clearing the app's storage and signing in again. Maxim suspects his negative balance (−120) and says subscribers must have no limits. Then: hotfix the BOM on `main`, draft a support email asking for what we need (no mention of our side or the balance); Maxim credits the balance himself.
+- **Found:**
+  - Server side he is fine: Unlimited, active until 2026-12-07, RevenueCat agrees; receipt save and offline scans charge him 0 (`isCreditExempt`). The −120 is three price-drop charges from 2026-11-06, before he subscribed.
+  - No scan of his has reached `/api/ocr` since he subscribed (last `ocr_captures` row 2026-11-06), so he is stopped on the phone, before the read. The phone's gate `canAddReceipt()` trusts its local premium cache; when the cache is missing it falls back to `balance > 0`, which a negative balance turns into the paywall. Not proven to be his screen: one device on his account had the cache set at 18:17. Logs before 18:14 were lost to today's redeploys. Asked Maxim for Jason's screenshot.
+  - Separate, confirmed: every subscription sync 503'd because `REVENUECAT_SECRET_KEY` began with a BOM. Bugs #386.
+- **Done:** `lib/envSecret.js`; the server reads the key through it; the health probe judges a header-unsafe key `rejected` / `key_malformed`. Railway value re-pasted.
+- **Tests:** 9 backend files touching the key, 84 of 84 (run one file at a time; in parallel they hit the pooler's 15-connection cap). Both fixes mutation-tested.
+- **Open:** Jason's screen. If it is the paywall, the phone should ask the server whether the account is credit-exempt instead of trusting its cache (needs a build).
