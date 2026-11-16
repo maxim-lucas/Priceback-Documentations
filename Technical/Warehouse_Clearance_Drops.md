@@ -25,6 +25,39 @@ Either way the group's crowd rows are stamped `flags.warehouseClearance` (`markC
 
 The server builds the line list itself (it never trusts the request). "Send" is refused with `409 DELIVERY_PAUSED` while delivery is paused in the price-drop queue.
 
+## Clearance at other warehouses: its own list (Maxim, 2026-11-16)
+
+> *"potential price drops show unverified price for a clearance price drop (ending *.97$) but there is no way to verify it and when i click send without charge, i have an error message because clearance are warehouse handled only (which is good for the block) but all these price drops if not in the same warehouse doesnt need to be in potential price drop, it should be separated in a list or filter (inactive by default)"*
+>
+> *"the rule of split applies on any source but only on different warehouse but same province and clearance only"*
+
+**The rule** (one definition: `backend/lib/potentialDropLists.isClearanceElsewhere`):
+
+| Condition | Meaning |
+|---|---|
+| Clearance only | The price ends in .97 (`costcoPriceRules.classifyPrice`). No other price ending is ever split off. |
+| Any source | The evidence's source is not read: another shopper's receipt, a tag, a website post or the flyer all count the same. |
+| Same province, other warehouse | A card is one (product, province, price), so every line on it is in the province. The card is split off when **no** line was bought at a warehouse the clearance was seen at (`sameWarehouse` false on every line). A line whose warehouse was not recorded does not match a warehouse either. |
+
+A .97 card with at least one same-warehouse line stays on the main list: it can be sent without charge, and that send skips its other lines.
+
+**Where it is read:**
+
+- `GET /api/admin/potential-drops` puts `clearanceElsewhere` on each card and adds `clearanceElsewhereCount`. Both are additive; `count` and `lineCount` keep their old meaning (every card).
+- The admin push alert (`jobs/adminAlerts`, `listPotentialKeys` in `server.js`) never announces such a card.
+- The app splits the cards into **Potential price drops** (default) and **Clearance at other warehouses** (a chip, off by default). The app falls back to "a .97 with no same-warehouse line" only for a server that sends no `clearanceElsewhere`.
+
+**Select all (both lists, and the held drops):** the price-drop queue's bulk bar.
+
+- Main list: *Not a real price* / *Verify selected* / *Verify and skip selected*.
+- Clearance list: *Clearance · skip selected*. There is no bulk send: a clearance is sent one card at a time, after a look.
+- Held low-confidence drops: *Reject selected* / *Approve selected*, through the queue's own `POST /api/admin/price-drop-queue/bulk`.
+- Changing lists clears the ticks, so a hidden card is never decided blind.
+
+`POST /api/admin/potential-drops/bulk` takes `{ decision: verify | reject | skip | clearance_skip, groups: [{ productId, provinceCode, price }] }` (1 to 100 cards). It uses the same repo functions as the single routes. For `skip` and `clearance_skip`, the lines come from the server's own list (one `listPotential` read per call), never from the request. `verify` runs **one sweep per province** instead of one per card. A card that is no longer waiting, or a non-.97 card sent to `clearance_skip`, is reported in `skipped` with its reason, and the other cards still go through. **Cost:** one bulk call replaces N single calls, and N province sweeps become one per province.
+
+**Card design:** the cards now follow the price-drop queue's structure: a tick, the position and the name in the head row; bordered badges; a *paid → unverified price* row; link chips. They keep the Potential desk's amber colours. The button reads **Sold by the pack** (the server route and column keep their old `weighted` names).
+
 ## Why it is never charged, now or later
 
 `sendClearanceDrops` writes through the **one ledger writer**, `priceDropRepo.recordNotified`, with `chargeFor: () => 0`. That keeps the per-line advisory lock, the "already told at this price or lower" guard and the unique index, and debits nothing.
