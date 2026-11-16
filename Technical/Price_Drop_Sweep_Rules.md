@@ -89,7 +89,6 @@ A trusted drop is held on Potential only when something says it is **not a drop 
 | `listed_at_warehouse` | a Same-Day saving is not listed at the receipt's warehouse, or the receipt names none (a flyer saving covers the province) |
 | `dates_valid` | no end date, dates in the wrong order, ended, or months long |
 | `bought_in_window` | bought after the saving ended, or the store window is closed |
-| `not_weighted` | sold by weight |
 | `plausible_discount` | the saving is more than half the price |
 | `within_limit` | the quantity is over the saving's limit |
 | `no_tpd_on_paper` | the paper prints a TPD for the item (no text to check does not hold it) |
@@ -123,10 +122,50 @@ One definition: `priceDropTier.canApproveWithoutCharge` shows the button and gua
 
 ### 7. The confidence score follows these rules
 
-- 13 counted checks (14 before: the name left).
+- 12 counted checks (14 before: the name left, and "not sold by weight" left with rule 8).
 - `plausible_discount` compares the saving with the price when one is known. The harvest's `deepDiscount` flag
   decides only when no price is known.
 - 100% still means every counted check passed, and only 100% is flagged for automatic approval.
+
+### 8. Sold by the pack: always the full saving
+
+> *"weighted items or sold by the pack should never have a less saving, if the official saving is 6$ for the pork and
+> there is a saving of 6$ the user should get a drop for the full 6$, this is always on by the pack (meat, chicken,
+> fish, shrimp, ...etc) or any weighted items, weighted items is the same as by the pack i prefer to consolidate the 2
+> concept if they differ today and always have by the pack mention instead"* (Maxim, 2026-11-16)
+
+**One concept: sold by the pack.** "Weighted" is the same thing and is no longer a separate rule. A product is sold by
+the pack when any of these holds, and then it is sold by the pack in every province:
+
+- an admin flagged it (`products.is_weighted`, the button now reads **Sold by the pack**);
+- one Same-Day harvest run prints 3 or more different regular prices for it in any one province;
+- its saving was read with a per-weight size (`savings.flags.weighted`).
+
+For such a product:
+
+- **The drop is the full saving:** new price = what the shopper paid less the saving. Never another pack's shelf
+  price.
+- It is offered from an official saving only. It has no price-group drop and no Potential card (one pack's price is
+  no other pack's new price).
+- The card says "sold by the pack (each pack its own price)".
+
+One definition: `priceDropRepo.soldByThePackIn` (SQL), read by the savings sweep, the price-group sweep, the
+Potential list and the confidence.
+
+**What was wrong.** Two things. A product flagged as weighted, and a saving read per weight, were never offered a
+drop at all. And the harvest test was per province: on 2026-11-16 the pork back ribs (SKU 31111) printed 9 pack
+prices in Ontario and 7 in Alberta in one run, but 1 and 2 in Quebec. So a Quebec shopper who paid $26.57 was
+queued a $2.15 drop (#12639, priced off a $24.42 pack) for a $6.00 saving.
+
+Regional pricing is not packs: the count stays per province, so one price in each of three provinces is still a
+fixed-price item.
+
+**Production on 2026-11-16, read only, with this rule:** the savings sweep finds 10 drops, 6 of them sold by the
+pack, all 6 for exactly their saving. The ribs line is $26.57 → $20.57. Five are Kirkland chicken breasts ($6 and $2
+savings) that were not offered before. The query took 0.5 s.
+
+**The row already waiting.** #12639 waits at $24.42. The sweep stages the $20.57 drop as a new row; the queue's
+hygiene then closes the $24.42 row (a waiting, undecided row is closed when the same line waits at a deeper price).
 
 ## What stays from 2026-11-12
 
@@ -160,9 +199,8 @@ Read with the desk's own code against production (no write, no Same-Day request)
 | #12654 | Dove conditioner, ON, wh 802 | 100%, queue | 100%, queue |
 | #12639 | Pork back ribs, QC, wh 556 | 85%, **Potential**: paid $26.57 against regular $30.42, and "$6.00 off $30.42" failed on a stale `deepDiscount` flag | 92%, **queue**: only "paid $26.57, regular $30.42" is left, shown on the card |
 
-#12639 is worth a look before approving: the saving is $6.00 and the drop is $2.15, because the shelf price is
-$24.42 and the shopper paid $26.57. Ribs are priced by the pack. The pack rule (`soldByThePack`) did not fire for
-this product; that is a separate question and was not changed here.
+#12639 was a $2.15 drop for a $6.00 saving: ribs are sold by the pack and the pack rule had not fired. Fixed the
+same day, see rule 8.
 
 ## Old app builds
 
@@ -205,5 +243,4 @@ copy of `main`): the test buyer's balance goes below zero, so the push is the lo
 
 - The push for a drop approved without charge is the ordinary drop push. It does not say the item may be out of
   stock. A new push text needs `en` and `fr` copy.
-- #12639 (pork back ribs): priced as a fixed-price item; the pack rule did not fire. Not changed.
 - No mutation run was made on the new tests.
