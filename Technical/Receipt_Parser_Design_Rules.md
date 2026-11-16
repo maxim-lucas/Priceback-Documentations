@@ -12,7 +12,8 @@
 > never the design itself), `Technical/Receipt_Parser_Registry_And_Store_Parsers.md` (one parser per store),
 > `Technical/Adding_A_New_Store.md`, `Technical/Receipt_Photo_Quality_Gate.md`,
 > `Technical/Receipt_Parser_Specification.md` (the build specification for any store's parser: stages, contracts,
-> corpus and bar; draft of 2026-11-14).
+> corpus and bar; draft of 2026-11-14), `Technical/Receipt_Ground_Rules.md` (what must be true of every reading at
+> every store, G1 … G5, and Costco's C1 … C12; Maxim, 2026-11-15).
 
 ---
 

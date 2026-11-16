@@ -2276,6 +2276,75 @@ captures only c725 takes this path.
 |---|---|---|---|---|---|
 | `r_1794274792193_215cu` (c725) | Pointe-Claire #528 | 2026-11-09 | not looked up | right reading refused `totals_unread`; c727 of the same paper closes | *covered by #579* |
 
+## RC-57 · A bare amount borrowed under a label-only TOTAL, below the lines (ground rule G4; open, 2026-11-15)
+
+**Printed shape (k06zo, Candiac #556, 2026-11-14).** The photo lost the amounts of the last rows and of the totals
+block. What Vision kept of the block is two labels read (`TAKE` is `TAXE`) and one amount, which is an item's price:
+
+```
+417607 PAINS BELGE
+17911 CANARD FRAIS
+1043818 PAINS C ABAT
+88426 CONCOMBRES
+SOUS-TOTAL
+TAKE
+**** TOTAL
+7.45             ← an item's price, not the total
+```
+
+**What goes wrong.** The phone stamps `printedTotal` with the older reader,
+`receiptParsingShared.extractPrintedTotal` (`src/services/receiptParsingShared.js`, introduced in `c1fe69a6` #133,
+first shipped in **v2.8.2**; the next-line borrow in `0524e160`, 2026-07-09). Under a label-only `**** TOTAL` it
+takes the next bare amount: 7.45. The scan screen then locked 7.45 as the printed total against 15 lines summing
+192.89, and the receipt was stored and shown as *Subtotal $192.89 · Total $7.45*. The sections reader
+(`readTotalsSection`, design rule C4) reads **no** total from the same block: two labels read, one amount, nothing
+closes. Two readings of the same paper disagreed, and the screen trusted the one that guesses.
+
+**Proof.** `__tests__/receiptGroundRules.test.js` replays the stored OCR (`receipts.raw_ocr`) and the 15 stored line
+totals: `groundRuleViolations` returns G4; `establishPrintedFigures` establishes no total; `settlePrintedTotal`
+clears the borrowed 7.45 and shows lines + tax with `totalUnread`. Neutralising only the input (an amount on the
+`**** TOTAL` row equal to the lines) keeps the printed total locked.
+
+**Fix shipped (hotfix/receipt-ground-rules).** Not a parser change. The ground rules
+(`Technical/Receipt_Ground_Rules.md`): the scan review keeps a printed total that breaks G4 only when the paper
+establishes it (`src/services/receiptPrintedTotalTrust.js`), otherwise the total is unread and the shopper types it;
+both receipt screens say when stored figures break G3/G4/G5; the desk and every AI proof run `ground_rules`.
+
+**Parser change (Maxim, 2026-11-16: "if we can optimize … get better results than the actual and the older ones,
+please optimize").** Measured before deciding: the parser's own reading 91 right / 0 wrong / 2 unread on the 93 Costco
+captures with a hand-read total; `establishPrintedFigures` alone 90 / 0 / 3. They miss different captures, so the
+parser now uses both (`applyHeaderFieldsFromRawText`): 92 / 0 / 1. Replacing one with the other would have lost a
+capture. Pinned in `receiptProdCaptures.test.js`; numbers and the golden-snapshot moves in `Receipt_Ground_Rules.md` §5.
+The total shown is now never blank (the chain `receiptTotalToShow`, same doc §2).
+
+**Blast radius (prod, SELECT only, 2026-11-15).** 352 live receipts, 3 break G4. 120 committed captures: one has a
+borrowed total cleared (`vdxrw`, whose re-OCR reads the TOTAL as `× 13.62` for 313.62); none would be shown with
+impossible figures.
+
+| Receipt | Store | Scanned | Build | What | Status |
+|---|---|---|---|---|---|
+| `r_1794697475248_k06zo` | Costco Candiac #556 | 2026-11-14 | not looked up | lines 192.89, tax 0.00, total 7.45 (borrowed); 6 lines lost to the curl; one coupon lost → a false drop (30 credits) | **repaired 2026-11-16** from the photo (21 lines, 265.94); refund of the false drop owed to Maxim's decision |
+
+The other two receipts that broke G4 were replayed and have other causes: `nomr1` is RC-58; `cj1k9` is not a receipt
+(a mailbox import of a locked store's email body, Bugs #368), to be rejected.
+
+## RC-58 · A line added by hand that the paper does not print (open, 2026-11-16)
+
+**Shape (nomr1, Rimouski #1720, 2026-10-31).** Scanned right and admin-reviewed the same day: 6 lines, SOUS-TOTAL 71.44,
+TAXE 6.44, TOTAL 77.88, 6 items sold. On 2026-11-12 a seventh line was added on the phone, `9626920`, 2 × 45.99, filed
+under a synthetic `ln:` product. The receipt then read lines 117.43 against its total 77.88.
+
+**What goes wrong.** Nothing in the phone's receipt editor compares an edit with the receipt's own figures: an edit that
+makes the total fall below the lines (G4) is saved without a word.
+
+**Proposed change (not made).** The receipt editor shows the ground-rules notice live (`receiptFiguresNotice`) and asks
+before saving an edit that breaks a figure rule, without refusing it (the shopper may be fixing a total the scan got
+wrong).
+
+| Receipt | Store | Scanned | Build | What | Status |
+|---|---|---|---|---|---|
+| `r_1793483582333_nomr1` | Costco Rimouski #1720 | 2026-10-31 | not looked up | a 2 × 45.99 line added 2026-11-12 | **repaired 2026-11-16** to the paper (6 lines, 77.88); the claimed line kept |
+
 ---
 
 ## Earlier root causes (before this register)

@@ -409,6 +409,7 @@ shows them as *not checked* rather than checked with Costco's rules.
 [ ] Noise vocabulary EN + FR; nothing scrubbed out of names afterwards
 [ ] Row grammar; identifier shape exact; every priced row accounted for
 [ ] Printed figures from the totals section only; unread is null
+[ ] Ground rules G1 … G5 from shared/receiptGroundRules.js, never re-written; captures in the corpus test (Receipt_Ground_Rules.md)
 [ ] Checks: unverified is not pass; reading state stamped
 [ ] Balance tries bounded; adopted only on landing; printed figures never re-derived
 [ ] parserSignals declared; the negative case tested
