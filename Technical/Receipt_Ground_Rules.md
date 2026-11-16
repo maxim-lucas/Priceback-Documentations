@@ -48,12 +48,31 @@ confidence, an AI reader's proof, the app approval) applies a **policy** to the 
 `groundRuleViolations({ items, total, tax, isRefund })` returns the broken rules (`id`, `code`, `detail`). The ids are
 stable: tests, the desk and this document name a rule by its id.
 
+### The total shown: never blank (Maxim, 2026-11-16)
+
+> *"the total should never be blank on scan or on tracking, should be the parsed total (if it makes sense), if
+> misparsed or unfound on parsing, the total of parsed items should be the fallback, 3rd fallback on scrambled results
+> is blank."*
+
+One function, `receiptTotalToShow({ items, total, tax, isRefund })` in `shared/receiptGroundRules.js`:
+
+| Step | Source | When |
+|---|---|---|
+| 1 | `read`: the total read | it is a number, not zero, and breaks no figure rule (G3, G4, G5) against the lines and the tax |
+| 2 | `lines`: the sum of the lines, plus the tax when the tax makes sense (its sign agrees, not above the lines) | step 1 failed and the lines are readable |
+| 3 | blank (`null`) | scrambled: no line, a line without a usable amount or quantity (G1/G2), or lines that sum to nothing |
+
+Callers: the scan review (`settlePrintedTotal` and `ScanScreen.applyScannedData`), both receipt screens
+(`receiptReviewTotals.receiptShownTotal` / `formatShownTotal`, "—" when blank) and the yearly spending sum
+(`receiptSpending.spentInYear`). At scan only, a printed total below the lines that the paper establishes (§4) is kept
+before the chain is asked: the lines are then the wrong side.
+
 ### What each consumer does with them
 
 | Consumer | Policy when a ground rule is broken |
 |---|---|
-| **Scan review (phone)** · `receiptPrintedTotalTrust.settlePrintedTotal`, called by `receiptParser.scanReceipt` after the validator | G4 on the parser's *printed total*: kept only when the paper establishes it (§4). Otherwise the total was never read: it is not locked, the review shows lines + tax and the notice `scan.totalNotRead`, and the shopper types the paper's total. |
-| **Receipt screens** (shopper `DetailScreen`, admin `AdminReceiptDetailScreen`) · `receiptReviewTotals.receiptFiguresNotice` | G3, G4, G5 on a stored receipt: both screens show the same sentence under the figures (`detail.figuresDontAddUp`). One function for both. |
+| **Scan review (phone)** · `receiptPrintedTotalTrust.settlePrintedTotal`, called by `receiptParser.scanReceipt` after the validator | A printed total that breaks a figure rule is kept only when it breaks G4 alone and the paper establishes it (§4). Otherwise the chain above: the lines' sum with `scan.totalNotRead`, or blank with `scan.totalScrambled`; the shopper checks or types the paper's total. |
+| **Receipt screens** (shopper `DetailScreen`, admin `AdminReceiptDetailScreen`) · `receiptReviewTotals.receiptShownTotal` + `receiptFiguresNotice` | G3, G4, G5 on a stored receipt: the total shown is the chain's, and both screens show the same sentence under it (`detail.figuresDontAddUp`: the total read didn't match its items, so the total shown is their sum). One function for both. |
 | **Reading confidence (desk)** · `receiptAutoFix.readingConfidence` | the `ground_rules` check fails → the badge is red. |
 | **AI reader's proof** · `receiptAutoFix.checkProposal` | `ground_rules` blocks: an answer whose figures are impossible is never applied, whichever reader gave it. |
 | **App approval** · `receiptAutoApproval` | every check must pass, so a receipt that breaks a ground rule is never approved by the app. |
@@ -115,13 +134,24 @@ Costco's paper is the most complicated, so its rules are the most detailed. Each
 | **C11** | A grouped line (several units at one price) is never split, except a weighed item printed at different prices. | `receiptAutoFix.splitGroupedSkus` |
 | **C12** | Balancing corrects the lines to the printed figures. It never re-derives a printed tax or total from the lines. | `Receipt_Parser_Design_Rules.md` step 4 |
 
-### The open Costco gap (RC-57)
+### The Costco printed total: both readers, measured (RC-57, 2026-11-16)
 
-The phone's parser still stamps `printedTotal` with the older reader (`receiptParsingShared.extractPrintedTotal`), which
-borrows the next bare amount under a label-only `**** TOTAL`. That is a second reading of the paper, against C4. The
-scan review no longer trusts it when it breaks G4 (§2), which closes the case that reached a shopper. Replacing the
-older reader with `establishPrintedFigures` inside the parser is a change to the frozen Costco files and needs Maxim's
-confirmation. It is recorded as the proposed parser change of RC-57.
+Maxim: *"if the older total is more accurate we go with it, if we can optimize the actual version and get better
+results than the actual and the older ones, please optimize."* Scored on the 93 Costco production captures with a
+hand-read total (`receiptProdCaptures.test.js` ground truth):
+
+| Reader | Right | Wrong | Unread |
+|---|---|---|---|
+| The parser's own (`extractPrintedTotal` on the flat text and the geometry rows, arithmetic tie-break) | 91 | 0 | 2 |
+| The sections reader alone (`establishPrintedFigures`, source `paper`) | 90 | 0 | 3 |
+| **Combined (shipped)**: the sections reader fills an unread total; on a disagreement the one the parse's arithmetic confirms wins, else the paper's | **92** | **0** | **1** |
+
+They miss different captures, so neither replaces the other. `costcoReceiptParser.applyHeaderFieldsFromRawText`
+combines them; the frozen-file hash was re-pinned with this evidence. Outside the scored set the golden snapshot moved
+on three captures, all to the paper's total (`8y5tt` c44 173.04 → 573.04; c45 and `be1p8` c66 unread → read). The one
+still unread (`be1p8` c65) prints no readable total in either reader. A borrowed amount like k06zo's 7.45 is still
+possible when neither reader establishes a total; the scan review then refuses it (§2). `receiptProdCaptures.test.js`
+pins: never a wrong printed total, at most one unread.
 
 ## 6. What each screen shows
 
@@ -129,8 +159,9 @@ confirmation. It is recorded as the proposed parser change of RC-57.
 |---|---|---|---|
 | Figures close | subtotal, tax, total | subtotal, tax, total | green when every check passes |
 | Total read off the paper, lines do not add up | printed total locked; "The lines add up to X, but the receipt's total is Y" | the notice when G4 is broken | red (`reconciles`, and `ground_rules` when the total is below the lines) |
-| Total not read (borrowed amount below the lines) | lines + tax; "We couldn't read the total on this receipt…" until the shopper types it | n/a (not stored as such) | red or amber (`total_on_paper`) |
-| Stored before this rule with impossible figures | n/a | "The total and the items of this receipt don't match…" | red (`ground_rules`) |
+| Total not read (borrowed amount below the lines, or none) | the lines' sum + tax; "We couldn't read the total on this receipt, so this is the sum of the lines…" | the lines' sum + tax | red or amber (`total_on_paper`) |
+| Scrambled (no line, or a line without an amount) | blank; "We couldn't read the amounts on this receipt…" (`scan.totalScrambled`) | "—" | red |
+| Stored with impossible figures | n/a | the lines' sum + tax, and "The total read on this receipt didn't match its items, so the total shown is the sum of the items…" | red (`ground_rules`) |
 
 Labels: `scan.totalNotRead`, `detail.figuresDontAddUp` (EN + FR). The desk's sentence for the check:
 `adminAutoFix.CHECK_LABELS.ground_rules`.
@@ -140,7 +171,8 @@ Labels: `scan.totalNotRead`, `detail.figuresDontAddUp` (EN + FR). The desk's sen
 1. **A new rule goes into its layer, once.** Any-store logic → `shared/receiptGroundRules.js`. Against the paper →
    `shared/receiptChecks.js`. Store layout → the store's own files. Never a comparison written in a screen, a route or
    a parser.
-2. **A screen shows figures through the shared functions.** The subtotal is the sum of the lines. A notice about the
+2. **A screen shows figures through the shared functions.** The subtotal is the sum of the lines; the total is
+   `receiptTotalToShow` (never re-derived in a screen). A notice about the
    figures comes from `receiptFiguresNotice`. The admin and the shopper see the same sentence.
 3. **A parser or reader change is run on the corpus.** `__tests__/receiptGroundRules.corpus.test.js` puts every
    committed production capture, of every store, through parse → validate → settle and fails when the review would
@@ -166,16 +198,21 @@ The PR template carries one line for this: *Receipt ground rules*.
 
 ## 9. Roadmap (open, in order)
 
-1. **Replace the phone's `extractPrintedTotal` with the sections reader** (RC-57's proposed change). Needs Maxim's
-   confirmation: frozen Costco files.
-2. **Decide the refusal:** the quality check's `totals` and `balance` families are off in production
-   (`RECEIPT_QUALITY_REFUSE_TOTALS`, `RECEIPT_QUALITY_REFUSE_BALANCE`). On, a receipt like k06zo is stopped at "Start
-   tracking" with Edit, Rescan or Cancel. Maxim's switch.
-3. **The three stored receipts that break G4** (§10): repair or reject, per the runbook.
+1. ~~Replace the phone's `extractPrintedTotal` with the sections reader~~ — done differently, 2026-11-16: both readers
+   combined (§5), because each is right where the other is unread.
+2. **The refusal stays off until the behaviour is at its maximum (Maxim, 2026-11-16, a standing rule for every
+   automation):** *"i will turn the refusal (on the admin desk) when i can be sure that the actual behavior is at his
+   maximum possible optimization."* The quality check's `totals` and `balance` families
+   (`RECEIPT_QUALITY_REFUSE_TOTALS`, `RECEIPT_QUALITY_REFUSE_BALANCE`) stay off; report the corpus scorecard (§5) and
+   the production G4 count (§10) with each optimization. The switch is Maxim's.
+3. ~~The three stored receipts that break G4~~ — two repaired, one to reject (§10).
 4. **Server-side ground rules at upload** as a stored flag (not a refusal), so the desk can filter "impossible
    figures" without opening each receipt.
 5. **Per-line rules** not yet in the catalogue: a coupon never larger than its item; unit price × quantity = line
    total when both are read.
+6. **The 2026-11-07 mailbox-import junk** (Bugs #368): ten more receipts of the same import (store Costco, Sport Chek,
+   Best Buy; total 0.00, one line each) are still live. Under the never-blank rule they show their one line's sum as
+   the total. Reject them on the desk with the fitting reason.
 
 ## 10. Production on 2026-11-15 (SELECT only)
 
@@ -183,9 +220,9 @@ The PR template carries one line for this: *Receipt ground rules*.
 
 | Receipt | Store | Lines | Tax | Total | Note |
 |---|---|---|---|---|---|
-| `r_1794697475248_k06zo` | Costco, Candiac #556 | 192.89 | 0.00 | 7.45 | RC-57. Not reviewed, not repaired. |
-| `r_1794019452286_cj1k9` | Home Depot (mailbox import, 2026-11-07) | 119.96 | 7.80 | 67.78 | one of the locked-store imports of 2026-11-07 |
-| `r_1793483582333_nomr1` | Costco | 117.43 | 6.44 | 77.88 | reviewed 2026-10-31, edited by the shopper 2026-11-12 |
+| `r_1794697475248_k06zo` | Costco, Candiac #556 | 192.89 | 0.00 | 7.45 | RC-57. **Repaired 2026-11-16** from the photo: 21 lines, 265.94 + 0.00 = 265.94. |
+| `r_1794019452286_cj1k9` | Home Depot (mailbox import, 2026-11-07) | 119.96 | 7.80 | 67.78 | not a receipt: two "EACH" lines from an email body. **To reject** on the desk (*Store not supported yet*); the scripted reject was stopped by the session's safety check. |
+| `r_1793483582333_nomr1` | Costco, Rimouski #1720 | 117.43 | 6.44 | 77.88 | a line added by hand on 2026-11-12, not on the paper. **Repaired 2026-11-16**: 6 lines, 71.44 + 6.44 = 77.88. |
 
 Corpus (120 committed captures): no capture is shown with impossible figures. One capture has a borrowed total
 cleared: `r_1787042691897_vdxrw`, whose re-OCR reads the TOTAL as `× 13.62` for 313.62.

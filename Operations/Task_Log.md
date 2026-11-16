@@ -23,6 +23,7 @@
 - **Done:** `shared/receiptGroundRules.js` (G1 … G5) + the `ground_rules` check in `shared/receiptChecks`; `src/services/receiptPrintedTotalTrust.js` (scan review); `receiptFiguresNotice` (both receipt screens); desk label; corpus test. Doc: `Technical/Receipt_Ground_Rules.md`; standing rule in `CLAUDE.md`; PR template line.
 - **Not done (Maxim's call):** replacing `extractPrintedTotal` in the frozen Costco parser (RC-57 proposed change); turning on the quality check's `totals` / `balance` refusal; repairing the 3 stored receipts.
 - **Old app builds:** server change additive (one more check row); no refusal added.
+- **2026-11-16, Maxim:** *"the total should never be blank on scan or on tracking … 1- if the older total is more accurate we go with it, if we can optimize … please optimize. 2- i will turn the refusal … when … at his maximum possible optimization (this is the rule always …) 3- repair the receipts also"*, then *"merge when finished"*. Done: `receiptTotalToShow` (read → lines → blank) on scan, both receipt screens and spending; Costco printed total from both readers (92/0/1 vs 91/0/2); `k06zo` and `nomr1` repaired in prod (runbook log); `cj1k9` left for a desk reject (the scripted reject was blocked). Rule 2 saved as a standing rule (CLAUDE.md §ground rules 6).
 
 ### 2026-11-14 — Receipt parser specification for every store; Best Buy in-store parser rebuild (base: main)
 
