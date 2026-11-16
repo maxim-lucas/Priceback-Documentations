@@ -12611,3 +12611,34 @@ Maxim's (he made them). Asked.
 - **Code:** Resend HTTPS route in `lib/supportMailer.js`; the job stops on a fatal refusal and does not restart the cadence when it sent nothing; `failureAlert` + `raiseAlert` in `server.js`.
 - **Tests:** `tests/dropReminderEmails.test.js` + `tests/unreachableDropEmails.test.js`, 66 of 66 (no DB). The cadence mutation turns 2 tests red.
 - **Owed:** Maxim verifies `priceback.ca` in Resend. Until then the next scheduled run (≈ 2026-11-18 19:00 UTC) is refused, and that refusal raises the alert.
+
+---
+
+## 2026-11-16 — Price sweep: Maxim's standing rules; hotfix
+
+**Asked (Maxim):** the price sweep was changed on 11-12 without his consent. The rules to follow always, and to
+document: a trusted source skips the rule of N and goes straight to the queue; an untrusted source follows the rule
+of N, else Potential; a receipt deleted before review is Potential only; the SKU alone decides; a claimed drop never
+comes back. Then: adjust the confidence to these rules, and add "Approve without charge" for an out-of-stock drop on
+all screens. Ship as a hotfix on `main`.
+
+**Done:** Priceback `hotfix/price-drop-trusted-sources-rule-of-n`. Rules, what changed and the production examples:
+`Technical/Price_Drop_Sweep_Rules.md`. `CLAUDE.md` carries the standing rule.
+
+- `lib/priceDropTier`: everything the sweep stages is on the queue; a trusted drop is held only by a `holdReasons`
+  failure. `canApproveWithoutCharge`.
+- `dropConfidence`: the name is advisory; `plausible_discount` uses the real ratio; `holdReasons`.
+- `priceDropRepo`: posts vote again (`CASTS_VOTE`), `UNREVIEWED_DELETED_ROW`, `realSighting`. Potential list follows.
+- `priceDropQueueRepo.stage` refuses a claimed line. `claimForFreeSend`, `unclaimFreeSend`.
+- `priceDropNotifier.sendWithoutCharge`; route `POST /api/admin/price-drop-queue/:id/approve-free`.
+- Both admin screens: the button, the rule-of-N badge, the evidence wording (next app build).
+
+**Production, read only:** 5 drops waiting. #12639 (pork back ribs) moves from Potential to the queue at 92%.
+#12351 and #12352 (Fanta) are out of stock and get the free approval once the app build ships; until then the route
+can be called for them.
+
+**Not done:** an out-of-stock wording for the push; the pack rule for #12639; a mutation run; the full backend suite.
+`priceDropPushLanguage.test.js` fails on `main` without this change (the locked push), not fixed.
+
+**Reverted from 11-12 without being asked before, now asked:** posts cast a vote again; a rule-of-N price is a real
+drop.

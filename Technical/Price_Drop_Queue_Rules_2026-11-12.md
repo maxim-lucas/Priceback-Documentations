@@ -1,5 +1,10 @@
 # Price-drop queue rules (2026-11-12)
 
+> **Partly replaced on 2026-11-16.** Rules 3 and 5 below, and "Decisions taken without asking" 2, were not what Maxim
+> wanted. The standing rules are in [`Price_Drop_Sweep_Rules.md`](Price_Drop_Sweep_Rules.md): a trusted source goes
+> straight to the queue whatever is still unconfirmed, an untrusted source (posts included) follows the rule of N,
+> and a price the rule of N verified is a real drop. Rules 1, 2, 4 and 6 still hold.
+
 **Status:** Priceback #573 merged and live 2026-11-13 05:42 UTC. A follow-up, #575, closes a second way the same
 drop got through (see "After the deploy"). The two admin screens change with the next app build; until then the
 installed admin build keeps working and shows the new confidence and source data in its existing fields (see "Old
