@@ -2323,7 +2323,7 @@ impossible figures.
 
 | Receipt | Store | Scanned | Build | What | Status |
 |---|---|---|---|---|---|
-| `r_1794697475248_k06zo` | Costco Candiac #556 | 2026-11-14 | not looked up | lines 192.89, tax 0.00, total 7.45 (borrowed); 6 lines lost to the curl; one coupon lost → a false drop (30 credits) | **repaired 2026-11-16** from the photo (21 lines, 265.94); refund of the false drop owed to Maxim's decision |
+| `r_1794697475248_k06zo` | Costco Candiac #556 | 2026-11-14 | not looked up | lines 192.89, tax 0.00, total 7.45 (borrowed); 6 lines lost to the curl; one coupon lost → a false drop (30 credits) | **repaired 2026-11-16** from the photo (21 lines, 265.94); false drop refunded 2026-11-16 (30 credits), apology notice #10 pending approval |
 
 The other two receipts that broke G4 were replayed and have other causes: `nomr1` is RC-58; `cj1k9` is not a receipt
 (a mailbox import of a locked store's email body, Bugs #368), to be rejected.
