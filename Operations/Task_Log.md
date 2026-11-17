@@ -16,6 +16,14 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-17 — A subscriber is never paywalled; the balance is hidden and unused while subscribed (hotfix off main)
+
+- **Asked (Maxim):** *"the problem with the unlimited user is confirmed, i tested with another subscriber for annual unlimited (Sally Wissa) and she had the same problem. she subscribed and her balance was negative and all on scan click the paywall was hit as she is never subscribed."* Rules: a subscriber's balance is hidden while unlimited, kept but never used; every subscriber has unlimited access to every feature, scans and price drops included, and is never blocked; a subscriber never hits a paywall while the subscription is valid. Branch: hotfix off `main`.
+- **Found (prod, read-only):** the server had her right (unlimited, active to 2027-11-15, no charge after the purchase). The phone gates only on its local subscription cache, which nothing repaired outside a cold boot. Bugs #387.
+- **Done:** `hotfix/subscriber-unlimited-never-paywalled`. Server: `creditExempt` on `/api/me/credits` and `/api/me/bootstrap` (additive). Phone: `purchaseService.applyServerSubscription` (one rule, upgrade only) called from every balance read and every bootstrap.
+- **Kept:** the single-device rule (a plan claimed by another device is still the reconcile's call); downgrades stay with `reconcileWithServer`.
+- **Old app builds:** unaffected; two optional response fields added, nothing removed or changed. The app half reaches shoppers with the next build.
+
 ### 2026-11-15 — Receipt ground rules: checks that must never fail, for every store (hotfix off main)
 
 - **Asked (Maxim):** *"some receipts (one example from yesterday showing subtotal 192.89$ and 7.45$ in total) doesnt make any sense … make sure that everything should seem logic and meaningful when a receipt is scanned on both UI (user and admin) and create ground rules as checks that should never fail on parsing, developing (coding), roadmap … available for all store parser and you can create some for costco in depth … documented and cross checked on future development too."* Branch: `hotfix/receipt-ground-rules`.
