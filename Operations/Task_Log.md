@@ -12653,3 +12653,15 @@ drop.
 - **Done:** `lib/envSecret.js`; the server reads the key through it; the health probe judges a header-unsafe key `rejected` / `key_malformed`. Railway value re-pasted.
 - **Tests:** 9 backend files touching the key, 84 of 84 (run one file at a time; in parallel they hit the pooler's 15-connection cap). Both fixes mutation-tested.
 - **Open:** Jason's screen. If it is the paywall, the phone should ask the server whether the account is credit-exempt instead of trusting its cache (needs a build).
+
+## 2026-11-16 — Weekly social automation: harvest to carousels, scored, scheduled, Graph API publisher (social-media-manager repo)
+
+- **Ask (Maxim):** a cloud schedule every Monday after the savings harvest that builds the social posts and reels with product photos from the social repo's rules; English for the 8 provinces outside Quebec and French for Quebec only; common savings first, then Quebec and Ontario; Graph API posting; pre-approved reel music; 9.5/10 quality gate; the Monday carousel out by 14:30 at the latest.
+- **Found:**
+  - The harvest settles early on Mondays: on Nov 16 all 9 provinces had 52 to 73 new savings by 06:36 Toronto (the 06:05 Same-Day run, 538 new). Later runs added 9. Only 9 provinces carry data (no PEI, no territories).
+  - 247 of 541 active offers are in all 9 provinces, 216 in regional blocks, 78 in one province. Only 8 of 515 products have different amounts by province, so the chicken-style case is rare; availability differs far more than amounts.
+  - "R2 not reachable from cloud sessions" was a path problem. The public route `https://priceback-production.up.railway.app/api/product-images/costco/<sku>` needs no key; 119 of 123 recent savings SKUs (59 of 63 Business Centre, 60 of 60 Same-Day sampled) return a photo.
+  - Cloud routines cannot run more often than hourly and cron is UTC; Metricool has no networks connected.
+- **Shipped:** social-media-manager PR #25 (`faadc0d`): 71 unit tests, design `docs/weekly-automation-design.md`, rules `RULES-README.md` §8, routine instructions `sm-content/08-costco-price-drops/weekly/ROUTINE.md`. Production: read-only role `social_ro` (Security/Social_ReadOnly_DB_Role_2026-11-16.md). Cloud routine `trig_01KRncggW6FDLxK2QuDfZPXq`, Mondays 07:10 to 12:10 Toronto hourly, first fire 2026-11-23, MCP connectors cleared on purpose.
+- **Tests:** unit tests for the settled detector, tier model, week planner, photos, score gate, music picker, slots and Graph client (fake fetch); live: role login and denials, photo preflight, the poll against production, a rendered slide with small province amounts, the publisher's due / missed / unreachable cases.
+- **Not done / owed:** `DATABASE_URL_SOCIAL_RO` into the cloud environment; Meta token + ids as GitHub secrets and a first dry run (confirm `META_GRAPH_VERSION` and `IG_CAROUSEL_MAX`); `REEL_BASE_URL` public host for reels; approve music (candidates on Maxim's PC); top-up routine (needs a slot-level rebuild mode); Sunday how-to and Friday recap generators; the cloud setup (Playwright, fonts, ffmpeg) is untested.
