@@ -23,6 +23,9 @@
 - **Done:** `hotfix/subscriber-unlimited-never-paywalled`. Server: `creditExempt` on `/api/me/credits` and `/api/me/bootstrap` (additive). Phone: `purchaseService.applyServerSubscription` (one rule, upgrade only) called from every balance read and every bootstrap.
 - **Kept:** the single-device rule (a plan claimed by another device is still the reconcile's call); downgrades stay with `reconcileWithServer`.
 - **Old app builds:** unaffected; two optional response fields added, nothing removed or changed. The app half reaches shoppers with the next build.
+- **Follow-up (Maxim, same day):** *"no when you signin with an account (subscribed) on another device, the first signin device should logout automaticaly to avoid problems like this"*; *"also add all possible logs so we can know if there is any problem in the future with these type of problems. subscribers are our priority this is a very BIG BUG"*; *"add this as a rule"*. This replaces my earlier "keep the single-device rule" note.
+- **Done (same branch, PR #591):** one subscribed account, one signed-in phone (claim at sign-in / purchase / restore, `409 signed_in_elsewhere` → the phone signs out with an EN + FR notice; free accounts and builds before 3.6.3 never refused); `subscriber_access_events` (migration 0050, RLS on) + email alerts + `/health.subscriberAccess`; rule in `CLAUDE.md`; `Technical/Subscriber_Access.md`.
+- **Deploy order:** migration 0050 on prod first (by hand + ledger row), then the backend, then the app build.
 
 ### 2026-11-15 — Receipt ground rules: checks that must never fail, for every store (hotfix off main)
 
