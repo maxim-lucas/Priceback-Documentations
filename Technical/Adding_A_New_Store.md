@@ -667,6 +667,26 @@ unhealthy.
 `false` row written days earlier sat in both databases — so the default never
 applied anywhere, and nobody knew for eight days. **Query the table.**
 
+🔴 **"Admins only" does not turn the feed on.** Best Buy went admin-only in
+production on 2026-10-28, but `BESTBUY_SCAN_ENABLED` stayed `false` in prod's
+`app_config` (row from 2026-09-01). On 2026-11-18 Maxim scanned a Samsung 85" TV
+($3,699.99) that Best Buy sold for $2,848.97, and nothing happened: the feed had
+never fetched one Best Buy price in production. An admin test of a store's drops
+needs the feed's flag on in the database the admin uses. Say which way it is in
+the PR, and query it, do not read `defaults.js`.
+
+🔴 **The drop sweep's rules were written for Costco. Check every one against
+your store's prices.** Costco's price endings mean things (`.97` clearance, held
+at one warehouse until an admin rules). Until 2026-11-18 the `.97` test
+(`priceDropRepo.CLEARANCE_ENDING`) ran on every store's rows, so Best Buy's own
+verified API price of $2,848.97 was read as an unconfirmed Costco clearance and
+the $851 drop could never reach the queue. A Costco convention lives in
+`backend/services/savings/costcoPriceRules.js`, and the stores it applies to are
+one list there (`PRICE_CODE_STORES`, SQL twin `CLEARANCE_ENDING`). Before a feed
+goes on, push one real feed price through `findNotifiable` (the chain test,
+`bestBuyFeedChainDb.test.js`), including a price that ends in an ending Costco
+gives a meaning to.
+
 Also owed before a feed is turned on in **production**:
 
 - `Publishing-Compliance/REVIEWER_NOTES.md` declares every scraping source. A
@@ -838,6 +858,9 @@ ADAPTER (if there is one)
 
 GO-LIVE
 [ ] app_config row checked in BOTH databases
+[ ] the feed flag is ON in prod if the admin is to test drops there (§8)
+[ ] no Costco price rule (costcoPriceRules: .97, .00/.88, …) applies to this
+    store's rows; a real feed price, incl. one ending .97, reaches findNotifiable
 [ ] store-content-sync.sql applied where intended
 [ ] REVIEWER_NOTES + PIA if a new scraping source
 [ ] regression risk stated explicitly
@@ -858,3 +881,4 @@ GO-LIVE
 | **Best Buy, the in-store slip rebuilt** (2026-11-15) | A store reader that returns its own `ignored` flag on every line switches off every later stamp that respects an explicit flag: the rebuilt slip reader would have watched eco fees and deposits as products. A rule the pipeline already owns (the fee rule) is handed to the store's reader, never re-written or skipped inside it. And a scorecard per capture (right / honest / wrong, bar: zero wrong) is what shows a rebuild is better, where a green suite on one capture did not. → `BestBuy/Receipt_Parser.md` §1.3, §1.4. |
 | **Costco, the ground rules** (2026-11-15) | A receipt was shown as Subtotal $192.89 · Total $7.45: a total reader borrowed the next bare amount under a label-only TOTAL, and nothing anywhere asked whether a total can be below its lines. What any receipt must be (G1 … G5) is now one shared function every screen, check and reader calls, and a new store adds no comparison of its own: it declares how its paper establishes a total, and its captures enter the corpus test. → `Receipt_Ground_Rules.md`, RC-57. |
 | **Home Depot, Rona, Sport Chek, Best Buy — while locked** (2026-11-09) | A locked store reached a shopper's list without a single scan: the mailbox import skipped `isStoreEnabled`, and the server accepted any store code. 12 junk receipts reached one account in one second; each item was an email subject. Every entry path asks, and the server refuses (§2.2). Refused scans are now held with their photo for the admin, and that hold is the first place to look for a new store's real corpus (§2.3). |
+| **Best Buy, the admin's first drop that never came** (2026-11-18) | Two causes, both silent. The feed's flag was still `false` in prod's `app_config`, so the admin-only store had never been priced. Behind it, the drop sweep read Costco's `.97` clearance code on every store's rows, so Best Buy's own $2,848.97 for a TV bought at $3,699.99 would have been held as an unconfirmed clearance anyway. A Costco price convention is Costco's: one list (`costcoPriceRules.PRICE_CODE_STORES`), checked against every new store's real prices before its feed goes on (§8). |
