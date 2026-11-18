@@ -91,6 +91,7 @@ change he did not ask for is a bug.
 | Search folding | `shared/productSearch.js` → `foldText`, `parseSearch` | SQL: `backend/lib/productSearchSql.js` → `foldSql` |
 | Words on the admin screens | `src/services/adminPriceLookup.js` (`EVIDENCE_LABELS`, `placeText`, `staleText`, `fallbackText`, `scopeFromFilters`) | a shopper screen adds i18n keys keyed by the evidence kind (en + fr) |
 | The chart | `src/components/PriceHistoryChart.js` | — |
+| The product's picture (2026-11-17) | SQL: `adminPriceLookupRepo` `PRODUCT_COLUMNS` → `imageUrl` (the catalogue harvest's `catalog_items.image_url`, https only, lowest `trust_rank` first, then verified, then latest seen) | draw: `src/components/ProductImage.js` — the picture, else the PriceBack placeholder (brand glyph on the mint surface); a picture that fails to load falls back too |
 
 Tests that pin them: `__tests__/priceHistoryShared.test.js` (rules, scope, lines, search, chart geometry),
 `__tests__/adminPriceHistoryScreen.test.js`, `__tests__/adminPriceLookupScreen.test.js`,
