@@ -12681,3 +12681,17 @@ drop.
 - **Done:** `shared/priceHistory` (evidence tiers, `PriceHistoryScope`, `PriceHistorySeries`), SQL twins `lib/priceEvidenceSql` and `lib/productSearchSql`, `services/priceHistory`, `repos/priceHistoryRepo`, migration 0051 (`price_since`, `product_regular_price_history`), `PriceHistoryChart`, both admin screens. Rules: `Technical/Price_History_Rules.md`, `CLAUDE.md`.
 - **Tests:** mobile 13,434 passed; i18n in sync; backend 38/38 in the two new/changed files and 450/454 in the 19-file blast radius on dev (2 failures identical on clean main, from #588/#591). Full backend suite and CI not run.
 - **Owed:** apply 0051 to production before merging (Maxim's go); the app build for the admin screens; classify `price_drop_redrops` / `subscriber_access_events` in `dataCleanup` and the `savingsQualityDb` "weighed" assertion (both pre-existing on main).
+
+## 2026-11-18 — Hotfix: Best Buy TV drop never found; .97 is Costco's code only (Priceback #599)
+
+- **Ask (Maxim):** two Best Buy receipts scanned in production as an admin test; the Samsung TV (SKU 19204882, paid $3,699.99 on 2026-10-28) is cheaper on bestbuy.ca but no price drop appeared. Find the root cause and fix it. The receipt is a production test: the backend must find the drop, never a hand fix.
+- **Found:** (1) `BESTBUY_SCAN_ENABLED` was `false` in prod `app_config` (row from 2026-09-01): no Best Buy price had ever been fetched in production. (2) Behind it, the drop sweep's `.97` test (`priceDropRepo.CLEARANCE_ENDING`, Costco's warehouse-clearance code) ran on every store's rows. Best Buy's own API price, $2,848.97, would have been held as an unconfirmed clearance and never reached the queue.
+- **Done:** the `.97` code applies to `costcoPriceRules.PRICE_CODE_STORES` (`["costco"]`) only, with SQL twin `CLEARANCE_ENDING` decided by the row's product's store. Feed switched on in prod (Maxim's go). Store guide §8 got both traps (docs #241).
+- **Tests:** a Best Buy `.97` drop chain test fails on main and passes with the fix; Costco `.97` regression 116/116 on dev; mobile 13,464; i18n in sync.
+
+## 2026-11-18 — Store policy calendar: seasonal extensions and "not price-matched" periods (Priceback #600)
+
+- **Ask (Maxim):** Best Buy extends its policy in holiday and savings seasons (Black Friday, Boxing Day); the app must keep a calendar of irregular seasons per store and apply it everywhere. Base window: 30 days (bestbuy.ca; Maxim recalled 14, none found). Calendar in the database, edited on the desk.
+- **Done:** migration 0052 `store_policy_periods` (applied to prod before the merge, ledger row 62); `shared/storePolicyPeriods` + SQL twin in `trackingWindow`; every server and phone window reader moved onto it; Admin · Stores → Seasonal policy; store card and receipt copy en + fr. `Technical/Store_Policy_Calendar.md` (docs #242), `CLAUDE.md` rule 3.
+- **Tests:** backend 17 + 6 new (dev DB); 124-file blast radius one at a time: all green except `dropReminderEmailRepoDb` (1) and `savingsQualityDb` (1, "weighed"), identical on main. `npm test` 448 suites green; i18n in sync. Full backend suite and CI not run.
+- **Owed:** the calendar is empty: Maxim enters Best Buy's 2026 periods. The phone side ships with the next app build. Prod deploy 2026-11-18 19:50 UTC; jobs since then all OK.
