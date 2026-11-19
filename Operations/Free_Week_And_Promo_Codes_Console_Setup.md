@@ -41,7 +41,10 @@ Codes typed in the app: `FAMILY` 5%, `FRIENDS10` 10%, `BLACK` 20%, first payment
 | annual / `annual` | `promo-20` | Single payment, 1 year, −20% | → 39.99 | → 1,559.99 |
 
 All: eligibility **Developer-determined** (the app decides; our server validates the code), runs indefinitely
-(the server ends a code), tags `rc-ignore-offer` + `promo`, all 175 base-plan regions.
+(the server ends a code), tags `rc-ignore-offer` + `promo`, all 175 base-plan regions. The Egypt column is what Play
+computed; **promo codes are Canada only** (Maxim, 2026-11-19), so the server must refuse a code for an account that
+is not on the Canadian store, and only for an account that never had a subscription. Play needs no change for
+either: nothing reaches a developer-determined offer without the server.
 
 ### App Store — Offer Codes (6 offers, 6 custom codes)
 
@@ -50,19 +53,25 @@ Apple's promotional offers are only for "existing and previously subscribed cust
 shopper typed to the right Apple code and opens
 `https://apps.apple.com/redeem?ctx=offercodes&id=6795860374&code=<APPLE CODE>`.
 
-| Typed | Product | Apple custom code | Offer | Canada | Egypt |
+| Typed | Product | Apple custom code | Apple offer (reference name) | Offer | Canada |
 |---|---|---|---|---|---|
-| FAMILY | monthly | `FAMILY` | Pay up front, 1 month | 4.69 | 189.99 |
-| FRIENDS10 | monthly | `FRIENDS10` | Pay up front, 1 month | 4.49 | 179.99 |
-| BLACK | monthly | `BLACK` | Pay up front, 1 month | 3.99 | 159.99 |
-| FAMILY | annual | `FAMILYYEAR` | Pay up front, 1 year | 46.99 | 1,899.99 |
-| FRIENDS10 | annual | `FRIENDS10YEAR` | Pay up front, 1 year | 44.99 | 1,799.99 |
-| BLACK | annual | `BLACKYEAR` | Pay up front, 1 year | 39.99 | 1,599.99 |
+| FAMILY | monthly | `FAMILY` | Promo 5% first month new only CA (FAMILY) | Pay up front, 1 month | 4.69 |
+| FRIENDS10 | monthly | `FRIENDS10` | Promo 10% first month new only CA (FRIENDS10) | Pay up front, 1 month | 4.49 |
+| BLACK | monthly | `BLACK` | Promo 20% first month new only (BLACK) | Pay up front, 1 month | 3.99 |
+| FAMILY | annual | `FAMILYYEAR` | Promo 5% first year new only CA (FAMILYYEAR) | Pay up front, 1 year | 46.99 |
+| FRIENDS10 | annual | `FRIENDS10YEAR` | Promo 10% first year new only CA (FRIENDS10YEAR) | Pay up front, 1 year | 44.99 |
+| BLACK | annual | `BLACKYEAR` | Promo 20% first year new only CA (BLACKYEAR) | Pay up front, 1 year | 39.99 |
 
-All: eligibility **New + Expired** subscribers, Canada + Egypt, auto-renew at full price, redemption limit 25,000,
+All: eligibility **New subscribers only**, **Canada only**, auto-renew at full price, redemption limit 25,000,
 **expires Jan 1, 2027** (Apple expires at 12:00 a.m. PT on the date, so Dec 31 stays valid). Apple price points are
-fixed, so each price is the nearest one that gives at least the promised discount (FAMILY monthly is 6%). Egypt was
-set by hand: Apple's automatic Egypt price was the full price (5%) or 25% off (10/20%).
+fixed, so each price is the nearest one that gives at least the promised discount (FAMILY monthly is 6%).
+
+**Redone 2026-11-19 (second pass).** The first set was New + Expired subscribers, Canada + Egypt. Maxim:
+*"expired or current subscribers cant use the code, only new subscribers"*, then *"exclude egypt from all the
+process"*. An Apple offer cannot be edited (eligibility and countries are read-only once saved), so every offer was
+deactivated and recreated; the custom code names were reused (a deactivated offer frees its code), but reference
+names must stay unique, hence the "CA" / "new only" suffixes. The 9 deactivated offers stay listed under *Inactive
+Offers*; ignore them.
 
 **Ending a code early:** set `ends_at` on the admin desk (the app stops offering it) **and** deactivate the Apple
 offer (Offer Codes → Deactivate; an Apple expiry date cannot be edited). Play offers can stay active: they are
@@ -76,3 +85,6 @@ developer-determined, so nothing reaches them without our server.
   selection; *Set prices* stays disabled). Pack prices were left as they are (Maxim, 2026-11-19).
 - ASC native `<select>`s ignore synthetic clicks; set the value with the native setter + `change` event.
 - ASC custom-code price search only lists common points until **See Additional Prices** is clicked.
+- ASC offer codes cannot be edited after saving (the countries popover is read-only). Changing eligibility or
+  countries means Deactivate (irreversible) and recreate. A custom code name is free again once its offer is
+  deactivated; an offer reference name is not.

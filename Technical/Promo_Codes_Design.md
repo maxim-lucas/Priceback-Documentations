@@ -38,6 +38,8 @@ So one mechanism on both phones:
 
 1. The shopper types the code in the app (paywall / Me). `POST /api/me/promo-code` normalises and validates it on the
    server (exists, active, inside its window, account eligible) and attaches it to the account.
+   **Account eligible** (Maxim, 2026-11-19): the account **never had a subscription** (not current, not lapsed) and
+   shops on the **Canadian** store. Promo codes are not offered in Egypt. One rule, beside `isUsable`.
 2. **Subscriptions:** the app buys the plan through a hidden discounted store offer for that code's percentage
    (below). The base plan price never changes; installed builds never see the offers.
 3. **Credit packs:** the purchase is the normal pack at the normal price. When the top-up settles (route
@@ -53,7 +55,7 @@ Exact values: `Operations/Free_Week_And_Promo_Codes_Console_Setup.md`.
   `promo`. The app buys the subscription option whose offer id matches the server's answer.
 - **App Store:** Apple's promotional offers only reach existing or former subscribers, so new shoppers use **Offer
   Codes**: `FAMILY` / `FRIENDS10` / `BLACK` (monthly) and `FAMILYYEAR` / `FRIENDS10YEAR` / `BLACKYEAR` (annual),
-  pay up front for the first period, New + Expired subscribers, expiring Jan 1 2027. The server answers which Apple
+  pay up front for the first period, **new subscribers only, Canada only**, expiring Jan 1 2027. The server answers which Apple
   code fits the plan the shopper picked; the app opens
   `https://apps.apple.com/redeem?ctx=offercodes&id=6795860374&code=<code>`. The redemption is reported back by
   RevenueCat like any purchase.
