@@ -16,6 +16,16 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-17 — A subscriber is never paywalled; the balance is hidden and unused while subscribed (hotfix off main)
+
+- **Asked (Maxim):** *"the problem with the unlimited user is confirmed, i tested with another subscriber for annual unlimited (Sally Wissa) and she had the same problem. she subscribed and her balance was negative and all on scan click the paywall was hit as she is never subscribed."* Rules: a subscriber's balance is hidden while unlimited, kept but never used; every subscriber has unlimited access to every feature, scans and price drops included, and is never blocked; a subscriber never hits a paywall while the subscription is valid. Branch: hotfix off `main`.
+- **Found (prod, read-only):** the server had her right (unlimited, active to 2027-11-15, no charge after the purchase). The phone gates only on its local subscription cache, which nothing repaired outside a cold boot. Bugs #387.
+- **Done:** `hotfix/subscriber-unlimited-never-paywalled`. Server: `creditExempt` on `/api/me/credits` and `/api/me/bootstrap` (additive). Phone: `purchaseService.applyServerSubscription` (one rule, upgrade only) called from every balance read and every bootstrap.
+- **Kept:** the single-device rule (a plan claimed by another device is still the reconcile's call); downgrades stay with `reconcileWithServer`.
+- **Old app builds:** unaffected; two optional response fields added, nothing removed or changed. The app half reaches shoppers with the next build.
+- **Follow-up (Maxim, same day):** *"no when you signin with an account (subscribed) on another device, the first signin device should logout automaticaly to avoid problems like this"*; *"also add all possible logs so we can know if there is any problem in the future with these type of problems. subscribers are our priority this is a very BIG BUG"*; *"add this as a rule"*. This replaces my earlier "keep the single-device rule" note.
+- **Done (same branch, PR #591):** one subscribed account, one signed-in phone (claim at sign-in / purchase / restore, `409 signed_in_elsewhere` → the phone signs out with an EN + FR notice; free accounts and builds before 3.6.3 never refused); `subscriber_access_events` (migration 0050, RLS on) + email alerts + `/health.subscriberAccess`; rule in `CLAUDE.md`; `Technical/Subscriber_Access.md`.
+- **Deploy order:** migration 0050 on prod first (by hand + ledger row), then the backend, then the app build.
 ### 2026-11-18 — Store Spaces v2 merged onto main; Task 21 reviewed (subscriber fix)
 
 - **Asked (Maxim):** continue the Store Spaces v2 work and merge everything on a new branch based on `main`.
