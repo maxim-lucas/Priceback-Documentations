@@ -12,6 +12,8 @@ This folder is the working home for PriceBack's go-to-market and growth strategy
 - [`10-creator-and-agency-partner-program.md`](10-creator-and-agency-partner-program.md) — how to pay Instagram creators and agencies (CPA / commission / credits / comp), deal sheet, negotiation script; built in the app as partner codes
 - [`../../social-media-manager/docs/weekly-automation-design.md`](https://github.com/maxim-lucas/social-media-manager/blob/master/docs/weekly-automation-design.md) — the weekly price-drop automation (2026-11-16): audiences, tiers, schedule, photos, music, 9.5 gate; routine instructions in `sm-content/08-costco-price-drops/weekly/ROUTINE.md`
 
+- [`../../social-media-manager/docs/weekly-automation-design.md`](https://github.com/maxim-lucas/social-media-manager/blob/master/docs/weekly-automation-design.md) — the weekly price-drop automation (2026-11-16): audiences, tiers, schedule, photos, music, 9.5 gate; routine instructions in `sm-content/08-costco-price-drops/weekly/ROUTINE.md`
+
 ## Social media lives in a different repo
 
 Instagram/TikTok/Facebook **assets, schedules, captions, the posting automation

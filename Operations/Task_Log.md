@@ -26,6 +26,14 @@
 - **Follow-up (Maxim, same day):** *"no when you signin with an account (subscribed) on another device, the first signin device should logout automaticaly to avoid problems like this"*; *"also add all possible logs so we can know if there is any problem in the future with these type of problems. subscribers are our priority this is a very BIG BUG"*; *"add this as a rule"*. This replaces my earlier "keep the single-device rule" note.
 - **Done (same branch, PR #591):** one subscribed account, one signed-in phone (claim at sign-in / purchase / restore, `409 signed_in_elsewhere` → the phone signs out with an EN + FR notice; free accounts and builds before 3.6.3 never refused); `subscriber_access_events` (migration 0050, RLS on) + email alerts + `/health.subscriberAccess`; rule in `CLAUDE.md`; `Technical/Subscriber_Access.md`.
 - **Deploy order:** migration 0050 on prod first (by hand + ledger row), then the backend, then the app build.
+### 2026-11-18 — Store Spaces v2 merged onto main; Task 21 reviewed (subscriber fix)
+
+- **Asked (Maxim):** continue the Store Spaces v2 work and merge everything on a new branch based on `main`.
+- **Found:** `feat/store-spaces-v2` (Tasks 0–21, 37 commits, base 3.6.1) and `docs/store-spaces-v2` existed only on this PC (docs in a temp folder); RECAP.md was stale (2026-09). `main` had moved 77 commits.
+- **Done:** both old branches pushed as backup. New `feat/store-spaces-v2-main` (off `main` 12cd1f29) and `docs/store-spaces-v2-main` (off docs `main`). Conflicts: migration renumbered **0050 → 0053**; receipt parser keeps main's Costco PDF rows under the picked-store stamp; Home hero keeps main's all-time "Savings found" (2026-11-17) in the new style; main's seasonal-calendar lines move from the retired Stores tab to the Store Space screen. Task 21 review: a subscriber could be paywalled or offered the trial (Bugs #388), fixed on server and phone.
+- **Tests:** mobile full suite (only the 11 pre-existing failures of `main`); i18n in sync; backend pure 3,233 pass (3 fail, all pre-existing on `main`: the policy-period admin routes' static gate/brake checks, one needs `DATABASE_URL`); DB on dev 40/40 (migration0053Db, trialChoiceDb, storeSpacesCompatDb, trialProductDb, storeSpacesCompat).
+- **Owed (Maxim present):** Task 22 (free week in Play Console, App Store Connect, RevenueCat), Task 23 (final checks, release order), App Review account answer, French copy review, design-pass answers, device test, PR when he says so.
+- **2026-11-18 (later), Maxim:** *"continue the work and merge everything on the new branch"*; free week moved to the next day together; *"your reference should always be main"*. Done: receipt corpus replayed on the branch (6 suites, 1,312 tests, 353 snapshots green); PRs opened: app **#602** (base `main`), docs **#244** (merged). **Migration 0053 applied to prod by hand** in one transaction, with its ledger row (created_at 1794500000000, LF hash `444d4d86…bd75`; ledger now 62 rows). Columns, table, RLS and 6 constraints verified. **#602 merge held at Maxim's choice** (Railway auto-deploys `main`; the migration prerequisite is now met). Not done: `backend/db/deploy/schema.sql` was never regenerated for 0050–0053 (on `main` too).
 
 ### 2026-11-15 — Receipt ground rules: checks that must never fail, for every store (hotfix off main)
 
@@ -35,6 +43,12 @@
 - **Not done (Maxim's call):** replacing `extractPrintedTotal` in the frozen Costco parser (RC-57 proposed change); turning on the quality check's `totals` / `balance` refusal; repairing the 3 stored receipts.
 - **Old app builds:** server change additive (one more check row); no refusal added.
 - **2026-11-16, Maxim:** *"the total should never be blank on scan or on tracking … 1- if the older total is more accurate we go with it, if we can optimize … please optimize. 2- i will turn the refusal … when … at his maximum possible optimization (this is the rule always …) 3- repair the receipts also"*, then *"merge when finished"*. Done: `receiptTotalToShow` (read → lines → blank) on scan, both receipt screens and spending; Costco printed total from both readers (92/0/1 vs 91/0/2); `k06zo` and `nomr1` repaired in prod (runbook log); `cj1k9` left for a desk reject (the scripted reject was blocked). Rule 2 saved as a standing rule (CLAUDE.md §ground rules 6).
+### 2026-11-15 — Drop reminders: the owner's recap email after every run (hotfix off main)
+
+- **Ask (Maxim):** today's 39-shopper batch was sent by hand over Zoho (14:47-14:49 UTC, before #582 moved the server to Resend); he wanted a recap (name, amount, days left, credits or plan, last seen, plus a full summary) at his address, then "add the recap email to the job after each run", recipient in config, and an empty run still sends it (it would mean the job had a problem on send).
+- **Done:** `lib/dropReminderRecap.js`, `sendRecap` in the job, `recapProfiles` in the repo, `DROP_REMINDER_RECAP_TO` default, 6 tests (39 of 39 in the file). Doc: `Operations/Price_Drop_Reminder_Emails.md`.
+- **Old app builds:** none touched; no route, request or response field changed; server-side email only.
+- **Open:** the recap is not sent when there is no mail transport (the ops alert covers it).
 
 ### 2026-11-14 — Receipt parser specification for every store; Best Buy in-store parser rebuild (base: main)
 
@@ -57,6 +71,14 @@
 - **Done:** branch `hotfix/price-drop-queue-hygiene` (off `main` v3.6.1): `closeIneligible` + new `closeStaleQueue` run before the admin list and after every global sweep; `supersedeCovered` at delivery; 6 new DB tests + 1 tightened. No migration, no app change, no route change.
 - **Prod cleanup:** the 13 rows → superseded, on Maxim's go (the deployed code does the same on the first admin list load).
 - **Status:** PR open, waiting on Maxim. No drop was approved.
+
+### 2026-11-10 — Store Spaces v2: redesign from Claude Design, trial choice, Deals, store vote
+
+- **Asked (Maxim):** implement the Claude Design project *Store Spaces v2* (`Store Spaces v2.html` + `redesign/spaces2-*.jsx`) on a new branch from `main`, not merged; paywall hero colours chosen on an artifact first; Best Buy hidden; postal code never empty; account needs language, province (calculated) and postal code; the 1-week Unlimited configured in Google and Apple before any build; stores from the database only; *"Dont take decisions by yourself … dont change the actual app behavior without asking"*; then *"all previous builds should be considered and still works"*; then Android requires notifications at account creation.
+- **Decisions:** six rounds of answers recorded in `Technical/Store_Spaces_v2_Design.md` §12–16 (approved 2026-11-10). Highlights: hero colour B (total only); one trial per account (week **or** 75 credits, never both, replaces `Roadmap/Unlimited_Free_Trial.md` §4); screen H sticky at every launch until chosen, X opens the app with a "Start your free trial" strip under the Home hero; free week only on H; Deals + vote built fully; Stores tab removed; admins still see `adminPreview` stores; Business membership added; FSA coordinates; no Home search.
+- **Files / areas:** plan `Technical/Store_Spaces_v2_Plan.md` (24 tasks; Phase 1 = old-build compatibility, `X-App-Caps`). Roadmaps added: `Roadmap/Deals_Watchlist.md`, `Roadmap/Push_Token_Gap.md`.
+- **Branch:** app `feat/store-spaces-v2` (to cut from `main` 70991cb3); docs `docs/store-spaces-v2`.
+- **Status:** plan written, waiting for Maxim's review and the execution method. Nothing built, no console touched.
 
 ### 2026-11-09 — Locked-store "receipts" from the mailbox import; refused non-Costco scans held for the admin
 
@@ -12676,3 +12698,33 @@ drop.
 - **Shipped:** social-media-manager PR #25 (`faadc0d`): 71 unit tests, design `docs/weekly-automation-design.md`, rules `RULES-README.md` §8, routine instructions `sm-content/08-costco-price-drops/weekly/ROUTINE.md`. Production: read-only role `social_ro` (Security/Social_ReadOnly_DB_Role_2026-11-16.md). Cloud routine `trig_01KRncggW6FDLxK2QuDfZPXq`, Mondays 07:10 to 12:10 Toronto hourly, first fire 2026-11-23, MCP connectors cleared on purpose.
 - **Tests:** unit tests for the settled detector, tier model, week planner, photos, score gate, music picker, slots and Graph client (fake fetch); live: role login and denials, photo preflight, the poll against production, a rendered slide with small province amounts, the publisher's due / missed / unreachable cases.
 - **Not done / owed:** `DATABASE_URL_SOCIAL_RO` into the cloud environment; Meta token + ids as GitHub secrets and a first dry run (confirm `META_GRAPH_VERSION` and `IG_CAROUSEL_MAX`); `REEL_BASE_URL` public host for reels; approve music (candidates on Maxim's PC); top-up routine (needs a slot-level rebuild mode); Sunday how-to and Friday recap generators; the cloud setup (Playwright, fonts, ffmpeg) is untested.
+
+## 2026-11-17 — Hotfix: a claimed line is never a missed claim; Home hero shows "Savings found" (hotfix off main)
+
+- **Ask (Maxim):** the Price-drop queue has a missed claim for 379252 while the shopper's account shows it claimed. Claimed must be the shopper's own action only; a notified, unclaimed drop is missed (re-notified, never claimed); a claimed line is never "missed" on the queue screen. Hero card: include the missed and still-to-claim drops in the total, renamed, with a line saying what is included (asked first; Maxim confirmed).
+- **Found:** queue #9632 is a real missed claim: line 4332 (receipt 2026-10-22) is unclaimed and still in its window. The "claimed" on the account is the same product on the shopper's 2026-10-15 receipt (line 4336, claimed 2026-11-14). The desk's missed-claim rule ignored the claim: two claimed lines (#716, #726, history) were labelled and counted as missed claims. No line is ever auto-claimed (server or phone).
+- **Done:** `MISSED_CLAIM_ROW` / `reentryOf` require an unclaimed line; a claimed re-drop is `claimed_redrop` (badge "CLAIMED BY THE SHOPPER · NO CHARGE", never charged); `closeIneligible` closes a waiting missed claim whose line is claimed. Home hero: "Savings found · all-time" = claimed + still to claim + missed (`productStatus.heroFoundTotals`), an "Includes … still to claim / … missed" line, "+$x claimed this month" (EN + FR).
+- **Tests:** backend 7 files (44 + 122, dev DB, one at a time), mobile 13,371 passed, i18n in sync. Full backend suite and CI not run.
+- **Not in a build yet:** the hero card and the new desk badge need the next app build; the server change reaches the shipped admin screens at deploy (an unknown `reentry` shows no badge).
+
+## 2026-11-17 — Hotfix: price history and lookup show official prices first; community prices as a fallback or behind a switch (Priceback #593)
+
+- **Ask (Maxim):** the admin price history and price lookup never include shoppers' receipts by default (a switch on the screen); social posts the same; the main focus is the catalogue harvest and the savings jobs, social posts and receipts only as a fallback at the user's warehouse or province; every price says its confidence or source type, never a source name (verified tags behave like trusted savings; unverified tags are the last fallback, "flagged by a shopper"); place filters (my warehouse, nationwide, province, warehouse), a Savings only filter, a badge for old prices; the chart must read like PriceSpy's; a smarter search; a class architecture ready for the shopper's warehouse view (home + nearby + Business Centres); every rule documented.
+- **Found:** the chart drew every point from every province, warehouse and source in time order, so same-day prices zigzagged. The catalogue harvest kept only the current regular price per place (a change overwrote the old one), so there was no regular-price history to draw. Production has no unaccent / pg_trgm.
+- **Done:** `shared/priceHistory` (evidence tiers, `PriceHistoryScope`, `PriceHistorySeries`), SQL twins `lib/priceEvidenceSql` and `lib/productSearchSql`, `services/priceHistory`, `repos/priceHistoryRepo`, migration 0051 (`price_since`, `product_regular_price_history`), `PriceHistoryChart`, both admin screens. Rules: `Technical/Price_History_Rules.md`, `CLAUDE.md`.
+- **Tests:** mobile 13,434 passed; i18n in sync; backend 38/38 in the two new/changed files and 450/454 in the 19-file blast radius on dev (2 failures identical on clean main, from #588/#591). Full backend suite and CI not run.
+- **Owed:** apply 0051 to production before merging (Maxim's go); the app build for the admin screens; classify `price_drop_redrops` / `subscriber_access_events` in `dataCleanup` and the `savingsQualityDb` "weighed" assertion (both pre-existing on main).
+
+## 2026-11-18 — Hotfix: Best Buy TV drop never found; .97 is Costco's code only (Priceback #599)
+
+- **Ask (Maxim):** two Best Buy receipts scanned in production as an admin test; the Samsung TV (SKU 19204882, paid $3,699.99 on 2026-10-28) is cheaper on bestbuy.ca but no price drop appeared. Find the root cause and fix it. The receipt is a production test: the backend must find the drop, never a hand fix.
+- **Found:** (1) `BESTBUY_SCAN_ENABLED` was `false` in prod `app_config` (row from 2026-09-01): no Best Buy price had ever been fetched in production. (2) Behind it, the drop sweep's `.97` test (`priceDropRepo.CLEARANCE_ENDING`, Costco's warehouse-clearance code) ran on every store's rows. Best Buy's own API price, $2,848.97, would have been held as an unconfirmed clearance and never reached the queue.
+- **Done:** the `.97` code applies to `costcoPriceRules.PRICE_CODE_STORES` (`["costco"]`) only, with SQL twin `CLEARANCE_ENDING` decided by the row's product's store. Feed switched on in prod (Maxim's go). Store guide §8 got both traps (docs #241).
+- **Tests:** a Best Buy `.97` drop chain test fails on main and passes with the fix; Costco `.97` regression 116/116 on dev; mobile 13,464; i18n in sync.
+
+## 2026-11-18 — Store policy calendar: seasonal extensions and "not price-matched" periods (Priceback #600)
+
+- **Ask (Maxim):** Best Buy extends its policy in holiday and savings seasons (Black Friday, Boxing Day); the app must keep a calendar of irregular seasons per store and apply it everywhere. Base window: 30 days (bestbuy.ca; Maxim recalled 14, none found). Calendar in the database, edited on the desk.
+- **Done:** migration 0052 `store_policy_periods` (applied to prod before the merge, ledger row 62); `shared/storePolicyPeriods` + SQL twin in `trackingWindow`; every server and phone window reader moved onto it; Admin · Stores → Seasonal policy; store card and receipt copy en + fr. `Technical/Store_Policy_Calendar.md` (docs #242), `CLAUDE.md` rule 3.
+- **Tests:** backend 17 + 6 new (dev DB); 124-file blast radius one at a time: all green except `dropReminderEmailRepoDb` (1) and `savingsQualityDb` (1, "weighed"), identical on main. `npm test` 448 suites green; i18n in sync. Full backend suite and CI not run.
+- **Owed:** the calendar is empty: Maxim enters Best Buy's 2026 periods. The phone side ships with the next app build. Prod deploy 2026-11-18 19:50 UTC; jobs since then all OK.
