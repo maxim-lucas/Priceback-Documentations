@@ -71,8 +71,22 @@ At most `DROP_REMINDER_EMAILS_MAX_PER_RUN` (100) emails per run, largest savings
 | `DROP_REMINDER_EMAILS_INTERVAL_DAYS` | `3` | Days between runs. |
 | `DROP_REMINDER_EMAILS_INACTIVE_DAYS` | `3` | "Not opened for more than N days". |
 | `DROP_REMINDER_EMAILS_MAX_PER_RUN` | `100` | Cap per run (Zoho's sending limit). |
+| `DROP_REMINDER_RECAP_TO` | `maxim.lucas@viacesi.fr` | Where the owner's recap goes after every real send run. Blank or not an address = no recap. |
 
 Remember `app_config` outranks `defaults.js`: once a row exists, changing the code default does nothing. Change the row.
+
+## The owner's recap after each run (2026-11-15)
+
+After every **real send run** (scheduled or forced; never a preview, a test or a skipped run) the job emails one recap to `DROP_REMINDER_RECAP_TO`, over the same transport the run used (Resend on the server).
+
+- **Totals:** shoppers emailed of planned, failed, total to claim, average, largest, last-day count, pay-as-you-go vs subscribers, negative-credit count, shoppers not seen in the inactive window, held for the next run, why others were not emailed.
+- **One line per shopper:** name, amount, days left, credits (pay-as-you-go) or plan and status, last seen (UTC).
+- **An empty run still sends it.** Silence would mean the job did not run.
+- **A run with a failure or a stop** is subject-prefixed `CHECK:` and lists the errors.
+- **No mail transport = no recap** (the ops alert covers that case).
+- **Best effort:** if the recap cannot be sent, the run and the ledger are unaffected and `result.recap = {sent:false, error}`.
+
+Code: `lib/dropReminderRecap.js` (pure), `sendRecap` in `jobs/dropReminderEmails.js`, `recapProfiles` in `repos/dropReminderEmailRepo.js`. Pinned in `backend/tests/dropReminderEmails.test.js`.
 
 ## Approve, then send (the first run)
 

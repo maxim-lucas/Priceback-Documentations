@@ -33,6 +33,12 @@
 - **Not done (Maxim's call):** replacing `extractPrintedTotal` in the frozen Costco parser (RC-57 proposed change); turning on the quality check's `totals` / `balance` refusal; repairing the 3 stored receipts.
 - **Old app builds:** server change additive (one more check row); no refusal added.
 - **2026-11-16, Maxim:** *"the total should never be blank on scan or on tracking … 1- if the older total is more accurate we go with it, if we can optimize … please optimize. 2- i will turn the refusal … when … at his maximum possible optimization (this is the rule always …) 3- repair the receipts also"*, then *"merge when finished"*. Done: `receiptTotalToShow` (read → lines → blank) on scan, both receipt screens and spending; Costco printed total from both readers (92/0/1 vs 91/0/2); `k06zo` and `nomr1` repaired in prod (runbook log); `cj1k9` left for a desk reject (the scripted reject was blocked). Rule 2 saved as a standing rule (CLAUDE.md §ground rules 6).
+### 2026-11-15 — Drop reminders: the owner's recap email after every run (hotfix off main)
+
+- **Ask (Maxim):** today's 39-shopper batch was sent by hand over Zoho (14:47-14:49 UTC, before #582 moved the server to Resend); he wanted a recap (name, amount, days left, credits or plan, last seen, plus a full summary) at his address, then "add the recap email to the job after each run", recipient in config, and an empty run still sends it (it would mean the job had a problem on send).
+- **Done:** `lib/dropReminderRecap.js`, `sendRecap` in the job, `recapProfiles` in the repo, `DROP_REMINDER_RECAP_TO` default, 6 tests (39 of 39 in the file). Doc: `Operations/Price_Drop_Reminder_Emails.md`.
+- **Old app builds:** none touched; no route, request or response field changed; server-side email only.
+- **Open:** the recap is not sent when there is no mail transport (the ops alert covers it).
 
 ### 2026-11-14 — Receipt parser specification for every store; Best Buy in-store parser rebuild (base: main)
 
