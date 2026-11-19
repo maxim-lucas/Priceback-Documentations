@@ -16,6 +16,14 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-18 — Store Spaces v2 merged onto main; Task 21 reviewed (subscriber fix)
+
+- **Asked (Maxim):** continue the Store Spaces v2 work and merge everything on a new branch based on `main`.
+- **Found:** `feat/store-spaces-v2` (Tasks 0–21, 37 commits, base 3.6.1) and `docs/store-spaces-v2` existed only on this PC (docs in a temp folder); RECAP.md was stale (2026-09). `main` had moved 77 commits.
+- **Done:** both old branches pushed as backup. New `feat/store-spaces-v2-main` (off `main` 12cd1f29) and `docs/store-spaces-v2-main` (off docs `main`). Conflicts: migration renumbered **0050 → 0053**; receipt parser keeps main's Costco PDF rows under the picked-store stamp; Home hero keeps main's all-time "Savings found" (2026-11-17) in the new style; main's seasonal-calendar lines move from the retired Stores tab to the Store Space screen. Task 21 review: a subscriber could be paywalled or offered the trial (Bugs #388), fixed on server and phone.
+- **Tests:** mobile full suite (only the 11 pre-existing failures of `main`); i18n in sync; backend pure 3,233 pass (3 fail, all pre-existing on `main`: the policy-period admin routes' static gate/brake checks, one needs `DATABASE_URL`); DB on dev 40/40 (migration0053Db, trialChoiceDb, storeSpacesCompatDb, trialProductDb, storeSpacesCompat).
+- **Owed (Maxim present):** Task 22 (free week in Play Console, App Store Connect, RevenueCat), Task 23 (final checks, release order), App Review account answer, French copy review, design-pass answers, device test, PR when he says so.
+
 ### 2026-11-15 — Receipt ground rules: checks that must never fail, for every store (hotfix off main)
 
 - **Asked (Maxim):** *"some receipts (one example from yesterday showing subtotal 192.89$ and 7.45$ in total) doesnt make any sense … make sure that everything should seem logic and meaningful when a receipt is scanned on both UI (user and admin) and create ground rules as checks that should never fail on parsing, developing (coding), roadmap … available for all store parser and you can create some for costco in depth … documented and cross checked on future development too."* Branch: `hotfix/receipt-ground-rules`.

@@ -323,6 +323,10 @@ this change that shopper got both the week and the 75 credits. It touches only
 accounts with a post-deploy trial webhook and no grant yet; every ordinary sign-up is
 unchanged (pinned by the matrix test).
 
+**Added 2026-11-18 (merge onto `main`):** `trial.eligible` is also false while the account is a subscriber in force
+(`isCreditExempt`), and `POST /api/me/trial-choice` answers `409 trial_used` to a subscriber. Both are behind
+`X-App-Caps: trial-choice`, so no installed build sees either; the new build already handles 409 (Bugs #388).
+
 **Deploy order.** Apply migration 0053 to production FIRST (expand), verify with the
 schema fingerprint, THEN deploy this backend. The code reads `trial_choice`,
 `trial_chosen_at`, `products.category` and `store_votes`, so the reverse order breaks
