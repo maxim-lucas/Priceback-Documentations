@@ -293,3 +293,63 @@ the price pass off.
 
 **Commands:** `--refresh-channels`, `--refresh-names`, and `--max-pages all` for the one-off full
 read of a website source (resumable: each run skips what the source verified within 35 days).
+
+## The nationwide fill: categories, every warehouse, three prices (2026-11-19, migration 0054)
+
+Asked (Maxim): *"run the catalogue harvest for all costco products across canada nationwide per warehouse … all the
+regular prices items (warehouse price …, category … last updated price …) and also the photo … barcode if you have the
+option … add also the sameday price … and even the online price if it differs … names should be in french and in english
+always … follow the last harvest jobs to avoid surprises."* For the price lookup screen that launches to the public.
+
+**What the last scheduled run did (2026-11-15, production, in the API process):** Same-Day Costco 118 min / 5,247
+requests / 8,555 items; Same-Day Business Centre 46 min; costco.ca 400 pages; Business Centre site 200 pages. Prices at
+the first 2 warehouses per province (20 of 119 priced), delivery at the first one. Production then held 15,494 Costco
+products (14,318 with a photo, 37 with a barcode, 10,224 with a warehouse price).
+
+| Wanted | Where it comes from | Status |
+|---|---|---|
+| Warehouse (shelf) price, every warehouse | Same-Day in-store shop, `mode: "prices"` | built |
+| Same-Day (delivery) price, every warehouse | Same-Day delivery shop, `mode: "prices"` (`deliveryPerProvince`) | built |
+| Online price (costco.ca), "if it differs" | costco.ca JSON-LD, `website` kind, national row; read with `--max-pages all` | existing source, one-off full read |
+| Last updated price | `product_regular_prices.price_since` / `last_seen_at`; the past is `product_regular_price_history` | already stored |
+| Category, English + French | Same-Day `CrossRetailerProductDetailProductCoreInfo` → `product_categories`, `products.category_id` | built |
+| Names, English + French | `display_name` / `display_name_fr` (French kept even when equal to the English) | built |
+| Photo | `catalog_items.image_url` (the lookup already returns it) | existing |
+| Barcode | **not in any Same-Day call** (30 operations probed 2026-11-19; `Items`, `ItemDetailsV4`, `ItemDetailData`, product core info) | not available: Chrome runbook stays the source |
+
+**Modes** (`catalog_sources.config.mode`, Same-Day sources): `full` (default: the weekly run, plus the categories of
+products that have none, at most `maxCategories` = 1500 a run), `prices` (no discovery; the products already read, EVERY
+warehouse of `priceProvinces`, in store and for delivery), `categories` (no discovery; only the categories). A prices
+run reads a **whole province**, never one warehouse of it: the province's price is the most common price among the
+warehouses written (`planRegularPrices`), so a one-warehouse chunk would overwrite the province row. A non-full run is
+`partial` (no sanity floor) and records the products it read as `items_found`, so the next full run's "half of the last
+good run" floor still means something. An unknown mode is `full`: a typo never skips the discovery.
+
+**`config.readsFrom`** names the weekly source whose products a prices / categories source works on. The nationwide fill
+runs as separate, **disabled** sources (`sameday_costco_fill_<province>`), so the weekly sources' schedule and config are
+never edited and Sunday's tick never runs a fill by accident.
+
+**Categories** are Instacart's own ("Multigrain Bread", id 3567): one English read per product with no category, then
+ONE French read per distinct category (the French name belongs to the category). `product_categories` is the one
+writer's table (`productCatalogRepo.writeCategories`); a French name only fills or replaces, never blanks. Reader: the
+price lookup's product (`category`, `categoryFr`, additive). The empty jsonb `products.category` that production
+carries (added by hand, no migration, no writer, no reader) is left alone; drop it in a later migration.
+
+**Cost (measured 2026-11-15: ~1.35 s per request):** prices at all 119 warehouses ≈ 20,000 requests ≈ 7.5 h; delivery
+at all of them doubles that; categories ≈ 9,000 requests ≈ 3.4 h once, then only new products. Hence the province chunks
+(each its own run, `timeoutMinutes` up to 600): a restart loses at most one province.
+
+**Known limit:** the weekly run still reads 2 warehouses per province. A weekly run recomputes a province's price from
+those two, so the province row can move while the warehouse rows a fill wrote stay as they were. Re-run the fill after a
+price change worth catching, or give the weekly source `pricesPerProvince: "all"` (≈ +7.5 h a week; Infrastructure_Cost_Rules).
+
+**French gap measured on production (2026-11-19):** 925 products have no French name: 861 were never verified by any
+catalogue (known from receipts only; a costco.ca full read `--max-pages all` names the ones the site lists) and 64 were
+read with no distinct French. 288 already store a French name equal to the English one.
+
+**Commands:** `--source <fill> --mode prices --provinces ON,QC --timeout-minutes 600`, `--mode categories
+--max-categories 3000`, `--dry-run` as before. Tests: `catalogNationwideFill.test.js` (offline),
+`catalogCategoriesDb.test.js` (dev DB).
+
+**Old app builds:** admin and lookup routes gain two additive fields; no route, field or meaning changed; no shipped
+build reads the new table or column.

@@ -106,6 +106,26 @@ was claimed.
 Unchanged: a drop already waiting when the shopper claims it stays in the queue and is billed when it leaves, with no
 alert. It did not come back; it was never sent.
 
+**Claimed is the shopper's own action, and a claimed line is never a missed claim (Maxim, 2026-11-17).** *"it should
+never be considered claimed if the user didnt mark the item claimed … if claimed the missed drop in the price drop
+queue should never be considered missed and in this screen."*
+
+- Claimed means `receipt_items.claimed_at` is set, and only the shopper's "Mark claimed" sets it. A drop that was
+  notified and ended unclaimed is **missed**, never claimed, and is re-notified when its saving comes back.
+- A missed claim is defined once: `priceDropQueueRepo.reentryOf` (`"missed_claim"`) and its SQL twin
+  `MISSED_CLAIM_ROW`, both requiring an unclaimed line. A re-drop on a line the shopper claimed since is
+  `"claimed_redrop"`: badge *CLAIMED BY THE SHOPPER · NO CHARGE*, never on the *Missed claims* filter or its count,
+  never charged (`priceDropTier.chargeCreditsFor`).
+- A waiting missed claim whose line the shopper then claims is closed (`closeIneligible`, reason *claimed by the
+  shopper*). A re-drop is never charged, so closing it bills nothing.
+- Production, 2026-11-17: the desk counted two claimed lines as missed claims (queue #716 SKU 1073000, #726 SKU
+  1774182, both history rows). Queue #9632 (SKU 379252) is a real missed claim: line 4332 on the shopper's 2026-10-22
+  receipt is unclaimed; the "claimed" seen on the account was the same product on their 2026-10-15 receipt (line
+  4336, claimed 2026-11-14).
+- The Home hero's all-time total became **Savings found** = claimed + still to claim + missed (Maxim, 2026-11-17,
+  replacing the claimed-only total of 2026-11-09). It changes no line's status. One function:
+  `src/services/productStatus.heroFoundTotals`; the line under it says what is included.
+
 ### 6. An out-of-stock drop can be approved without a charge
 
 Costco adjusts a price only while the item is in stock. When the item is out of stock at the shopper's warehouse
