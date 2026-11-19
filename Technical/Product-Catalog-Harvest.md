@@ -353,3 +353,12 @@ read with no distinct French. 288 already store a French name equal to the Engli
 
 **Old app builds:** admin and lookup routes gain two additive fields; no route, field or meaning changed; no shipped
 build reads the new table or column.
+
+## Nationwide fill: always start, in this order (Maxim, 2026-11-19)
+
+*"No start always, and document this rule: priority is 1- Quebec 2- Ontario 3- the rest of the provinces based on the users volume province in the production database."*
+
+1. **Always start.** The next fill chunk is started as soon as the previous one has finished (and no deploy is pending: a Railway restart kills a run). Never wait to be asked between chunks.
+2. **Order:** Quebec, then Ontario, then every other province by the number of shoppers who chose it (`priceback.users.province_id`, measured 2026-11-19: AB 6, NB 5, BC 4, SK 2, MB 1; NS, NL and PE have none and go last).
+3. **One disabled source per province**, `sameday_costco_fill_<qc|on|ab|nb|bc|sk|mb|ns|nl|pe>` (`mode: prices`, `readsFrom: sameday_costco_catalog`, `priceProvinces: [<code>]`, `timeoutMinutes: 600`), created 2026-11-19. A province is always read whole (the province price is the most common warehouse price).
+4. **Watch lightly:** read the run row (`priceback.catalog_runs`) every 20-30 minutes, never a long-lived local watcher (the machine ran out of memory once and the watcher was killed; the run itself lives on Railway).
