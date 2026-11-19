@@ -195,7 +195,7 @@ have another own type."* *"sweep job is for price drop detection only."* *"expir
 as an actual price drop … it should be considered as a missed price drop even for new scans … it should never mention
 which item same path as locked, because if it dropped again in the window we will notify the user and charge him."*
 
-**Source types (migration 0053, `backend/lib/priceSourceCodes.js`).** Until 0053 the savings harvest and the
+**Source types (migration 0055, `backend/lib/priceSourceCodes.js`).** Until 0053 the savings harvest and the
 social-post imports wrote every price as `price_tag_scan` under the import's synthetic device. Prod on 2026-11-19:
 12,114 Same-Day rows and 6,484 social/yepsavings rows (plus 249 written as `scrape`), against **45** shoppers' tag
 photos.
@@ -221,7 +221,7 @@ was dropped and an ENDED saving read as running with no end. Same-Day's printed 
 was read (and its start is `valid_from`, the first read). Cases: Swany glove 2025447 and BFree wraps 1751411 (both ended
 11-15), on Admin · Potential price drops on 11-19; queue #12925 was sent and charged 60 credits.
 
-**Missed drops (migration 0054, `backend/repos/missedDropsRepo.js`).** An official saving (savings table, trusted
+**Missed drops (migration 0056, `backend/repos/missedDropsRepo.js`).** An official saving (savings table, trusted
 source) that reached the purchase but had ended on the buyer's day when it was found:
 `savingDropRepo.findSavingDrops({ ended: true })`, the same definition as a real drop with the running test reversed,
 within 60 days of the end, on an unclaimed line never told any drop. It is:
@@ -244,9 +244,9 @@ refunds the charge (`refund:<charge ref>`), removes the line's `price_drop_notif
 off the line, `src/services/releasedDrops.js`), marks the sent queue row superseded and records a missed drop
 (`reason 'withdrawn'`). #12925: ended date recorded as 2026-11-19, as Maxim asked.
 
-**Deploy order.** 0053 + 0054 on prod first (additive); deploy; then `scripts/datafix-harvest-source-types.js --write`
+**Deploy order.** 0055 + 0056 on prod first (additive); deploy; then `scripts/datafix-harvest-source-types.js --write`
 (moves the legacy rows; a row whose twin the new code already wrote is kept as excluded history,
-`:pre0053:<id>`); then `scripts/withdraw-sent-drop.js --item 10227 --ended 2026-11-19 --write`.
+`:pre0055:<id>`); then `scripts/withdraw-sent-drop.js --item 10227 --ended 2026-11-19 --write`.
 
 ## What stays from 2026-11-12
 
