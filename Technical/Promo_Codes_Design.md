@@ -1,7 +1,8 @@
 # Promo codes — FAMILY, FRIENDS10, BLACK (design)
 
-**Status:** draft, 2026-11-19. Ships in the next app version only (Store Spaces v2 build, PR #602). Old builds
-never see a promo code.
+**Status:** built 2026-11-19 on `feat/store-spaces-v2-main` (PR #602, held for the Store Spaces v2 build). Old
+builds never see a promo code. Production needs migration **0057** applied by hand before the backend deploys
+(Maxim's go). See *Built* below.
 
 ## What Maxim asked (2026-11-19)
 
@@ -40,6 +41,9 @@ So one mechanism on both phones:
    server (exists, active, inside its window, account eligible) and attaches it to the account.
    **Account eligible** (Maxim, 2026-11-19): the account **never had a subscription** (not current, not lapsed) and
    shops on the **Canadian** store. Promo codes are not offered in Egypt. One rule, beside `isUsable`.
+   The country is the **store account's** (App Store / Play storefront, read by the phone and sent as
+   `storeCountry`), never `users.country_id`: every account is stamped `CA` at creation, Egyptian ones included.
+   An unknown country is refused, since the store offers exist in Canada only.
 2. **Subscriptions:** the app buys the plan through a hidden discounted store offer for that code's percentage
    (below). The base plan price never changes; installed builds never see the offers.
 3. **Credit packs:** the purchase is the normal pack at the normal price. When the top-up settles (route
@@ -83,6 +87,21 @@ ends_at`, under cap) on the server; the app never decides it, it shows what the 
 New routes only; no existing route, field or meaning changes. The top-up bonus is an extra ledger line on a request
 that already succeeds. The Play offers carry `rc-ignore-offer`, so RevenueCat never picks them for an installed
 build.
+
+## Built (2026-11-19)
+
+| Piece | Where |
+|---|---|
+| Tables | migration `0057_promo_codes`: `promo_codes` (seeded FAMILY / FRIENDS10 / BLACK, ends 2027-01-01 05:00 UTC = end of 2026-12-31 Toronto), `promo_redemptions` (cascade with the account), `promo_credit_grants` (one row per store transaction a bonus was paid on, kept: the replay protection) |
+| Rules (one definition each) | `backend/lib/promoCodes.js`: `isUsable` (closes ON `ends_at`), `accountEligibility`, `storeOffersFor`, `creditBonusFor` (floored), `promoView` |
+| Data | `backend/repos/promoCodesRepo.js`: `attach` (code row locked, so a cap is never overshot), `activeFor`, `everSubscribed` (start date, any subscription event, or the free week), `grantPackBonusOnce`, `isCodeTaken` (one namespace; `partnersRepo.createCode` calls it too), admin `list` / `create` / `update` (terms freeze after the first account takes the code) |
+| Routes | `GET` / `POST /api/me/promo-code` behind `X-App-Caps: promo-code` (without it: 404, as for an unknown path). Refusals: 400 `invalid_code`, 404 `not_found`, 409 `had_subscription` / `store_country`, 410 `inactive` / `not_started` / `expired` / `exhausted`. Admin: `GET` / `POST /api/admin/promo-codes`, `PATCH /api/admin/promo-codes/:id` |
+| Pack bonus | after a verified pack purchase on BOTH paths (`/api/me/credits/topup`, RevenueCat webhook): ledger type `promo_bonus`, note `promo code bonus`; the top-up answer gains an optional `promoBonus` |
+| Phone | `src/services/promoCodeService.js` (asks, never decides); `purchaseService.purchaseWithPromo` (Android: the `promo-N` option; iOS: Apple's redeem sheet); paywall "Have a promo code?" (hidden outside Canada); Admin · Promo codes |
+| Labels | `promo.*`, `credits.type.promoBonus`, `credits.note.promoBonus`, EN + FR |
+
+The free week is Canada only in both consoles since 2026-11-19 too (setup doc). Its server rule is unchanged: the
+store not offering the week in Egypt is what keeps it off screen H there.
 
 ## Open
 

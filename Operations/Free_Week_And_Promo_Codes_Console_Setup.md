@@ -18,9 +18,15 @@ is excluded too; a deleted-and-recreated email is caught by `emailEverGrantedTri
 
 | Store | Where | Value |
 |---|---|---|
-| Google Play | `priceback_unlimited_monthly` → base plan `monthly` → offer **`free-week`** | **Active.** Free trial 7 days. Eligibility *New customer acquisition → Never had any subscription* (in this app). Runs indefinitely. Tag `rc-ignore-offer`. **Not** backwards compatible (Play set the flag automatically on the first offer; removed: "Stop using for deprecated billing methods"). |
-| App Store Connect | new product **`priceback_unlimited_monthly_trial`** (Apple ID 6836895117), group *PriceBack Unlimited*, 1 month | CA$4.99 / E£199.99 (= the monthly). Available Canada + Egypt. EN-CA "Unlimited Monthly", FR-CA "Illimité mensuel" (same as the monthly). Introductory offer **Free for the first week**, Canada + Egypt, Nov 19 2026 → no end date. Review notes written. **Owed: the review screenshot** (screen H from the new build). `priceback_unlimited_monthly` has **no** intro offer (checked). |
+| Google Play | `priceback_unlimited_monthly` → base plan `monthly` → offer **`free-week`** | **Active.** Free trial 7 days. **Canada only** (offer availability 1 of 175 regions, 2026-11-19). Eligibility *New customer acquisition → Never had any subscription* (in this app). Runs indefinitely. Tag `rc-ignore-offer`. **Not** backwards compatible (Play set the flag automatically on the first offer; removed: "Stop using for deprecated billing methods"). |
+| App Store Connect | new product **`priceback_unlimited_monthly_trial`** (Apple ID 6836895117), group *PriceBack Unlimited*, 1 month | CA$4.99 / E£199.99 (= the monthly). Available Canada + Egypt. EN-CA "Unlimited Monthly", FR-CA "Illimité mensuel" (same as the monthly). Introductory offer **Free for the first week**, **Canada only** (the Egypt row was deleted 2026-11-19; the product itself stays on sale in both), Nov 19 2026 → no end date. Review notes written. **Owed: the review screenshot** (screen H from the new build). `priceback_unlimited_monthly` has **no** intro offer (checked). |
 | RevenueCat | App Store app → product `priceback_unlimited_monthly_trial` | Attached to entitlement **`unlimited`**. In **no offering** on purpose: the new build fetches it by id (`purchaseService` free-week lookup), and installed builds' paywalls read offerings only. |
+
+**Canada only (Maxim, 2026-11-19):** *"exclude egypt from the free week too"*. Done in both consoles, read back
+after a reload. In Egypt the stores now offer no week, so the new build's screen H shows the credits only: the
+app offers the week only when the store returns it (`purchaseService.getFreeWeekOffer`: iOS `no_free_intro`,
+Android `no_offer`). An Apple intro offer is edited per country (Introductory Offers → View by Country or Region →
+remove the row); a Play offer by *Manage country / region availability* on the offer, then **Save changes**.
 
 Play "Never had any subscription" instead of the brief's "Never had this subscription": someone who had the annual
 cannot also take a free week (one trial per account).
