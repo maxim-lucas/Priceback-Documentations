@@ -1,6 +1,6 @@
 # Unlimited: 7-day free trial for new shoppers (later, not started)
 
-**Status:** documented for later (Maxim, 2026-11-09). Nothing is built or configured. The paywall
+**Status:** being built in Store Spaces v2 (2026-11-10), see `Technical/Store_Spaces_v2_Design.md` §7. Originally documented for later (Maxim, 2026-11-09). The paywall
 redesign (V2 "Your money first", `feat/paywall-v2`) ships first, without a trial.
 
 ## The idea
@@ -90,6 +90,9 @@ store's policy and the law still apply.
 - RevenueCat reads the offer from the store product; no RC change beyond checking the offering shows it.
 
 ### 2. App (store build)
+**Changed 2026-11-10 (Maxim):** the free week is offered **only on onboarding screen H** (Store Spaces v2), never on the
+V2 paywall; H reopens at every launch until the shopper chooses. The two paywall bullets below are superseded.
+
 - The signup choice screen (artboard first, see Decisions).
 - When the store says the shopper is eligible, the V2 paywall's Unlimited monthly row and CTA say
   *"7 days free, then $X/month"* with the **charged price the most prominent number** (App Review 3.1.2).
@@ -109,9 +112,11 @@ store's policy and the law still apply.
   during the 7 days. That's intended.
 
 ### 4. The 75 credits
-Keep granting them to **every** new account, trial or not, on the server as today. A shopper who cancels
-after the trial falls back to credits instead of nothing, and older builds (which never show a trial) are
-unaffected (backend backward-compatibility rule).
+~~Keep granting them to every new account, trial or not.~~ **Replaced 2026-11-10 (Maxim):** *"if a user already used
+the free trial he should not get any of the trial perks. so if he already did 1 week unlimited, he cant have another
+week and he cant have free credit he should be stuck to charge the credit or subscribe."* A new shopper chooses the week
+**or** the 75 credits, once, ever. Older builds (no choice screen) keep the automatic grant at signup, so they are
+unaffected. Built in Store Spaces v2: `Technical/Store_Spaces_v2_Design.md` §7.
 
 ### 5. Release
 Store listing copy for the build that adds it must mention the free week. Reviewer notes: say where the

@@ -16,6 +16,14 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-18 — Store Spaces v2 merged onto main; Task 21 reviewed (subscriber fix)
+
+- **Asked (Maxim):** continue the Store Spaces v2 work and merge everything on a new branch based on `main`.
+- **Found:** `feat/store-spaces-v2` (Tasks 0–21, 37 commits, base 3.6.1) and `docs/store-spaces-v2` existed only on this PC (docs in a temp folder); RECAP.md was stale (2026-09). `main` had moved 77 commits.
+- **Done:** both old branches pushed as backup. New `feat/store-spaces-v2-main` (off `main` 12cd1f29) and `docs/store-spaces-v2-main` (off docs `main`). Conflicts: migration renumbered **0050 → 0053**; receipt parser keeps main's Costco PDF rows under the picked-store stamp; Home hero keeps main's all-time "Savings found" (2026-11-17) in the new style; main's seasonal-calendar lines move from the retired Stores tab to the Store Space screen. Task 21 review: a subscriber could be paywalled or offered the trial (Bugs #388), fixed on server and phone.
+- **Tests:** mobile full suite (only the 11 pre-existing failures of `main`); i18n in sync; backend pure 3,233 pass (3 fail, all pre-existing on `main`: the policy-period admin routes' static gate/brake checks, one needs `DATABASE_URL`); DB on dev 40/40 (migration0053Db, trialChoiceDb, storeSpacesCompatDb, trialProductDb, storeSpacesCompat).
+- **Owed (Maxim present):** Task 22 (free week in Play Console, App Store Connect, RevenueCat), Task 23 (final checks, release order), App Review account answer, French copy review, design-pass answers, device test, PR when he says so.
+
 ### 2026-11-15 — Receipt ground rules: checks that must never fail, for every store (hotfix off main)
 
 - **Asked (Maxim):** *"some receipts (one example from yesterday showing subtotal 192.89$ and 7.45$ in total) doesnt make any sense … make sure that everything should seem logic and meaningful when a receipt is scanned on both UI (user and admin) and create ground rules as checks that should never fail on parsing, developing (coding), roadmap … available for all store parser and you can create some for costco in depth … documented and cross checked on future development too."* Branch: `hotfix/receipt-ground-rules`.
@@ -46,6 +54,14 @@
 - **Done:** branch `hotfix/price-drop-queue-hygiene` (off `main` v3.6.1): `closeIneligible` + new `closeStaleQueue` run before the admin list and after every global sweep; `supersedeCovered` at delivery; 6 new DB tests + 1 tightened. No migration, no app change, no route change.
 - **Prod cleanup:** the 13 rows → superseded, on Maxim's go (the deployed code does the same on the first admin list load).
 - **Status:** PR open, waiting on Maxim. No drop was approved.
+
+### 2026-11-10 — Store Spaces v2: redesign from Claude Design, trial choice, Deals, store vote
+
+- **Asked (Maxim):** implement the Claude Design project *Store Spaces v2* (`Store Spaces v2.html` + `redesign/spaces2-*.jsx`) on a new branch from `main`, not merged; paywall hero colours chosen on an artifact first; Best Buy hidden; postal code never empty; account needs language, province (calculated) and postal code; the 1-week Unlimited configured in Google and Apple before any build; stores from the database only; *"Dont take decisions by yourself … dont change the actual app behavior without asking"*; then *"all previous builds should be considered and still works"*; then Android requires notifications at account creation.
+- **Decisions:** six rounds of answers recorded in `Technical/Store_Spaces_v2_Design.md` §12–16 (approved 2026-11-10). Highlights: hero colour B (total only); one trial per account (week **or** 75 credits, never both, replaces `Roadmap/Unlimited_Free_Trial.md` §4); screen H sticky at every launch until chosen, X opens the app with a "Start your free trial" strip under the Home hero; free week only on H; Deals + vote built fully; Stores tab removed; admins still see `adminPreview` stores; Business membership added; FSA coordinates; no Home search.
+- **Files / areas:** plan `Technical/Store_Spaces_v2_Plan.md` (24 tasks; Phase 1 = old-build compatibility, `X-App-Caps`). Roadmaps added: `Roadmap/Deals_Watchlist.md`, `Roadmap/Push_Token_Gap.md`.
+- **Branch:** app `feat/store-spaces-v2` (to cut from `main` 70991cb3); docs `docs/store-spaces-v2`.
+- **Status:** plan written, waiting for Maxim's review and the execution method. Nothing built, no console touched.
 
 ### 2026-11-09 — Locked-store "receipts" from the mailbox import; refused non-Costco scans held for the admin
 
