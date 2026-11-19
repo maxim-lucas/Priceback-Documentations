@@ -187,6 +187,67 @@ savings) that were not offered before. The query took 0.5 s.
 **The row already waiting.** #12639 waits at $24.42. The sweep stages the $20.57 drop as a new row; the queue's
 hygiene then closes the $24.42 row (a waiting, undecided row is closed when the same line waits at a deeper price).
 
+### 9. The harvest is never a price tag; an ended saving is a missed drop (2026-11-19)
+
+Maxim, 2026-11-19: *"Harvesting should never be a price tag labeled because this will give false numbers for the
+price tag dashboard … official source should have the type 1, social are not official and yepsavings same, they should
+have another own type."* *"sweep job is for price drop detection only."* *"expired savings should never be considered
+as an actual price drop … it should be considered as a missed price drop even for new scans … it should never mention
+which item same path as locked, because if it dropped again in the window we will notify the user and charge him."*
+
+**Source types (migration 0053, `backend/lib/priceSourceCodes.js`).** Until 0053 the savings harvest and the
+social-post imports wrote every price as `price_tag_scan` under the import's synthetic device. Prod on 2026-11-19:
+12,114 Same-Day rows and 6,484 social/yepsavings rows (plus 249 written as `scrape`), against **45** shoppers' tag
+photos.
+
+| Type | What it is | Tier |
+| --- | --- | --- |
+| `price_tag_scan` | a shopper's photo of a shelf tag. Nothing else. | flag, or verified tag |
+| `savings_harvest` | Costco's own publication read by the harvest (Same-Day in-store, warehouse and Business Centre) | 1, official |
+| `social_post` | a price off a website or social post (yepsavings, the admin's social-post import) | 2, one vote of N |
+
+The drop rules still judge a row by `flags.sourceKind` (`HARVESTED_ROW`, `thirdPartyRow`, `POINT_RULES`), so no tier,
+vote or confidence changed. What the type fixes: the tag dashboard (`adminConsoleRepo`, `pst.code = 'price_tag_scan'`),
+the tag-credit settlement (it enumerated thousands of harvest pools with no shopper to pay), Admin · Saving dates
+("Price tag photo" on a Same-Day row) and the crowd pool (`crowdRepo`: shoppers' receipts and tags only now).
+
+**The sweep finds price drops only.** The price-tag credit settlement and the receipt status upkeep were legs of the
+price sweep; they are their own crons since 2026-11-19 (`tagCreditSettlement` 08:10 UTC, `receiptStatusUpkeep`
+08:20 UTC, each in `job_runs`). The admin console's "Price refresh" result no longer mentions tag credits.
+
+**An ended saving keeps its end.** `_vouchedEnd` trusted a tag's printed end only when it was on or after the row's
+`observed_at`. The harvest re-reads a Same-Day listing after its last day and moves `observed_at` past it, so the end
+was dropped and an ENDED saving read as running with no end. Same-Day's printed `valid_until` is now trusted whenever it
+was read (and its start is `valid_from`, the first read). Cases: Swany glove 2025447 and BFree wraps 1751411 (both ended
+11-15), on Admin · Potential price drops on 11-19; queue #12925 was sent and charged 60 credits.
+
+**Missed drops (migration 0054, `backend/repos/missedDropsRepo.js`).** An official saving (savings table, trusted
+source) that reached the purchase but had ended on the buyer's day when it was found:
+`savingDropRepo.findSavingDrops({ ended: true })`, the same definition as a real drop with the running test reversed,
+within 60 days of the end, on an unclaimed line never told any drop. It is:
+
+- recorded once per line, never charged, never queued;
+- told to the shopper as a count and a total only (push `missed_price_drops`, switch `notifUrgentClaims`; Home card
+  and the Tracking list's All / Expired filters), never the item, the receipt or the price, the same path as a locked
+  drop;
+- no obstacle to a later real drop on the line: a new saving inside the window is told and charged as usual.
+
+The sweep runs it (it is drop detection). `GET /api/me/drops` and the bootstrap carry `missed: { count, savings,
+lastEnded }` (additive).
+
+**Same-Day at a warehouse it does not list** stays on Potential for now (Maxim: *"an unlisted goes to potential for
+now, because we already working on a harvesting all warehouses daily so this should disapear soon"*). At a listed
+warehouse the savings path sends it to the queue (PS5 9575788, #12902, sent 11-19).
+
+**Withdrawing a drop sent after its saving ended:** `scripts/withdraw-sent-drop.js` (`missedDropsRepo.withdrawSentDrop`)
+refunds the charge (`refund:<charge ref>`), removes the line's `price_drop_notifications` row (the phone takes the drop
+off the line, `src/services/releasedDrops.js`), marks the sent queue row superseded and records a missed drop
+(`reason 'withdrawn'`). #12925: ended date recorded as 2026-11-19, as Maxim asked.
+
+**Deploy order.** 0053 + 0054 on prod first (additive); deploy; then `scripts/datafix-harvest-source-types.js --write`
+(moves the legacy rows; a row whose twin the new code already wrote is kept as excluded history,
+`:pre0053:<id>`); then `scripts/withdraw-sent-drop.js --item 10227 --ended 2026-11-19 --write`.
+
 ## What stays from 2026-11-12
 
 - **The savings table answers first.** A price group answers only for a line no saving covers.
