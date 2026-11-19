@@ -16,6 +16,14 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-16 — Potential price drops: clearance at other warehouses on its own list; Select all; queue-style cards (hotfix on main)
+
+- **Asked (Maxim):** a .97 clearance whose buyers shopped at other warehouses sat on Potential price drops with nothing to send ("send without charge" answers that a clearance holds at its own warehouse, and that block is right). Put such cards on a separate list or filter, off by default, with Select all as in the price-drop queue. Select all for the Potential list too. Button "Sold by the pack". The queue's card structure, keeping Potential's colours. Then: *"the rule of split applies on any source but only on different warehouse but same province and clearance only"*.
+- **Kept:** the 2026-10-30 clearance rule and the 2026-11-14 "Nothing to send" answer. The single send / skip routes are unchanged.
+- **Done:** branch `hotfix/potential-drops-clearance-list-select-all` (off `main` `5dac8374`). `backend/lib/potentialDropLists.js` (the one rule), `clearanceElsewhere` / `clearanceElsewhereCount` on the list (additive), the admin alert skips those cards, new `POST /api/admin/potential-drops/bulk` (verify / reject / skip / clearance_skip, one sweep per province). App: two lists, three Select all bars, queue-structure cards in amber. The "Sold by the pack" label was already on `main` (#588). Doc: `Technical/Warehouse_Clearance_Drops.md`.
+- **Tests:** screen 47 of 47 (8 new, mutation-checked); backend `potentialDropDb` 39 of 39 (6 new, 0 skipped, dev DB), `potentialDropLists` 5 of 5, `adminAlertsJob` 35 of 35, `priceDropQueueRulesDb` 25 of 25; `i18n:check` in sync. Full mobile suite: the only failures are trackingClock, paywallAnnualBadge and adjustmentWindowTimezone.matrix, which fail the same way on a clean tree.
+- **Old app builds:** admin-only routes; one route added and two response fields added; nothing removed or renamed. Shopper builds don't call these routes.
+- **Status:** PR open, waiting on Maxim.
 ### 2026-11-17 — A subscriber is never paywalled; the balance is hidden and unused while subscribed (hotfix off main)
 
 - **Asked (Maxim):** *"the problem with the unlimited user is confirmed, i tested with another subscriber for annual unlimited (Sally Wissa) and she had the same problem. she subscribed and her balance was negative and all on scan click the paywall was hit as she is never subscribed."* Rules: a subscriber's balance is hidden while unlimited, kept but never used; every subscriber has unlimited access to every feature, scans and price drops included, and is never blocked; a subscriber never hits a paywall while the subscription is valid. Branch: hotfix off `main`.
