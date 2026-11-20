@@ -2345,6 +2345,71 @@ wrong).
 |---|---|---|---|---|---|
 | `r_1793483582333_nomr1` | Costco Rimouski #1720 | 2026-10-31 | not looked up | a 2 × 45.99 line added 2026-11-12 | **repaired 2026-11-16** to the paper (6 lines, 77.88); the claimed line kept |
 
+## RC-59 · An item number left in the name: the row no longer opens with it (fixed, Priceback #608, 2026-11-20)
+
+**Printed shape.** An ordinary item row — `313740 KS MOUCHOIRS 22.99 F` — read with something glued in front of the
+number, so the row no longer opens with it:
+
+| What is glued in front | Seen as | Receipt |
+|---|---|---|
+| the "Bas du panier" banner's stars (a tighter row reading of the rework) | `********* 313740 KS MOUCHOIRS` | os1f1 c880 |
+| banner stars and a pen's dash | `***** - 17253 PARM 30 MOIS` | p2s1a c87 / c88 |
+| a pen's arrow (RC-60) | `→→→→ 4546783 MERRELL C`, `-4546783 MERRELL C` | azj5y c856 |
+| a tax-flag letter | `E 854342 MDIET COKEM*` | tl5wo (US, refused today) |
+| a multi-buy row woven into it | `2 @ 5558566 10.99 ORG JUICE` | raprj |
+
+**What goes wrong.** The engine reads an item row as `^\d{3,8} NAME price`. With a prefix the row is read as a nameless
+line: sku null and the number stays in the name. In os1f1 the reading that won was one of the rework's re-clustered
+rows (`reworkAgainstSelfChecks`, tolerance 0.5, no deskew): `********* 313740 KS MOUCHOIRS 22.99 F`; the default rows
+and the flat text both read it right. On the server, `lib/receiptDatabaseFill` then found the number from the digits in
+front of the name (RC-53), but as a **database guess** (`skuFromDatabase`): never priced nor watched until an admin
+reviews the receipt, so every such receipt waited for a person. Old builds (≤ 3.6.4) and `main` up to this hotfix.
+
+**Proof.** The two exported captures replayed through `main` reproduce the stored lines exactly (`313740 KS MOUCHOIRS`
+sku null; `-4546783 MERRELL C` and `→→→→ 4546783 MERRELL C` sku null, `TUFF LEGGING <`). Removing only the prefix
+from the row (stars, arrow, dash) gives the number on that line. Catalogue check on 2026-11-20: no Costco receipt name
+(EN or FR) and no printed line starts with 3+ digits, apart from this bug.
+
+**Fix.** `shared/costcoNameRepair.js` (`repairCostcoLineNames`): a line with no item number whose name opens with 3–7
+digits that the receipt's own text prints at the head of that row takes them as its number; the prefix is noise.
+Guards (unit words, coupons, fees, refunds, two digits, eight digits, a price right after the number, a bare number on
+the row above): `Technical/Receipt_Handwriting_And_Item_Numbers.md` §2. Runs in `parseCostcoWarehouseReceipt`'s
+names-only post-step (after every reading decision) and on the server for installed builds
+(`lib/legacyItemNumbers.repairNamesWithItemNumbers`, before the catalogue check). Corpus: 6 lines moved, name + sku
+only, on 4 captures of 225; no price, quantity, count or total anywhere.
+
+| Receipt | Store | Scanned | Build | What | Status |
+|---|---|---|---|---|---|
+| `r_1794579130317_os1f1` | Costco Sherbrooke #1367 | 2026-11-13 | not looked up | `313740 KS MOUCHOIRS` sku null | repaired on the desk 2026-11-13; *covered by #608* (c880 fixture) |
+| `r_1794523074348_azj5y` | Costco Boisbriand #546 | 2026-11-12 | not looked up | both MERRELL rows sku null (RC-60's arrows) | reviewed on the desk 2026-11-13 (2 × 27.99 under 4546783); *covered by #608* (c856 fixture) |
+| `r_1791814977185_p2s1a` | Costco Boisbriand #546 | 2026-10-10 | not looked up | `- 17253 PARM 30 MOIS` sku null | stored as 17253 (hand repair); *covered by #608* (c87, c88 fixtures) |
+| `r_1790986971714_tl5wo` | US receipt | 2026-10-03 | before 3.0 | `E 854342 MDIET COKEM*` on an `ln:` product | refused today as an untracked country; the shape is pinned in the unit tests |
+| `r_1794079633850_raprj` | Costco | 2026-11-07 | not looked up | `2 @ 5558566 10.99 ORG JUICE` on an `ln:` product | still stored as read (an `ln:` line); the shape is pinned in the unit tests |
+
+## RC-60 · A shopper's pen marks read into a name (fixed, Priceback #608, 2026-11-20)
+
+**Printed shape (azj5y c856, Boisbriand #546, 2026-10-21, $187.62).** The shopper drew arrows in front of three rows,
+ticked two prices with `C` and one with `<`, and drew a long diagonal line across the receipt. Vision read the arrows
+as `→→→→` and `-`, the ticks as `C` and `<`, and mostly read through the diagonal line.
+
+**What goes wrong.** Nothing in the Costco noise vocabulary knew a pen: the marks stayed in the names (`TUFF LEGGING
+<`) and, in front of an item number, hid the number (RC-59). The catalogue learned the wrong name too: product
+4546783's French receipt name is `MERRELL C`.
+
+**Fix.** `stripHandMarks` (same module): arrows anywhere, a lone `<` `>` `«` `»` `|` `¦` word, and dashes / tildes /
+`=` / ticks in front of an item number leave the name. Never a letter (the `C` tick cannot be told from a printed
+`VITAMIN C`; the item number decides the product, sweep rule 4), never a backslash (`BRIE 2 CR\ME` is a misread `È`),
+never a period before digits (`.5L`), never a single `*` (`*ECOFRAIS`). Production scan (SELECT, 2026-11-20): the only
+other marked names are `BARRE | DEL` (p90yj, a stroke; now `BARRE DEL`) and `BRIE 2 CR\ME` (kept).
+
+| Receipt | Store | Scanned | Build | What | Status |
+|---|---|---|---|---|---|
+| `r_1794523074348_azj5y` | Costco Boisbriand #546 | 2026-11-12 | not looked up | `→→→→ 4546783 MERRELL C`, `-4546783 MERRELL C`, `TUFF LEGGING <` | reviewed on the desk 2026-11-13; *covered by #608* |
+| `r_1794680748129_p90yj` | Costco | 2026-11-14 | not looked up | `BARRE \| DEL` (sku read) | name only; *covered by #608* for new uploads |
+
+**Not removed (on purpose):** the `C` tick (stays as `MERRELL C`); a note written on its own row (no case yet). See
+`Technical/Receipt_Handwriting_And_Item_Numbers.md` §5.
+
 ---
 
 ## Earlier root causes (before this register)

@@ -292,6 +292,8 @@ better parse is adopted as before. Curl and fold stay in the geometry (RC-12).
 | `N @ unit` quantity lines | Item block. |
 | Mid-receipt totals block followed by more items (RC-7) | A block boundary decision (step 3), not an extraction stop. |
 | Asterisk-wrapped names (`**KS TOWEL**`) | Item: a banner is a *phrase*, not "any line with asterisks". |
+| A shopper's pen: arrows, a lone `<` / `>` / `\|`, a dash in front of an item number (RC-60) | Noise, removed from the names after extraction (`shared/costcoNameRepair.stripHandMarks`). A letter tick (`C`) stays: it cannot be told from a printed letter. `Technical/Receipt_Handwriting_And_Item_Numbers.md`. |
+| An item number left in the name, sku null (`********* 313740 KS MOUCHOIRS`, RC-59) | The number, when the paper prints it at the head of that row (`repairCostcoLineNames`). No Costco name starts with 3+ digits. |
 
 | Two scans of one SKU at different values (one couponed, one not; two packs at different weights) | Two lines (rule 9). Folding them made one product's price the average of two. |
 

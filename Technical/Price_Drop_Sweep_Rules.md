@@ -140,6 +140,35 @@ Price-drop queue and on the held drops of Potential price drops.
 
 One definition: `priceDropTier.canApproveWithoutCharge` shows the button and guards the route.
 
+### 6b. Any drop can be sent as a bonus, without a charge (Maxim, 2026-11-20)
+
+> *"i want to have the option to send the price drop for users without any charges (sometimes some cases arent definied
+> and i am not sure if costco will refund so i want to notify the users as a bonus but the remark that it can be refused
+> based on the desk agent, mainly for fruits or due to price fluctuation not real savings) should be available in
+> potential also same behavior as clearance but it can be in any warehouse"*
+
+- **Price-drop queue, and the held drops on Potential price drops:** **Send as a bonus · no charge · may be refused** on
+  every drop an admin can still decide (waiting, approved but not sent, rejected) whose line is live, whatever its stock
+  or score. Route `POST /api/admin/price-drop-queue/:id/send-bonus`; the same delivery as *Approve without charge*
+  (`sendWithoutCharge(…, { bonus: true })`): the re-check, the ledger row with a charge of 0, sent at once.
+- **Potential price drops, every card:** **Bonus · send without charge · any warehouse**. Route
+  `POST /api/admin/potential-drops/bonus`: every line on the card, at any warehouse (a clearance reaches only the
+  warehouses it was seen at), gets an uncharged drop (`priceDropNotifier.sendBonusDrops`, the clearance's delivery).
+  The price is **not** stamped or verified: a bonus vouches for nothing, and it never counts as a trusted price. The
+  sent lines leave the card ("already told at this price"). Waits while delivery is paused (409), like a clearance.
+- **What the shopper is told** (push, EN + FR, `verifiedDrop.bonusTitle` / `bonusBody`): *"Possible price drop (not
+  guaranteed)"* — you could save $X · N days left; we are sending it as a bonus; the Costco desk agent may refuse it
+  (fresh produce, a price that changes from day to day); no credit or fee is charged. Never a locked alert (nothing was
+  charged, so the app shows it unlocked), never "verified by PriceBack". The push carries `data.bonus: true` (additive;
+  no build reads it yet). The shopper's notification history keeps it.
+- **Charging:** never charged, then or later. A later, deeper verified drop on the line bills only what lies beyond the
+  bonus price (the telescoping charge of the one ledger writer). A subscriber is never charged anyway.
+
+One definition: `priceDropTier.canSendAsBonus` shows the queue button (`bonusSend` on each item) and guards the route.
+
+**Not done (needs a migration and an app build, not asked):** an in-app "bonus · may be refused" badge on the drop. The
+remark is in the push and the notification history only.
+
 ### 7. The confidence score follows these rules
 
 - 12 counted checks (14 before: the name left, and "not sold by weight" left with rule 8).
