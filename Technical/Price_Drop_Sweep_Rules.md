@@ -248,6 +248,34 @@ off the line, `src/services/releasedDrops.js`), marks the sent queue row superse
 (moves the legacy rows; a row whose twin the new code already wrote is kept as excluded history,
 `:pre0055:<id>`); then `scripts/withdraw-sent-drop.js --item 10227 --ended 2026-11-19 --write`.
 
+### 10. A line is priced in the province it was bought in (2026-11-20)
+
+Maxim, 2026-11-20, asked which fix to take for a cross-province purchase: *"Both, one rule"*. A receipt line is
+matched with the prices of **the purchase's province: the receipt warehouse's, else the shopper's own** when the
+receipt names no warehouse. One definition, `priceDropRepo.purchaseProvinceSql({ warehouseId, userProvince })`, used
+by every price-matching path:
+
+| Path | Where |
+| --- | --- |
+| The verified sweep (which buyers a verified price reaches; a region-scoped sweep means the purchases made there) | `priceDropRepo.findNotifiable` |
+| Admin · Potential price drops (the card's province) | `potentialDropRepo.listPotential` |
+| The savings path | `savingDropRepo.findSavingDrops` (it already read the purchase's province; now through the one definition) |
+| The saving-end lookups for a told or queued line | `priceDropRepo.pendingClaimRows` / `unreachableDropRows`, `priceDropQueueRepo`, `savingDatesRepo`, `dropReminderEmailRepo` |
+
+**The clock is not this.** A line's day is still the owner's province day (`shared/trackingTime`, the tracking-time
+rule), so `provinceCode` on a drop, its push and its claim window stay the **owner's** province. Potential groups a
+line under the purchase's province and checks its claim window on the owner's day (`ownerProvinceCode`).
+
+**Why.** Prod 2026-11-19: a Quebec shopper's PS5, bought at Ontario warehouse 1362, sat on Potential under Quebec.
+Verifying an Ontario price could not have reached them: the verified sweep matched lines by the shopper's home
+province, so the line was compared with Quebec prices. The phone's own price check already used the receipt's
+warehouse (`/api/prices/check`, `scope: "warehouse"`), and the savings path the purchase's province. Only the
+crowd-price paths disagreed.
+
+**Tests.** `potentialDropDb.test.js`, *the purchase's province*: a Manitoba buyer's line bought at Saskatoon (#152) is
+listed under SK, a Manitoba price is no drop for it, and verifying the SK price reaches the buyer with `provinceCode`
+MB. Both tests fail on the code before the change.
+
 ## What stays from 2026-11-12
 
 - **The savings table answers first.** A price group answers only for a line no saving covers.
