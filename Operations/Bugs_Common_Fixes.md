@@ -15092,7 +15092,7 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Fix: one names-only step after every reading decision: a 3–7 digit number the paper prints at the head of that row becomes the line's number (no Costco name starts with 3+ digits), and a pen's marks leave the names. The server applies the same function to installed builds' uploads, before the catalogue check. Proven on all 225 committed fixtures: 6 lines moved, name + sku only; no price, quantity, count or total anywhere; Best Buy untouched.
 - Detect next time: a stored line whose name opens with 3+ digits, or contains `→ < > |`, is this bug. Before changing any parser, dump every fixture's parse before and after and diff line by line. Tests: `__tests__/costcoNameRepair.test.js`, `backend/tests/legacyItemNumbers.test.js`. Doc: `Technical/Receipt_Handwriting_And_Item_Numbers.md`.
 
-## 390. Potential price drops offered fake drops from misread receipts: PEPSI at the pads' price, a 2-pack read as one unit (reported 2026-11-21; `hotfix/potential-desk-2026-11-21`)
+## 390. Potential price drops offered fake drops from misread receipts: PEPSI at the pads' price, a 2-pack read as one unit (reported 2026-11-21; `hotfix/potential-desk-2026-11-21`, Priceback #621 / #622)
 
 - Date: 2026-11-21 · Area: `src/services/costcoReceiptParser.js` (`chooseBetterParse`, `sameLinesPairedDifferently`), `backend/lib/potentialDropLists.js` (`possibleMissedQuantity`), `src/screens/AdminPotentialDropsScreen.js`
 - Symptom: Admin · Potential price drops listed PEPSI 21.99 → 17.99 (Rimouski fpxon; the paper prints PEPSI 17.29, KS PAD 21.99) and CHALE THROW 29.94 → 14.97 (Nepean 8csiu; the paper prints `2 @ 14.97`).

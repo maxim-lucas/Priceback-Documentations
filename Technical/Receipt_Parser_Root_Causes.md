@@ -2410,7 +2410,7 @@ other marked names are `BARRE | DEL` (p90yj, a stroke; now `BARRE DEL`) and `BRI
 **Not removed (on purpose):** the `C` tick (stays as `MERRELL C`); a note written on its own row (no case yet). See
 `Technical/Receipt_Handwriting_And_Item_Numbers.md` §5.
 
-## RC-61 · The same lines paired differently: the flat text won the tie by reading the counter (fixed, 2026-11-21)
+## RC-61 · The same lines paired differently: the flat text won the tie by reading the counter (fixed, Priceback #621, 2026-11-21)
 
 **Printed shape (fpxon, Rimouski #1720, 2026-10-29, $151.94).** A curled photo. The rows are clean:
 `2049299 JERKY CHIEN 24,99 FP / 1792990 KS PAD - JLA 21,99 FP / 310062 PEPSI 17,29 FP`. Vision's flat text streams
@@ -2441,7 +2441,7 @@ guard below does not catch a pairing; a person still reviews a Potential card be
 
 | Receipt | Store | Scanned | Build | What | Status |
 |---|---|---|---|---|---|
-| `r_1795273694799_fpxon` | Costco Rimouski #1720 | 2026-11-21 | not looked up | PEPSI 21.99 / KS PAD 17.29 (paper: 17.29 / 21.99); fake Potential drop PEPSI 21.99 → 17.99 | datafix proposed, waiting for Maxim's go; parser *fixed by the hotfix PR* |
+| `r_1795273694799_fpxon` | Costco Rimouski #1720 | 2026-11-21 | not looked up | PEPSI 21.99 / KS PAD 17.29 (paper: 17.29 / 21.99); fake Potential drop PEPSI 21.99 → 17.99 | datafix proposed, waiting for Maxim's go; parser *fixed by #621* |
 
 ## RC-62 · A multi-buy `2 @` under a pen stroke: one unit at twice the price (open, 2026-11-21)
 
@@ -2460,7 +2460,7 @@ the badge **PAID = k × THIS PRICE · CHECK THE QUANTITY** (`possibleQuantity` o
 
 | Receipt | Store | Scanned | Build | What | Status |
 |---|---|---|---|---|---|
-| `r_1794589210252_8csiu` | Costco Nepean #540 | 2026-11-13 | not looked up | CHALE THROW 1 × 29.94 (paper: 2 @ 14.97); fake Potential drop 29.94 → 14.97 | datafix proposed (quantity 2), waiting for Maxim's go; desk badge in the hotfix PR |
+| `r_1794589210252_8csiu` | Costco Nepean #540 | 2026-11-13 | not looked up | CHALE THROW 1 × 29.94 (paper: 2 @ 14.97); fake Potential drop 29.94 → 14.97 | datafix proposed (quantity 2), waiting for Maxim's go; desk badge in #621 |
 
 ---
 
