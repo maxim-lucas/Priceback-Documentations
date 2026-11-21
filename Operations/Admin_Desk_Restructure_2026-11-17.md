@@ -11,7 +11,7 @@ cleanup registry in `Admin_Console_And_Data_Cleanup.md` is unchanged.
 | Top bar | `PRD` (red) or `DEV` (green) badge instead of the "Production · Live shoppers" banner. A tap opens the caution and the connection details. Same badge on Dashboard, Health, Incidents, Quotas, Price sweep. |
 | Today | Four fixed tiles: **Receipt review** (count = "Not reviewed"; App-approved is not counted), **Price drops** (high-confidence waiting), **Potential drops**, **Run sweep** (starts the full price sweep at once, **no confirmation**; hold for the sweep screen). |
 | Needs action | One collapsible section; its header always shows `N to act · M warnings`. |
-| Menu | Price Management · Product Management · User Management · General, highest priority first, each collapsible. |
+| Menu | Price Management · User Management · Product Management · General · Support, highest priority first, each collapsible (reordered 2026-11-21, see below). |
 
 Every section's open/closed state is saved on the phone (`admin.home.layout.v1`) and restored after a relaunch.
 
@@ -48,3 +48,20 @@ Additive only: `GET /api/admin/overview` gains `receiptsAwaitingReview`, counted
 `receiptsRepo.countForAdmin("unreviewed")`, the same condition the desk list filters with. The Price drops and
 Potential tiles read the endpoints their screens list from. No route, field or migration changed; admin-only, no
 shopper build calls it.
+
+## 2026-11-21: menu regrouped (Maxim)
+
+*"Accounts, Activity dashboard and user segments to be grouped together in the user section and this section should go
+above Product management, also repartition the general section (same order): Stores, Partners, Promo codes and split
+to a new section Support: Service health, Quotas, Incidents. Flyer scan should move 2nd position in product management
+after Barcode feeder."*
+
+| Section | Rows, in order |
+| --- | --- |
+| Price Management | Receipt review · Price-drop queue · Potential price drops · Unlinked warehouses · Price sweep · **Harvest jobs** (new, `Technical/Admin_Harvest_Jobs.md`) · Tag reviews · Price lookup |
+| User Management | Accounts · Activity dashboard · User segments · Manage credits · Credit drift · Notifications to approve |
+| Product Management | Barcode feeder · Flyer scan · Product names · Saving Window · Data cleanup |
+| General | Stores · Partners · (Promo codes, when `feat/store-spaces-v2-main` reaches `main`: the screen is not on `main` yet) |
+| Support | Service health · Quotas · Incidents |
+
+`src/screens/AdminHomeScreen.js` `TOOL_SECTIONS`; pinned by `__tests__/adminHomeScreen.test.js`.
