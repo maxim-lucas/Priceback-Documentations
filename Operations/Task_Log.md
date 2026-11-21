@@ -12813,3 +12813,11 @@ drop.
 - **Regression proof:** all 182 committed receipt fixtures (every store) parsed before/after: only fpxon c1113 / c1114 moved (PEPSI 21.99 → 17.29, KS PAD 17.29 → 21.99, as printed). Goldens: 2 written, none changed.
 - **Tests:** mobile 13,758 (#621) / 14,477 (#622) pass, the only failures `paywallAnnualBadge` (same on main); i18n in sync; backend 49 files one at a time on dev: 768 pass, failing identically on main: `priceDropPushLanguage` 2, `priceDropWindowSourceDb` 1, `savingsQualityDb` 2, `adminRoutesAreGuarded` 1 (policy-periods), `pushI18n` 1 (#617's back-in-stock literal). Full backend suite and CI not run.
 - **Owed (Maxim's go):** the two datafixes (fpxon: swap the two line totals and their price points; 8csiu: quantity 2 at 14.97). An accidental write during the investigation: a first read-only probe ran the backend's lookup seeding against production and inserted 2 lookup rows (`credit_event_types` `promo_bonus`, `ad_reward`, the main-test-features seed); nothing reads them on main, the next main-test-features deploy would add them anyway; left in place, reported to Maxim.
+
+## 2026-11-21 — Admin · Harvest jobs + desk menu regrouped (Priceback feat/admin-harvest-jobs → main, then main-test-features)
+
+- **Ask (Maxim):** a separate desk screen to start every harvest job (savings, catalogue, any harvest) by warehouse or for every warehouse including Business Centres, like the price sweep. Users section (Accounts, Activity dashboard, User segments together) above Product; General = Stores, Partners, Promo codes; new Support = Service health, Quotas, Incidents; Flyer scan 2nd in Product. Then fix main's Actions run and merge everything to main-test-features.
+- **Done:** `AdminHarvestJobsScreen`, `lib/harvestJobs`, `shared/harvestScope`, routes `GET/POST /api/admin/harvest-jobs`; scoped runs (`details.scope`) left out of `lastRun`/`runsSince`; scoped prices are warehouse rows only; stock read takes a warehouse. Menu regrouped. `Technical/Admin_Harvest_Jobs.md`.
+- **Found:** costco.ca sources already use `config.scope` (national / business_centre), so the run marker is `config.harvestScope`. Promo codes is only on `feat/store-spaces-v2-main` (no PR): not on main, so not in General yet.
+- **Tests:** backend 393/393 (24 files, dev DB, one at a time) + 34 new; mobile 13,661; i18n in sync. CI not run.
+

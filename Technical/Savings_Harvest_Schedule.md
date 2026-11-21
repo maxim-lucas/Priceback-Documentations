@@ -71,6 +71,12 @@ the new list was live at 13:13; Maxim saw it go up around 11:00. The costco.ca c
 - The run starts over (it does not continue from the warehouse it reached): a 25-minute Same-Day read is I/O
   wait, cheap; resuming mid-way would need a staging table and a migration for no real saving.
 
+## 5b. Runs started by hand
+
+Admin · Harvest jobs starts any source now, for every warehouse (counts as the day's run, like a scheduled one) or for
+one warehouse: a **scoped** run, never the day's run, the last run or the sanity baseline, and never resumed after an
+interruption. `Technical/Admin_Harvest_Jobs.md`.
+
 ## 6. Page format drift (costco.ca)
 
 The reader accepts every window and amount shape listed in `costcoWebSource.js` (`parseValid`, `readSaving`).
