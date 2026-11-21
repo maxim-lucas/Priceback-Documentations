@@ -356,9 +356,8 @@ on-demand drop check. The card's "last run" line reads `job_runs`. The detail of
 a run did ("3 found, 2 sent") is held in memory, so a restart or a redeploy forgets
 it, and the card then shows only the `job_runs` line.
 
-**The operator's curl is unchanged.** `POST /api/check-all` (with `x-admin-token`) still
-fires an untracked all-provinces drop check. Run now is the tracked way, and it is
-reachable from the phone.
+**The operator's curl is gone (2026-11-21, Priceback #614).** `POST /api/check-all` fired an untracked
+all-provinces drop check; it now answers 404. Run now is the only way, tracked, and reachable from the phone.
 
 ### Price lookup and price history
 

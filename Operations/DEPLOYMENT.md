@@ -271,7 +271,7 @@ quota block is admin-only and the gate fails **silently**, see
 | Method & path | Purpose |
 |---|---|
 | `POST /api/flyer/import` | Bulk-import the weekly Costco flyer |
-| `POST /api/check-all` | Run the all-provinces verified-drop check now, in the background (untracked: no `job_runs` row). Admin · Price checks → Run now is the tracked way (Priceback #468, on `main-test-features` since 2026-10-20). |
+| ~~`POST /api/check-all`~~ | **Removed 2026-11-21 (Priceback #614, audit L5).** Use Admin · Price checks → Run now (`POST /api/admin/price-jobs/:job/run`), which records a `job_runs` row. |
 | `POST /api/admin/price-tag-credits/revoke` | Revoke fraudulent tag-scan credits |
 | `POST /api/admin/users/:sub/flag` · `DELETE …/flag` | Flag / unflag a user |
 | `POST /api/admin/price-points/:id/verify` | Manually verify a price point |
