@@ -2410,6 +2410,58 @@ other marked names are `BARRE | DEL` (p90yj, a stroke; now `BARRE DEL`) and `BRI
 **Not removed (on purpose):** the `C` tick (stays as `MERRELL C`); a note written on its own row (no case yet). See
 `Technical/Receipt_Handwriting_And_Item_Numbers.md` §5.
 
+## RC-61 · The same lines paired differently: the flat text won the tie by reading the counter (fixed, Priceback #621, 2026-11-21)
+
+**Printed shape (fpxon, Rimouski #1720, 2026-10-29, $151.94).** A curled photo. The rows are clean:
+`2049299 JERKY CHIEN 24,99 FP / 1792990 KS PAD - JLA 21,99 FP / 310062 PEPSI 17,29 FP`. Vision's flat text streams
+the names one row out of order, then the prices: `2049299 JERKY CHIEN / 310062 PEPSI / 1792990 KS PAD - JLA /
+24.99 FP / 21.99 FP / 17.29 FP`.
+
+**What goes wrong.** `chooseBetterParse` (`src/services/costcoReceiptParser.js`) parses both ways. Both readings close
+to SUBTOTAL / TAX / TOTAL to the cent (a permutation of amounts sums the same), so the score ties; the next tie-break,
+"the reading that read more of the paper's counters", picked the flat text, because only it read
+`NOMBRE D'ARTICLES VENDUS = 7`. A count of lines cannot tell two pairings of the same lines apart. The stored lines
+said PEPSI 21.99 and KS PAD 17.29; Admin · Potential price drops then offered PEPSI 21.99 → 17.99 (a Drummondville
+receipt of 11-17) as a $4 drop. The Gemini re-read (reader `gemini_reread`, auto-approved 4 s after upload) kept the
+same pairing.
+
+**Proof.** Replaying both production captures (c1113, c1114) with the code of `main` reproduces the stored lines
+exactly; the geometry rows of the same captures read the paper; with only the tie-break changed, both captures read
+KS PAD 21.99 and PEPSI 17.29, as printed, and still close to the cent.
+
+**Fix (Maxim: "find the root cause … and fix it", then "approved").** `sameLinesPairedDifferently(geom, flat)`: the
+same item numbers, names, amounts and quantities as multisets, paired differently → the rows' reading wins, and the
+counters the flat text read (items sold, total discount) come along. Different lines still go by the counters, as
+before. Proven on all 182 committed fixtures (every store), parsed before and after: only fpxon c1113 / c1114 moved.
+Costco freeze re-pinned with the reason; goldens of the two new captures written; Best Buy untouched. Test:
+`__tests__/costcoSameLinesPairing.test.js`.
+
+**Old builds.** The parser runs on the phone: installed builds keep the old tie-break until the next build. The desk
+guard below does not catch a pairing; a person still reviews a Potential card before any send.
+
+| Receipt | Store | Scanned | Build | What | Status |
+|---|---|---|---|---|---|
+| `r_1795273694799_fpxon` | Costco Rimouski #1720 | 2026-11-21 | not looked up | PEPSI 21.99 / KS PAD 17.29 (paper: 17.29 / 21.99); fake Potential drop PEPSI 21.99 → 17.99 | datafix proposed, waiting for Maxim's go; parser *fixed by #621* |
+
+## RC-62 · A multi-buy `2 @` under a pen stroke: one unit at twice the price (open, 2026-11-21)
+
+**Printed shape (8csiu, Nepean #540, pay station, 2026-11-04, $71.62).** `1901560 CHALE THROW … 29.94` with
+`2 @ 14.97` printed faintly above it; a long pen stroke crosses that row. Vision reads `- 14.97`; the paper's own
+counters say 5 items sold.
+
+**What goes wrong.** The stored line is quantity 1 at $29.94 (reviewed by hand on 2026-11-13, so the parser is not the
+last word here: today's parser reads this photo much worse — the stroke breaks the rows). On Potential price drops the
+Chalet throw at $14.97 (two social posts) became a fake 50% drop on that line.
+
+**Not fixed in the parser (image problem, design rules: special cases are image problems).** Mitigation on the desk:
+`lib/potentialDropLists.possibleMissedQuantity` — a line of one unit at exactly k × the card's price (2 ≤ k ≤ 12) gets
+the badge **PAID = k × THIS PRICE · CHECK THE QUANTITY** (`possibleQuantity` on each line of `GET
+/api/admin/potential-drops`). The items-sold check (5 printed, 4 units read) already marked the receipt.
+
+| Receipt | Store | Scanned | Build | What | Status |
+|---|---|---|---|---|---|
+| `r_1794589210252_8csiu` | Costco Nepean #540 | 2026-11-13 | not looked up | CHALE THROW 1 × 29.94 (paper: 2 @ 14.97); fake Potential drop 29.94 → 14.97 | datafix proposed (quantity 2), waiting for Maxim's go; desk badge in #621 |
+
 ---
 
 ## Earlier root causes (before this register)
