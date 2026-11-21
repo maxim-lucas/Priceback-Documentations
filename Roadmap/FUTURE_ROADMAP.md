@@ -14,6 +14,21 @@ How to work this file:
   release (3.5.1), not hotfixed one by one.
 - **Defects outrank this file.** A production bug goes straight to `Operations/Bugs_Common_Fixes.md` and a hotfix.
 
+### Picked by Maxim 2026-11-21 (all changes to `main`)
+
+| Item | Status 2026-11-21 |
+|---|---|
+| A-M2 $0 phantom receipts | **Priceback #614**: `422 RECEIPT_HAS_NO_ITEMS` for a NEW receipt with no amount, no priced line, no file (`lib/phantomReceipt`). Prod: 11 of 490 receipts match, all $0 |
+| A-L1 drizzle ledger | **Done on prod** (Maxim's go): 0041's row added (id 67), row 52 moved to 0042's `when` |
+| A-L2 `/health` version | **#614**: version from `package.json`, additive `commit` (Railway SHA) |
+| A-L3 `NODE_ENV` | **Done on prod**: `NODE_ENV=production` on the Priceback service; redeploy healthy |
+| A-L5 dead routes | **#614**: `POST /api/check-all` removed (no app caller since v2.8.2; use Admin · Price checks → Run now); `DELETE /api/me/observations` kept with a comment (the privacy policy's revoke) |
+| A-L4 / A-L6 | **#615**: Restore guarded; a refused scan carries its status and code |
+| A-H2 Vision soft cap | **#616**: soft line 1,000, ceiling 5,000, 10 receipt scans a day per account past the line, tag scans paused, subscribers and admins never limited |
+| Stock 1, 2, 3, 6 | **#617** (admins only / admin view only), see `Stock_Availability_Roadmap.md` |
+| Stock 4 | on `main-test-features` (#613) |
+| Stock 5, 7 | measured, not built (`Stock_Availability_Roadmap.md` §7a) |
+
 ---
 
 ## P0: production risk before the Kickstarter launch (Nov 10, 10:00 ET)
