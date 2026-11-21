@@ -30,6 +30,17 @@ How it works today: `Technical/Savings-Harvest.md` § Stock per warehouse.
 Still open: 1 and 6 for shoppers (Maxim's switch, not built); 3's decision (link a warehouse found in stock, or not), once the
 admin view has shown how often it happens; 4 and 5 below.
 
+## Built 2026-11-21, second part (Priceback #619; Maxim: "continue the rest points")
+
+| Item | What | Where |
+| --- | --- | --- |
+| 5 | "Check stock now" for a drop without a saving: a product's Same-Day id is a saving's, else the weekly catalogue harvest's (`catalog_items.external_id`). Prod: 701 → **2,108 of 2,323** recent pairs checkable | `warehouseStockRepo.samedayProductIdSql` (the one rule), `savingVerifyRepo.stockTargetForLine` |
+| 7 | **Daily stock read** of every watched, unclaimed, in-window item at its own warehouse, 13:45 UTC, one `Items` request per 50 items (≈ 150 requests a day). **Off by default** (`WAREHOUSE_STOCK_READ_ENABLED`), switch + Run now on Admin · Unlinked warehouses. Queue cards show "Daily read at #540: in stock · …" (`stockHere`); no drop rule reads it | `services/savings/watchedStock`, `warehouse_stock_reads` (0057), `GET/POST /api/admin/stock-read` |
+
+The weekly listing §7a proposed is not needed: the catalogue harvest already keeps every Same-Day product id. No price
+from the daily read is kept; feeding its regular price to the sweep (the queue's "regular price unknown" hold) is a
+rule change left to Maxim.
+
 ## Left to do
 
 ### 1. The shopper's "Check stock now" button (waits for the new design)
@@ -77,7 +88,7 @@ the page.
 
 ### 5. Stock for a drop that did not come from a saving
 
-**Status 2026-11-21:** not built. Two routes to the product id, both measured or built elsewhere: #613's search (on
+**Status 2026-11-21:** built (#619, the catalogue's id; see above). Before that, two routes to the product id, both measured or built elsewhere: #613's search (on
 `main-test-features`), or the in-store listing of item 7 below, which maps item number → product id for the whole shop
 (the id is the same at every warehouse).
 
