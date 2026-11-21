@@ -18,7 +18,7 @@ How to work this file:
 
 | Item | Status 2026-11-21 |
 |---|---|
-| A-M2 $0 phantom receipts | **Priceback #614**: `422 RECEIPT_HAS_NO_ITEMS` for a NEW receipt with no amount, no priced line, no file (`lib/phantomReceipt`). Prod: 11 of 490 receipts match, all $0 |
+| A-M2 $0 phantom receipts | **Priceback #614**: `422 RECEIPT_HAS_NO_ITEMS` for a NEW receipt with no amount, no priced line, no file (`lib/phantomReceipt`). Switch in Admin · Receipt reading, "Refuse $0 receipts with no items" (`RECEIPT_REFUSE_PHANTOM`), on by default. Prod: 11 of 490 receipts match, all $0 |
 | A-L1 drizzle ledger | **Done on prod** (Maxim's go): 0041's row added (id 67), row 52 moved to 0042's `when` |
 | A-L2 `/health` version | **#614**: version from `package.json`, additive `commit` (Railway SHA) |
 | A-L3 `NODE_ENV` | **Done on prod**: `NODE_ENV=production` on the Priceback service; redeploy healthy |
