@@ -27,7 +27,7 @@ How to work this file:
 | A-H2 Vision soft cap | **#616**: soft line 1,000, ceiling 5,000, 10 receipt scans a day per account past the line, tag scans paused, subscribers and admins never limited |
 | Stock 1, 2, 3, 6 | **#617** (admins only / admin view only), see `Stock_Availability_Roadmap.md` |
 | Stock 4 | on `main-test-features` (#613) |
-| Stock 5, 7 | measured, not built (`Stock_Availability_Roadmap.md` §7a) |
+| Stock 5, 7 | **Priceback #619**: Check stock now via the catalogue's Same-Day id; daily stock read (off by default, Admin · Unlinked warehouses); migration 0057 |
 
 ---
 

@@ -80,6 +80,14 @@ reading is not proven; ask Flash-Lite first on the free key; add a third free re
 them costs money. Every receipt read goes through one provider chain (`lib/receiptReaderProviders`) and one budget
 function (`reserveAiRead`), so a per-reader budget is a change in one place.
 
+### Daily stock read (2026-11-21, Priceback #619)
+
+`services/savings/watchedStock`, 13:45 UTC, off unless `WAREHOUSE_STOCK_READ_ENABLED`: ≈ 47 warehouses × (2 + ⌈pairs/50⌉)
+≈ **150 Same-Day requests a day**, one guest session, 2–4 minutes, ≈ 2,300 upserted rows. Stock has no publication to
+watch, so once a day is the floor (rule 1). Measured from Maxim's PC: 4 items at warehouse 540 in 3 requests once the
+session was open. A full read of every warehouse's shop (≈ 25,700 requests a day) was measured and refused (§7a of
+`Roadmap/Stock_Availability_Roadmap.md`).
+
 ## 4. How to re-measure
 
 ```bash

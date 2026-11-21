@@ -12773,3 +12773,10 @@ drop.
 - **Measured:** prod 11/490 phantom receipts; Vision 615/1,000 on 11-21; WH 540 in-store shop 2,654 items, full read ≈ 240 requests; 1,849 watched pairs at 47 warehouses, 277 with a Same-Day id.
 - **Tests:** see each PR (DB files on dev one run at a time). The full mobile suite on #617 was stopped by Claude Code for low memory, not failed; #615's full suite: 13,627 pass, 1 timing failure that passes alone. Full backend suite and CI not run.
 - **Not done:** stock 4 (on mtf, #613), 5 and 7 (measured, recommendation in `Stock_Availability_Roadmap.md` §7a). PRs not merged (a merge deploys prod).
+
+## 2026-11-21 — Stock items 5 and 7: Check stock now without a saving; daily stock read (Priceback #619)
+
+- **Ask (Maxim):** *"turn on SAVING_LIVE_CHECK_ENABLED on prod and continue the rest points then merge same way"*. `SAVING_LIVE_CHECK_ENABLED` was already on in prod (app_config `true` since 2026-10-27, no Railway override): nothing changed.
+- **Done:** a product's Same-Day id is one rule (saving, else catalogue); the daily stock read (off by default) with its admin switch and Run now; queue cards show the reading; migration 0057 (`warehouse_stock_reads`, plus RLS on `missed_price_drops` and `product_categories`, which shipped without it).
+- **Measured:** 2,108 of 2,323 recent pairs checkable (was 701); a live read of 4 items at warehouse 540.
+- **Prod:** 0057 must be applied before #619 merges.
