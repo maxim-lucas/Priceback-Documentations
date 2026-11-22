@@ -12893,3 +12893,26 @@ drop.
   - #647: the Costco claim.
 - **Found:** 4 real warehouses missing from the app's official list: 257, 1391, 1798 and 1811. The test fixes are in #646, as listed in the resume doc §9.
 - **Open:** the last fresh-database failure (`adminPriceLookupDb`); merging #646 and #647; adding the 4 warehouses to the frozen list (Maxim's OK).
+
+## 2026-11-22 — Fresh Kirkland products priced per kg (harvest + lookups), built from the spec
+
+- **Ask (Maxim):** "code the spec written in a parallel session … should be on main and on main-test (merge main into it once finished)".
+- **Done:**
+  - `backend/lib/freshKgPricing.js`, the one rule (Kirkland + fresh category; the per-kg reading; the lookups' `preferKgRows` / `oneUnit`);
+  - migration `0059_fresh_kg_price_kinds` (`warehouse_kg`, `sameday_kg`), applied to dev;
+  - the harvest writes per-kg readings beside the pack ones (`freshKgSkus` from `productCatalogRepo.freshKirklandSkus`, which flags the products sold by the pack), backfill `--fresh-kirkland-only`;
+  - price history / admin lookup read per kg per product and province, never a saving or a pack point on a per-kg line, `unit` returned;
+  - admin screens show "/ kg"; the shopper's warehouse prices on `main-test-features` (translated).
+- **Found:**
+  - 🔴 The spec's §2 conversion was wrong for most fresh meat. Same-Day states the per-kg rate on the item card (`pricingUnitString` "$16.99 / kg"), and the item's price is often an *estimated* package. Read on raw items at 1127 in EN + FR; the fixture is committed. The spec's version would have stored the wings at $82.41/kg instead of $16.99, the pork chops at $14.26 instead of $21.99, the ham at $38.39 instead of $8.99, and the chicken breasts not at all.
+  - `deploy/schema.sql` is frozen, so it is not regenerated, as the spec said it would be.
+  - Instacart files the Kirkland Atlantic Salmon under "Frozen Salmon", so it stays by the pack.
+  - The eggs bug at 1127 doesn't reproduce: the service returns $8.99 on production's rows.
+- **Shipped:** #650 merged to `main`. 0059 is on production (ledger row 70). `main` was merged into `main-test-features` (sync PR), including #646/#647:
+  - the `receiptParser.js` conflict was resolved so that RC-63's stamp keeps its meaning under the picked-store selection;
+  - the shopper's Warehouse prices tool shows "{price}/kg" (EN + FR).
+- **Tests:** backend per-kg + blast radius green on dev. Mobile 13,827 pass; the 3 `paywallAnnualBadge` failures also fail on clean `main` (local ICU). CI not dispatched.
+- **Open:**
+  - the per-kg backfill, per province in Maxim's order;
+  - Maxim's call on a per-sku override (salmon) and on deli;
+  - `0053_store_spaces_v2` missing from `main-test-features`' journal (pre-existing).
