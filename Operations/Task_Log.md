@@ -12758,6 +12758,21 @@ drop.
 - **Dev DB:** 0057's tables applied (once under the old number); that ledger row was removed after the renumber, so the dev ledger stops at 0054 (main's 0055/0056 are not in it either; their tables exist).
 - **Owed:** apply 0057 to production by hand before the branch's backend deploys (Maxim's go); the code entry on the Me screen (paywall only for now); the three unclassified tables above.
 
+## 2026-11-19 — main's test workflow green again (Priceback #606, merged)
+
+- **Ask (Maxim):** *"fix the main actions workflow it is broken"*.
+- **Found (run 44173833464, 2026-11-17):** three jobs red. Security: `nodemailer` 6.x high advisories (and `qs` in the report). Mobile: `trackingClock` hardcoded 11:32 for Vancouver; the runner's tz data (2026b) puts British Columbia on year-round UTC−7 (12:32). Backend: mostly pooler connection timeouts on the shared dev database, plus three tests left behind by rule changes: `dropReminderEmailRepoDb` (#552 emails reachable shoppers too), `savingsQualityDb` (rule 8, sold by the pack is paid − the full saving), `dataCleanupRegistry` (3 unclassified tables).
+- **Done:** `nodemailer` ^10.6.0 (the gate exits 0); the Vancouver hour comes from the runtime's zone data; the two tests follow the current rules; `price_drop_redrops` + `subscriber_access_events` (cascade) and `store_policy_periods` (kept) classified.
+- **Tests:** mobile 449 suites; backend files one at a time on dev, all green; CI not dispatched.
+- **Owed:** `missed_price_drops` (0056) is on prod, not on the dev database, and not declared in `db/schema.js`: declare and classify it once dev has 0056.
+
+## 2026-11-20 — A line is priced in the province it was bought in (Priceback PR, sweep rule 10)
+
+- **Ask (Maxim):** the Potential list grouped lines by the shopper's home province (a Quebec shopper's PS5 bought at Ontario #1362 showed under Quebec): *"I want it fixed"*. Asked whether to change the verified sweep too (approving the Ontario card could never reach that shopper, since the sweep matched by home province): *"Both, one rule"*.
+- **Done:** `priceDropRepo.purchaseProvinceSql` (warehouse's province, else the shopper's), used by the verified sweep (the buyer join and the region-scoped prefilter), Potential (`open_lines`; the claim window on the owner's day, `ownerProvinceCode`), the savings path, and the saving-end lookups (`pendingClaimRows`, `unreachableDropRows`, `priceDropQueueRepo`, `savingDatesRepo`, `dropReminderEmailRepo`). A drop's `provinceCode` stays the owner's (clock, push). `Technical/Price_Drop_Sweep_Rules.md` §10, `CLAUDE.md` rule 10.
+- **Also found:** `priceDropDb` (14), `priceDropWindowSourceDb` (10) and `priceDropCommission` (3) failed on `main` regardless of code (bisected: red at the commit CI ran green on 11-17). Their lines carry no real item number, so receipt create fills one from the database by name, and a bare "Test product A" now matched another run's product on the shared dev database (watch off, other prices). The fixture names carry the run id now: 57/57.
+- **Tests:** two new `potentialDropDb` tests (a Manitoba buyer's line bought at Saskatoon #152: listed under SK, no MB price applies, verifying reaches the buyer with `provinceCode` MB), both red on the old code. Blast radius 69 files on dev: 892/920 before the fixture fix, the 28 all explained and green after (`potentialDropQueryShape` pin updated). Mobile 449 suites. Full backend suite and CI not run.
+
 ## 2026-11-20 — Hotfix: an item number left in the name, handwriting as noise; send a drop as a bonus without a charge (Priceback #608)
 
 - **Ask (Maxim):** (1) the parser sometimes leaves the SKU in the label (`SKU = NULL, Label = '313740 KS MOUCHOIRS'`): a label starts with text, so cross-reference the number as a SKU (or the nearest match) and validate with the label, like a person would; handwriting (arrows, lines) is noise (the $187.62 receipt scanned 2026-11-12, purchased 2026-10-21, had two examples); cover every case and document it against regressions. Then: *"i dont want any chances for any possible regression on the actual costco and best buy parsers, take extra precautions"*. (2) An option to send a price drop without any charge, as a bonus the desk agent may refuse (fruit, fluctuating prices), on the queue and on Potential, like a clearance but at any warehouse.
