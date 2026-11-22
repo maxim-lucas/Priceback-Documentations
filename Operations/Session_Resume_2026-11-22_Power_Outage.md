@@ -135,3 +135,20 @@ Items 1–2 (Store Spaces v2 and Paywall V2) are on `main-test-features`. Items 
 1. Open a terminal in `C:\Users\Maxim\StudioProjects\Priceback`. Run `git status`; it should list the 20 files from §0.
 2. Tell Claude Code: *"resume from `Operations/Session_Resume_2026-11-22_Power_Outage.md`, start with §0"*.
 3. Then go through §2 in order. Rows marked "Maxim decides" need your answer before any work starts.
+
+---
+
+## 5. Progress after the restart (2026-11-22, morning)
+- **§0 (admin / shopper clocks): moved to another session.** Maxim: *"the UTC problem has been handled by another
+  session, skip this one"*. That session owns branch `fix/admin-toronto-shopper-device` and docs PR #260, which it is
+  still updating. Leave both to it.
+- **#635 (gwltb repair spec):** merged 07:23 UTC. Worktree `E:/tools/pb-prod-b4131c1f` and branch `datafix/gwltb-spec`
+  removed.
+- **Docs #252 (sweep rule 10):** it was not superseded; `CLAUDE.md` already cites rule 10. Its Task_Log conflict was
+  resolved by keeping both entries, and it is merged.
+- **Item 8 ($0-receipt refusal): settled.** Maxim answered on 11-21: *"it should be configured in the admin with the
+  receipt read settings but already on"*. #614 shipped it as `RECEIPT_REFUSE_PHANTOM` on Admin · Receipt reading, on.
+- **Item 11:** worktree `pb-scan-guide` (`hotfix/receipt-scan-guide`) removed. It was clean, and its work had merged
+  as #505.
+- **Still Maxim's:** item 5 (app release), 6 (RC-63 parser changes), 7 (CI headroom), 10 (stock 13/15), 12 (old
+  stash), and the roadmap list.
