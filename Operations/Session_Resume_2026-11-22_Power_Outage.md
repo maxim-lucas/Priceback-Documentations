@@ -176,3 +176,39 @@ Items 1–2 (Store Spaces v2 and Paywall V2) are on `main-test-features`. Items 
   - The backend is not in the app's download anyway: Metro bundles only what `src/` imports, and nothing in `src/`
     imports `backend/`.
   - Same-repo alternatives: Railway watch paths (`backend/**`, `shared/**`) and `CODEOWNERS`.
+
+## 7. Later the same day: the CI database option, RC-63 traced, `/health`
+
+- **The faster CI option is now written up:** `Technical/CI_Test_Database_Option.md`. GitHub creates a throwaway
+  Postgres 17 inside the test run's own temporary machine, so no server, Railway or Supabase change is needed. The
+  catch is parity: keeping it needs Docker Desktop on Maxim's PC. Three choices (A, B, C) are in the doc.
+  **Maxim decides.**
+- **RC-63, the two untraced points (item 6), now proven** by replaying the shipped 3.6.4 code on the stored text. The
+  replay gives exactly the stored lines, $11.43 and $87.76:
+  - **The store was never identified.** The photo has no `COSTCO` word (the header is `#1720` / address / Rimouski), so
+    `parseReceiptText` returns `storeId: null`. The generic reader ran instead of the Costco parser. That is also why
+    `extractWarehouseId` never read the register stamp `17:31:24 1720 8 531 224`, which gives 1720 on its own.
+  - **The $11.43 tax.** The generic reader read tax $24.99 against lines of $76.33 (`sterCard` 51.34 + 24.99).
+    `receiptValidator.validateReceipt` step 3 ("province tax cap") saw a tax above Quebec's 14.975 % and replaced it
+    with rate × lines = 76.33 × 0.14975 = **11.43**, then rebuilt the total as 76.33 + 11.43 = **87.76**. So a tax was
+    derived from the lines, which design rule 4 forbids. It happened because the lines were junk. The file is
+    unchanged on `main`, so this still ships.
+  - **The Anjou warehouse.** With nothing detected, `resolveReceiptWarehouse` tries the header. Its last-resort
+    pattern needs a newline *before* `#1720`, and the stored header starts with it, so it returns null (checked: with
+    a leading newline it gives 1720). It never looks at `footer_ocr`, which has the stamp. The shopper had no saved
+    warehouse and no location, so the **province** fallback took the first Quebec warehouse in the app's list,
+    **#1446 Anjou**. The receipt and its price points were filed under a warehouse the shopper never went to, and
+    nothing said it was a guess. This file is also unchanged on `main`.
+  - **Proposed (documented only; the shared and Costco parser files need Maxim's go):**
+    - (a) `resolveReceiptWarehouse` also reads `footer_ocr`, the register stamp. This file is not one of the frozen
+      Costco files.
+    - (b) A tax over the province cap is **unread** (the total then comes from `receiptTotalToShow`), never rate × lines.
+    - (c) A guessed warehouse (province or nearest) is marked as a guess, or not used to file price points.
+    - (d) Detect a Costco receipt from its Quebec stamp or tax lines when the word `COSTCO` is missing. That one
+      belongs in `receiptParsingShared.js`, which is frozen, so it needs Maxim's go.
+
+    This belongs in RC-63's items 4 and 5 when docs PR #260 (owned by the other session) merges.
+- **`/health` re-read** (open from §3): production is healthy, at `8a90e1b7` (#638, the Toronto calendar days), with
+  the database at 16 ms.
+- **Still Maxim's:** item 5 (app release, `<build app>`), item 6's fixes above and the 5 earlier RC-63 parser changes,
+  item 10 (stock 13/15), the CI option (A/B/C), and the roadmap list.
