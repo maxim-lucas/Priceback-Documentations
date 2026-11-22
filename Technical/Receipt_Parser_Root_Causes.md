@@ -2464,7 +2464,7 @@ the badge **PAID = k × THIS PRICE · CHECK THE QUANTITY** (`possibleQuantity` o
 
 ---
 
-## RC-63 · Labels cut at the left edge and amounts read as a separate column: payment and summary rows become the items (open, 2026-11-21)
+## RC-63 · Labels cut at the left edge and amounts read as a separate column: payment and summary rows become the items (open, 2026-11-21; case repaired 2026-11-22)
 
 **Printed shape (gwltb, Rimouski #1720, QC, French, 2026-11-21).** Three items, each with a MULTIPLE coupon:
 `1640008 PANTALON CAT 24.99 FP` / `0000396753 / MULTIPLE 5,00-FP`, then `1640007 PANTALON CAT` the same, twice.
@@ -2524,7 +2524,7 @@ the rows back together, or whether the photo itself is in two parts. The photo
 
 | Receipt | Store | Scanned | Build | What | Status |
 |---|---|---|---|---|---|
-| `r_1795303592862_gwltb` | Costco Rimouski #1720 (stored #1446 Anjou) | 2026-11-21 | iOS 3.6.4 (build 63) | 2 junk lines (`sterCard` 51.34, `RTICLES VENDUS` 24.99), total 87.76 / tax 11.43 (paper: 3 × PANTALON CAT 24.99 − 5.00, subtotal 59.97, tax 8.98, total 68.95) | waiting for review; not repaired. The paper's lines are above, ready for the desk's line editor |
+| `r_1795303592862_gwltb` | Costco Rimouski #1720 (stored #1446 Anjou) | 2026-11-21 | iOS 3.6.4 (build 63) | 2 junk lines (`sterCard` 51.34, `RTICLES VENDUS` 24.99), total 87.76 / tax 11.43 (paper: 3 × PANTALON CAT 24.99 − 5.00, subtotal 59.97, tax 8.98, total 68.95) | **Repaired 2026-11-22** (Maxim: "fix the receipt with the paper lines yourself"): spec `--write` on the deployed `b4131c1f`, 3 lines / 68.95 / tax 8.98, warehouse → #1720 (receipt + its 3 price points). See the runbook log |
 
 ---
 
