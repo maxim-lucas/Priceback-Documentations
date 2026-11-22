@@ -12821,3 +12821,10 @@ drop.
 - **Found:** costco.ca sources already use `config.scope` (national / business_centre), so the run marker is `config.harvestScope`. Promo codes is only on `feat/store-spaces-v2-main` (no PR): not on main, so not in General yet.
 - **Tests:** backend 393/393 (24 files, dev DB, one at a time) + 34 new; mobile 13,661; i18n in sync. CI not run.
 
+## 2026-11-21 — Promo codes on main (#626) and migration 0057_promo_codes applied to production
+
+- **Ask (Maxim):** merge the promo codes branch to main but not the new design; then "go ahead and apply the promo migration on prod".
+- **Done:** be9e24d1 cherry-picked onto main without Store Spaces v2 (caps = `promo-code` only, no `users.trial_choice` read, no trial deferral, no `store_votes`, no free-week purchase). Journal entry `0057_promo_codes` at `when` 1794950000000 (after prod's `0057_warehouse_stock_reads`).
+- **Prod (project xjfrlzwonyaorwktnkpj), 2026-11-21:** the file run by hand in one transaction (the prod ledger is hand-maintained; `db:migrate` is unsafe there). Ledger row id 69, hash `5100992182fa…` (LF sha256; the method checked against row 68's hash), created_at 1794950000000. Verified: 3 tables with RLS, 3 foreign keys, codes FAMILY 5 % / FRIENDS10 10 % / BLACK 20 % (Play `promo-5/10/20`), active, ending 2027-01-01 05:00 UTC. `/health` ok; `/api/me/promo-code` answers 401 with the `promo-code` cap and 404 without.
+- **Note:** no shipped build sends the cap, so shoppers see promo codes only from the next app build.
+
