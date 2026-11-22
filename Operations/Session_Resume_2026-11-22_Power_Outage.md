@@ -212,3 +212,29 @@ Items 1–2 (Store Spaces v2 and Paywall V2) are on `main-test-features`. Items 
   the database at 16 ms.
 - **Still Maxim's:** item 5 (app release, `<build app>`), item 6's fixes above and the 5 earlier RC-63 parser changes,
   item 10 (stock 13/15), the CI option (A/B/C), and the roadmap list.
+
+## 8. Two CI workflows; RC-63 fixed with known warehouses only (2026-11-22, evening)
+
+- **Two workflows, merged** (Priceback #644 → main, #645 → main-test-features). Maxim: *"duplicate the workflow with the
+  Github database solution and we use this more often and use the actual setup before deploy only"*.
+  - `test-github-db.yml`, *Fast Checkup Tests (GitHub database)*: the everyday run. The backend gets a throwaway
+    Postgres 17.6 inside the job (`backend/scripts/github-test-db.sh`, image pinned by digest, TLS on, schema from the
+    migrations). It never touches Supabase dev.
+  - `test.yml`: before a deploy or a release only.
+  - `ciParity` pins both workflows. **The new workflow hasn't run yet; its first dispatch is the real test.**
+- **RC-63 fix: Priceback #646, open, not merged.** Maxim: *"yes if only the warehouse number is verified against the
+  existing known warehouses in the database, no warehouse should be created from now on"* and *"no items parsing
+  regression"*.
+  - The server never creates a warehouse (`warehousesRepo.findKnown`). An observation naming an unknown number is
+    refused (`unknown_warehouse`).
+  - The phone keeps a number only when it is known: parser, then header, then the footer stamp, the footer only if
+    needed. This happens after parsing.
+  - A tax over the cap stays unread.
+  - Proof: no item line moved on the 180 golden receipts; only vdxrw's tax/total moved, and they were made up before
+    too. Mobile 13,816 tests pass. 112 backend DB files pass, 1,276 tests.
+  - New standing rule in `CLAUDE.md`: "Warehouses come from the official list only".
+- **Still Maxim's:**
+  - dispatch the fast workflow on #646, then merge it;
+  - a datafix for the junk warehouse rows already in production;
+  - detecting Costco without the word "COSTCO" (frozen file);
+  - the app release, stock 13/15, and the roadmap.

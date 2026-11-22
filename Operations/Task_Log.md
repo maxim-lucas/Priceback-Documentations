@@ -12857,3 +12857,22 @@ drop.
 - **Found (RC-63, by replaying the v3.6.4 code in a worktree on E:):** the store was never identified (no `COSTCO` on the photo); `validateReceipt` step 3 turned a tax over the cap into rate × lines (11.43); the warehouse came from the province fallback (first Quebec warehouse = #1446 Anjou), because the header's leading `#1720` misses the last-resort pattern and `footer_ocr` is never read. Both files are unchanged on `main`. Details are in the resume doc §7. Production was read only.
 - **Checked:** production `/health` is healthy at `8a90e1b7`.
 - **Not done (Maxim's go):** any parser or validator change, the CI option, the app release, stock 13/15.
+
+## 2026-11-22 — Everyday CI workflow with its own database (#644/#645); RC-63: known warehouses only (#646)
+
+- **Ask (Maxim):**
+  - "duplicate the workflow with the Github database solution and we use this more often and use the actual setup before deploy only";
+  - "Parser : yes if only the warehouse number is verified againest the existing known warehouses in the database, no warehouse should be created from now on…";
+  - "no items parsing regression should be on that path, you parse this in the footer only if needed or create a new parsing ocr section".
+- **Done:**
+  - `test-github-db.yml` and `backend/scripts/github-test-db.sh`, pinned by `ciParity` (65/65);
+  - `warehousesRepo.findKnown` in receipts, crowd (refusal `unknown_warehouse`) and preferences;
+  - `detectedKnownWarehouse` (parser → header → footer stamp, known only);
+  - the validator leaves a tax over the cap unread;
+  - `tests/helpers/knownWarehouse.js`;
+  - the CLAUDE.md rule.
+- **Found:**
+  - A US receipt's lines with an unknown number would have become Canadian province prices if they had been demoted. They are refused instead.
+  - The golden vdxrw's old tax/total (28.68/249.27) were rate × lines too; the paper prints 284.38 / 29.24.
+- **Tests:** mobile 13,816 pass; i18n in sync; backend 112 DB files on dev, one at a time, 1,276 pass / 0 fail. CI not dispatched.
+- **Open:** dispatch and merge #646; the junk warehouse rows in production (a datafix, Maxim's go); detecting Costco without the word "COSTCO" (frozen `receiptParsingShared.js`).
