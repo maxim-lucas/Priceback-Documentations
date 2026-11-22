@@ -12843,3 +12843,17 @@ drop.
 - **Prod (project xjfrlzwonyaorwktnkpj), 2026-11-21:** the file run by hand in one transaction (the prod ledger is hand-maintained; `db:migrate` is unsafe there). Ledger row id 69, hash `5100992182fa…` (LF sha256; the method checked against row 68's hash), created_at 1794950000000. Verified: 3 tables with RLS, 3 foreign keys, codes FAMILY 5 % / FRIENDS10 10 % / BLACK 20 % (Play `promo-5/10/20`), active, ending 2027-01-01 05:00 UTC. `/health` ok; `/api/me/promo-code` answers 401 with the `promo-code` cap and 404 without.
 - **Note:** no shipped build sends the cap, so shoppers see promo codes only from the next app build.
 
+
+## 2026-11-22 — Resume list: the CI test-database option written up; RC-63 tax and warehouse traced
+
+- **Ask (Maxim):** "document the option (faster) with the test having its own database, the database we have today is on the cloud and we dont have any dedicated server only railway so i need more details, also continue working on the list the remaining points".
+- **Done:** `Technical/CI_Test_Database_Option.md`, the throwaway Postgres 17 inside the GitHub job. Checked on `main`:
+  - 58 migration files = 58 journal entries;
+  - no Supabase-only extension or role;
+  - Supabase dev is Postgres 17.6;
+  - TLS always on, so the container would get its own CA through `DB_SSL_CA`;
+  - Docker isn't installed on the PC;
+  - the repo is private, so the cost is Actions minutes.
+- **Found (RC-63, by replaying the v3.6.4 code in a worktree on E:):** the store was never identified (no `COSTCO` on the photo); `validateReceipt` step 3 turned a tax over the cap into rate × lines (11.43); the warehouse came from the province fallback (first Quebec warehouse = #1446 Anjou), because the header's leading `#1720` misses the last-resort pattern and `footer_ocr` is never read. Both files are unchanged on `main`. Details are in the resume doc §7. Production was read only.
+- **Checked:** production `/health` is healthy at `8a90e1b7`.
+- **Not done (Maxim's go):** any parser or validator change, the CI option, the app release, stock 13/15.
