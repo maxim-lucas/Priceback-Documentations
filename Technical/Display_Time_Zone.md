@@ -48,8 +48,34 @@ days), the queue (`shortTime`, daily stock read, promo end), the receipt reader 
 read), the drop evidence text (`dropConfidence`: saving checked, stock checked), the drop-reminder recap email ("Last
 seen (Toronto)") and the web console's last sweep.
 
-The activity dashboard's periods (24 h, 7 days, 30 days, all) are rolling windows counted in hours. They do not depend
-on any zone.
+### Admin days and counters (2026-11-22, second pass)
+
+Maxim: *"when i see a scanned receipt sometimes the scanned date is in the next day already by the end of the day in
+canada, same for activity dashboard counters, and all the counters in the app, also a created account"*. A day on the
+admin desk is a **Toronto calendar day**, cut at 00:00 Toronto, for the date printed and for the counters alike:
+
+- `adminDayStart(daysBack, now)`: the instant 00:00 Toronto starts, `daysBack` days before today (exact across both
+  daylight-saving changes, which happen at 02:00). `adminPeriodHours(days, now)`: the hours from the start of a
+  `days`-day period (today + the `days - 1` before it) to now.
+- **Activity dashboard**: the periods are **Today, 7 days, 30 days** in Toronto calendar days (was rolling 24 h /
+  168 h / 720 h, so "24 hours" at 21:00 still held yesterday evening, and UTC days rolled at 19:00/20:00). The app sends
+  `sinceDays=<n>` beside `sinceHours`. `backend/lib/adminWindow.windowHours` is the one parser, used by
+  `GET /api/admin/overview` and by the accounts drill-down behind each counter (`GET /api/admin/users?activity=`), so
+  the number and the list it opens read the same rows. An older build sends only `sinceHours` and reads exactly what it
+  did. `adminConsoleRepo._since` takes a fractional window (`make_interval(secs =>)`).
+- **Paid subscription charges** on the dashboard are de-duplicated per Toronto day (was UTC).
+- **Scanned on**: `adminReceiptView.scanDay` is `created_at`'s Toronto day on every admin screen (the list, the facts,
+  the shopper-view detail card). It used to print the server's `scannedOn` (the owner's province day), so a scan in
+  Vancouver at 22:30 and a scan in Toronto at 01:30 showed different days on the same desk. `scannedOn` is only the
+  fallback when a row has no `createdAt`. The **shopper** still sees their own day.
+- **Account joined**: printed through `formatValue` → `adminDateTime`, Toronto.
+
+**Not changed, on purpose:** the home screen's incident counters (failed jobs, sign-in failures needing action) and
+Incidents' "last 24h" stay rolling 24-hour windows; they say "last 24h" and an alert should not shrink at midnight.
+
+**Found, not changed (a money rule, Maxim's call):** the tag-scan credit caps in `backend/repos/tagCreditsRepo.js` count
+the month and the week from UTC (`startOfMonthUTC`, `startOfWeekUTC`), so a cap resets at 19:00/20:00 Toronto on the last
+day. `priceTagScansRepo` already counts its day and week in Toronto.
 
 **Kept in UTC on purpose:** the receipt reader's "Today (UTC)" Gemini budget. That quota is counted per UTC day, and the
 label says exactly that.
