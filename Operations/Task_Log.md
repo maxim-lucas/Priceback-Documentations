@@ -12935,3 +12935,24 @@ drop.
   - production had 0 per-kg rows and no flags from #650, so nothing to undo.
 - **Harvest:** old-code AB run #83 stopped and closed. The queue runs one job at a time with memory waits: QC, ON, BC fill, AB, NB, BC, SK, MB, NS, NL, PE. It retries Same-Day refusals, and its first QC attempt hit `no_session`.
 - **Spec:** §11 of `Technical/Fresh_Kirkland_Per_Kg_Prices.md`.
+
+## 2026-11-22 — Per-kg stability measured; outliers and placeholders held (#656, #658); first per-kg price backdated
+
+- **Ask (Maxim):**
+  - "did you check if the weight changed, the price changed … crossed with products";
+  - "at least validate the categories";
+  - "hold it for review, don't store the $99.99";
+  - "can you adjust the prices already harvest in the past … if risky dont do it";
+  - placeholders held "with a mention that these are the official prices in costco";
+  - "force the same price as of today on regular prices … over flushing the history".
+- **Measured (read-only):**
+  - Categories at 1127: 1,140 have no item priced by weight; 64 are 100% by weight (all fresh, cheese cut to weight or counter dishes); 15 are mixed, and each item splits correctly.
+  - 9 provinces × 231 products: the pack price has 5.23 distinct values per product vs 1.27 per kg. Pack = per kg × stated weight (median gap 0.01%).
+  - 64% of stored pack histories churned since Nov 4.
+- **Done:**
+  - #656: hold above 4× the lowest per-kg price, plus cleanup;
+  - #658: exact $99.99 / $999.99 held with an admin note, and the first per-kg price backdated;
+  - #657 / #659: main → main-test-features.
+- **Not done (risky):** converting past pack prices to per kg. No weight was recorded, and the pack rows feed savings and receipts. Replaced by the backdate.
+- **Harvest:** run #85 (QC) in progress at the time of writing, with 1,057 per-kg rows written and 248 products flagged sold by the pack. The queue continues on the #658 code.
+

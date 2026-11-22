@@ -295,3 +295,32 @@ province read has nothing lower to compare against. A placeholder stored then is
 The correction comes from the harvest: as each province is re-read, the lookups and the price history show the per-kg
 line, and the noisy pack history of those products is no longer drawn (`preferKgRows`, per product and province).
 
+## 13. Placeholder rates held with an admin note; the first per-kg price stands for the past (2026-11-22, #658)
+
+**Placeholders** (Maxim: hold them, *"with a mention that these are the official prices in costco if it seems
+weird"*):
+- Same-Day prints some products at exactly **$99.99 / kg in every province**: halal chicken thighs, drumsticks and
+  whole chicken, cocktail shrimp, a pork shoulder roast, a rib steak. It prints **$999.99 / kg** for a Wagyu rib roast
+  (≈ $1,896 a package).
+- The relative hold (§12) cannot catch these, because no province shows a lower price. So
+  `freshKgPricing.holdOutliers` holds any per-kg reading of exactly a `PLACEHOLDER_RATES` value, whatever the other
+  provinces say. A placeholder is never used as a reference.
+- Each held reading carries a `reason` (`placeholder` / `above_other_provinces`) and a `note` shown on
+  Admin · Harvest jobs (run details, `perKgHeld`): *"This is the price Costco's own site shows, but it looks like a
+  placeholder, so it was held and not stored. Check the product on the site before using it."*
+- Stored placeholders are deleted by `dropPerKgOutliers`.
+- The Wagyu strip loin ($99.99 / kg, ≈ $87 a package) may be real: it is held too until an admin confirms it.
+
+**The scrambled history** (Maxim: *"force the same price as of today on regular prices … I prefer to force the same
+price over flushing the history"*):
+- `productCatalogRepo.backdatePerKg`, called by ingest on every run: a product's first per-kg price at a place (no
+  per-kg history yet) takes its `price_since` back to the earliest pack price the harvest held for the same product,
+  channel and province (current or past).
+- The price history then draws one steady per-kg line from 2026-11-04 instead of the random pack prices. The pack
+  rows are no longer drawn for those products (`preferKgRows`).
+- Savings are by the pack and are untouched. No pack row is changed or deleted, so the savings path, receipts and the
+  Costco upload are unaffected.
+- Idempotent: a backdated row, or one that has per-kg history, is never moved again.
+- The functions work by product across every province, so the Ontario run also fixes the Quebec rows the earlier-code
+  Quebec run stored.
+
