@@ -2464,6 +2464,70 @@ the badge **PAID = k × THIS PRICE · CHECK THE QUANTITY** (`possibleQuantity` o
 
 ---
 
+## RC-63 · Labels cut at the left edge and amounts read as a separate column: payment and summary rows become the items (open, 2026-11-21)
+
+**Printed shape (gwltb, Rimouski #1720, QC, French, 2026-11-21).** Three items, each with a MULTIPLE coupon:
+`1640008 PANTALON CAT 24.99 FP` / `0000396753 / MULTIPLE 5,00-FP`, then `1640007 PANTALON CAT` the same, twice.
+SOUS-TOTAL 59.97, TAXE 8.98 (TPS 3.00 + TVQ 5.98), `**** TOTAL` 68.95, NOMBRE D'ARTICLES VENDUS = 3, TOTAL RABAIS
+15,00. All of these check out against each other: 3 × (24.99 − 5.00) = 59.97, 59.97 + 8.98 = 68.95.
+
+Vision's text (`raw_ocr`) has three shapes, and the parser cannot handle any of them:
+
+1. **Labels cut at the left edge.** `NNAIE` (MONNAIE), `sterCard` (MasterCard) next to `51.34`, `ES` / `RTICLES VENDUS-`
+   (NOMBRE D'ARTICLES VENDUS), `i et à bient` (Merci et à bientôt). The noise vocabulary only matches whole words, so
+   none of these fragments is removed.
+2. **The amounts come out as a separate column.** The item rows have no amount. The six amounts (`24.99 FP`, `5,00-FP` ×3)
+   arrive after SOUS-TOTAL, joined to the register stamp (`24.99 FP 17:31:04 1720 8 530 224`).
+3. **The totals block comes out as columns too.** Its labels come first (`SOUS-TOTAL`, `TAXE`, `**** TOTAL`) and its values
+   after (`59.97`, `8.98`, `68.95`).
+
+**What was stored.** Two lines: `sterCard` $51.34 and `RTICLES VENDUS- Unknown item` $24.99 (no item numbers), with
+total $87.76 and tax $11.43. None of these amounts is on the paper as an item, the subtotal, the tax or the total. The
+$11.43 is 14.975 % of the lines' $76.33 (Quebec's combined rate), and the total is lines + that tax. That tax was
+calculated by someone or something, not read from the paper: where it was calculated is **not traced yet**, and rule 4 of
+the design rules forbids it. The warehouse is stored as **#1446 Anjou**. The paper prints #1720 (header `#1720` and the
+register stamp `1720 8 531`), and the warehouses table has 1720 = Rimouski. The header's city `Rimouski` is also stuck to
+the first item's name in replay B below.
+
+**Proof (replay with today's `parseCostcoReceipt`, text only, 2026-11-21).**
+
+| Input | Items | Tax / total read |
+|---|---|---|
+| `raw_ocr` as stored | `sterCard` 51.34, `RTICLES VENDUS- Unknown item` 24.99: **exactly the stored lines** | 24.99 / 24.99 |
+| A · whole labels restored (only shape 1 neutralised) | none: the payment and summary rows are dropped as noise, as they should be | 24.99 / 24.99 |
+| B · A + each amount back on its row (shapes 1 and 2 neutralised) | 1640008 19.99, 1640007 × 2 39.98 = **59.97, the printed SOUS-TOTAL to the cent** | 59.97 / 119.94 |
+| C · amounts back on their rows, labels left cut (only shape 2 neutralised) | the three items + `sterCard` 51.34 | 59.97 / 176.28 |
+
+So the items close once shapes 1 and 2 are neutralised, and the figures close once shape 3 is too. Each of the three is
+a root cause in its own right. **Limit of the proof:** the phone also had Vision's word coordinates (`annotation.words`),
+and those are not stored. The geometry path is not replayed here, so it is not known whether the geometry could have put
+the rows back together, or whether the photo itself is in two parts. The photo
+(`prod/receipts/001608.…1813/r_1795303592862_gwltb.jpg`) has not been looked at.
+
+**Proposed changes (document only, not built; the Costco parser needs Maxim's go):**
+
+1. *Noise vocabulary (shape 1).* A row whose only text is the end of a known noise label, at least 4 letters long
+   (`sterCard`, `RTICLES VENDUS`, `NNAIE`), is noise, in EN and FR. This goes in the noise vocabulary
+   (`shared/costcoReceiptNoise.fr.js` and the EN set), not in extraction. Risk: a real item name that ends like a
+   label. Check it against the whole corpus.
+2. *Block boundaries (shape 2).* After SOUS-TOTAL, a run of `amount FP` / `x,xx-FP` amounts with no labels, whose count
+   matches the item rows and coupon rows above it (3 + 3 here), is the price column of those rows. Pair them in order,
+   and only when the pairing adds up to the printed SOUS-TOTAL to the cent. Use the geometry first, and fall back to the
+   text only under that proof.
+3. *Totals section (shape 3).* A labels-then-values totals block may be zipped in printed order **only** when the result
+   proves itself (SUBTOTAL + TAX = TOTAL, and TPS + TVQ = TOTAL TAXES). Without that proof the figures stay unread
+   (rule 2 of One reading of the paper: never re-zip a label run). This is Maxim's decision.
+4. *Warehouse.* Find out why `#1720`, printed in the header and the stamp, was saved as #1446. It may be the shopper's
+   home warehouse winning over the printed one.
+5. *Tax.* Trace what produced the $11.43 (the 3.6.4 phone, the scan review or the server) and make sure a tax is never
+   derived from the lines.
+
+| Receipt | Store | Scanned | Build | What | Status |
+|---|---|---|---|---|---|
+| `r_1795303592862_gwltb` | Costco Rimouski #1720 (stored #1446 Anjou) | 2026-11-21 | iOS 3.6.4 (build 63) | 2 junk lines (`sterCard` 51.34, `RTICLES VENDUS` 24.99), total 87.76 / tax 11.43 (paper: 3 × PANTALON CAT 24.99 − 5.00, subtotal 59.97, tax 8.98, total 68.95) | waiting for review; not repaired. The paper's lines are above, ready for the desk's line editor |
+
+---
+
 ## Earlier root causes (before this register)
 
 Recorded in their own docs; listed here so the register is complete. Add new cases of these under a new `RC-n`

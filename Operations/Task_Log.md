@@ -12828,3 +12828,9 @@ drop.
 - **Prod (project xjfrlzwonyaorwktnkpj), 2026-11-21:** the file run by hand in one transaction (the prod ledger is hand-maintained; `db:migrate` is unsafe there). Ledger row id 69, hash `5100992182fa…` (LF sha256; the method checked against row 68's hash), created_at 1794950000000. Verified: 3 tables with RLS, 3 foreign keys, codes FAMILY 5 % / FRIENDS10 10 % / BLACK 20 % (Play `promo-5/10/20`), active, ending 2027-01-01 05:00 UTC. `/health` ok; `/api/me/promo-code` answers 401 with the `promo-code` cap and 404 without.
 - **Note:** no shipped build sends the cap, so shoppers see promo codes only from the next app build.
 
+
+## 2026-11-21 — Every timestamp shown in Toronto time; receipt gwltb root cause (RC-63)
+
+- **Ask (Maxim):** "convert all the timestamp in the app in all tables … with the actual toronto timezone, you can use a function for the UI or … convert on save"; "this should go on main and main-test-feature". Plus: the production receipt waiting for review that the parser can't fix — check it, and document the root cause and any optimisation (document only).
+- **Done:** the function approach. Stored timestamps are `timestamptz` instants and are not rewritten. One definition, `shared/displayTime.js`, wired into every place a timestamp is turned into text (`Technical/Display_Time_Zone.md`). The PR is on main, and a sync PR carries it to main-test-features.
+- **Receipt `r_1795303592862_gwltb`** (Rimouski #1720, iOS 3.6.4): RC-63 in `Technical/Receipt_Parser_Root_Causes.md`. Not repaired; the parser was not changed.
