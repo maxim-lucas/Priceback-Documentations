@@ -1,4 +1,4 @@
-# Fresh Kirkland products: shelf price per kg in the harvest and the price lookups (BUILT 2026-11-22)
+# Products priced by weight: shelf price per kg in the harvest and the price lookups (BUILT 2026-11-22)
 
 Written 2026-11-22 for the implementer (Opus). **Built the same day: see §10 for what was built, where it differs
 from this spec, and what is left.** Ask from Maxim, in his
@@ -219,3 +219,43 @@ fixture in both languages, the harvest with
 two pack weights, the job, the lookups' rule), `tests/freshKgPricingDb.test.js` (the flag, the per-kg rows, the price
 history reader), `tests/savingsHarvestDb.test.js` (a flagged product with per-kg rows keeps its full pack saving as
 the drop), the two admin screen suites.
+
+## 11. The rule as it stands: the website decides (Maxim, 2026-11-22, #654)
+
+> *"the website should mention if the product is by the pack or by the weight (priced) this should never be a guess"* —
+> *"prices by weight is the rule always it is per Kg same meaning"* — *"before validation the rule and writing the code
+> you check double check if the rule persist with the product online"*.
+
+**Rule:** a product is priced **per kg** exactly when **Same-Day prices it by weight**: the item card carries a rate
+**with a price** (`itemCard.pricingUnitString` "$16.99 / kg", "$4.00 / lb") or a price printed per weight
+(`itemCard.priceSuffixString` "/kg"). Everything else is **by the pack**, whatever weight it prints. No brand (the
+Kirkland condition of §2 is gone), no category list, no name rule (no "smoked" override), no price ÷ size.
+One definition: `freshKgPricing.isPricedByWeight` / `perKgOfReading`; `regularPrices.weightPricingOfSamedayItem` reads
+the strings. The harvest asks it of every item it reads (`weightPricing: true` on every prices / full run).
+
+**Sold by the pack (`is_weighted`)** is set from the same answer: every product with a per-kg reading, and every one
+the website prices by weight but gives no regular per kg for in that reading (on sale: the card's rate is the sale
+rate, so no per-kg row, still flagged). `productCatalogRepo.markSoldByThePack`, called by ingest and by the per-kg
+checkpoints. Only ever set, never cleared.
+
+**Checked live before it was written (read-only, 2026-11-22):**
+
+| Check | Result |
+|---|---|
+| Every Kirkland listing at 1127 Drummondville and 1362 Gloucester (534 in both) | 61 priced by weight, all fresh meat, poultry, fish or prepared meals (fresh salmon fillets and portions included). Frozen bags (salmon 1.08 kg / 1.36 kg, shrimp, chicken), canned, deli packs, bacon, smoked ham, pet food: fixed packs. **Same verdict and same per-kg price in both provinces, every item.** |
+| The whole catalogue at 1127 (6,038 items read, 8,805 on file) | 235 priced by weight: meat and fish, cheese cut to weight (Parmesan, Grana Padano, Comté), prepared dishes. **No fruit.** |
+| Cards that print a unit with no price | "3.8 kg / lb" (a pomegranate case), "per kg" (a candy): **not** a rate, by the pack. Why the rate must carry a price. |
+| Smoked | No smoked salmon is priced by weight (by the pack, as Maxim expected). Three smoked meats are (Théberge smoked ham $8.49/kg, Schwartz's smoked brisket $22.99/kg, smoked turkey legs): per kg, as the website says. A "smoked = pack" name rule would have been a guess, and it was removed. |
+| Instacart categories | Wrong both ways: "Sea Salt Peppercorn Chicken Wings" under *Frozen Chicken Wings* is sold by the kg; prepared meals under *Deli* are sold by the kg. |
+| A by-weight item on sale (Meat Lasagna, $17.54 shown, $21.04 struck, card $11.49 / kg) | No regular per kg from that reading (the card rate is the sale rate; deriving the regular rate would be a guess); still flagged sold by the pack. |
+| "$0.02/g" rates (Ancho Beef Tacos, cheeses) | A rounded rate, never read; those cards also print "/kg", which is used. |
+
+**What this replaced:** §2's Kirkland + category list and §10's "price ÷ stated weight" fallback, which would have
+put the Atlantic Salmon bag and the 4 × 500 g bacon at a per-kg price the website never states.
+
+**Harvest (2026-11-22, 20:00 UTC):** a local queue (outside the repo, `C:/Workspace/harvest-queue/harvest-queue.mjs`)
+runs the fills one at a time with the per-kg code: QC, ON (per-kg pass), the Business Centre fill, then AB, NB, BC,
+SK, MB, NS, NL, PE. Before each job it waits for ≥ 1.5 GB free memory; 3 minutes between jobs; a Same-Day session
+refusal (`no_session`) is waited out 10 minutes and retried (3 attempts); a finished job is recorded and skipped on a
+restart. The old-code Alberta run (#83, 10 of 20 warehouses) was stopped: its warehouse checkpoints are kept, and it is
+re-run in the queue with per-kg prices.

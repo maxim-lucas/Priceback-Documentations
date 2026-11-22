@@ -12916,3 +12916,22 @@ drop.
   - the per-kg backfill, per province in Maxim's order;
   - Maxim's call on a per-sku override (salmon) and on deli;
   - `0053_store_spaces_v2` missing from `main-test-features`' journal (pre-existing).
+
+## 2026-11-22 — Per kg = what the website prices by weight (#654); harvest queue
+
+- **Ask (Maxim):**
+  - "if the salmon is smoked usualy it is by the pack … the fresh only use by the Kg, fix the gap, and continue the harvest, repartition the jobs with waits … based on the memory or smaller batches";
+  - "the website should mention if the product is by the pack or by the weight … never a guess";
+  - "double check if the rule persist with the product online";
+  - "prices by weight is the rule always it is per Kg".
+- **Checked live first (read-only):** every Kirkland listing at 1127 and 1362, then the whole catalogue at 1127. This dropped:
+  - the deli exclusion;
+  - the Kirkland condition;
+  - the smoked name rule (3 smoked meats are priced by weight on the site);
+  - price ÷ weight.
+  It added "a card rate must carry a price" (a pomegranate case "3.8 kg / lb", a candy "per kg").
+- **Done:**
+  - #654 on `main`, #655 into `main-test-features`;
+  - production had 0 per-kg rows and no flags from #650, so nothing to undo.
+- **Harvest:** old-code AB run #83 stopped and closed. The queue runs one job at a time with memory waits: QC, ON, BC fill, AB, NB, BC, SK, MB, NS, NL, PE. It retries Same-Day refusals, and its first QC attempt hit `no_session`.
+- **Spec:** §11 of `Technical/Fresh_Kirkland_Per_Kg_Prices.md`.
