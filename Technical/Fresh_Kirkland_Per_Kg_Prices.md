@@ -1,6 +1,7 @@
-# Fresh Kirkland products: shelf price per kg in the harvest and the price lookups (SPEC, not built)
+# Fresh Kirkland products: shelf price per kg in the harvest and the price lookups (BUILT 2026-11-22)
 
-Written 2026-11-22 for the implementer (Opus). **Nothing in this document is coded yet.** Ask from Maxim, in his
+Written 2026-11-22 for the implementer (Opus). **Built the same day: see §10 for what was built, where it differs
+from this spec, and what is left.** Ask from Maxim, in his
 words (2026-11-22): *"all the sold by the pack items (meat, chicken, …) kirkland label only should be priced by kg not
 by pack because it fluctuates a lot and is not accurate since the fill started"*; *"fruits can sometimes be sold by
 the pack but should still be by the pack because it is not Kirkland labelled"*; *"only fresh products (meat, chicken,
@@ -39,7 +40,9 @@ A Same-Day reading is stored **per kg** when ALL hold:
 3. **Same-Day gives a weight or a rate**: `size` is `N kg` / `N g` / `per lb` / `per kg` / `per 100 g`. A `size` of
    `1 each`, `N ct`, a volume or empty → **not convertible → stays by the pack** (never guess a weight).
 
-Conversion (one function, `perKg({ price, size })` → number or `null`): kg = N; g = N/1000; `per lb` →
+> ⚠️ **Superseded (2026-11-22, §10): the conversion below misreads Same-Day.** Built: `perKgOfReading`, Same-Day's own rate first.
+
+Conversion as first specified (one function, `perKg({ price, size })` → number or `null`): kg = N; g = N/1000; `per lb` →
 price × 2.20462; `per kg` → price; `per 100 g` → price × 10. Round to cents. Use the item's own strings with
 `moneyAnyLocale` (a French session prints `27,99 $`).
 
@@ -132,3 +135,87 @@ Quebec and Ontario are fully filled (every warehouse, in store and delivery); Bu
 and its fill (`sameday_business_centre_fill`, created disabled, run by hand) are running; Alberta and the other
 provinces follow. Failed warehouses are now retried by the Same-Day client (PR #642 / #643) and can be re-read alone
 (`--warehouses 518,528`).
+
+## 10. As built (2026-11-22)
+
+**Code** (PR to `main`, then `main` merged into `main-test-features`; the shopper's warehouse prices on
+`main-test-features` only):
+
+| Piece | Where |
+|---|---|
+| The rule, one definition | `backend/lib/freshKgPricing.js`: `isKirkland`, `isFreshCategory`, `qualifies`, `perKg`, `KG_KIND` / `PACK_KIND`, `preferKgRows`, `oneUnit`, `unitOf` |
+| The Same-Day reading per kg | `services/catalog/regularPrices.perKgOfSamedayItem` reads the strings (beside `regularOfSamedayItem`, unchanged) → `freshKgPricing.perKgOfReading` decides |
+| The sku set + the flag | `productCatalogRepo.freshKirklandSkus({ flag })`: qualifies every product by its category and a Kirkland brand / name on any catalogue listing, sets `products.is_weighted = true` (never clears it) |
+| The harvest | `jobs/harvestCatalog.runSource` → `adapters` (`freshKgSkus`) → `samedayCatalogSource.readAt` pushes a `warehouse_kg` / `sameday_kg` reading beside the pack reading; checkpoints are one call per kind |
+| Backfill | `config.freshKirklandOnly` (prices mode), CLI `--fresh-kirkland-only` |
+| Storage | migration `0059_fresh_kg_price_kinds` (ids 4 and 5) |
+| Price history / admin lookup | `priceHistoryRepo.regulars` reads `warehouse` + `warehouse_kg`, keeps the per-kg rows per product **and province** (`preferKgRows`); `priceHistoryService.officialInputs` keeps one unit per line (`oneUnit`), applies no saving and no price point to a per-kg line, returns `unit`; `historyFor` / `searchFor` return `unit` (additive) |
+| Admin screens | `AdminPriceLookupScreen` / `AdminPriceHistoryScreen`: "$x / kg" and a one-line note (English, admin-exempt) |
+| Shopper warehouse prices (`main-test-features`) | `GET /api/me/warehouse-prices` returns `unit`; the screen shows the translated "/kg" |
+
+**Where it differs from the spec:**
+
+- 🔴 **§2's conversion was wrong for the products that matter, and is replaced.** Raw Same-Day items read at
+  Drummondville (1127) on 2026-11-22, English and French sessions (fixture
+  `backend/tests/fixtures/catalog/sameday-fresh-kg-items.json`) show that **Same-Day states the per-kg price itself**,
+  and that the item's `price` is often **not** a pack's price:
+
+  | Item | `size` | `price` | What the card says | Spec's §2 | Built |
+  |---|---|---|---|---|---|
+  | Organic Split Chicken Wings 47969 | per lb | $37.38 | `$37.38 /pkg (est.)`, `pricingUnitString` **$16.99 / kg** | $82.41 | **$16.99** |
+  | Seasoned Nagano Pork Chops 15048 | 1.542 kg | $21.99 | `priceSuffixString` **/kg** ("$21.99 per kilogram") | $14.26 | **$21.99** |
+  | Boneless Skinless Chicken Breasts 55503 | 1 each | $34.77 | `/pkg (est.)`, **$15.69 / kg**, "About 2.22 kg / package" | none | **$15.69** |
+  | Spiral ham 13689 | per kg | $38.39 | `/pkg (est.)`, **$8.99 / kg** | $38.39 | **$8.99** |
+  | Chicken Penne Alfredo 15206 | 1.5 kg | $23.53 | `each (est.)`, **$14.99 / kg** | $15.69 | **$14.99** |
+  | Atlantic Salmon 46340 | 1.08 kg | $39.99 | no rate: a fixed pack | $37.03 | $37.03 |
+  | Sliced Bacon 104847 | 500 g | $19.99 | card quantity **4 x 500 g** | $39.98 | **$9.99** |
+
+  The order of trust (`freshKgPricing.perKgOfReading`): (1) the card's own rate (`itemCard.pricingUnitString`,
+  "$16.99 / kg"; on sale, none: the shown rate may be the sale rate); (2) a price printed per weight
+  (`itemCard.priceSuffixString` "/kg"): the regular price is the per-kg price; (3) a pack with a stated weight and no
+  rate: regular ÷ weight, the card's quantity line first ("4 x 500 g"), never for an estimated price ("/pkg (est.)",
+  "/pqt (est.)", "env. par unité"). The pack reader `regularOfSamedayItem` is unchanged.
+  **Cost of not checking:** every rate item (most fresh meat) would have been stored 2–5× off.
+
+- **`backend/db/deploy/schema.sql` is not regenerated.** `scripts/build-consolidated-schema.js` is retired: the
+  file is frozen at the first production version (Maxim, 2026-11-09). Ship the migration file + journal entry only.
+  §3 of this spec was wrong on that point.
+- **The admin lookup has no change in `adminPriceLookupRepo`.** That repo reads price points; the shelf regular
+  prices reach the lookup through `priceHistoryService.searchFor` → `priceHistoryRepo.regulars`, so the swap is there,
+  once, for the admin lookup, the history screen and the shopper's tool together.
+- **Per province, not per product.** A product shows per kg in a province that has a per-kg row and by the pack in one
+  the backfill has not reached yet. A line (nationally, several provinces) never mixes the two (`oneUnit`).
+- **`N lb` and `N x W` sizes** are read as a weight too (`2 lb` → 0.907 kg, `4 x 500 g` → 2 kg).
+- **The French "par lb", "le kg" / "au kg"** are read as rates.
+- **A dry run never flags**: the CLI's `--dry-run` calls `freshKirklandSkus({ flag: false })`.
+
+**What production says about the rule (read 2026-11-22):**
+
+- Instacart files **Kirkland Signature Atlantic Salmon (46340, the 1.08 kg / $39.99 example of §1)** and the other
+  salmon packs under **"Frozen Salmon"**, so the rule as written keeps them **by the pack**. If they are fresh in the
+  warehouse, the fix is a per-sku override list in `freshKgPricing` (Maxim's call), not a looser word list.
+- Items with the size **`1 each`** (Boneless Skinless Chicken Breasts, Thighs, Salmon Portions) DO get a per-kg price:
+  the card states the rate.
+- A pre-existing gap noticed on the way, not changed: in a French session `regularOfSamedayItem` reads "par lb" as a
+  pack (it gives $37.38 for the wings). The harvest switches to English before the price pass, so it is not hit today.
+**§6, the Drummondville eggs:** not reproduced. Production (read-only, 2026-11-22): Kirkland Free Run Large Eggs
+(product 27996, sku 1706959) has a `costco` / `warehouse` QC province row at $8.99 since 2026-11-04, no running saving;
+warehouse 1127 is `costco`, province QC (id 11). Replaying `officialInputs` + `officialLine` on exactly those rows at
+1127 gives **$8.99**. So the price layer answers; the cause, if it still happens, is in the request (the place the
+screen sent, the search not returning product 27996) — the next step is the screen's exact query string.
+
+**Deploy order:** ✅ `0059` applied to production by hand on 2026-11-22 (ledger row 70, LF hash `c5928943…`), and to dev.
+On `main-test-features` the journal entry is `idx 60` (idx 59 there is `0057_warehouse_stock_reads`). Separately, that
+branch's journal has no entry for `0053_store_spaces_v2.sql`, which predates this work. Originally: A deploy before
+the migration is harmless (a per-kg reading is simply not written: `writeRegularPrices` joins the kind by code), but
+nothing shows per kg until the migration and a backfill have run.
+
+**Backfill, Maxim's order:** QC and ON first, then the Business Centre fill, then AB, NB, BC, SK, MB, NS, NL, PE:
+`node --env-file=.env scripts/harvest-catalog.mjs --source <fill> --mode prices --provinces QC --fresh-kirkland-only`.
+Not started: the per-province fills are running on the same PC.
+
+**Tests:** `tests/freshKgPricing.test.js` (rule, every production Kirkland category pinned, the reader on the real
+fixture in both languages, the harvest with
+two pack weights, the job, the lookups' rule), `tests/freshKgPricingDb.test.js` (the flag, the per-kg rows, the price
+history reader), `tests/savingsHarvestDb.test.js` (a flagged product with per-kg rows keeps its full pack saving as
+the drop), the two admin screen suites.
