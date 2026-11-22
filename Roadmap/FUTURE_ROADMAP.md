@@ -268,5 +268,12 @@ Removed in v2.5.0; could return as a proper theme context. Users have asked for 
 | Receipt editing after save; PDF export; Costco weekly-flyer overlay; crowd ≥6-user gate; urgency colours | Shipped May 2026 (`bc37371`). |
 | Crowd contribution from scans (old "v3.5" milestone) | Shipped via Plan B + the ≥6-user gate. |
 
+## Price lookups: categories and per-kg fresh Kirkland (Maxim, 2026-11-22)
+
+- Show every saved product category (`product_categories`, English + French) in the price lookup screens: a category
+  filter / grouping in the admin lookup and in the user's warehouse-price lookup.
+- Fresh Kirkland (meat, poultry, fish, prepared meals) priced per kg in the harvest and the lookups, never on receipts
+  or drops: spec in `Technical/Fresh_Kirkland_Per_Kg_Prices.md` (to be built).
+
 For everything shipped since, read the GitHub releases (`gh release list`): every store version has a tag and
 release notes.
