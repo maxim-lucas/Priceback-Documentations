@@ -15099,3 +15099,28 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Root cause: (RC-61) a curled photo's flat text streamed the names one row out of order above the prices; both readings closed to the cent, and the tie went to the flat text because it alone read the items-sold counter — a count cannot tell two pairings of the same lines apart. (RC-62) a pen stroke over `2 @` left one unit at twice the price.
 - Fix: the rows' pairing wins a tie between the same lines paired differently, the counters coming along (182 fixtures before/after: only the two fpxon captures moved). On Potential, a one-unit line at exactly k × the card's price says **PAID = k × THIS PRICE · CHECK THE QUANTITY**. Both receipts' datafixes wait for Maxim's go.
 - Detect next time: replay the receipt's capture (`scripts/exportOcrCaptures.js --receipt …`, read-only) and compare the geometry rows with the stored lines; a Potential card whose paid price is an exact multiple of the card's price is a lost quantity until proven otherwise. Never pair names and prices by the flat text's order when the rows say otherwise.
+
+## 391. "My warehouse" Save crashed on 3.6.5 for a shopper whose preferences came from the server: the warehouse number was a number (Sentry PRICEBACK-CANADA-Y, 2026-11-18…20; Priceback #631)
+
+- Date: 2026-11-21 · Area: `backend/repos/preferencesRepo.js` (`_decorateWarehouse`), `src/screens/StoresAndProfileScreens.js` (`openWarehouseModal`, `saveWarehouse`)
+- Symptom: `TypeError: undefined is not a function` (unhandled rejection) on the Save of the warehouse sheet, Android 3.6.5, 2 users; nothing saved.
+- Root cause: the server sends `preferences.preferredWarehouse.warehouseId` as a NUMBER (`Number(r.code)`); every phone path writes a STRING. After a sign-in/hydrate the sheet copied the number into `whDraftId` and Save called `(552).trim()` (Hermes: "undefined is not a function"). Reproduced in a test with the original screen: `(whDraftId || "").trim is not a function`.
+- Fix: the server returns `String(code)` — every shipped reader (2.8.3 → 3.6.5: `findWarehouseById`, `receiptWarehouseDefault.idOf`, Deals' `String(prefWh)`) already compares with `String()`, so installed 3.6.5 is fixed without an update; the phone coerces with `String()` too. Tests: `profileModals` (numeric id → Save), `preferencesRepoDb` (a string).
+- Detect next time: Sentry event stack names the handler (`saveWarehouse`) — read `/api/0/organizations/prosoft-inc/issues/<id>/events/latest/` while signed in (the `.env` token can upload releases only). A field crossing server → phone keeps the phone's own type.
+
+## 392. A push-token mint that failed offline was filed in Sentry as an error (PRICEBACK-CANADA-X, iOS 3.5.0–3.6.2, 9 events; Priceback #631)
+
+- Date: 2026-11-21 · Area: `src/services/notificationService.js` (`_mintPushToken`), `src/services/errorSupport.js` (`reportHandledError`)
+- Symptom: `Error encountered while fetching Expo token: TypeError: Network request failed`, 7 users.
+- Root cause: not a fault — the phone was offline, and the mint is retried on every foreground (`refreshPushRegistration`). It was reported like the "permission granted, no token" case the report exists for.
+- Fix: `reportHandledError(err, ctx, { selfHealing: true })` — a network/timeout failure of a flow that retries by itself stays in the analytics feed and is not filed in Sentry; any other mint failure still is.
+- Note: PRICEBACK-CANADA-V (`S7.b: INTERNAL_ERROR`, 3.6.1) is Google Play Services' own sign-in failure (`SignInHubActivity`), already classified (`signin_provider_error`, with its status code); no change.
+
+## 393. CI backend: whole test files failed on their first query at the 5 s connect timeout while the database had free connections (runs 44690238445 … 44967132416; Priceback #630)
+
+- Date: 2026-11-21 · Area: `backend/db/client.js` (`withConnectRetry`)
+- Symptom: ~45 failures per run concentrated in a few files (partnersRepoDb, costcoPriceUpload, functionSearchPath, dataCleanupRegistry), each passing alone with CI's pool (3).
+- Root cause: the checkout stalled (the session pooler refusing a client for a moment, a cold handshake, or the process's own 3 slots taken by its boot work). `pg_stat_activity` sampled every 10 s through a whole run never exceeded 8 of 15. `seedWithRetry` rode the stall out; the query beside it did not. A 30 s connect timeout (#628, reverted in #629) did not help and broke `ciParity`.
+- Fix: a checkout that failed before a client was handed out (no query sent) is asked for again, twice (0.5 s, 1.5 s); query errors are never retried. Production benefits too. Next run (44971456217) green.
+- Watch: the backend job now takes ~56 of its 60 minutes.
+
