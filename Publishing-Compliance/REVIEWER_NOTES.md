@@ -423,8 +423,8 @@ refund), **PriceBack's own server** adds one year of Unlimited to their account.
 - Best Buy prices are checked once a day, so a newly saved Best Buy receipt
   shows its first price comparison after the next daily check.
 - Push notifications arrive on a once-a-day cron after the receipt is saved.
-  To test push delivery on-demand, the maintainer can hit
-  `POST /api/check-all` on the backend.
+  To test push delivery on-demand, the maintainer runs the price-drop check
+  from the admin console (Price sweep → Run now).
 
 ---
 

@@ -694,7 +694,7 @@ Run through this on a real device built from EAS production profile
 - [ ] DetailScreen → edit item quantity → save → backend re-registers
 - [ ] Profile → Export Data → Month / Quarter / Year / All-time PDF generates and opens the share sheet
 - [ ] Profile → trigger a soft crash (uninstall expo-print and try export?) → ErrorBoundary "Try again" recovers without force-quit
-- [ ] Push notification arrives (set up a watched item, then `curl -X POST /api/check-all` from a terminal to fire the cron immediately)
+- [ ] Push notification arrives (set up a watched item, then Admin · Price sweep → Price-drop check → Run now to fire it immediately; `POST /api/check-all` was removed 2026-11-21)
 - [ ] Subscribe → confirm RevenueCat fires + entitlement flips
 - [ ] Unsubscribe → entitlement reverts on the next launch
 

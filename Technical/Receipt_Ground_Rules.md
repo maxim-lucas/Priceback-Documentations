@@ -101,6 +101,30 @@ Listed here so the whole catalogue is in one place. The definitions did not chan
 **The rule behind all of them: a figure is shown as printed only when the paper establishes it.** A figure that cannot
 be placed is unread, never guessed, and never "the next line" (design rule 2, `Receipt_Parser_Design_Rules.md`).
 
+### The items-sold count: the pre-scanned block that holds every item (Maxim, 2026-11-21)
+
+*"receipt of total 282.29 at gloucester yesterday, has a pre scanned items label that covers all the items (no products
+below) this should be considered as total items on receipt if no products below only to get better confidence and get
+auto-approval."* Gloucester `r_1795233945389_5xfc8`: a pay station prints all 19 items between `***START OF PRE-SCANNED
+ITEMS***` and `***END OF …`, then `TOTAL NUMBER OF PRE-SCANNED ITEMS-19`; the final photo stops before the summary's
+counter, so the desk read "no items-sold count" (18 of 19, medium) and the app could not approve it.
+
+- **Where:** `shared/costcoReceiptSections.preScanCountCoveringAll`, returned by `readItemsSold` as `prescan` (never in
+  its `value`). The receipt checks take `value ?? prescan` (`receiptPrintedFigures.printedCount`, source
+  `itemsSoldSources.prescan`). EN + FR banners and trailer (`DEBUT / FIN PRÉ-LECTURE`, `NOMBRE TOTAL ARTICLES
+  PRÉ-LECTURE= N`).
+- **Only when:** neither printed counter is on the photo, one START and one END, no item row before START nor between
+  END and the totals block, the count printed after END. A cashier's items below the block make the count a part: no
+  count.
+- **The parse engine does not read it:** `extractItemsSoldCount` (the parser's self-check and unit cap) reads the two
+  counters only, so every parse is unchanged (182 fixtures, before/after).
+- **The desk on the stored text:** the app's cleanup removes the pre-scanned banners and trailer from `raw_ocr`, so the
+  reading confidence also takes the count the quality check read on the photo's full text (`metrics.printed.itemsSold`,
+  passed as `photoItemsSold` to `evaluateReading`), only when the stored text shows none. Detail: `printed 19 (read on the
+  photo), lines 19`.
+- **Policy:** unchanged. A pre-scan count that disagrees with the lines fails `items_sold` like a printed one; the quality
+  gate's count family refuses nothing while `RECEIPT_QUALITY_REFUSE_COUNT` is off (it is, in production).
+
 ## 4. "The paper establishes the total"
 
 When the parser's printed total is below the lines, one of the two is wrong. Which one is decided by the paper:

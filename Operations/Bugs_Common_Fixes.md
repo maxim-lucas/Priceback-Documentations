@@ -15083,3 +15083,44 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Root cause: the trial rule (`trialState`) knew nothing about subscriptions, and the 2026-11-17 subscriber rule (CLAUDE.md "Subscribers come first", #387) landed on `main` after the screen was written, on a branch that was never rebased.
 - Fix: `trialState` takes `subscribed` (the caller's `isCreditExempt`); `_trialViewFor` passes it, so `/api/me`'s `trial` is not eligible while a plan is in force (live, never stored). `POST /api/me/trial-choice` answers 409 to a subscriber before granting anything. `enterApp` drops a requested paywall when the phone's plan status (healed from the server by the reconcile that precedes it) is active, and opens none when that status is unreadable.
 - Detect next time: any new screen that routes on "not eligible", "used", "no credits" or similar must be read against `isCreditExempt` first. Merging a long branch onto `main` means re-reading it against every standing rule added while it was open, not only resolving conflicts. Tests: `__tests__/trialPaywallSubscriber.test.js`, `backend/tests/trialChoice.test.js`.
+
+## 389. A Costco item number left in the name (`313740 KS MOUCHOIRS`, sku null) and a shopper's pen arrows read into names (reported 2026-11-20; `hotfix/item-number-in-name-and-bonus-drops`, Priceback #608)
+
+- Date: 2026-11-20 · Area: `shared/costcoNameRepair.js` (new), `src/services/costcoReceiptParser.js` (`parseCostcoWarehouseReceipt` post-step), `backend/lib/legacyItemNumbers.js`, `backend/repos/receiptsRepo.js`.
+- Symptom: a line stored with no item number and the number at the head of its name (os1f1 `313740 KS MOUCHOIRS`; azj5y `→→→→ 4546783 MERRELL C`, `-4546783 MERRELL C`; p2s1a `- 17253 PARM 30 MOIS`), and pen marks in names (`TUFF LEGGING <`, `BARRE | DEL`). The server found most numbers as a database guess, so every such receipt waited for an admin.
+- Root cause: something glued in front of the number (the "Bas du panier" banner's stars from a rework row reading, a pen's arrow or its shaft read as a dash, a tax-flag `E`, a woven `N @` row) stops the row from opening with its number; nothing in the Costco noise vocabulary knew a pen. RC-59 / RC-60.
+- Fix: one names-only step after every reading decision: a 3–7 digit number the paper prints at the head of that row becomes the line's number (no Costco name starts with 3+ digits), and a pen's marks leave the names. The server applies the same function to installed builds' uploads, before the catalogue check. Proven on all 225 committed fixtures: 6 lines moved, name + sku only; no price, quantity, count or total anywhere; Best Buy untouched.
+- Detect next time: a stored line whose name opens with 3+ digits, or contains `→ < > |`, is this bug. Before changing any parser, dump every fixture's parse before and after and diff line by line. Tests: `__tests__/costcoNameRepair.test.js`, `backend/tests/legacyItemNumbers.test.js`. Doc: `Technical/Receipt_Handwriting_And_Item_Numbers.md`.
+
+## 390. Potential price drops offered fake drops from misread receipts: PEPSI at the pads' price, a 2-pack read as one unit (reported 2026-11-21; `hotfix/potential-desk-2026-11-21`, Priceback #621 / #622)
+
+- Date: 2026-11-21 · Area: `src/services/costcoReceiptParser.js` (`chooseBetterParse`, `sameLinesPairedDifferently`), `backend/lib/potentialDropLists.js` (`possibleMissedQuantity`), `src/screens/AdminPotentialDropsScreen.js`
+- Symptom: Admin · Potential price drops listed PEPSI 21.99 → 17.99 (Rimouski fpxon; the paper prints PEPSI 17.29, KS PAD 21.99) and CHALE THROW 29.94 → 14.97 (Nepean 8csiu; the paper prints `2 @ 14.97`).
+- Root cause: (RC-61) a curled photo's flat text streamed the names one row out of order above the prices; both readings closed to the cent, and the tie went to the flat text because it alone read the items-sold counter — a count cannot tell two pairings of the same lines apart. (RC-62) a pen stroke over `2 @` left one unit at twice the price.
+- Fix: the rows' pairing wins a tie between the same lines paired differently, the counters coming along (182 fixtures before/after: only the two fpxon captures moved). On Potential, a one-unit line at exactly k × the card's price says **PAID = k × THIS PRICE · CHECK THE QUANTITY**. Both receipts' datafixes wait for Maxim's go.
+- Detect next time: replay the receipt's capture (`scripts/exportOcrCaptures.js --receipt …`, read-only) and compare the geometry rows with the stored lines; a Potential card whose paid price is an exact multiple of the card's price is a lost quantity until proven otherwise. Never pair names and prices by the flat text's order when the rows say otherwise.
+
+## 391. "My warehouse" Save crashed on 3.6.5 for a shopper whose preferences came from the server: the warehouse number was a number (Sentry PRICEBACK-CANADA-Y, 2026-11-18…20; Priceback #631)
+
+- Date: 2026-11-21 · Area: `backend/repos/preferencesRepo.js` (`_decorateWarehouse`), `src/screens/StoresAndProfileScreens.js` (`openWarehouseModal`, `saveWarehouse`)
+- Symptom: `TypeError: undefined is not a function` (unhandled rejection) on the Save of the warehouse sheet, Android 3.6.5, 2 users; nothing saved.
+- Root cause: the server sends `preferences.preferredWarehouse.warehouseId` as a NUMBER (`Number(r.code)`); every phone path writes a STRING. After a sign-in/hydrate the sheet copied the number into `whDraftId` and Save called `(552).trim()` (Hermes: "undefined is not a function"). Reproduced in a test with the original screen: `(whDraftId || "").trim is not a function`.
+- Fix: the server returns `String(code)` — every shipped reader (2.8.3 → 3.6.5: `findWarehouseById`, `receiptWarehouseDefault.idOf`, Deals' `String(prefWh)`) already compares with `String()`, so installed 3.6.5 is fixed without an update; the phone coerces with `String()` too. Tests: `profileModals` (numeric id → Save), `preferencesRepoDb` (a string).
+- Detect next time: Sentry event stack names the handler (`saveWarehouse`) — read `/api/0/organizations/prosoft-inc/issues/<id>/events/latest/` while signed in (the `.env` token can upload releases only). A field crossing server → phone keeps the phone's own type.
+
+## 392. A push-token mint that failed offline was filed in Sentry as an error (PRICEBACK-CANADA-X, iOS 3.5.0–3.6.2, 9 events; Priceback #631)
+
+- Date: 2026-11-21 · Area: `src/services/notificationService.js` (`_mintPushToken`), `src/services/errorSupport.js` (`reportHandledError`)
+- Symptom: `Error encountered while fetching Expo token: TypeError: Network request failed`, 7 users.
+- Root cause: not a fault — the phone was offline, and the mint is retried on every foreground (`refreshPushRegistration`). It was reported like the "permission granted, no token" case the report exists for.
+- Fix: `reportHandledError(err, ctx, { selfHealing: true })` — a network/timeout failure of a flow that retries by itself stays in the analytics feed and is not filed in Sentry; any other mint failure still is.
+- Note: PRICEBACK-CANADA-V (`S7.b: INTERNAL_ERROR`, 3.6.1) is Google Play Services' own sign-in failure (`SignInHubActivity`), already classified (`signin_provider_error`, with its status code); no change.
+
+## 393. CI backend: whole test files failed on their first query at the 5 s connect timeout while the database had free connections (runs 44690238445 … 44967132416; Priceback #630)
+
+- Date: 2026-11-21 · Area: `backend/db/client.js` (`withConnectRetry`)
+- Symptom: ~45 failures per run concentrated in a few files (partnersRepoDb, costcoPriceUpload, functionSearchPath, dataCleanupRegistry), each passing alone with CI's pool (3).
+- Root cause: the checkout stalled (the session pooler refusing a client for a moment, a cold handshake, or the process's own 3 slots taken by its boot work). `pg_stat_activity` sampled every 10 s through a whole run never exceeded 8 of 15. `seedWithRetry` rode the stall out; the query beside it did not. A 30 s connect timeout (#628, reverted in #629) did not help and broke `ciParity`.
+- Fix: a checkout that failed before a client was handed out (no query sent) is asked for again, twice (0.5 s, 1.5 s); query errors are never retried. Production benefits too. Next run (44971456217) green.
+- Watch: the backend job now takes ~56 of its 60 minutes.
+
