@@ -12876,3 +12876,13 @@ drop.
   - The golden vdxrw's old tax/total (28.68/249.27) were rate × lines too; the paper prints 284.38 / 29.24.
 - **Tests:** mobile 13,816 pass; i18n in sync; backend 112 DB files on dev, one at a time, 1,276 pass / 0 fail. CI not dispatched.
 - **Open:** dispatch and merge #646; the junk warehouse rows in production (a datafix, Maxim's go); detecting Costco without the word "COSTCO" (frozen `receiptParsingShared.js`).
+
+## 2026-11-22 — Fast CI first runs; production datafix of 4 misread warehouses; Costco claim without the word (#647)
+
+- **Ask (Maxim):** "yes dispatch it, and do the junk warehouses datafix. 3-can be a go as an additional function that wont edit the existing behavior if the word costco is recognized, and also no regression for other stores as best buy".
+- **Done:**
+  - Fast workflow dispatched twice on #646: 13 failures, then 1. The backend suite takes 4 min 55 s on its own database.
+  - Production datafix: 136 / 3518 / 3532 / 628 → 1362 / 518 / 532 / 528. 41 price points moved, 4 rows deleted, guarded and verified. Backup on E:.
+  - #647: the Costco claim.
+- **Found:** 4 real warehouses missing from the app's official list: 257, 1391, 1798 and 1811. The test fixes are in #646, as listed in the resume doc §9.
+- **Open:** the last fresh-database failure (`adminPriceLookupDb`); merging #646 and #647; adding the 4 warehouses to the frozen list (Maxim's OK).

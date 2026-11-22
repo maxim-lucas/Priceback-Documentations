@@ -238,3 +238,35 @@ Items 1–2 (Store Spaces v2 and Paywall V2) are on `main-test-features`. Items 
   - a datafix for the junk warehouse rows already in production;
   - detecting Costco without the word "COSTCO" (frozen file);
   - the app release, stock 13/15, and the roadmap.
+
+## 9. First fast CI run, the warehouse datafix, the Costco claim (2026-11-22, evening)
+
+- **The fast workflow works.** The whole backend suite took **4 min 55 s** on its own database, against 46–56 min on
+  Supabase dev.
+  - First run on #646: 13 failures. They were rows that exist only on the old dev database:
+    - warehouse `811`;
+    - the 20 legacy retailers;
+    - the store `visions`;
+    - an unordered tie on savings-source rank.
+  - All fixed in the tests, in #646. Second run: 4,806 passed, **1 failed**.
+  - The one left, `adminPriceLookupDb` "the official line … Savings only finds it", fails only on a fresh database. It
+    passes on dev with #646, and #646 doesn't touch price history or savings. Cause not found yet.
+- **Production datafix: misread warehouses** (Maxim: "do the junk warehouses datafix"). Backup and rollback notes:
+  `E:/tools/archive/datafix-2026-11-22-junk-warehouses.md`.
+  - 41 crowd price points moved to the warehouse their own receipt names:
+    - 136 → 1362 Gloucester;
+    - 3518 → 518 Trois-Rivières;
+    - 3532 → 532 Boucherville;
+    - 628 → 528 Pointe Claire.
+  - The 4 misread rows were deleted (guarded: nothing references them). Verified.
+  - **Kept: 4 real warehouses missing from the app's official list:**
+    - 257 Sudbury, 1798 E. Windsor and 1811 Wasaga Beach, created by Costco's own savings harvest;
+    - 1391 SW Calgary (Tsuut'ina), from a receipt.
+
+    `src/constants/costcoWarehouses.js` (frozen) needs them, with Maxim's OK.
+- **Costco without the word "COSTCO": Priceback #647, open.**
+  - A registry claim (`costcoWithoutWordClaim`) that runs only when no store was detected. It needs both the register
+    stamp naming a known warehouse and a Costco-only line.
+  - No frozen file changed.
+  - Corpus of 227 receipts: every detected store kept its store, and the claim fired on none.
+  - gwltb is now read as Costco #1720. Mobile 13,824 tests pass.
