@@ -270,3 +270,32 @@ Items 1–2 (Store Spaces v2 and Paywall V2) are on `main-test-features`. Items 
   - No frozen file changed.
   - Corpus of 227 receipts: every detected store kept its store, and the claim fired on none.
   - gwltb is now read as Costco #1720. Mobile 13,824 tests pass.
+
+## 10. Cause found, everything merged, warehouses added (2026-11-22, evening)
+
+- **The last fresh-database failure, found.** Two savings sources share rank 1. Migration 0036 inserts them through a
+  JOIN whose row order Postgres doesn't promise, and the database CI builds gave the Business Centre source the lower
+  id. The test took "the first official source" and got the Business Centre one, whose saving the Costco line
+  correctly ignores.
+  - Reproduced on a throwaway database on the dev project (dropped afterwards).
+  - The test now names the source by its storefront (#649).
+  - With that fix, run 45058194542 of the fast workflow on #646 was **fully green**. No product code reads a source
+    by id.
+- **Merged to `main`:**
+  - #646 (known warehouses only);
+  - #647 (Costco without the word);
+  - #648 (the warehouse list);
+  - #649 (the test fix).
+
+  #646 and #647 were merged by Maxim at 18:35, before the #649 commit existed, so #649 brought it in.
+  `main-test-features` got all of `main` through #651 (another session). #653 added the 3 new warehouses' costco.ca
+  addresses there. My #652 sync was closed as superseded.
+- **Warehouses:**
+  - Added to the official list: 257 Sudbury (1465 Kingsway), 1811 Wasaga Beach (345 Lyons Court) and 1798 Windsor E
+    (6670 Catherine St).
+  - 1391 was **another misread**: its receipt's register stamp prints 1381. It was folded into 1381 Calgary SW in
+    production (the receipt and 45 price points, then the row deleted; backup on E:).
+- **Already failing on `main-test-features` (not from this work):**
+  - `officialWarehouses` "Gloucester … junk numbers": the address work made `officialWarehouse()` return more fields.
+  - Mobile coverage floor for `subscriptionManager.js` (82% against 97%), since Store Spaces v2 #602.
+- **Before deploy:** run `test.yml` (Supabase) on `main`, per the two-workflow rule.
