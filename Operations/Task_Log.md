@@ -12758,6 +12758,21 @@ drop.
 - **Dev DB:** 0057's tables applied (once under the old number); that ledger row was removed after the renumber, so the dev ledger stops at 0054 (main's 0055/0056 are not in it either; their tables exist).
 - **Owed:** apply 0057 to production by hand before the branch's backend deploys (Maxim's go); the code entry on the Me screen (paywall only for now); the three unclassified tables above.
 
+## 2026-11-19 — main's test workflow green again (Priceback #606, merged)
+
+- **Ask (Maxim):** *"fix the main actions workflow it is broken"*.
+- **Found (run 44173833464, 2026-11-17):** three jobs red. Security: `nodemailer` 6.x high advisories (and `qs` in the report). Mobile: `trackingClock` hardcoded 11:32 for Vancouver; the runner's tz data (2026b) puts British Columbia on year-round UTC−7 (12:32). Backend: mostly pooler connection timeouts on the shared dev database, plus three tests left behind by rule changes: `dropReminderEmailRepoDb` (#552 emails reachable shoppers too), `savingsQualityDb` (rule 8, sold by the pack is paid − the full saving), `dataCleanupRegistry` (3 unclassified tables).
+- **Done:** `nodemailer` ^10.6.0 (the gate exits 0); the Vancouver hour comes from the runtime's zone data; the two tests follow the current rules; `price_drop_redrops` + `subscriber_access_events` (cascade) and `store_policy_periods` (kept) classified.
+- **Tests:** mobile 449 suites; backend files one at a time on dev, all green; CI not dispatched.
+- **Owed:** `missed_price_drops` (0056) is on prod, not on the dev database, and not declared in `db/schema.js`: declare and classify it once dev has 0056.
+
+## 2026-11-20 — A line is priced in the province it was bought in (Priceback PR, sweep rule 10)
+
+- **Ask (Maxim):** the Potential list grouped lines by the shopper's home province (a Quebec shopper's PS5 bought at Ontario #1362 showed under Quebec): *"I want it fixed"*. Asked whether to change the verified sweep too (approving the Ontario card could never reach that shopper, since the sweep matched by home province): *"Both, one rule"*.
+- **Done:** `priceDropRepo.purchaseProvinceSql` (warehouse's province, else the shopper's), used by the verified sweep (the buyer join and the region-scoped prefilter), Potential (`open_lines`; the claim window on the owner's day, `ownerProvinceCode`), the savings path, and the saving-end lookups (`pendingClaimRows`, `unreachableDropRows`, `priceDropQueueRepo`, `savingDatesRepo`, `dropReminderEmailRepo`). A drop's `provinceCode` stays the owner's (clock, push). `Technical/Price_Drop_Sweep_Rules.md` §10, `CLAUDE.md` rule 10.
+- **Also found:** `priceDropDb` (14), `priceDropWindowSourceDb` (10) and `priceDropCommission` (3) failed on `main` regardless of code (bisected: red at the commit CI ran green on 11-17). Their lines carry no real item number, so receipt create fills one from the database by name, and a bare "Test product A" now matched another run's product on the shared dev database (watch off, other prices). The fixture names carry the run id now: 57/57.
+- **Tests:** two new `potentialDropDb` tests (a Manitoba buyer's line bought at Saskatoon #152: listed under SK, no MB price applies, verifying reaches the buyer with `provinceCode` MB), both red on the old code. Blast radius 69 files on dev: 892/920 before the fixture fix, the 28 all explained and green after (`potentialDropQueryShape` pin updated). Mobile 449 suites. Full backend suite and CI not run.
+
 ## 2026-11-20 — Hotfix: an item number left in the name, handwriting as noise; send a drop as a bonus without a charge (Priceback #608)
 
 - **Ask (Maxim):** (1) the parser sometimes leaves the SKU in the label (`SKU = NULL, Label = '313740 KS MOUCHOIRS'`): a label starts with text, so cross-reference the number as a SKU (or the nearest match) and validate with the label, like a person would; handwriting (arrows, lines) is noise (the $187.62 receipt scanned 2026-11-12, purchased 2026-10-21, had two examples); cover every case and document it against regressions. Then: *"i dont want any chances for any possible regression on the actual costco and best buy parsers, take extra precautions"*. (2) An option to send a price drop without any charge, as a bonus the desk agent may refuse (fruit, fluctuating prices), on the queue and on Potential, like a clearance but at any warehouse.
@@ -12821,3 +12836,60 @@ drop.
 - **Done:** price checkpoints every 1,000 readings, Same-Day client retries (2 s, 6 s), `--warehouses` re-read reusing `warehouseRowsOnly`; QC and ON complete; `sameday_business_centre_fill` source created (disabled, run by hand); spec `Technical/Fresh_Kirkland_Per_Kg_Prices.md` written for Opus, no code.
 - **Owed:** build the per-kg spec; trace the Drummondville lookup; Alberta and the other provinces; marking leftover "running" rows failed (69, 70, 78 done).
 
+## 2026-11-21 — Admin · Harvest jobs + desk menu regrouped (Priceback feat/admin-harvest-jobs → main, then main-test-features)
+
+- **Ask (Maxim):** a separate desk screen to start every harvest job (savings, catalogue, any harvest) by warehouse or for every warehouse including Business Centres, like the price sweep. Users section (Accounts, Activity dashboard, User segments together) above Product; General = Stores, Partners, Promo codes; new Support = Service health, Quotas, Incidents; Flyer scan 2nd in Product. Then fix main's Actions run and merge everything to main-test-features.
+- **Done:** `AdminHarvestJobsScreen`, `lib/harvestJobs`, `shared/harvestScope`, routes `GET/POST /api/admin/harvest-jobs`; scoped runs (`details.scope`) left out of `lastRun`/`runsSince`; scoped prices are warehouse rows only; stock read takes a warehouse. Menu regrouped. `Technical/Admin_Harvest_Jobs.md`.
+- **Found:** costco.ca sources already use `config.scope` (national / business_centre), so the run marker is `config.harvestScope`. Promo codes is only on `feat/store-spaces-v2-main` (no PR): not on main, so not in General yet.
+- **Tests:** backend 393/393 (24 files, dev DB, one at a time) + 34 new; mobile 13,661; i18n in sync. CI not run.
+
+## 2026-11-21 — Promo codes on main (#626) and migration 0057_promo_codes applied to production
+
+- **Ask (Maxim):** merge the promo codes branch to main but not the new design; then "go ahead and apply the promo migration on prod".
+- **Done:** be9e24d1 cherry-picked onto main without Store Spaces v2 (caps = `promo-code` only, no `users.trial_choice` read, no trial deferral, no `store_votes`, no free-week purchase). Journal entry `0057_promo_codes` at `when` 1794950000000 (after prod's `0057_warehouse_stock_reads`).
+- **Prod (project xjfrlzwonyaorwktnkpj), 2026-11-21:** the file run by hand in one transaction (the prod ledger is hand-maintained; `db:migrate` is unsafe there). Ledger row id 69, hash `5100992182fa…` (LF sha256; the method checked against row 68's hash), created_at 1794950000000. Verified: 3 tables with RLS, 3 foreign keys, codes FAMILY 5 % / FRIENDS10 10 % / BLACK 20 % (Play `promo-5/10/20`), active, ending 2027-01-01 05:00 UTC. `/health` ok; `/api/me/promo-code` answers 401 with the `promo-code` cap and 404 without.
+- **Note:** no shipped build sends the cap, so shoppers see promo codes only from the next app build.
+
+
+## 2026-11-22 — Resume list: the CI test-database option written up; RC-63 tax and warehouse traced
+
+- **Ask (Maxim):** "document the option (faster) with the test having its own database, the database we have today is on the cloud and we dont have any dedicated server only railway so i need more details, also continue working on the list the remaining points".
+- **Done:** `Technical/CI_Test_Database_Option.md`, the throwaway Postgres 17 inside the GitHub job. Checked on `main`:
+  - 58 migration files = 58 journal entries;
+  - no Supabase-only extension or role;
+  - Supabase dev is Postgres 17.6;
+  - TLS always on, so the container would get its own CA through `DB_SSL_CA`;
+  - Docker isn't installed on the PC;
+  - the repo is private, so the cost is Actions minutes.
+- **Found (RC-63, by replaying the v3.6.4 code in a worktree on E:):** the store was never identified (no `COSTCO` on the photo); `validateReceipt` step 3 turned a tax over the cap into rate × lines (11.43); the warehouse came from the province fallback (first Quebec warehouse = #1446 Anjou), because the header's leading `#1720` misses the last-resort pattern and `footer_ocr` is never read. Both files are unchanged on `main`. Details are in the resume doc §7. Production was read only.
+- **Checked:** production `/health` is healthy at `8a90e1b7`.
+- **Not done (Maxim's go):** any parser or validator change, the CI option, the app release, stock 13/15.
+
+## 2026-11-22 — Everyday CI workflow with its own database (#644/#645); RC-63: known warehouses only (#646)
+
+- **Ask (Maxim):**
+  - "duplicate the workflow with the Github database solution and we use this more often and use the actual setup before deploy only";
+  - "Parser : yes if only the warehouse number is verified againest the existing known warehouses in the database, no warehouse should be created from now on…";
+  - "no items parsing regression should be on that path, you parse this in the footer only if needed or create a new parsing ocr section".
+- **Done:**
+  - `test-github-db.yml` and `backend/scripts/github-test-db.sh`, pinned by `ciParity` (65/65);
+  - `warehousesRepo.findKnown` in receipts, crowd (refusal `unknown_warehouse`) and preferences;
+  - `detectedKnownWarehouse` (parser → header → footer stamp, known only);
+  - the validator leaves a tax over the cap unread;
+  - `tests/helpers/knownWarehouse.js`;
+  - the CLAUDE.md rule.
+- **Found:**
+  - A US receipt's lines with an unknown number would have become Canadian province prices if they had been demoted. They are refused instead.
+  - The golden vdxrw's old tax/total (28.68/249.27) were rate × lines too; the paper prints 284.38 / 29.24.
+- **Tests:** mobile 13,816 pass; i18n in sync; backend 112 DB files on dev, one at a time, 1,276 pass / 0 fail. CI not dispatched.
+- **Open:** dispatch and merge #646; the junk warehouse rows in production (a datafix, Maxim's go); detecting Costco without the word "COSTCO" (frozen `receiptParsingShared.js`).
+
+## 2026-11-22 — Fast CI first runs; production datafix of 4 misread warehouses; Costco claim without the word (#647)
+
+- **Ask (Maxim):** "yes dispatch it, and do the junk warehouses datafix. 3-can be a go as an additional function that wont edit the existing behavior if the word costco is recognized, and also no regression for other stores as best buy".
+- **Done:**
+  - Fast workflow dispatched twice on #646: 13 failures, then 1. The backend suite takes 4 min 55 s on its own database.
+  - Production datafix: 136 / 3518 / 3532 / 628 → 1362 / 518 / 532 / 528. 41 price points moved, 4 rows deleted, guarded and verified. Backup on E:.
+  - #647: the Costco claim.
+- **Found:** 4 real warehouses missing from the app's official list: 257, 1391, 1798 and 1811. The test fixes are in #646, as listed in the resume doc §9.
+- **Open:** the last fresh-database failure (`adminPriceLookupDb`); merging #646 and #647; adding the 4 warehouses to the frozen list (Maxim's OK).
