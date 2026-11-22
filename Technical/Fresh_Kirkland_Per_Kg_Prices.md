@@ -259,3 +259,39 @@ SK, MB, NS, NL, PE. Before each job it waits for ≥ 1.5 GB free memory; 3 minut
 refusal (`no_session`) is waited out 10 minutes and retried (3 attempts); a finished job is recorded and skipped on a
 restart. The old-code Alberta run (#83, 10 of 20 warehouses) was stopped: its warehouse checkpoints are kept, and it is
 re-run in the queue with per-kg prices.
+
+## 12. Stability measured, placeholder rates held, past prices left as they are (2026-11-22, #656)
+
+**Stability** (read-only; one warehouse in each of BC 51, AB 56, ON 151, SK 152, MB 153, QC 503, NS 519, NB 1055,
+NL 1324; 231 products priced by weight):
+
+| Measure | Pack price (old) | Per kg (new) |
+|---|---|---|
+| Distinct prices per product across provinces, average | 5.23 | 1.27 |
+| Same price in every province | 46 / 231 | 181 / 231 |
+
+- The 50 products whose per-kg price differs are real: a West (BC, AB, SK, MB) vs East (ON, QC, Atlantic) price, or a
+  sale in one province. The province plan stores them correctly.
+- Estimated pack = per kg × the card's "About X kg / package", on 1,886 readings: median gap 0.01%, max 1% (rounding).
+  The pack price moves only with the package weight.
+- Stored pack history since 2026-11-04: 64% of product × province pairs already hold more than one pack price (4.45
+  on average; Ontario short ribs 43 prices in 18 days). That is the noise the per-kg price removes.
+- Verdict per province: identical for every product except the two unit-without-price cards (pomegranate, candy),
+  which are now by the pack everywhere.
+
+**Held for review, never stored** (Maxim: *"hold it for review, don't store the $99.99"*):
+`freshKgPricing.holdOutliers` holds a per-kg reading above **4×** the lowest per-kg price known for the product (this
+run, or stored for any province, current or past). Ingest and the per-kg checkpoints drop it before writing, and the
+run's details list it (`perKgHeld`). Measured case: Bone-In Pork Loin Centre & Rib Chops (21940) read $99.99/kg in
+7 provinces vs $8.99 SK / $7.99 NL. Why 4×: the widest real regional gap is 2.6× (Seasoned Chicken Kebab). The first
+province read has nothing lower to compare against. A placeholder stored then is deleted (current and past rows) by
+`productCatalogRepo.dropPerKgOutliers` as soon as a run stores a lower price (`perKgOutliersRemoved`).
+
+**Past harvested prices are NOT converted** (Maxim: *"if risky dont do it"*). It is risky, for two reasons:
+- The pack rows never recorded the package weight, so a per-kg value from them would be a guess.
+- Those rows feed the savings path, receipts' quantity check and the Costco upload, all of which read them as pack
+  prices.
+
+The correction comes from the harvest: as each province is re-read, the lookups and the price history show the per-kg
+line, and the noisy pack history of those products is no longer drawn (`preferKgRows`, per product and province).
+
