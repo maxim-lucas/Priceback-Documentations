@@ -15124,3 +15124,13 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Fix: a checkout that failed before a client was handed out (no query sent) is asked for again, twice (0.5 s, 1.5 s); query errors are never retried. Production benefits too. Next run (44971456217) green.
 - Watch: the backend job now takes ~56 of its 60 minutes.
 
+
+## A subscriber shown their balance, "buy credits" or the low-balance banner (2026-11-22, #663 / #664)
+
+**Symptom.** A subscriber in force sees credit messages: the low-balance banner, "Buy credits or subscribe", the locked-drop card, the balance on Credit history, the "Grow your balance" tiles, the low-balance notification switch.
+
+**Cause.** `getPremiumStatus` deleted the cached plan the instant its cached `expiresAt` passed. A renewal or a store grace period moves that date on the server first, and `reconcileWithServer` never refreshed it when the tier matched. Until a server read happened to heal the cache, every screen read a free account. Some screens (Credit history) also showed the balance to subscribers on purpose.
+
+**Fix.** `_subscriptionInForce`: the plan holds until the later of its period end and `serverVerifiedAt` (written on every `creditExempt: true`), plus `SUBSCRIPTION_RECHECK_GRACE_MS` (72 h). `applyServerNotSubscribed` ends it when the server says `creditExempt: false` after the period end, which returns the account to its state from before the plan. `canAddReceipt` asks the server about a plan past its cached end. No credit surface is shown when `isPremium`.
+
+**Check first next time.** The cached `premium_status_v2` (`expiresAt`, `serverVerifiedAt`) against the server's `subscription_expires_at`, and whether the screen reads `canAddReceipt` (healed) or the bare cache. Pattern test: `__tests__/subscriberRenewalGap.test.js`.

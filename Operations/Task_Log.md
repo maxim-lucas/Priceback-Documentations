@@ -12956,3 +12956,10 @@ drop.
 - **Not done (risky):** converting past pack prices to per kg. No weight was recorded, and the pack rows feed savings and receipts. Replaced by the backdate.
 - **Harvest:** run #85 (QC) in progress at the time of writing, with 1,057 per-kg rows written and 248 products flagged sold by the pack. The queue continues on the #658 code.
 
+
+## 2026-11-22 — Two failing tests on main-test-features; subscribers shown credits
+
+- **Ask (Maxim):** "fix these 2 failing tests" and "subscribed users still gets a message or few message on screens asking them to subscribe or buy credits because there credits is very low, there is no credit management for any subscriber … once no subscription he comes back to the state of before the subscription".
+- **Tests (#662, mtf):** `officialWarehouses` pins the identity fields plus Gloucester's address (the record carries address and position now). `subscriptionManager.js` coverage: tests for the four free-week wrappers from #602 (100 / 98 / 100 / 100 against 97 / 89 / 100 / 97).
+- **Subscribers (#663 main, #664 mtf):** the phone ended its cached plan on its own clock at the cached period end, which a renewal moves on the server first. The plan now holds until the later of the period end and the server's last confirmation, plus 72 h. The server's "not a subscriber" after the period end ends it at once. Credit history, Plan & credits, Profile/Me and Notifications show no credits to a subscriber. Details in `Bugs_Common_Fixes.md`.
+- **Maxim's:** merge #662 before #664 (its coverage floor). The fix reaches phones with the next app build.
