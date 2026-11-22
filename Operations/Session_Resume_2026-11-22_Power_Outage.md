@@ -152,3 +152,27 @@ Items 1–2 (Store Spaces v2 and Paywall V2) are on `main-test-features`. Items 
   as #505.
 - **Still Maxim's:** item 5 (app release), 6 (RC-63 parser changes), 7 (CI headroom), 10 (stock 13/15), 12 (old
   stash), and the roadmap list.
+
+## 6. Items 7 and 12 closed (2026-11-22, later)
+- **Item 7 (CI headroom): done in Priceback #639 (main) and #640 (main-test-features).** The backend job's ceiling is
+  now 90 minutes instead of 60. It costs nothing when the run passes, because Actions bills only the minutes used.
+  - Measured on run 44976566135: 4,814 tests in 46 min. The 3,513 top-level tests add up to 2,560 s. The slowest is
+    73 s (`listPotential`), followed by a long tail. Nothing is worth cutting: the time goes to round trips to the
+    remote dev database.
+  - Not chosen:
+    - **Parallel jobs.** Every run shares one dev database and the cross-machine run lock, so parallel jobs would wipe
+      each other's data.
+    - **A Postgres container on the runner.** It would be fast, but CI's database would then differ from the local
+      one, which breaks local/CI parity. If it is ever wanted, it is Maxim's decision.
+- **Item 12 (old stash on `fix/reinstall-bootstrap-backend-target`, 2026-07-05): dropped.** Everything in it was
+  either on `main` or later replaced:
+  - "Continue anyway" was removed on purpose by #147.
+  - `ca.priceback.app` was renamed to `com.priceback`.
+  - Its 3 docs are in this repo: Bugs #62, `Technical/RevenueCat_Paywall_Config.md` and the Task_Log entry.
+  - A patch copy is kept at `E:/tools/archive/stash-2026-07-05-reinstall-bootstrap.patch` (commit `309691c9`).
+- **Repo split (Maxim's question):** not recommended.
+  - `shared/`, the phone/server parity tests, the old-builds diff audit and the single release tag all depend on one
+    repo.
+  - The backend is not in the app's download anyway: Metro bundles only what `src/` imports, and nothing in `src/`
+    imports `backend/`.
+  - Same-repo alternatives: Railway watch paths (`backend/**`, `shared/**`) and `CODEOWNERS`.
