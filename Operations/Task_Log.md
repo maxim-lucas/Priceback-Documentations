@@ -12834,3 +12834,8 @@ drop.
 - **Ask (Maxim):** "convert all the timestamp in the app in all tables … with the actual toronto timezone, you can use a function for the UI or … convert on save"; "this should go on main and main-test-feature". Plus: the production receipt waiting for review that the parser can't fix — check it, and document the root cause and any optimisation (document only).
 - **Done:** the function approach. Stored timestamps are `timestamptz` instants and are not rewritten. One definition, `shared/displayTime.js`, wired into every place a timestamp is turned into text (`Technical/Display_Time_Zone.md`). The PR is on main, and a sync PR carries it to main-test-features.
 - **Receipt `r_1795303592862_gwltb`** (Rimouski #1720, iOS 3.6.4): RC-63 in `Technical/Receipt_Parser_Root_Causes.md`. Not repaired; the parser was not changed.
+
+## 2026-11-22 — Times: shoppers on their own clock, the admin on Toronto (refines 2026-11-21)
+
+- **Ask (Maxim):** "all users should get the time … based on their timezone … admin should also see based on their timezone even the other users events … the activity dashboard and the other scans date … i am the only admin so it should always be toronto".
+- **Done:** #633 had put shopper screens on Toronto too; that is reverted, and shopper screens follow the device again. Every admin screen, the admin recap email and the drop evidence text now use `adminDay` / `adminDateTime` (Toronto), with one calendar-value rule (`isCalendarLike`) so a purchase date is never converted to another zone. `Technical/Display_Time_Zone.md` was rewritten; CLAUDE.md has the standing rule.
