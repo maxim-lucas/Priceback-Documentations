@@ -12758,6 +12758,21 @@ drop.
 - **Dev DB:** 0057's tables applied (once under the old number); that ledger row was removed after the renumber, so the dev ledger stops at 0054 (main's 0055/0056 are not in it either; their tables exist).
 - **Owed:** apply 0057 to production by hand before the branch's backend deploys (Maxim's go); the code entry on the Me screen (paywall only for now); the three unclassified tables above.
 
+## 2026-11-19 — main's test workflow green again (Priceback #606, merged)
+
+- **Ask (Maxim):** *"fix the main actions workflow it is broken"*.
+- **Found (run 44173833464, 2026-11-17):** three jobs red. Security: `nodemailer` 6.x high advisories (and `qs` in the report). Mobile: `trackingClock` hardcoded 11:32 for Vancouver; the runner's tz data (2026b) puts British Columbia on year-round UTC−7 (12:32). Backend: mostly pooler connection timeouts on the shared dev database, plus three tests left behind by rule changes: `dropReminderEmailRepoDb` (#552 emails reachable shoppers too), `savingsQualityDb` (rule 8, sold by the pack is paid − the full saving), `dataCleanupRegistry` (3 unclassified tables).
+- **Done:** `nodemailer` ^10.6.0 (the gate exits 0); the Vancouver hour comes from the runtime's zone data; the two tests follow the current rules; `price_drop_redrops` + `subscriber_access_events` (cascade) and `store_policy_periods` (kept) classified.
+- **Tests:** mobile 449 suites; backend files one at a time on dev, all green; CI not dispatched.
+- **Owed:** `missed_price_drops` (0056) is on prod, not on the dev database, and not declared in `db/schema.js`: declare and classify it once dev has 0056.
+
+## 2026-11-20 — A line is priced in the province it was bought in (Priceback PR, sweep rule 10)
+
+- **Ask (Maxim):** the Potential list grouped lines by the shopper's home province (a Quebec shopper's PS5 bought at Ontario #1362 showed under Quebec): *"I want it fixed"*. Asked whether to change the verified sweep too (approving the Ontario card could never reach that shopper, since the sweep matched by home province): *"Both, one rule"*.
+- **Done:** `priceDropRepo.purchaseProvinceSql` (warehouse's province, else the shopper's), used by the verified sweep (the buyer join and the region-scoped prefilter), Potential (`open_lines`; the claim window on the owner's day, `ownerProvinceCode`), the savings path, and the saving-end lookups (`pendingClaimRows`, `unreachableDropRows`, `priceDropQueueRepo`, `savingDatesRepo`, `dropReminderEmailRepo`). A drop's `provinceCode` stays the owner's (clock, push). `Technical/Price_Drop_Sweep_Rules.md` §10, `CLAUDE.md` rule 10.
+- **Also found:** `priceDropDb` (14), `priceDropWindowSourceDb` (10) and `priceDropCommission` (3) failed on `main` regardless of code (bisected: red at the commit CI ran green on 11-17). Their lines carry no real item number, so receipt create fills one from the database by name, and a bare "Test product A" now matched another run's product on the shared dev database (watch off, other prices). The fixture names carry the run id now: 57/57.
+- **Tests:** two new `potentialDropDb` tests (a Manitoba buyer's line bought at Saskatoon #152: listed under SK, no MB price applies, verifying reaches the buyer with `provinceCode` MB), both red on the old code. Blast radius 69 files on dev: 892/920 before the fixture fix, the 28 all explained and green after (`potentialDropQueryShape` pin updated). Mobile 449 suites. Full backend suite and CI not run.
+
 ## 2026-11-20 — Hotfix: an item number left in the name, handwriting as noise; send a drop as a bonus without a charge (Priceback #608)
 
 - **Ask (Maxim):** (1) the parser sometimes leaves the SKU in the label (`SKU = NULL, Label = '313740 KS MOUCHOIRS'`): a label starts with text, so cross-reference the number as a SKU (or the nearest match) and validate with the label, like a person would; handwriting (arrows, lines) is noise (the $187.62 receipt scanned 2026-11-12, purchased 2026-10-21, had two examples); cover every case and document it against regressions. Then: *"i dont want any chances for any possible regression on the actual costco and best buy parsers, take extra precautions"*. (2) An option to send a price drop without any charge, as a bonus the desk agent may refuse (fruit, fluctuating prices), on the queue and on Potential, like a clearance but at any warehouse.
@@ -12814,6 +12829,13 @@ drop.
 - **Tests:** mobile 13,758 (#621) / 14,477 (#622) pass, the only failures `paywallAnnualBadge` (same on main); i18n in sync; backend 49 files one at a time on dev: 768 pass, failing identically on main: `priceDropPushLanguage` 2, `priceDropWindowSourceDb` 1, `savingsQualityDb` 2, `adminRoutesAreGuarded` 1 (policy-periods), `pushI18n` 1 (#617's back-in-stock literal). Full backend suite and CI not run.
 - **Owed (Maxim's go):** the two datafixes (fpxon: swap the two line totals and their price points; 8csiu: quantity 2 at 14.97). An accidental write during the investigation: a first read-only probe ran the backend's lookup seeding against production and inserted 2 lookup rows (`credit_event_types` `promo_bonus`, `ad_reward`, the main-test-features seed); nothing reads them on main, the next main-test-features deploy would add them anyway; left in place, reported to Maxim.
 
+## 2026-11-22 — Catalogue fill: checkpoints, Same-Day retries, Business Centre fill, per-kg spec (PRs #642 main, #643 main-test-features)
+
+- **Ask (Maxim):** run the catalogue harvest for Quebec (as the last job), then the other provinces; Business Centres early; every product in every warehouse; fresh Kirkland by the kg (harvest + lookups only, never receipts/drops).
+- **Found:** Ontario's first run read 430k prices in 5.5 h and lost them (final save hit a dead DB connection; run 69/70 left "running"); Quebec 518/528 `HTTP 0: not JSON` (no answer, client never retried), Ontario 1362/1655 `Internal Error`. Pack prices of fresh Kirkland vary with the pack weight (`size` carries it), so the stored province price is noise. Drummondville eggs: data exists at province level; the admin lookup path not yet traced.
+- **Done:** price checkpoints every 1,000 readings, Same-Day client retries (2 s, 6 s), `--warehouses` re-read reusing `warehouseRowsOnly`; QC and ON complete; `sameday_business_centre_fill` source created (disabled, run by hand); spec `Technical/Fresh_Kirkland_Per_Kg_Prices.md` written for Opus, no code.
+- **Owed:** build the per-kg spec; trace the Drummondville lookup; Alberta and the other provinces; marking leftover "running" rows failed (69, 70, 78 done).
+
 ## 2026-11-21 — Admin · Harvest jobs + desk menu regrouped (Priceback feat/admin-harvest-jobs → main, then main-test-features)
 
 - **Ask (Maxim):** a separate desk screen to start every harvest job (savings, catalogue, any harvest) by warehouse or for every warehouse including Business Centres, like the price sweep. Users section (Accounts, Activity dashboard, User segments together) above Product; General = Stores, Partners, Promo codes; new Support = Service health, Quotas, Incidents; Flyer scan 2nd in Product. Then fix main's Actions run and merge everything to main-test-features.
@@ -12839,3 +12861,140 @@ drop.
 
 - **Ask (Maxim):** "all users should get the time … based on their timezone … admin should also see based on their timezone even the other users events … the activity dashboard and the other scans date … i am the only admin so it should always be toronto".
 - **Done:** #633 had put shopper screens on Toronto too; that is reverted, and shopper screens follow the device again. Every admin screen, the admin recap email and the drop evidence text now use `adminDay` / `adminDateTime` (Toronto), with one calendar-value rule (`isCalendarLike`) so a purchase date is never converted to another zone. `Technical/Display_Time_Zone.md` was rewritten; CLAUDE.md has the standing rule.
+## 2026-11-22 — Resume list: the CI test-database option written up; RC-63 tax and warehouse traced
+
+- **Ask (Maxim):** "document the option (faster) with the test having its own database, the database we have today is on the cloud and we dont have any dedicated server only railway so i need more details, also continue working on the list the remaining points".
+- **Done:** `Technical/CI_Test_Database_Option.md`, the throwaway Postgres 17 inside the GitHub job. Checked on `main`:
+  - 58 migration files = 58 journal entries;
+  - no Supabase-only extension or role;
+  - Supabase dev is Postgres 17.6;
+  - TLS always on, so the container would get its own CA through `DB_SSL_CA`;
+  - Docker isn't installed on the PC;
+  - the repo is private, so the cost is Actions minutes.
+- **Found (RC-63, by replaying the v3.6.4 code in a worktree on E:):** the store was never identified (no `COSTCO` on the photo); `validateReceipt` step 3 turned a tax over the cap into rate × lines (11.43); the warehouse came from the province fallback (first Quebec warehouse = #1446 Anjou), because the header's leading `#1720` misses the last-resort pattern and `footer_ocr` is never read. Both files are unchanged on `main`. Details are in the resume doc §7. Production was read only.
+- **Checked:** production `/health` is healthy at `8a90e1b7`.
+- **Not done (Maxim's go):** any parser or validator change, the CI option, the app release, stock 13/15.
+
+## 2026-11-22 — Everyday CI workflow with its own database (#644/#645); RC-63: known warehouses only (#646)
+
+- **Ask (Maxim):**
+  - "duplicate the workflow with the Github database solution and we use this more often and use the actual setup before deploy only";
+  - "Parser : yes if only the warehouse number is verified againest the existing known warehouses in the database, no warehouse should be created from now on…";
+  - "no items parsing regression should be on that path, you parse this in the footer only if needed or create a new parsing ocr section".
+- **Done:**
+  - `test-github-db.yml` and `backend/scripts/github-test-db.sh`, pinned by `ciParity` (65/65);
+  - `warehousesRepo.findKnown` in receipts, crowd (refusal `unknown_warehouse`) and preferences;
+  - `detectedKnownWarehouse` (parser → header → footer stamp, known only);
+  - the validator leaves a tax over the cap unread;
+  - `tests/helpers/knownWarehouse.js`;
+  - the CLAUDE.md rule.
+- **Found:**
+  - A US receipt's lines with an unknown number would have become Canadian province prices if they had been demoted. They are refused instead.
+  - The golden vdxrw's old tax/total (28.68/249.27) were rate × lines too; the paper prints 284.38 / 29.24.
+- **Tests:** mobile 13,816 pass; i18n in sync; backend 112 DB files on dev, one at a time, 1,276 pass / 0 fail. CI not dispatched.
+- **Open:** dispatch and merge #646; the junk warehouse rows in production (a datafix, Maxim's go); detecting Costco without the word "COSTCO" (frozen `receiptParsingShared.js`).
+
+## 2026-11-22 — Fast CI first runs; production datafix of 4 misread warehouses; Costco claim without the word (#647)
+
+- **Ask (Maxim):** "yes dispatch it, and do the junk warehouses datafix. 3-can be a go as an additional function that wont edit the existing behavior if the word costco is recognized, and also no regression for other stores as best buy".
+- **Done:**
+  - Fast workflow dispatched twice on #646: 13 failures, then 1. The backend suite takes 4 min 55 s on its own database.
+  - Production datafix: 136 / 3518 / 3532 / 628 → 1362 / 518 / 532 / 528. 41 price points moved, 4 rows deleted, guarded and verified. Backup on E:.
+  - #647: the Costco claim.
+- **Found:** 4 real warehouses missing from the app's official list: 257, 1391, 1798 and 1811. The test fixes are in #646, as listed in the resume doc §9.
+- **Open:** the last fresh-database failure (`adminPriceLookupDb`); merging #646 and #647; adding the 4 warehouses to the frozen list (Maxim's OK).
+
+## 2026-11-22 — Fresh Kirkland products priced per kg (harvest + lookups), built from the spec
+
+- **Ask (Maxim):** "code the spec written in a parallel session … should be on main and on main-test (merge main into it once finished)".
+- **Done:**
+  - `backend/lib/freshKgPricing.js`, the one rule (Kirkland + fresh category; the per-kg reading; the lookups' `preferKgRows` / `oneUnit`);
+  - migration `0059_fresh_kg_price_kinds` (`warehouse_kg`, `sameday_kg`), applied to dev;
+  - the harvest writes per-kg readings beside the pack ones (`freshKgSkus` from `productCatalogRepo.freshKirklandSkus`, which flags the products sold by the pack), backfill `--fresh-kirkland-only`;
+  - price history / admin lookup read per kg per product and province, never a saving or a pack point on a per-kg line, `unit` returned;
+  - admin screens show "/ kg"; the shopper's warehouse prices on `main-test-features` (translated).
+- **Found:**
+  - 🔴 The spec's §2 conversion was wrong for most fresh meat. Same-Day states the per-kg rate on the item card (`pricingUnitString` "$16.99 / kg"), and the item's price is often an *estimated* package. Read on raw items at 1127 in EN + FR; the fixture is committed. The spec's version would have stored the wings at $82.41/kg instead of $16.99, the pork chops at $14.26 instead of $21.99, the ham at $38.39 instead of $8.99, and the chicken breasts not at all.
+  - `deploy/schema.sql` is frozen, so it is not regenerated, as the spec said it would be.
+  - Instacart files the Kirkland Atlantic Salmon under "Frozen Salmon", so it stays by the pack.
+  - The eggs bug at 1127 doesn't reproduce: the service returns $8.99 on production's rows.
+- **Shipped:** #650 merged to `main`. 0059 is on production (ledger row 70). `main` was merged into `main-test-features` (sync PR), including #646/#647:
+  - the `receiptParser.js` conflict was resolved so that RC-63's stamp keeps its meaning under the picked-store selection;
+  - the shopper's Warehouse prices tool shows "{price}/kg" (EN + FR).
+- **Tests:** backend per-kg + blast radius green on dev. Mobile 13,827 pass; the 3 `paywallAnnualBadge` failures also fail on clean `main` (local ICU). CI not dispatched.
+- **Open:**
+  - the per-kg backfill, per province in Maxim's order;
+  - Maxim's call on a per-sku override (salmon) and on deli;
+  - `0053_store_spaces_v2` missing from `main-test-features`' journal (pre-existing).
+
+## 2026-11-22 — Per kg = what the website prices by weight (#654); harvest queue
+
+- **Ask (Maxim):**
+  - "if the salmon is smoked usualy it is by the pack … the fresh only use by the Kg, fix the gap, and continue the harvest, repartition the jobs with waits … based on the memory or smaller batches";
+  - "the website should mention if the product is by the pack or by the weight … never a guess";
+  - "double check if the rule persist with the product online";
+  - "prices by weight is the rule always it is per Kg".
+- **Checked live first (read-only):** every Kirkland listing at 1127 and 1362, then the whole catalogue at 1127. This dropped:
+  - the deli exclusion;
+  - the Kirkland condition;
+  - the smoked name rule (3 smoked meats are priced by weight on the site);
+  - price ÷ weight.
+  It added "a card rate must carry a price" (a pomegranate case "3.8 kg / lb", a candy "per kg").
+- **Done:**
+  - #654 on `main`, #655 into `main-test-features`;
+  - production had 0 per-kg rows and no flags from #650, so nothing to undo.
+- **Harvest:** old-code AB run #83 stopped and closed. The queue runs one job at a time with memory waits: QC, ON, BC fill, AB, NB, BC, SK, MB, NS, NL, PE. It retries Same-Day refusals, and its first QC attempt hit `no_session`.
+- **Spec:** §11 of `Technical/Fresh_Kirkland_Per_Kg_Prices.md`.
+
+## 2026-11-22 — Per-kg stability measured; outliers and placeholders held (#656, #658); first per-kg price backdated
+
+- **Ask (Maxim):**
+  - "did you check if the weight changed, the price changed … crossed with products";
+  - "at least validate the categories";
+  - "hold it for review, don't store the $99.99";
+  - "can you adjust the prices already harvest in the past … if risky dont do it";
+  - placeholders held "with a mention that these are the official prices in costco";
+  - "force the same price as of today on regular prices … over flushing the history".
+- **Measured (read-only):**
+  - Categories at 1127: 1,140 have no item priced by weight; 64 are 100% by weight (all fresh, cheese cut to weight or counter dishes); 15 are mixed, and each item splits correctly.
+  - 9 provinces × 231 products: the pack price has 5.23 distinct values per product vs 1.27 per kg. Pack = per kg × stated weight (median gap 0.01%).
+  - 64% of stored pack histories churned since Nov 4.
+- **Done:**
+  - #656: hold above 4× the lowest per-kg price, plus cleanup;
+  - #658: exact $99.99 / $999.99 held with an admin note, and the first per-kg price backdated;
+  - #657 / #659: main → main-test-features.
+- **Not done (risky):** converting past pack prices to per kg. No weight was recorded, and the pack rows feed savings and receipts. Replaced by the backdate.
+- **Harvest:** run #85 (QC) in progress at the time of writing, with 1,057 per-kg rows written and 248 products flagged sold by the pack. The queue continues on the #658 code.
+
+
+## 2026-11-22 — Two failing tests on main-test-features; subscribers shown credits
+
+- **Ask (Maxim):** "fix these 2 failing tests" and "subscribed users still gets a message or few message on screens asking them to subscribe or buy credits because there credits is very low, there is no credit management for any subscriber … once no subscription he comes back to the state of before the subscription".
+- **Tests (#662, mtf):** `officialWarehouses` pins the identity fields plus Gloucester's address (the record carries address and position now). `subscriptionManager.js` coverage: tests for the four free-week wrappers from #602 (100 / 98 / 100 / 100 against 97 / 89 / 100 / 97).
+- **Subscribers (#663 main, #664 mtf):** the phone ended its cached plan on its own clock at the cached period end, which a renewal moves on the server first. The plan now holds until the later of the period end and the server's last confirmation, plus 72 h. The server's "not a subscriber" after the period end ends it at once. Credit history, Plan & credits, Profile/Me and Notifications show no credits to a subscriber. Details in `Bugs_Common_Fixes.md`.
+- **Maxim's:** merge #662 before #664 (its coverage floor). The fix reaches phones with the next app build.
+
+## 2026-11-23 — main-test-features: Deals/Warehouse prices empty, Unlimited tools, back navigation, Home/Receipts/Me (Priceback #667 → main, #668 → mtf)
+
+- **Ask (Maxim):** Deals and Warehouse prices load no data (high priority); Email Sync, Price Checker and the price scanner Unlimited-only, straight to the paywall, price-tag credit reward held; back gesture to the previous or parent screen, the admin desk left only from AdminHome; Receipts search under its button; Home stores/receipts as full accordions open by default, the active section listing receipts; hero on the savings page with no drop; Costco tools order; Me without the Costco row, the guarantee and the price-tag tile (watch-ad tile instead); photos or the placeholder on Deals and Warehouse prices; Warehouse prices rows open a shopper price history (catalogue + savings harvest only); merge to both branches.
+- **Cause (Deals/Warehouse prices):** both routes existed only in mtf's backend; prod and dev answered 404. Warehouse prices also dropped the server's `imageUrl` on the phone.
+- **Done:** see `Technical/Store_Spaces_v2_Shopper_Fixes_2026-11-23.md`.
+- **Tests:** targeted mobile suites pass, i18n in sync, backend files on dev pass. The full mobile suite was stopped by the machine (low memory) and is not done. CI not run.
+- **Owed:** `PRICE_TAG_CREDIT_REWARD` = 0 on prod if the server grant should stop too (Maxim's call). The Warehouse prices list's price may include an official price point (flyer); the history is catalogue + savings only.
+
+## 2026-11-23 — Backend speed: the Price-drop desks and the connection pool (Priceback #675 → main, #678 → mtf)
+
+- **Ask (Maxim):** "the app was very slow and still very slow specialy for price drop queue … i think the problem is not the database … prod is in supabase Micro … up to 60 connections"; then "should we scale on railways if there is any option under the 5$ cap".
+- **Measured first (read-only, prod):**
+  - `pg_stat_statements`: cache hit 99.9997 %, largest table 93 MB. The sweep query (`findNotifiable`, `WITH watched AS …`) averages 0.8–4 s, with a max of 18.6 s.
+  - Railway: CPU < 0.03 vCPU at the hourly peak, memory 2–11 %, queue desk p50 1.46 s, Potential p50 1.74 s, shopper routes 40–140 ms.
+  - `job_runs`: Same-Day Costco harvest 33 min/run. Its writes are batched; the time goes to HTTP fetches.
+- **Cause:** every opening of the queue desk re-ran the sweep (`closeStaleQueue`) before listing, on a backend that opens 5 of the 60 connections. Web, ~30 crons, harvests and sweep share them in one process.
+- **Done (hotfix):**
+  - the heavy re-check now runs behind the listing, one run at a time, at most every 120 s (`cleanQueue`, `PRICE_DROP_QUEUE_CLEANUP_MIN_SECONDS`); the sweep and each savings harvest force it;
+  - the structural checks (0.4 ms) stay before the listing;
+  - the Potential desk's two reads run in parallel;
+  - `/health` → `dbPool`.
+- **Railway scaling:** not now. $3.05 estimated for the month, the limits already sit at 8 vCPU / 8 GB, a second replica would run every cron twice, and us-east4 is the closest region.
+- **Owed (Maxim):** read the prod pooler's *Pool size* in Supabase and set `DB_POOL_MAX` on Railway prod to it minus 3.
+- **Spec:** `Technical/Backend_Performance.md`.
