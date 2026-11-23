@@ -12971,3 +12971,20 @@ drop.
 - **Done:** see `Technical/Store_Spaces_v2_Shopper_Fixes_2026-11-23.md`.
 - **Tests:** targeted mobile suites pass, i18n in sync, backend files on dev pass. The full mobile suite was stopped by the machine (low memory) and is not done. CI not run.
 - **Owed:** `PRICE_TAG_CREDIT_REWARD` = 0 on prod if the server grant should stop too (Maxim's call). The Warehouse prices list's price may include an official price point (flyer); the history is catalogue + savings only.
+
+## 2026-11-23 — Backend speed: the Price-drop desks and the connection pool (Priceback #675 → main, #678 → mtf)
+
+- **Ask (Maxim):** "the app was very slow and still very slow specialy for price drop queue … i think the problem is not the database … prod is in supabase Micro … up to 60 connections"; then "should we scale on railways if there is any option under the 5$ cap".
+- **Measured first (read-only, prod):**
+  - `pg_stat_statements`: cache hit 99.9997 %, largest table 93 MB. The sweep query (`findNotifiable`, `WITH watched AS …`) averages 0.8–4 s, with a max of 18.6 s.
+  - Railway: CPU < 0.03 vCPU at the hourly peak, memory 2–11 %, queue desk p50 1.46 s, Potential p50 1.74 s, shopper routes 40–140 ms.
+  - `job_runs`: Same-Day Costco harvest 33 min/run. Its writes are batched; the time goes to HTTP fetches.
+- **Cause:** every opening of the queue desk re-ran the sweep (`closeStaleQueue`) before listing, on a backend that opens 5 of the 60 connections. Web, ~30 crons, harvests and sweep share them in one process.
+- **Done (hotfix):**
+  - the heavy re-check now runs behind the listing, one run at a time, at most every 120 s (`cleanQueue`, `PRICE_DROP_QUEUE_CLEANUP_MIN_SECONDS`); the sweep and each savings harvest force it;
+  - the structural checks (0.4 ms) stay before the listing;
+  - the Potential desk's two reads run in parallel;
+  - `/health` → `dbPool`.
+- **Railway scaling:** not now. $3.05 estimated for the month, the limits already sit at 8 vCPU / 8 GB, a second replica would run every cron twice, and us-east4 is the closest region.
+- **Owed (Maxim):** read the prod pooler's *Pool size* in Supabase and set `DB_POOL_MAX` on Railway prod to it minus 3.
+- **Spec:** `Technical/Backend_Performance.md`.
