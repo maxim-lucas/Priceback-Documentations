@@ -254,7 +254,7 @@ $19.99 one (rule 8's mechanism).
 > *"approve both of them 1 at a time, so the first one is unlocked if the user doesnt have enough balance and the 2nd
 > one is locked"* (Maxim, 2026-11-23)
 
-- **Approve without a count tells one unit** (every desk build before the quantity picker). Tap again for the next one.
+- **Approve without a count approves one unit** (every desk build before the quantity picker): the line is split, see below. Approve the next line for the next one.
   The next build sends `{ units: n }` from a stepper on the card; the bulk route takes the same `units`.
 - Each approval **charges only its units**, on the same telescoping charge as a deeper price: the 2nd of 2 units at
   one price bills `dropChargeCredits(saving × 2) − dropChargeCredits(saving × 1)`.
@@ -264,11 +264,18 @@ $19.99 one (rule 8's mechanism).
   (`price_drop_notifications`) records the units told at that price (`units`, NULL = all, every row before 0060). A
   line told part of its units is still owed the rest: `findNotifiable`'s "already told" counts a row only when it
   told every unit, so the sweep and the queue hygiene keep the waiting row.
-- **The app (every installed build) shows the line from the first unit.** The charge for more units of a line already
-  shown carries the ref `drop:<line>:<cents>:units<n>`. Every refund path still reads it (`drop:<line>:` prefix). The
-  per-line lock (`releasedForUser.chargedIntoNegative`) skips it, so a line the shopper already paid to see is never
-  hidden again. The app computes the line's saving from its own quantity, so it shows the whole line's saving after
-  the first unit. A later build can read the units; not done.
+- **The receipt line is split (Maxim, 2026-11-23):** *"no dont lock the whole line, in this case split the quantity in
+  2 separate lines in the receipt, the first one is unlocked and the 2nd one is locked, this is the whole concept to
+  have the user get one of them first"*. An approval of n units of an N-unit line that told nothing yet splits it
+  (`priceDropQueueRepo.splitForUnits`, amounts `shared/dropUnits.splitLine`, to the cent): the approved line keeps
+  n units and is told, charged and pushed **whole**; a new line right after it (same position, later id — every
+  reader orders by position, id) carries the rest with **its own waiting drop** (same price, saving, evidence). An
+  installed app shows and locks per line, so the paid unit stays shown and an unpaid one is locked on its own line.
+  The phone takes the server's lines on its next sync. The `units_*` columns stay for a line told part of its units
+  before the split existed.
+- **What happened first (prod, 2026-11-23):** the first version told units on one line. The 2-unit claims #14163
+  (DRONE MINI) and #13661 (BUFFALO FZIP) showed whole and unlocked. Both lines were split by hand: unit 1 keeps the
+  charge paid from the balance (shown), unit 2 got its own line, notification and the charge into the negative (locked).
 - The desk's `savings` and `chargeCredits` are what the **next** approval tells and bills (one unit on the installed
   desk). `lineSavings`, `unitsTold` and `unitsNext` are new fields.
 
