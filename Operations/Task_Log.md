@@ -12971,3 +12971,12 @@ drop.
 - **Done:** see `Technical/Store_Spaces_v2_Shopper_Fixes_2026-11-23.md`.
 - **Tests:** targeted mobile suites pass, i18n in sync, backend files on dev pass. The full mobile suite was stopped by the machine (low memory) and is not done. CI not run.
 - **Owed:** `PRICE_TAG_CREDIT_REWARD` = 0 on prod if the server grant should stop too (Maxim's call). The Warehouse prices list's price may include an official price point (flyer); the history is catalogue + savings only.
+
+## 2026-11-23 — Drops by the unit, the full saving, size variants kept, CAT pants receipt (Priceback fix/drop-units-official-item-numbers)
+
+- **Ask (Maxim):** fixes on main and main-test-features. (1) A receipt read right was then "fixed" to a wrong item number by the database check. (2) The CAT pants receipt waiting review: find the item number, check it, wait for his go. (3) Approve a grouped drop by n units, one unit per tap in the installed desk until the next build. (4) Auto-approve doing what he does by hand: cover the most $3+ drops from the balance before any free credit; a trial shopper who never had a drop gets a top-up to the cheapest $3+ drop, max 45 free credits per lifetime, +1 only when nothing else stays locked; under the existing switch. (5) A $5 saving queued as a $4.94 drop: the drop is the full saving, never less; fix the root cause. Priority: (3) and the datafix first.
+- **Cause (1), RC-64:** the save-time catalogue check called a number real only when costco.ca's catalogue listed it; Same-Day lists every size. 4 prod lines. One definition now: `productCatalogRepo.officiallyListedSql`.
+- **Cause (5):** `savingDropRepo` priced the drop off the shelf price whenever it had one. Rule 8b: the lower of shelf and paid − saving (`savingRules.savingNewPrice`).
+- **(3):** migration 0060, `shared/dropUnits.js`, the desk stepper. Rule 8c in `Technical/Price_Drop_Sweep_Rules.md`.
+- **(2):** photo read: the folded number is `…0008` → 1640008 (size 36). Datafix proposed, not applied.
+- **(4):** not built yet.

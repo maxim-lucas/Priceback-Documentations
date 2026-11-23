@@ -223,6 +223,62 @@ savings) that were not offered before. The query took 0.5 s.
 **The row already waiting.** #12639 waits at $24.42. The sweep stages the $20.57 drop as a new row; the queue's
 hygiene then closes the $24.42 row (a waiting, undecided row is closed when the same line waits at a deeper price).
 
+### 8b. Every savings drop is at least the full saving (2026-11-23)
+
+> *"in the price drop queue, there is again a prorato of the saving on an item, the saving is 5$ so the drop should be
+> 5$ (a complete 5$) never less"* … *"i want you to fix the root cause, not only the item"* (Maxim, 2026-11-23)
+
+Rule 8 made the full saving the drop for a product sold by the pack. It now holds for **every** savings drop: the new
+price is the **lower** of today's shelf sale price (Same-Day's in-store price, when the harvest read one) and what the
+shopper paid per unit less the saving. So the drop is never less than the saving. It is more only when the shopper paid
+more than the regular price and the shelf price is lower still.
+
+**The case.** #13313, DRONE MINI 2707238, Boisbriand, 2 units. The paper prints $24.93 a unit (its subtotal closes to
+the cent). The Same-Day sale price is $19.99 (regular $24.99, $5 off). The sweep priced the drop off the shelf price:
+$24.93 − $19.99 = $4.94 a unit. With this rule it is $24.93 − $5 = $19.93, a full $5.
+
+**The root cause.** `savingDropRepo.findSavingDrops` took the shelf price whenever the harvest had one
+(`COALESCE(shelf, paid − saving)`), so any shopper who paid a few cents under the regular price got a prorated drop.
+
+One definition: `savingRules.savingNewPrice` (JS, read by the confidence's `new_price_matches`) and its SQL twin, the
+`newPrice` of `savingDropRepo.findSavingDrops` (`LEAST(shelf, paid − saving)`). The confidence check now passes a
+drop at paid − saving below the sale price, and says "the full saving".
+
+**The row already waiting.** #13313 waits at $19.99. The next sweep stages the $19.93 row, and the hygiene closes the
+$19.99 one (rule 8's mechanism).
+
+### 8c. A drop on several units is approved a number of units at a time (2026-11-23)
+
+> *"Price drops are grouped by quantity, when i want to approve i want to have the possibility to approve by n quantity
+> not always the total (for the waiting list in the app, approve one by one until we deliver the next build)"* …
+> *"approve both of them 1 at a time, so the first one is unlocked if the user doesnt have enough balance and the 2nd
+> one is locked"* (Maxim, 2026-11-23)
+
+- **Approve without a count tells one unit** (every desk build before the quantity picker). Tap again for the next one.
+  The next build sends `{ units: n }` from a stepper on the card; the bulk route takes the same `units`.
+- Each approval **charges only its units**, on the same telescoping charge as a deeper price: the 2nd of 2 units at
+  one price bills `dropChargeCredits(saving × 2) − dropChargeCredits(saving × 1)`.
+- The **push says the saving of those units**. When the charge takes a free balance below zero, that push is the
+  locked alert, as for any drop.
+- A row with units left goes **back to pending** (`units_told` raised, approval cleared), not to sent. The ledger row
+  (`price_drop_notifications`) records the units told at that price (`units`, NULL = all, every row before 0060). A
+  line told part of its units is still owed the rest: `findNotifiable`'s "already told" counts a row only when it
+  told every unit, so the sweep and the queue hygiene keep the waiting row.
+- **The app (every installed build) shows the line from the first unit.** The charge for more units of a line already
+  shown carries the ref `drop:<line>:<cents>:units<n>`. Every refund path still reads it (`drop:<line>:` prefix). The
+  per-line lock (`releasedForUser.chargedIntoNegative`) skips it, so a line the shopper already paid to see is never
+  hidden again. The app computes the line's saving from its own quantity, so it shows the whole line's saving after
+  the first unit. A later build can read the units; not done.
+- The desk's `savings` and `chargeCredits` are what the **next** approval tells and bills (one unit on the installed
+  desk). `lineSavings`, `unitsTold` and `unitsNext` are new fields.
+
+One definition: `shared/dropUnits.js` (mirrored to `backend/shared`, re-exported by `backend/lib/dropUnits.js`), read
+by the queue (`priceDropQueueRepo.review` / `reviewMany` / `autoApprove` / `returnWithUnitsLeft`), the drain
+(`priceDropNotifier._deliver`), the ledger (`priceDropRepo.recordNotified`, `findNotifiable`), the desk
+(`priceDropTier.chargeCreditsFor`, `server._priceDropQueueItem`) and the phone's stepper
+(`AdminPriceDropQueueScreen.unitsLeft`). Migration 0060 (`units_approved`, `units_told`, `units`), applied to prod by
+hand before the deploy.
+
 ### 9. The harvest is never a price tag; an ended saving is a missed drop (2026-11-19)
 
 Maxim, 2026-11-19: *"Harvesting should never be a price tag labeled because this will give false numbers for the

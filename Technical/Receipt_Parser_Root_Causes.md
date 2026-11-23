@@ -2464,6 +2464,47 @@ the badge **PAID = k × THIS PRICE · CHECK THE QUANTITY** (`possibleQuantity` o
 
 ---
 
+## RC-64 · A number the paper printed right, "corrected" to a sibling size by the catalogue check (fixed, 2026-11-23)
+
+**Printed shape (dcm7j, Lévis #1186, 2026-11-14).** `1640007 PANTALON CAT 24,99 FP`, printed clean and read right.
+Costco lists the sizes of one item on consecutive numbers: CAT Men's Bonded Lined Canvas Pant 1640005 (30) …
+1640011 (42). costco.ca's product page names only one of them (1640005). Same-Day names every size, and the savings
+harvest wrote each as an official product with its own price (since 2026-11-09).
+
+**What goes wrong.** On save, the catalogue check (`lib/receiptCatalogMatch.correctLines` →
+`productCatalogRepo.receiptLookup`) calls a number real only when a **catalogue** lists it (`catalog_items`, 35 days).
+1640007 is listed by none, so it is treated as a misread. 1640005 is one edit away, its name fits "PANTALON CAT" and
+its price agrees, so the line is moved to size 30 (`sku_read` = 1640007). The weekly fold pass
+(`suspectProducts`) already trusted Same-Day and savings, so the two halves disagreed on what a real number is.
+
+Introduced by #495 (`308c693d`, 2026-10-27, migration 0037), server side: every scan saved since then.
+
+**Proof.** Prod read, 2026-11-23: 1640007 has 9 `savings_harvest` points and an official saving, no catalogue item.
+With the new rule it is known (kept as printed); the real misreads of the same period (`381385`, `8339100`, `500665`:
+no product, or none with an official listing) are still corrected.
+
+**The fix.** One definition, `productCatalogRepo.officiallyListedSql`: a number Costco publishes = a fresh catalogue
+listing **or** an official saving (trust ≤ `OFFICIAL_MAX_TRUST`) **or** a tier-1 price point (`priceEvidenceSql`:
+Same-Day in-store, flyer, verified tag, admin entry). The receipt check (`receiptLookup.known`) and the weekly fold
+(`suspectProducts`) both read it. Test: `catalogHarvestDb.test.js` "a number Costco publishes officially is real even
+when no catalogue lists it (a size variant)".
+
+**Prod blast radius (read 2026-11-23).** 4 live lines were moved off a number Costco publishes. None has been told a
+drop or claimed.
+
+| Receipt | Store | Scanned | What | Status |
+|---|---|---|---|---|
+| `r_1794688560207_dcm7j` | Costco Lévis #1186 | 2026-11-14 | PANTALON CAT printed 1640007 (size 34) → moved to 1640005 (size 30) | datafix proposed (back to 1640007), waiting for Maxim's go |
+| `r_1793732083123_iiead` | Costco | 2026-11-03 | BC CREW printed 2039721 → moved to 2039720 (Small) | datafix proposed (back to 2039721), waiting for Maxim's go |
+| `r_1793911452810_3xtvv` | Costco | 2026-11-05 | PROSCIUTTO printed 3491555 (Sliced 18-Month Prosciutto) → moved to 349155 (Fratelli Beretta) | to confirm on the photo, then datafix |
+| `r_1794632314163_5put6` | Costco | 2026-11-14 | PROSCIUTTO printed 3491555 → moved to 349155 | to confirm on the photo, then datafix |
+
+A related case, not this root cause: `r_1795449940077_3n19q` (St-Jérôme #529, in review) has a third CAT pants line
+whose number sits on a fold (`PANTOLON CAT`, no number read). The photo shows the top half of `…0008`: 1640008
+(size 36), the same shopper's size on 2026-11-11. Datafix proposed, waiting for Maxim's go.
+
+---
+
 ## Earlier root causes (before this register)
 
 Recorded in their own docs; listed here so the register is complete. Add new cases of these under a new `RC-n`
