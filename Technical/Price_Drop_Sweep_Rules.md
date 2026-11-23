@@ -223,6 +223,105 @@ savings) that were not offered before. The query took 0.5 s.
 **The row already waiting.** #12639 waits at $24.42. The sweep stages the $20.57 drop as a new row; the queue's
 hygiene then closes the $24.42 row (a waiting, undecided row is closed when the same line waits at a deeper price).
 
+### 8b. Every savings drop is at least the full saving (2026-11-23)
+
+> *"in the price drop queue, there is again a prorato of the saving on an item, the saving is 5$ so the drop should be
+> 5$ (a complete 5$) never less"* … *"i want you to fix the root cause, not only the item"* (Maxim, 2026-11-23)
+
+Rule 8 made the full saving the drop for a product sold by the pack. It now holds for **every** savings drop: the new
+price is the **lower** of today's shelf sale price (Same-Day's in-store price, when the harvest read one) and what the
+shopper paid per unit less the saving. So the drop is never less than the saving. It is more only when the shopper paid
+more than the regular price and the shelf price is lower still.
+
+**The case.** #13313, DRONE MINI 2707238, Boisbriand, 2 units. The paper prints $24.93 a unit (its subtotal closes to
+the cent). The Same-Day sale price is $19.99 (regular $24.99, $5 off). The sweep priced the drop off the shelf price:
+$24.93 − $19.99 = $4.94 a unit. With this rule it is $24.93 − $5 = $19.93, a full $5.
+
+**The root cause.** `savingDropRepo.findSavingDrops` took the shelf price whenever the harvest had one
+(`COALESCE(shelf, paid − saving)`), so any shopper who paid a few cents under the regular price got a prorated drop.
+
+One definition: `savingRules.savingNewPrice` (JS, read by the confidence's `new_price_matches`) and its SQL twin, the
+`newPrice` of `savingDropRepo.findSavingDrops` (`LEAST(shelf, paid − saving)`). The confidence check now passes a
+drop at paid − saving below the sale price, and says "the full saving".
+
+**The row already waiting.** #13313 waits at $19.99. The next sweep stages the $19.93 row, and the hygiene closes the
+$19.99 one (rule 8's mechanism).
+
+### 8c. A drop on several units is approved a number of units at a time (2026-11-23)
+
+> *"Price drops are grouped by quantity, when i want to approve i want to have the possibility to approve by n quantity
+> not always the total (for the waiting list in the app, approve one by one until we deliver the next build)"* …
+> *"approve both of them 1 at a time, so the first one is unlocked if the user doesnt have enough balance and the 2nd
+> one is locked"* (Maxim, 2026-11-23)
+
+- **Approve without a count approves one unit** (every desk build before the quantity picker): the line is split, see below. Approve the next line for the next one.
+  The next build sends `{ units: n }` from a stepper on the card; the bulk route takes the same `units`.
+- Each approval **charges only its units**, on the same telescoping charge as a deeper price: the 2nd of 2 units at
+  one price bills `dropChargeCredits(saving × 2) − dropChargeCredits(saving × 1)`.
+- The **push says the saving of those units**. When the charge takes a free balance below zero, that push is the
+  locked alert, as for any drop.
+- A row with units left goes **back to pending** (`units_told` raised, approval cleared), not to sent. The ledger row
+  (`price_drop_notifications`) records the units told at that price (`units`, NULL = all, every row before 0060). A
+  line told part of its units is still owed the rest: `findNotifiable`'s "already told" counts a row only when it
+  told every unit, so the sweep and the queue hygiene keep the waiting row.
+- **The receipt line is split (Maxim, 2026-11-23):** *"no dont lock the whole line, in this case split the quantity in
+  2 separate lines in the receipt, the first one is unlocked and the 2nd one is locked, this is the whole concept to
+  have the user get one of them first"*. An approval of n units of an N-unit line that told nothing yet splits it
+  (`priceDropQueueRepo.splitForUnits`, amounts `shared/dropUnits.splitLine`, to the cent): the approved line keeps
+  n units and is told, charged and pushed **whole**; a new line right after it (same position, later id — every
+  reader orders by position, id) carries the rest with **its own waiting drop** (same price, saving, evidence). An
+  installed app shows and locks per line, so the paid unit stays shown and an unpaid one is locked on its own line.
+  The phone takes the server's lines on its next sync. The `units_*` columns stay for a line told part of its units
+  before the split existed.
+- **What happened first (prod, 2026-11-23):** the first version told units on one line. The 2-unit claims #14163
+  (DRONE MINI) and #13661 (BUFFALO FZIP) showed whole and unlocked. Both lines were split by hand: unit 1 keeps the
+  charge paid from the balance (shown), unit 2 got its own line, notification and the charge into the negative (locked).
+- The desk's `savings` and `chargeCredits` are what the **next** approval tells and bills (one unit on the installed
+  desk). `lineSavings`, `unitsTold` and `unitsNext` are new fields.
+
+One definition: `shared/dropUnits.js` (mirrored to `backend/shared`, re-exported by `backend/lib/dropUnits.js`), read
+by the queue (`priceDropQueueRepo.review` / `reviewMany` / `autoApprove` / `returnWithUnitsLeft`), the drain
+(`priceDropNotifier._deliver`), the ledger (`priceDropRepo.recordNotified`, `findNotifiable`), the desk
+(`priceDropTier.chargeCreditsFor`, `server._priceDropQueueItem`) and the phone's stepper
+(`AdminPriceDropQueueScreen.unitsLeft`). Migration 0060 (`units_approved`, `units_told`, `units`), applied to prod by
+hand before the deploy.
+
+### 8d. The automatic approval does what Maxim does by hand (2026-11-23)
+
+> *"I check the user (if under the 75 free credit for trial and has 5$ to 7$ as first drop, i adjust his credit to
+> match the lowest price drop in the queue for this user so he can at least see a first price drop for 3$+ and i
+> approve the drop …) it should always try to cover the maximum amount of drops more than 3$ at least before giving
+> extra free credit … i always give extra 1 credit so he can do another scan in the future always except if he has more
+> drops locked."* Answers the same day: no extra credit when the balance already covers it; **45 free credits per
+> lifetime at most**; **no free credit for a shopper who already had a drop**; one unit at a time; **under the existing
+> switch** (`SAVING_DROP_AUTO_APPROVE`).
+
+It runs on the drops the confidence lets the automation approve (100%, `autoApprovable`), shopper by shopper, each unit
+of a line a drop of its own (8c):
+
+0. A subscriber, or a balance already below zero: every drop now.
+1. The $3+ drops whose credits fit the balance, the set covering the **most dollars** (exact, bounded knapsack); then
+   the smaller drops that still fit. No credit given.
+2. None fits, and the shopper is on the **free trial** (never bought credits, never told a drop): the balance is
+   topped up to the **cheapest $3+ drop**, plus **1 credit** when no other drop of theirs is left to lock. Within
+   **45 free credits per lifetime** (re-checked under the user's row lock). That drop is approved.
+3. Otherwise the drops that fit (any size, the most dollars), or, when none fits, every drop now (locked whatever the
+   order).
+
+Everything else waits for the **next run**: a shopper with a drop approved or on its way is left alone, so only the
+later drops are locked. Maxim's examples are the tests (`tests/dropApprovalPlan.test.js`): 72 cr and a $6 first drop →
++19, approved; 72 cr and two $2 → both, no credit; 72 cr and $3/$4/$5 → the $4, then the rest; $5 and $2 → +3 for the
+$5 (no +1, the $2 will be locked), then the $2.
+
+The top-up is an `admin_adjust` row with the `admin:goodwill` note (every installed build shows "A thank-you from our
+team") and the ref `first-drop-topup` (`creditsRepo.grantFirstDropTopUp` / `firstDropTopUps`).
+
+One definition: `services/savings/dropApprovalPlan.planForShopper` (pure), applied by
+`dropVerifier.approveByShopper`. Reads: `priceDropQueueRepo.detailsFor`, `approvalStates`.
+
+**Off today.** `SAVING_DROP_AUTO_APPROVE` is false on prod; with it off nothing is approved (the drops are only
+flagged, as before). The switch is Maxim's.
+
 ### 9. The harvest is never a price tag; an ended saving is a missed drop (2026-11-19)
 
 Maxim, 2026-11-19: *"Harvesting should never be a price tag labeled because this will give false numbers for the
