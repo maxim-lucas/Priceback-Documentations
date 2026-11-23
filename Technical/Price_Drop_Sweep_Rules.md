@@ -279,6 +279,42 @@ by the queue (`priceDropQueueRepo.review` / `reviewMany` / `autoApprove` / `retu
 (`AdminPriceDropQueueScreen.unitsLeft`). Migration 0060 (`units_approved`, `units_told`, `units`), applied to prod by
 hand before the deploy.
 
+### 8d. The automatic approval does what Maxim does by hand (2026-11-23)
+
+> *"I check the user (if under the 75 free credit for trial and has 5$ to 7$ as first drop, i adjust his credit to
+> match the lowest price drop in the queue for this user so he can at least see a first price drop for 3$+ and i
+> approve the drop …) it should always try to cover the maximum amount of drops more than 3$ at least before giving
+> extra free credit … i always give extra 1 credit so he can do another scan in the future always except if he has more
+> drops locked."* Answers the same day: no extra credit when the balance already covers it; **45 free credits per
+> lifetime at most**; **no free credit for a shopper who already had a drop**; one unit at a time; **under the existing
+> switch** (`SAVING_DROP_AUTO_APPROVE`).
+
+It runs on the drops the confidence lets the automation approve (100%, `autoApprovable`), shopper by shopper, each unit
+of a line a drop of its own (8c):
+
+0. A subscriber, or a balance already below zero: every drop now.
+1. The $3+ drops whose credits fit the balance, the set covering the **most dollars** (exact, bounded knapsack); then
+   the smaller drops that still fit. No credit given.
+2. None fits, and the shopper is on the **free trial** (never bought credits, never told a drop): the balance is
+   topped up to the **cheapest $3+ drop**, plus **1 credit** when no other drop of theirs is left to lock. Within
+   **45 free credits per lifetime** (re-checked under the user's row lock). That drop is approved.
+3. Otherwise the drops that fit (any size, the most dollars), or, when none fits, every drop now (locked whatever the
+   order).
+
+Everything else waits for the **next run**: a shopper with a drop approved or on its way is left alone, so only the
+later drops are locked. Maxim's examples are the tests (`tests/dropApprovalPlan.test.js`): 72 cr and a $6 first drop →
++19, approved; 72 cr and two $2 → both, no credit; 72 cr and $3/$4/$5 → the $4, then the rest; $5 and $2 → +3 for the
+$5 (no +1, the $2 will be locked), then the $2.
+
+The top-up is an `admin_adjust` row with the `admin:goodwill` note (every installed build shows "A thank-you from our
+team") and the ref `first-drop-topup` (`creditsRepo.grantFirstDropTopUp` / `firstDropTopUps`).
+
+One definition: `services/savings/dropApprovalPlan.planForShopper` (pure), applied by
+`dropVerifier.approveByShopper`. Reads: `priceDropQueueRepo.detailsFor`, `approvalStates`.
+
+**Off today.** `SAVING_DROP_AUTO_APPROVE` is false on prod; with it off nothing is approved (the drops are only
+flagged, as before). The switch is Maxim's.
+
 ### 9. The harvest is never a price tag; an ended saving is a missed drop (2026-11-19)
 
 Maxim, 2026-11-19: *"Harvesting should never be a price tag labeled because this will give false numbers for the

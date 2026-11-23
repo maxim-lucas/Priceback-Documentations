@@ -12979,4 +12979,4 @@ drop.
 - **Cause (5):** `savingDropRepo` priced the drop off the shelf price whenever it had one. Rule 8b: the lower of shelf and paid − saving (`savingRules.savingNewPrice`).
 - **(3):** migration 0060, `shared/dropUnits.js`, the desk stepper. Rule 8c in `Technical/Price_Drop_Sweep_Rules.md`.
 - **(2):** photo read: the folded number is `…0008` → 1640008 (size 36). Datafix proposed, not applied.
-- **(4):** not built yet.
+- **(4):** built as rule 8d (`dropApprovalPlan`), under `SAVING_DROP_AUTO_APPROVE` (off on prod).
