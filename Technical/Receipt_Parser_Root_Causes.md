@@ -2494,14 +2494,14 @@ drop or claimed.
 
 | Receipt | Store | Scanned | What | Status |
 |---|---|---|---|---|
-| `r_1794688560207_dcm7j` | Costco Lévis #1186 | 2026-11-14 | PANTALON CAT printed 1640007 (size 34) → moved to 1640005 (size 30) | datafix proposed (back to 1640007), waiting for Maxim's go |
-| `r_1793732083123_iiead` | Costco | 2026-11-03 | BC CREW printed 2039721 → moved to 2039720 (Small) | datafix proposed (back to 2039721), waiting for Maxim's go |
-| `r_1793911452810_3xtvv` | Costco | 2026-11-05 | PROSCIUTTO printed 3491555 (Sliced 18-Month Prosciutto) → moved to 349155 (Fratelli Beretta) | to confirm on the photo, then datafix |
-| `r_1794632314163_5put6` | Costco | 2026-11-14 | PROSCIUTTO printed 3491555 → moved to 349155 | to confirm on the photo, then datafix |
+| `r_1794688560207_dcm7j` | Costco Lévis #1186 | 2026-11-14 | PANTALON CAT printed 1640007 (size 34) → moved to 1640005 (size 30) | repaired 2026-11-23 (desk line-editor engine, back to 1640007) |
+| `r_1793732083123_iiead` | Costco | 2026-11-03 | BC CREW printed 2039721 → moved to 2039720 (Small) | repaired 2026-11-23 (back to 2039721; OCR `2039721 BC CREW`) |
+| `r_1793911452810_3xtvv` | Costco | 2026-11-05 | PROSCIUTTO printed 3491555 (Sliced 18-Month Prosciutto) → moved to 349155 (Fratelli Beretta) | repaired 2026-11-23 (PDF: `3491555 PROSCIUTTO`, coupon `397253/3491555`) |
+| `r_1794632314163_5put6` | Costco | 2026-11-14 | PROSCIUTTO printed 3491555 → moved to 349155 | repaired 2026-11-23 (PDF: `3491555 PROSCIUTTO`, coupon `397253/3491555`) |
 
 A related case, not this root cause: `r_1795449940077_3n19q` (St-Jérôme #529, in review) has a third CAT pants line
 whose number sits on a fold (`PANTOLON CAT`, no number read). The photo shows the top half of `…0008`: 1640008
-(size 36), the same shopper's size on 2026-11-11. Datafix proposed, waiting for Maxim's go.
+(size 36), the same shopper's size on 2026-11-11. Repaired 2026-11-23 (Maxim's go).
 
 ---
 
