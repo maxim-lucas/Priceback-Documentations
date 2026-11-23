@@ -12851,6 +12851,16 @@ drop.
 - **Note:** no shipped build sends the cap, so shoppers see promo codes only from the next app build.
 
 
+## 2026-11-21 — Every timestamp shown in Toronto time; receipt gwltb root cause (RC-63)
+
+- **Ask (Maxim):** "convert all the timestamp in the app in all tables … with the actual toronto timezone, you can use a function for the UI or … convert on save"; "this should go on main and main-test-feature". Plus: the production receipt waiting for review that the parser can't fix — check it, and document the root cause and any optimisation (document only).
+- **Done:** the function approach. Stored timestamps are `timestamptz` instants and are not rewritten. One definition, `shared/displayTime.js`, wired into every place a timestamp is turned into text (`Technical/Display_Time_Zone.md`). The PR is on main, and a sync PR carries it to main-test-features.
+- **Receipt `r_1795303592862_gwltb`** (Rimouski #1720, iOS 3.6.4): RC-63 in `Technical/Receipt_Parser_Root_Causes.md`. Not repaired; the parser was not changed.
+
+## 2026-11-22 — Times: shoppers on their own clock, the admin on Toronto (refines 2026-11-21)
+
+- **Ask (Maxim):** "all users should get the time … based on their timezone … admin should also see based on their timezone even the other users events … the activity dashboard and the other scans date … i am the only admin so it should always be toronto".
+- **Done:** #633 had put shopper screens on Toronto too; that is reverted, and shopper screens follow the device again. Every admin screen, the admin recap email and the drop evidence text now use `adminDay` / `adminDateTime` (Toronto), with one calendar-value rule (`isCalendarLike`) so a purchase date is never converted to another zone. `Technical/Display_Time_Zone.md` was rewritten; CLAUDE.md has the standing rule.
 ## 2026-11-22 — Resume list: the CI test-database option written up; RC-63 tax and warehouse traced
 
 - **Ask (Maxim):** "document the option (faster) with the test having its own database, the database we have today is on the cloud and we dont have any dedicated server only railway so i need more details, also continue working on the list the remaining points".
@@ -12964,6 +12974,12 @@ drop.
 - **Subscribers (#663 main, #664 mtf):** the phone ended its cached plan on its own clock at the cached period end, which a renewal moves on the server first. The plan now holds until the later of the period end and the server's last confirmation, plus 72 h. The server's "not a subscriber" after the period end ends it at once. Credit history, Plan & credits, Profile/Me and Notifications show no credits to a subscriber. Details in `Bugs_Common_Fixes.md`.
 - **Maxim's:** merge #662 before #664 (its coverage floor). The fix reaches phones with the next app build.
 
+## 2026-11-22 — Pre-merge audit of main-test-features (Store Spaces v2) against main
+
+- **Ask (Maxim):** *"run a full audit on the main-test-features branch and to make sure that all the new design behave like the main branch or better no regression at all, check every small detail (navigation, buttons, actions, scans, drops, ...etc) the backend shouldnt be touched all was just on the design but i want to make sure the existing users wont be lost … 0% regression risk accepted, everything should be fixed or documented to be done"*, plus UI recommendations (multi-store navigation, receipt filters).
+- **Found:** the backend is not design-only (53 files, migrations 0053 + 0058, new routes), but every change is gated on `X-App-Caps` or additive: 104/104 old-build compat tests pass on dev. **Blocker:** 0058 is not on prod while `db/schema.js` declares its columns, so a deploy would fail the boot seed and receipt saves for every build. The journal had drifted (0053 missing, two `when` swapped, 0058 would be skipped). `npm test` was red (a `mainTabs` test leak; 14,500 tests green). Existing shoppers: no storage change, launch gate unchanged, 593/593 accounts already had their credits (none sent to screen H).
+- **Done (app PR `audit/mtf-design-regressions` → main-test-features):** journal fixed + `migrationJournalLedger.test.js` (pins prod's ledger); `seedWarehouses` guarded; `mainTabs` leak; Receipts empty states, refused receipts past their window, count line; Deals search on `shared/productSearch`. EN + FR. Docs: `Technical/Store_Spaces_v2_Pre_Merge_Audit_2026-11-22.md`, follow-ups updated.
+- **Maxim's:** apply 0058 to prod before merging mtf → main (SQL + ledger row in the audit doc §7); decide D1–D9 (one Home screen, store pills only with 2+ stores, one-tap scan, the unrecognized-store question, …).
 ## 2026-11-23 — main-test-features: Deals/Warehouse prices empty, Unlimited tools, back navigation, Home/Receipts/Me (Priceback #667 → main, #668 → mtf)
 
 - **Ask (Maxim):** Deals and Warehouse prices load no data (high priority); Email Sync, Price Checker and the price scanner Unlimited-only, straight to the paywall, price-tag credit reward held; back gesture to the previous or parent screen, the admin desk left only from AdminHome; Receipts search under its button; Home stores/receipts as full accordions open by default, the active section listing receipts; hero on the savings page with no drop; Costco tools order; Me without the Costco row, the guarantee and the price-tag tile (watch-ad tile instead); photos or the placeholder on Deals and Warehouse prices; Warehouse prices rows open a shopper price history (catalogue + savings harvest only); merge to both branches.
@@ -12982,3 +12998,19 @@ drop.
 - **(4):** built as rule 8d (`dropApprovalPlan`), under `SAVING_DROP_AUTO_APPROVE` (off on prod).
 - **Applied on prod 2026-11-23 (Maxim's go):** migration 0060 + ledger row; 5 lines relinked (CAT pants `3n19q` → 1640008, RC-64 ×4); waiting drops approved the rule-8d way from a script on the new code: #13306 ($10, locked, no top-up: 79 > 45); #13661 +33 credits, unit 1 unlocked then unit 2 locked; #13313 re-staged as #14163 at $19.93 (full $5), unit 1 from the balance then unit 2 locked. A second copy of "already told" in `savingDropRepo` ignored the units (the 2nd units closed as superseded); fixed in #673, rows revived and sent. Until #673 deploys, the old server locks those two lines in the app (its lock reads every `drop:<line>:` charge).
 - **Correction (Maxim, same day):** a 2-unit claim must not show whole, nor lock whole: "split the quantity in 2 separate lines in the receipt, the first one is unlocked and the 2nd one is locked". Prod #14163 / #13661 split by hand (lines 8571 → +11118, 9451 → +11119); the approve now splits the line (`splitForUnits`). Closed #676 / #677 (lock-the-line).
+## 2026-11-23 — Backend speed: the Price-drop desks and the connection pool (Priceback #675 → main, #678 → mtf)
+
+- **Ask (Maxim):** "the app was very slow and still very slow specialy for price drop queue … i think the problem is not the database … prod is in supabase Micro … up to 60 connections"; then "should we scale on railways if there is any option under the 5$ cap".
+- **Measured first (read-only, prod):**
+  - `pg_stat_statements`: cache hit 99.9997 %, largest table 93 MB. The sweep query (`findNotifiable`, `WITH watched AS …`) averages 0.8–4 s, with a max of 18.6 s.
+  - Railway: CPU < 0.03 vCPU at the hourly peak, memory 2–11 %, queue desk p50 1.46 s, Potential p50 1.74 s, shopper routes 40–140 ms.
+  - `job_runs`: Same-Day Costco harvest 33 min/run. Its writes are batched; the time goes to HTTP fetches.
+- **Cause:** every opening of the queue desk re-ran the sweep (`closeStaleQueue`) before listing, on a backend that opens 5 of the 60 connections. Web, ~30 crons, harvests and sweep share them in one process.
+- **Done (hotfix):**
+  - the heavy re-check now runs behind the listing, one run at a time, at most every 120 s (`cleanQueue`, `PRICE_DROP_QUEUE_CLEANUP_MIN_SECONDS`); the sweep and each savings harvest force it;
+  - the structural checks (0.4 ms) stay before the listing;
+  - the Potential desk's two reads run in parallel;
+  - `/health` → `dbPool`.
+- **Railway scaling:** not now. $3.05 estimated for the month, the limits already sit at 8 vCPU / 8 GB, a second replica would run every cron twice, and us-east4 is the closest region.
+- **Owed (Maxim):** read the prod pooler's *Pool size* in Supabase and set `DB_POOL_MAX` on Railway prod to it minus 3.
+- **Spec:** `Technical/Backend_Performance.md`.

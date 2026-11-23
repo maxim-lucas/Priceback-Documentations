@@ -57,6 +57,21 @@ store-selection step takes the picked store.
 - Single-store mode keeps the space's Home button leading to the all-stores Home.
 - Tab labels no longer scale with the phone's text size (fixed 62 px bar).
 
+## Pre-merge audit (2026-11-22)
+
+Full report: `Technical/Store_Spaces_v2_Pre_Merge_Audit_2026-11-22.md`. In short:
+
+1. **Blocker — migration 0058 on production first.** `db/schema.js` already declares its two columns, so a backend
+   from this branch on a database without 0058 fails the boot seed and every receipt save, for every installed build.
+2. **Fixed in the audit PR:** the journal (0053 missing, two `when` swapped, 0058 would be skipped), the boot seed guard,
+   the `mainTabs` test leak that turned `npm test` red, Receipts' empty states (an empty active view no longer says
+   "No receipts yet" to a shopper with history), refused receipts past their window (listed nowhere before), the
+   receipts count line, and Deals search on the one product-search rule.
+3. **For Maxim to decide (audit §5):** D1 one Home screen (launch ≠ tab press today, and the switch on slow networks),
+   D2 store pills only with 2+ live stores, D3 one-tap scan with one store, D4 the "unrecognized store" question when
+   the pick was only the default, D5 the alerts-off popup on every scan, D6 duplicate social rows on Me, D7 tab label
+   scaling, D8 the store policy overview lost with the Stores tab, D9 server-side Deals search + pull-to-refresh.
+
 ## Related roadmap entries
 
 - `Roadmap/Unlimited_Free_Trial.md` — the free week, now built here.
