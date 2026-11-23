@@ -71,10 +71,20 @@ POP of one screen):
 2. A screen with a declared parent (`PARENTS`) opened straight from the tabs goes to its parent.
 3. Otherwise the previous screen.
 
-Also: iOS edge swipe on (the stack animates on iOS only; Android keeps no animation and its system back gesture);
-the scan modals are swipeable; boot screens are not. The tab bar goes back through the tab history
-(`backBehavior="history"`). Inside the Home tab (store space ↔ all-stores Home, not routes) Android's back returns to
-the previous view first (`navigation/homeViewHistory`). Pinned by `__tests__/backTarget.test.js`.
+Also, the **swipe-back works the same on iOS and Android** (Maxim, same day: "the swipe-back should also work on
+android"). A swipe right that starts within 60 dp of the left edge goes back:
+- every stacked screen: the root stack slides cards in from the right on both platforms with the swipe on
+  (`navigation/swipeBackCard`, React Navigation's own gesture, which Android has off by default). Until then the
+  stack had no animation at all, and Android had no in-app swipe;
+- views that are not routes (Home's store space ↔ all-stores Home, the Receipts claimed/expired history):
+  `components/EdgeSwipeBack`, the same edge and distance (`navigation/swipeBack`: 80 dp or 0.5 dp/ms to the right,
+  more sideways than vertical). Android's system back does the same there (`BackHandler`), and the Home tab keeps
+  its view history (`navigation/homeViewHistory`).
+
+Android's system back gesture keeps working: with gesture navigation it owns the first few dp of the edge and sends a
+hardware back, handled the same way. Swipeable: the scan modals; not: the boot screens and Main. The tab bar goes back
+through the tab history (`backBehavior="history"`). Pinned by `__tests__/backTarget.test.js` and
+`__tests__/swipeBack.test.js`.
 
 ## 6. Home and Receipts
 
