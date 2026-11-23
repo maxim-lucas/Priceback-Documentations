@@ -228,10 +228,21 @@ hygiene then closes the $24.42 row (a waiting, undecided row is closed when the 
 > *"in the price drop queue, there is again a prorato of the saving on an item, the saving is 5$ so the drop should be
 > 5$ (a complete 5$) never less"* … *"i want you to fix the root cause, not only the item"* (Maxim, 2026-11-23)
 
-Rule 8 made the full saving the drop for a product sold by the pack. It now holds for **every** savings drop: the new
-price is the **lower** of today's shelf sale price (Same-Day's in-store price, when the harvest read one) and what the
-shopper paid per unit less the saving. So the drop is never less than the saving. It is more only when the shopper paid
-more than the regular price and the shelf price is lower still.
+> *"it should be the total savings for the user paid amount not the difference always. the saving is the rule"* …
+> *"the paid price can change per warehouse"* (Maxim, 2026-11-23, the final wording, PR #682)
+
+Rule 8 made the full saving the drop for a product sold by the pack. It now holds for **every** savings drop, and the
+drop **is** the saving, exactly: **new price = what this shopper paid per unit − the official saving.** Never a
+difference with a shelf price, in either direction: not less than the saving (the #13313 case below), and not more
+either (a shopper who paid above the regular price still gets the saving, not the gap to the shelf).
+
+The shelf price keeps one job: deciding **whether** there is a drop. A line already paid at the sale price has none.
+
+"Paid the regular price" (`paid_regular` in the confidence) is now a **note**, never a penalty and never a hold: paid
+prices vary by warehouse, so a paid price a few cents off the regular one says nothing against the drop.
+
+> **History.** The first fix the same day made the new price the *lower* of the shelf sale price and paid − saving
+> (`LEAST(shelf, paid − saving)`). Maxim's answer replaced it: the saving is the rule, always.
 
 **The case.** #13313, DRONE MINI 2707238, Boisbriand, 2 units. The paper prints $24.93 a unit (its subtotal closes to
 the cent). The Same-Day sale price is $19.99 (regular $24.99, $5 off). The sweep priced the drop off the shelf price:
@@ -241,8 +252,8 @@ $24.93 − $19.99 = $4.94 a unit. With this rule it is $24.93 − $5 = $19.93, a
 (`COALESCE(shelf, paid − saving)`), so any shopper who paid a few cents under the regular price got a prorated drop.
 
 One definition: `savingRules.savingNewPrice` (JS, read by the confidence's `new_price_matches`) and its SQL twin, the
-`newPrice` of `savingDropRepo.findSavingDrops` (`LEAST(shelf, paid − saving)`). The confidence check now passes a
-drop at paid − saving below the sale price, and says "the full saving".
+`newPrice` of `savingDropRepo.findSavingDrops` (`unitPaid − s.amount`). The confidence check says "New price is the
+paid price less the saving" and, when the shelf shows another price, "the saving is the rule".
 
 **The row already waiting.** #13313 waits at $19.99. The next sweep stages the $19.93 row, and the hygiene closes the
 $19.99 one (rule 8's mechanism).
@@ -321,6 +332,51 @@ One definition: `services/savings/dropApprovalPlan.planForShopper` (pure), appli
 
 **Off today.** `SAVING_DROP_AUTO_APPROVE` is false on prod; with it off nothing is approved (the drops are only
 flagged, as before). The switch is Maxim's.
+
+### 8e. Fresh fruits and vegetables: a lower price alone is never a drop (2026-11-23)
+
+Maxim, 2026-11-23: fresh fruits and vegetables are excluded from the Price-drop queue **and** from Potential price
+drops when the only evidence is a lower price. **An official saving on them still counts.**
+
+**Why.** Costco's support told Maxim it does not adjust the price of fresh produce when the price moves. A fresh price
+follows the harvest and the season, and the desk agent refuses it. A saving (an instant saving, a flyer coupon) is a
+promise Costco keeps, so it stays a drop.
+
+**The case.** Clementines (SKU 21366, Same-Day "Clementine Oranges", 412), queue #12962 to #12967: six lines queued
+at $6.99 from one price point (325971) because the price went down after the purchase. No saving stood behind it
+(`saving_id` empty on all six). Five were sent, one rejected. None was a drop Costco would honour.
+
+**What is fresh produce.** One of these holds:
+
+- an admin said so: the **Fresh produce** button on a Potential card (`products.fresh_produce = true`, migration 0061;
+  Undo clears it);
+- no admin said otherwise (`fresh_produce IS NULL`) and Same-Day files the product under a fresh fruit or vegetable
+  category. The list is Same-Day's own category ids (`product_categories.source_category_id`), read from prod on
+  2026-11-23: apples, pears, grapes, berries, citrus, melons, mangoes, kiwis, stone fruit, bananas, avocados,
+  pineapples, pomegranates, persimmons; potatoes, onions, garlic, ginger, lettuces and greens, fresh herbs, mushrooms,
+  peppers, tomatoes, cucumbers, carrots, celery, squash, cabbages, broccoli, cauliflower, asparagus, corn and the rest
+  of the fresh vegetable aisle.
+
+`fresh_produce = false` is an admin's "not fresh produce" and overrides the category. Left out of the list on
+purpose: frozen, canned and dried fruit and vegetables, juices, prepared salads and vegetables, salad kits, party
+trays, gift baskets, dips, and San Marzano tomatoes (sold canned). A category id rather than a name, because a name
+matches "Apple Juice", "Canned Peaches" or "Potato Chips". A product the list misses is one tap on the desk; a new
+Same-Day category joins the list in the code.
+
+**Where it applies.** Every price-group path: the verified sweep (`priceDropRepo.findNotifiable`), Potential
+(`potentialDropRepo.listPotential`), and the queue's structural check (`priceDropQueueRepo.closeIneligible` closes a
+waiting price-group row as "fresh produce: a lower price without a saving is no drop"). The savings path
+(`savingDropRepo`) never reads it. A queue row a saving stands behind (`saving_id` set) stays.
+
+One definition: `backend/lib/freshProduce.js` (`freshProduceSql`, JS twin `isFreshProduce`, the list
+`FRESH_PRODUCE_CATEGORIES`). Admin route `POST /api/admin/products/:id/fresh-produce` with `{ fresh: true | false |
+null }`. Admin · Price lookup and Price history show "fresh produce" beside "sold by the pack".
+`backend/tests/freshProduce.test.js` pins the definition and its callers (and that the savings path is not one);
+`backend/tests/potentialDropDb.test.js` pins the behaviour against the dev database.
+
+**Production.** Migration 0061 (one nullable column) must be applied to prod by hand **before** this code deploys: the
+sweep reads the column. Read on 2026-11-23: no waiting (pending or approved) price-group row on prod is fresh
+produce by its category, so the deploy closes nothing; it stops new ones.
 
 ### 9. The harvest is never a price tag; an ended saving is a missed drop (2026-11-19)
 

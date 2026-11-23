@@ -13014,3 +13014,13 @@ drop.
 - **Railway scaling:** not now. $3.05 estimated for the month, the limits already sit at 8 vCPU / 8 GB, a second replica would run every cron twice, and us-east4 is the closest region.
 - **Owed (Maxim):** read the prod pooler's *Pool size* in Supabase and set `DB_POOL_MAX` on Railway prod to it minus 3.
 - **Spec:** `Technical/Backend_Performance.md`.
+
+## 2026-11-23 — Rule 8b final (the saving is the rule) and fresh produce never a drop on price alone (Priceback #682, fix/fresh-produce-no-price-drop)
+
+- **Ask (Maxim):** a savings drop is the total saving off what the shopper paid, never a difference ("the saving is the rule"); fresh fruits and vegetables are no price drop on a lower price alone, on the queue and on Potential, while an official saving on them still counts (Costco support: no price adjustment for fresh produce). Document both, with the clementine case, and put RC-63 before RC-64.
+- **Done:**
+  - #682 (rule 8b, merged by Maxim): new price = paid − saving, always; `paid_regular` is a note. Re-verified on `main`: `savingsHarvestDb` + `savingsQualityDb` 41/41 on the dev DB. Synced to main-test-features (#683).
+  - Fresh produce (rule 8e): `backend/lib/freshProduce.js`, one definition (Same-Day category ids read from prod, plus the desk's **Fresh produce** flag, `products.fresh_produce`, migration 0061). Called by `findNotifiable`, `listPotential` and the queue's `closeIneligible`; never by the savings path. Route `POST /api/admin/products/:id/fresh-produce`; the button on the Potential desk; "fresh produce" on Price lookup / history.
+  - Prod read: the clementine rows #12962–12967 are all SKU 21366 in Same-Day 412 with no saving (5 sent, 1 rejected); no fresh-produce price-group row waits today.
+  - Docs: `Price_Drop_Sweep_Rules.md` 8b final wording + new 8e; `Receipt_Parser_Root_Causes.md` RC-63 now before RC-64 (pure move, plus RC-64's missing separator).
+- **Owed:** migration 0061 on prod **before** the fresh-produce PR merges (the sweep reads the column).
