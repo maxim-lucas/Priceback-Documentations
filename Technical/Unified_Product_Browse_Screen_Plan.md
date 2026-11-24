@@ -10,6 +10,33 @@
 
 **Spec:** `Technical/Unified_Product_Browse_Screen.md` (approved by Maxim, 2026-11-24).
 
+## Review, 2026-11-24 (supersedes the items below where they disagree)
+
+Maxim was not confident in the first version. A second pass, against the **current** `main-test-features`
+(the first was written 126 commits behind it: Deals photos, shopper history, the routes fix, Deals ads had landed)
+and against production data, changes five things. Goal: the most useful screen for shoppers at the lowest
+running cost.
+
+| # | Change | Why (measured) | Cost effect |
+| --- | --- | --- | --- |
+| R1 | **Category filter deferred, pending Maxim's yes** (it was an approved goal). Search covers it for now. | Categories are Same-Day leaves ("Lemon Juice", "Pickles"): 1,605 of them. In live savings the **median category holds 1 product**, and only 40 of 289 hold 3+. Only 37% of products have one, so choosing a category would hide 63% of the matching products and suggest Costco has none. | Removes the facet query and the 1,605-row picker. |
+| R2 | Revisit categories when the catalogue harvest stores a **department** level (~20 groups) and coverage is ≥ 80%. Then: a short row of department pills, not a searchable list. | A filter has to answer "show me TVs", not "show me Lemon Juice". | One harvest field, no new job. |
+| R3 | **Warehouse prices skips the community fallback it throws away** (PR #690, to `main`). | `searchFor` ran up to 4 fallback queries per search for products without an official price; the route maps every fallback to "no price yet". | About half the route's queries, on every keystroke. |
+| R4 | **Warehouse prices price band / price sort stay windowed, but are honest.** Windowed only while a band or a price sort is on; the response gains `partial: true` when more than 300 products matched; the app then says "Add a word to see every match" instead of a capped count. With R3 the window costs the same 4 batched reads whatever its size. | The official price is computed after SQL (one definition, `officialLine`); a SQL twin would be a second definition of the official price, which the one-rule standing order forbids. With a search word, matches are almost always under 300, so the result is exact. | No extra query. |
+| R5 | **Search: 300 ms debounce, 2 characters minimum, the in-flight request cancelled** (AbortController) in both modes. | The Deals search today narrows only the 50 loaded rows (`DealsScreen`, "narrows the LOADED rows"), so a product on page 2 is "not found": server `q` fixes that. Each Deals request filters the 30-min cached place rows in memory, plus 3 small queries. | Fewer requests, none stale. |
+| R6 | **Warehouse names are places, never "Costco 1811 - …"** (PR #691, to `main`). | 3 production rows held Same-Day's label (root cause and rule: `Technical/Warehouse_Names.md`). The shared warehouse filter of Task 5 shows them. | 1 UPDATE at boot (0 rows once healed). |
+
+Unchanged: approach 1 (one `ProductBrowseScreen`, two wrapper routes), the stock rule (≤ 24 h; evaluated per request on
+the cached rows, so it costs nothing per request), no new scheduled job, backend additive and to `main` first.
+
+Task edits that follow from it:
+- **Task 1**: drop `categoryFacets`.
+- **Task 2**: no `category` parameter or `categories` facet; `q` stays.
+- **Task 3**: no `category` or `categories`; add `partial`; pass `officialOnly: true` (already done by #690).
+- **Task 4**: no `categoryName`; the debounce and cancel of R5 in both services.
+- **Task 6**: the sheet is **Where · Price · Sort** (no What section, no `CategoryPicker`).
+- **Task 7**: the rows already carry `imageUrl` (no placeholder work); "Add a word to see every match" when `partial`.
+
 ## Global Constraints
 
 - Backend is additive only: new request parameters optional, an old request returns exactly what it returned before; no migration (`products.category_id`, 0054, is live in prod).
