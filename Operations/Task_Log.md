@@ -13041,3 +13041,21 @@ drop.
   - Plan review: `Technical/Unified_Product_Browse_Screen_Plan.md` § "Review, 2026-11-24" (category filter deferred pending Maxim's yes, honest `partial` window, search debounce and cancel).
   - Mussels: analysed, recommendations given to Maxim, no code changed (his call).
 - **Owed:** Maxim merges #690 and #691 into `main`, then syncs into main-test-features. Maxim decides on R1 (categories) and on the Potential recommendations. Find out where the "admin simulator" is.
+
+## 2026-11-24 (cont.) — Rule 12 built, desk tiles, browse backend (Priceback #695–#706)
+
+- **Potential rule 12 (#696):** `officialCoverageSql`; Business Centre Same-Day counts as official; staleness 48 h
+  (measured: 98% of regular prices within 48 h, 50% within 24 h). Mussels leaves Potential.
+- **savingsIngest test (#695):** a date time bomb (fixture savings ended 2026-11-22), now pinned to its own day.
+- **Admin desk (#698 main, #699 mtf, #702 port to main):** Run sweep tile says the last run and follows a running
+  sweep live (server step, 5 s poll); tiles coloured only when needed; receipt rows: dates on their own line,
+  flags as labelled badges; drop cards: the price source full width, one stock line; preview card without
+  swipe-back (Android hero). **Owed: Maxim confirms the preview hero slides on Android.**
+- **Migration 0062 (#701)** applied by hand to dev and prod (ledger rows); 0058 found applied on prod, journal
+  reordered to prod's created_at, ledger test pins both, nothing owed (#703).
+- **Browse backend (#701, #704, #705):** Same-Day departments on every category (category pass + backlog, live
+  check: Strawberries → Fresh Produce, Ground Beef → Meat, Paper Towels → Household Essentials); `/api/deals`
+  `search`, `category`, stock ≤ 24 h, `categories`; `/api/me/warehouse-prices` `offset`, `category`, `price`,
+  `sort`, `total`, `partial`, `categories`. The search parameter is `search` (`q` already meant quick filters).
+- **Next:** app Tasks 4–7 (services, warehouse filter, grouped sheet with departments, the shared screen), the
+  FR overlay of the departments once the backfill has run on prod (the next Same-Day catalogue run).
