@@ -48,6 +48,13 @@ Changing a rate (`firstAfter`, `every`, `max`) is one line in the table; every s
 
 ## 4. Turning it on (checklist)
 
+0. **Prerequisite — the SDK is not in store builds today (release audit 2026-11-24).** `react-native-google-mobile-ads`
+   links only in the lab lane (`labEnabled`), and `app.config.js` `assertLabIsOffInProduction` refuses a production
+   build with it, with no override (#293 / #295: play-services-ads Kotlin metadata vs Expo 55's Kotlin). Until the ads
+   SDK is moved out of the lab lane onto its own switch (its config plugins + autolinking, a Kotlin-compatible
+   play-services-ads), **no banner and no watch-an-ad tile can appear in a Play / App Store build**, whatever the
+   switches below say. That move is its own PR, proven by a production EAS build.
+
 1. AdMob: one banner unit per slot (`dealsFeed` MREC, `dealsFooter`, `warehousePricesFooter`), app-ads.txt crawled.
 2. Build: `extra.adsEnabled = true`, lab lane on, unit ids in `extra.admobBannerUnitId` (today one id serves every
    slot; per-slot ids are a follow-up in `getBannerUnitId(slot)`).
