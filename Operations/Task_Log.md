@@ -13059,3 +13059,16 @@ drop.
   `sort`, `total`, `partial`, `categories`. The search parameter is `search` (`q` already meant quick filters).
 - **Next:** app Tasks 4–7 (services, warehouse filter, grouped sheet with departments, the shared screen), the
   FR overlay of the departments once the backfill has run on prod (the next Same-Day catalogue run).
+
+## 2026-11-24 (cont.) — Departments from Same-Day in both languages, paywall test (Priceback #708–#711)
+
+- **Finding:** every `product_categories.name_fr` in prod (1,605) equals `name_en`. Same-Day's category reads ignore the
+  locale. **Owed:** the leaf category's French name needs a real source (or none shown). It is shown on the admin price
+  lookup today.
+- **0063 (#710):** Costco's Same-Day departments, both languages from Same-Day; applied to dev and prod by hand. The
+  filter and the counts on Deals and Warehouse prices use them; the app prefers Same-Day's French, then our
+  translation, then English (#711).
+- **paywallAnnualBadge (#708, #709):** the amount is formatted on the device locale (en-CA "$9.89", en-US "CA$9.89"); the
+  test now accepts both. Code unchanged.
+- **Executive member savings:** not readable as a Same-Day guest. Options: `Roadmap/Executive_Member_Savings.md`.
+- **Maxim runs the Same-Day catalogue harvest from the desk** to fill the departments in prod.
