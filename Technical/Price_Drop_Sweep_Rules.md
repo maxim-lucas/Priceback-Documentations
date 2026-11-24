@@ -524,6 +524,25 @@ province, purchase, windowDays })`, read by `listPotential` (exclude covered lin
 evidence) and by the sweep (a covered line takes the official answer). Parity test: no line is both covered and
 listed on Potential.
 
+**12.6 Built (Priceback #696, 2026-11-24).** `priceDropRepo.officialCoverageSql` (Same-Day warehouse and Business
+Centre rows, the catalogue regular prices, official savings, the stock reads), `POTENTIAL_OFFICIAL_FRESH_HOURS` = 48.
+Daily harvests, but 98% of regular prices are read within 48 h and only 50% within 24 h (each product's daily run lands
+at a different hour), so 24 h would push half the products in and out of Potential every day.
+
+**12.7 Next (Maxim, 2026-11-24), not built.** *"if there is any potential price drop, i check it manually in sameday
+website and if i dont find it i dont approve … only the clearance can differ … i want the app to be sure or check this
+online … automate the real warehouse clearance based on rule of N … in the same warehouse. The target is if ever costco
+or sameday are blocked … we can still rely on the users receipts as source of truth but this will be more accurate when
+we have more volume."*
+1. **The app checks Same-Day for each Potential card**, the check Maxim does by hand: one live read of the product at
+   the line's warehouse (the stock read's own call, `warehouse_stock_reads`). An official answer settles it (12.1). Only
+   a card Same-Day cannot answer stays for the admin. Cost: one read per Potential line per day, bounded by the list.
+2. **A same-warehouse clearance by rule of N:** a .97 seen on N different shoppers' receipts **at the same warehouse**
+   is a clearance for that warehouse's lines, sent without a charge, automatically. It ships OFF and is measured first
+   (ground rule 6); the switch is Maxim's.
+3. **Receipts as the source of truth when a harvest is blocked:** already the case. Past 48 h with no official reading,
+   receipts are the evidence. With more shoppers, N can rise.
+
 **The case that set the rule: Farmed Blue Mussels #18747 (prod, 2026-11-24).** Line 4752 (QC, Sherbrooke #1367) and
 line 7876 (ON) were told on 2026-11-23 at $11.99 = $15.99 paid − Costco's $4 saving (queue 11302, 12341, sent). The
 same harvest read $11.49 in QC (regular $15.49, "manufacturer_promo", the same $4) at five other QC warehouses, not at
