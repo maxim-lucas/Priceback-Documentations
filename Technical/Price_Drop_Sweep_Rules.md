@@ -502,7 +502,20 @@ decides (12.1). Mussels case below.
 4. **The evidence is not an official row.** An official row (Same-Day, costco.ca) is never Potential evidence and never
    carries "UNVERIFIED" on the desk. It decides (12.1) or it does not cover (12.2).
 
-**12.4 Never on Potential.** A line whose product has official coverage. A line an official saving already told (the
+**12.3b Stock is official status too (Maxim, 2026-11-24).** *"i think none is a real potential price drop it is just
+speculations or maybe an out of stock item, but since we also added the stock flag we should mainly be based on that
+too."* An official stock reading for the line's product at its warehouse (Same-Day's availability, the harvest's
+`flags.stock` / `liveChecks`, `warehouse_stock_reads`, judged by the one stock rule `stockStatusOf`) covers the line
+like a price does:
+- **out of stock** at the warehouse → no Potential drop (a lower price seen elsewhere is not one this shopper can
+  claim; an official drop that is out of stock keeps "Approve without charge", rule 6);
+- **in stock** with an official price → that price decides (12.1).
+A stock reading counts while it is fresh, under the same staleness bound as 12.3.1.
+
+Maxim's review of the whole Potential list on 2026-11-24: none was a real potential drop. Each was a speculation
+beside an official reading, or an out-of-stock item. That is the case for building 12.5.
+
+**12.4 Never on Potential.** A line whose product has official coverage (a price, a saving or a stock reading). A line an official saving already told (the
 shopper got the saving; another warehouse's regular minus the same saving is not a further drop). A group whose only
 evidence is official rows.
 
