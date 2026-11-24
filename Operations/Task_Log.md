@@ -13030,3 +13030,14 @@ drop.
   - Prod read: the clementine rows #12962–12967 are all SKU 21366 in Same-Day 412 with no saving (5 sent, 1 rejected); no fresh-produce price-group row waits today.
   - Docs: `Price_Drop_Sweep_Rules.md` 8b final wording + new 8e; `Receipt_Parser_Root_Causes.md` RC-63 now before RC-64 (pure move, plus RC-64's missing separator).
 - **Owed:** migration 0061 on prod **before** the fresh-produce PR merges (the sweep reads the column).
+
+## 2026-11-24 — Review of the browse-screen plan, warehouse names, Mussels in Potential (Priceback #689, #690, #691)
+
+- **Ask (Maxim):** "I am not confident on his decisions or recommendations, can you fix what has been done and have the most effective results for users without over consuming the service and the infrastructure"; then warehouse names showing their number (1811); the admin simulator hero that does not swipe; Mussels shown in Potential after being approved.
+- **Done:**
+  - Git fetch repaired (two remote-tracking refs pointed at missing objects; recreated from the remote with the same values; no tag touched). The three stranded local commits were rebased: two were already upstream in a fuller form, and the rest shipped as #689 (merged to main-test-features).
+  - #690 (to `main`): Warehouse prices no longer runs the community fallback it discards (up to 4 queries per search).
+  - #691 (to `main`): warehouse names, root cause plus rule: `Technical/Warehouse_Names.md`.
+  - Plan review: `Technical/Unified_Product_Browse_Screen_Plan.md` § "Review, 2026-11-24" (category filter deferred pending Maxim's yes, honest `partial` window, search debounce and cancel).
+  - Mussels: analysed, recommendations given to Maxim, no code changed (his call).
+- **Owed:** Maxim merges #690 and #691 into `main`, then syncs into main-test-features. Maxim decides on R1 (categories) and on the Potential recommendations. Find out where the "admin simulator" is.
