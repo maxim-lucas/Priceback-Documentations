@@ -148,6 +148,21 @@ warehouse: ≈ 100–150 requests a day). It gives a regular price and the stock
 warehouse, and closes item 5. A second Same-Day session opened right after a first one was refused once
 (`no_session`), then worked: space the runs.
 
+## Held for cost (2026-11-24)
+
+Maxim, 2026-11-24, on the shopper's Deals / Warehouse prices screen: *"Exclude stock for now to avoid extra cost but
+document it in the roadmap with the reason of the hold for now (cost), notifications for stock hold too."* Stock on
+**savings only**, from readings we already hold (`flags.stock`, `flags.liveChecks`, `warehouse_stock_reads`), is in
+scope and costs nothing new. Two things are **on hold**:
+
+| Held item | Why held (cost) | What releasing it needs |
+| --- | --- | --- |
+| Stock on every Warehouse-prices product, at the shopper's warehouse | A full read of every item at every warehouse is ≈ 25,700 requests, ≈ 8 h a day (§7a): not affordable under the infrastructure rule. Only watched pairs (≈ 1,849) are read daily today. | A measured, targeted read (§7a's recommendation extended to the pairs shoppers actually browse), with its requests/day stated in the PR |
+| "Notify me when back in stock" bell (selected warehouse, or any within 25 miles) | New subscription table, a job that detects out → in, a push per match, and a stock read for every subscribed pair (cost above); the 25-mile spread multiplies the pairs read. | Subscription table + detect job + push, built on a daily read whose cost is approved |
+
+The shopper's screen shows out-of-stock savings with an "Out of stock" label and **no bell** until this is released.
+Design: `Technical/Unified_Product_Browse_Screen.md`.
+
 ## What each store taught this doc
 
 - 2026-11-21: the Saving dates screen lists prices without an end date, not savings: a saving's stock belongs on the queue.

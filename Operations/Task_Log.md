@@ -16,6 +16,12 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-24 — One screen for Deals and Warehouse prices (design approved, plan next)
+
+- **Asked (Maxim):** unify the screens that manage prices and products on `main-test-features`: same screen and filters, titles differ, existing navigation kept; one warehouse filter (Warehouse prices' picker) everywhere; category and price-range filters; a link between the two; Costco badge on the title line; keep every Deals top-level filter. Stock: savings only, **a reading at most 24 h old or no line** (never "was in stock 5 days ago"); stock on every product and the back-in-stock bell are **held for cost** (roadmap). Also: apply prod migration 0058, commit the pending catalogue work; backend merges to `main`, the app builds from `main-test-features` (deploy flow); always commit and merge.
+- **Kept:** every Deals top-level control; the price-drop, window and receipt rules; additive-only backend.
+- **Done:** prod migration 0058 applied (`warehouses.street_address`, `postal_code`) + ledger row 73; catalogue commits `67472292`, `55708160`, `4a76fc31` on `main-test-features`; design `Technical/Unified_Product_Browse_Screen.md`; roadmap section "Held for cost (2026-11-24)".
+- **Status:** design approved; implementation plan being written.
 ### 2026-11-16 — Potential price drops: clearance at other warehouses on its own list; Select all; queue-style cards (hotfix on main)
 
 - **Asked (Maxim):** a .97 clearance whose buyers shopped at other warehouses sat on Potential price drops with nothing to send ("send without charge" answers that a clearance holds at its own warehouse, and that block is right). Put such cards on a separate list or filter, off by default, with Select all as in the price-drop queue. Select all for the Potential list too. Button "Sold by the pack". The queue's card structure, keeping Potential's colours. Then: *"the rule of split applies on any source but only on different warehouse but same province and clearance only"*.
