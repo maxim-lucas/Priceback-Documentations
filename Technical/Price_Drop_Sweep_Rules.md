@@ -467,6 +467,71 @@ crowd-price paths disagreed.
 listed under SK, a Manitoba price is no drop for it, and verifying the SK price reaches the buyer with `provinceCode`
 MB. Both tests fail on the code before the change.
 
+### 12. Potential never questions an official source; what qualifies for Potential (Maxim, 2026-11-24)
+
+*"if we have a product with an official status (price, saving, stock, ...etc) from sameday or official costco website,
+we should never get these type of potential drops. this override any possible drop to any potential drop. the idea of
+potential is that we have a problem with a harvest, we have not seen or updated a product in a while and we suspect
+that we have a price drop … potential price drop never ever requestion the source of truth of an official source."*
+
+**Why Potential exists.** It predates the savings harvest. It is the safety net for what the harvest does not cover:
+a product no official source has read lately, or a harvest that failed. It is never a second opinion on an official
+reading.
+
+**12.1 The official source decides.** An official source is Same-Day (warehouse and Business Centre), costco.ca and
+costcobusinesscentre.ca. "Official status" is any reading from one: a regular price, a saving, a price, a stock
+reading. When one covers a line, that reading is the answer for the line:
+- it shows a drop for this shopper → the drop goes to the **Price-drop queue** by the trusted path (rule 1, savings
+  path rule 8b: paid − saving);
+- it shows no drop for this shopper → **no drop anywhere**, not on the queue and not on Potential.
+
+**12.2 Coverage.** An official reading covers a line when it is for the line's product, at the line's warehouse (a
+province-wide reading covers every warehouse of the province unless it names its warehouses: then only those, as in
+2026-11-12), read **after the purchase** and inside the claim window. A reading that names other warehouses of the
+province does **not** cover the line, but if another official reading covers the line's own warehouse, that one
+decides (12.1). Mussels case below.
+
+**12.3 What qualifies for Potential: all four.**
+1. **No official coverage** for the line (12.2): the product is unharvested at that warehouse, or the official reading
+   is older than the staleness bound (**open: 7 days proposed**, one harvest week), or that harvest's last run for the
+   province failed or read 0 items (the drift alarm, cost rule 4).
+2. **Untrusted evidence below N** (rule 2): a shopper's receipt, an unverified tag, a website or social post; or a
+   receipt deleted before review (rule 3).
+3. The line passes every line rule the sweep applies (window, materiality, sold by the pack, fresh produce, Executive,
+   province of purchase, already told at that price or lower).
+4. **The evidence is not an official row.** An official row (Same-Day, costco.ca) is never Potential evidence and never
+   carries "UNVERIFIED" on the desk. It decides (12.1) or it does not cover (12.2).
+
+**12.3b Stock is official status too (Maxim, 2026-11-24).** *"i think none is a real potential price drop it is just
+speculations or maybe an out of stock item, but since we also added the stock flag we should mainly be based on that
+too."* An official stock reading for the line's product at its warehouse (Same-Day's availability, the harvest's
+`flags.stock` / `liveChecks`, `warehouse_stock_reads`, judged by the one stock rule `stockStatusOf`) covers the line
+like a price does:
+- **out of stock** at the warehouse → no Potential drop (a lower price seen elsewhere is not one this shopper can
+  claim; an official drop that is out of stock keeps "Approve without charge", rule 6);
+- **in stock** with an official price → that price decides (12.1).
+A stock reading counts while it is fresh, under the same staleness bound as 12.3.1.
+
+Maxim's review of the whole Potential list on 2026-11-24: none was a real potential drop. Each was a speculation
+beside an official reading, or an out-of-stock item. That is the case for building 12.5.
+
+**12.4 Never on Potential.** A line whose product has official coverage (a price, a saving or a stock reading). A line an official saving already told (the
+shopper got the saving; another warehouse's regular minus the same saving is not a further drop). A group whose only
+evidence is official rows.
+
+**12.5 One definition** (to build, on Maxim's go-ahead): `priceDropRepo.officialCoverageSql({ product, warehouse,
+province, purchase, windowDays })`, read by `listPotential` (exclude covered lines, exclude official rows from the
+evidence) and by the sweep (a covered line takes the official answer). Parity test: no line is both covered and
+listed on Potential.
+
+**The case that set the rule: Farmed Blue Mussels #18747 (prod, 2026-11-24).** Line 4752 (QC, Sherbrooke #1367) and
+line 7876 (ON) were told on 2026-11-23 at $11.99 = $15.99 paid − Costco's $4 saving (queue 11302, 12341, sent). The
+same harvest read $11.49 in QC (regular $15.49, "manufacturer_promo", the same $4) at five other QC warehouses, not at
+#1367. Same-Day had #1367 at $11.99. Potential grouped (Mussels, QC, $11.49), found $11.49 < $11.99 ("a lower price
+than told") and listed line 4752 again. The card labelled the official harvest rows "UNVERIFIED PRICE". Under 12.1–12.4
+it is never listed: #1367 is covered by an official reading ($11.99, already told), and the $11.49 rows are official
+and name other warehouses.
+
 ## What stays from 2026-11-12
 
 - **The savings table answers first.** A price group answers only for a line no saving covers.
