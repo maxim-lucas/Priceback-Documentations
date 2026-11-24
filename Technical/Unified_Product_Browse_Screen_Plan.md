@@ -19,8 +19,8 @@ running cost.
 
 | # | Change | Why (measured) | Cost effect |
 | --- | --- | --- | --- |
-| R1 | **Category filter deferred, pending Maxim's yes** (it was an approved goal). Search covers it for now. | Categories are Same-Day leaves ("Lemon Juice", "Pickles"): 1,605 of them. In live savings the **median category holds 1 product**, and only 40 of 289 hold 3+. Only 37% of products have one, so choosing a category would hide 63% of the matching products and suggest Costco has none. | Removes the facet query and the 1,605-row picker. |
-| R2 | Revisit categories when the catalogue harvest stores a **department** level (~20 groups) and coverage is ≥ 80%. Then: a short row of department pills, not a searchable list. | A filter has to answer "show me TVs", not "show me Lemon Juice". | One harvest field, no new job. |
+| R1 | **Category filter by Same-Day's departments** (Maxim, 2026-11-24: *"the categories users will hope to filter with … costcosameday has some filters for categories we should use the same. this is essential for the deals and warehouses screens."*). Not the leaf categories. | Same-Day files every product in Instacart's taxonomy, and its category URLs carry the whole path (probed 2026-11-24, `CrossRetailerProductDetailBrowseCategories`): `Food › Fresh Produce › Fresh Fruit › Berries › Strawberries`, `Food › Seafood › Shellfish › Mussels`, `Household Essentials › Paper › Paper Towels`. **The filter is the department**: level 1, except inside Food, where it is level 2 (Fresh Produce, Seafood, Meat, Baked Goods…), about 25–30 in all. The leaves we store today (1,605, median 1 saving each) stay as the product's own category. | One Same-Day read per **new** leaf category, in the existing category pass: ~1,600 once, then a few a week. No new job. |
+| R2 | **Category coverage first.** Same-Day sells 10,553 of our 15,920 products; 5,966 have a category (57%). Live savings: 724 of 801 (90%) are Same-Day products. The category pass is capped at 1,500 products a run: finish the backlog, then measure. The 5,367 costco.ca-only products: costco.ca's breadcrumb, later. A product with no department is never hidden unless a department is chosen, and the count says "n not filed yet" when one is chosen. | The filter is only as good as its coverage. | Backlog: the cap's own pace, no extra run. |
 | R3 | **Warehouse prices skips the community fallback it throws away** (PR #690, to `main`). | `searchFor` ran up to 4 fallback queries per search for products without an official price; the route maps every fallback to "no price yet". | About half the route's queries, on every keystroke. |
 | R4 | **Warehouse prices price band / price sort stay windowed, but are honest.** Windowed only while a band or a price sort is on; the response gains `partial: true` when more than 300 products matched; the app then says "Add a word to see every match" instead of a capped count. With R3 the window costs the same 4 batched reads whatever its size. | The official price is computed after SQL (one definition, `officialLine`); a SQL twin would be a second definition of the official price, which the one-rule standing order forbids. With a search word, matches are almost always under 300, so the result is exact. | No extra query. |
 | R5 | **Search: 300 ms debounce, 2 characters minimum, the in-flight request cancelled** (AbortController) in both modes. | The Deals search today narrows only the 50 loaded rows (`DealsScreen`, "narrows the LOADED rows"), so a product on page 2 is "not found": server `q` fixes that. Each Deals request filters the 30-min cached place rows in memory, plus 3 small queries. | Fewer requests, none stale. |
@@ -30,11 +30,12 @@ Unchanged: approach 1 (one `ProductBrowseScreen`, two wrapper routes), the stock
 the cached rows, so it costs nothing per request), no new scheduled job, backend additive and to `main` first.
 
 Task edits that follow from it:
-- **Task 1**: drop `categoryFacets`.
-- **Task 2**: no `category` parameter or `categories` facet; `q` stays.
-- **Task 3**: no `category` or `categories`; add `partial`; pass `officialOnly: true` (already done by #690).
-- **Task 4**: no `categoryName`; the debounce and cancel of R5 in both services.
-- **Task 6**: the sheet is **Where · Price · Sort** (no What section, no `CategoryPicker`).
+- **Task 0 (new, backend)**: migration: `product_categories.department_id`, `department_name`, `aisle_id`, `aisle_name` (additive). The category pass reads the path of each new leaf (one `CrossRetailerProductDetailBrowseCategories` call on one product of it; the parent path is the siblings' common prefix) and fills them; a one-off backfill for the 1,605 existing leaves. EN names from the slug; FR through the app's overlay keyed by department id (`catalogLabels` pattern), ~30 keys.
+- **Task 1**: `categoryFacets` counts **departments**.
+- **Task 2**: `category` = a department id; `categories` = the place's departments with counts.
+- **Task 3**: `category` = a department id, `categories` the store's departments; add `partial`; `officialOnly` (done, #690).
+- **Task 4**: `categoryName` reads the department overlay; the debounce and cancel of R5 in both services.
+- **Task 6**: **Where · What (departments, a short pill list, no search box) · Price · Sort**.
 - **Task 7**: the rows already carry `imageUrl` (no placeholder work); "Add a word to see every match" when `partial`.
 
 ## Global Constraints
