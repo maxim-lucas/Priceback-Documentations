@@ -1,6 +1,10 @@
 # One screen for Deals and Warehouse prices (design, 2026-11-24)
 
-Status: **design approved by Maxim, 2026-11-24** (with the 24-hour stock rule). Next: the implementation plan.
+Status: **built, 2026-11-25** (#712–#717 on `main-test-features`). Design approved by Maxim, 2026-11-24 (with the 24-hour stock rule).
+Built as shared blocks: `BrowseTitle` (store badge on the title line), `ProductRow` (one row), `WarehouseFilter` (one
+warehouse picker, Deals included), `BrowseFilterSheet` / `DealsFilterSheet`, `productBrowse`. The link to Deals says
+"current savings at your / this warehouse", never a week (Maxim, 2026-11-24). The finer category is Costco's own aisle ›
+shelf (migration 0064, named by Same-Day in EN + FR), not Instacart's English-only leaf.
 Asked by Maxim, 2026-11-24, on `main-test-features`. Approach 1 of 3 picked by Maxim.
 
 ## Intent

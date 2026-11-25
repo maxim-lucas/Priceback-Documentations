@@ -483,3 +483,26 @@ receives a printed name either way.
 - The rotating-slice size for the websites; the Same-Day request spacing.
 - The job table's proposed cadences, each with its reason.
 - Whether the regular-prices `source` is a lookup or a reference to the harvest source rows.
+
+## Addendum 2026-11-25: Costco's own aisles and shelves (migration 0064)
+
+Maxim, 2026-11-24: *"find the leaf name for french"* → **Costco's own shelves**.
+
+- **Why not the Instacart leaf.** `product_categories` (0054/0062) comes from Instacart's shared taxonomy, which is
+  English only everywhere (probed 2026-11-24: a fr_CA session's `CrossRetailerProductDetailProductCoreInfo`, the
+  `CrossRetailerProductDetailBreadcrumbs` (only the chrome is French), instacart.ca's French category pages). It stays
+  the harvest's own level (fresh-produce rule, admin).
+- **The source.** Costco's Same-Day storefront menu, `ChildCollections` (variables `shopId`, `zoneId`,
+  `postalCode`, `slug`), localized by the session's locale: 24 departments → 153 aisles → 422 shelves, 479 lowest
+  groups. About 13 names are left in English by Costco (Earrings, Rings, Watches, Service Deli Meals, Garden Centre,
+  Toys & Games, Outdoor Games…).
+- **Storage.** `store_departments` gains `parent_id` and `level` (1 department · 2 aisle · 3 shelf);
+  `products.shelf_id` points at the product's lowest group. `department_id` still points at level 1 only, so the
+  shopper's department filter is unchanged.
+- **The pass** (`samedayCatalogSource`, after the department pass, Costco storefront, first warehouse only): the tree in
+  English, French only for groups with no stored French name (`storeShelvesWithFrench`), one
+  `CollectionProductsWithFeaturedProducts` per lowest group. A product's shelf is never under another department than
+  its own. A pass that stops writes nothing (last week's shelves stay).
+- **Cost:** ~177 tree reads + ~479 list reads per weekly run, ~177 French reads the first run only.
+- **Readers:** the admin price lookup (`product.shelf`, `shelfFr`, `aisle`, `aisleFr`). Shopper display is not built yet;
+  when it is, Costco's English-only names take our translation fallback (the departments' rule).
