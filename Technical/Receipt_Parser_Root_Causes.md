@@ -2567,7 +2567,7 @@ A related case, not this root cause: `r_1795449940077_3n19q` (St-Jérôme #529, 
 whose number sits on a fold (`PANTOLON CAT`, no number read). The photo shows the top half of `…0008`: 1640008
 (size 36), the same shopper's size on 2026-11-11. Repaired 2026-11-23 (Maxim's go).
 
-## RC-65 · A weighted pack bought several times: `N @ price/kg` above the line, read as one pack (open, 2026-11-25)
+## RC-65 · A weighted pack bought several times: `N @ price/kg` above the line, read as one pack (fixed, 2026-11-25)
 
 **Printed shape (pip81, Vaudreuil #1213, PDF, 2026-10-28).** A product sold by weight, bought as several packs, prints
 its pack count and its **price per kg** above the line, not a unit price:
@@ -2610,7 +2610,110 @@ per-pack shelf price). Costco parser: Maxim's go and the Costco hash freeze in t
 
 | Receipt | Store | Scanned | What | Status |
 |---|---|---|---|---|
-| `r_1795557087728_pip81` | Costco Vaudreuil #1213 (PDF) | 2026-11-24 | POITRINE DÉS `3 @ 15,69` / 99,19 stored as 1 pack; printed 24, lines 22 | open; App-approved under the PDF rule (Priceback hotfix 2026-11-25), quantity left as read |
+| `r_1795557087728_pip81` | Costco Vaudreuil #1213 (PDF) | 2026-11-24 | POITRINE DÉS `3 @ 15,69` / 99,19 stored as 1 pack; printed 24, lines 22 | *covered by the 2026-11-25 fix* (the next build reads 3 packs, 24 of 24); stored row left as read, App-approved under the PDF rule |
+| `r_1791590373883_i7aiw` | Costco Lévis #1186 (PDF) | 2026-10-08 | BOEUF RAGOUT `2 @ 24,99` / 81,36 read as 1 pack; printed 70, lines 69 (the long-pinned "documented unit gap" of the corpus) | *covered by the 2026-11-25 fix*: 70 of 70, the corpus's last items-sold gap on a right parse |
+
+**Built 2026-11-25 (Maxim: "go for it … make sure there is 0 regression risk").** `src/services/costcoWeightedPacks.js`,
+run by `receiptParser.parseReceiptText` after the Costco parser (none of the frozen files). The rule above, plus a
+physical guard: each pack weighs 0.2–10 kg at the printed price per kg (pip81 2.1 kg, i7aiw 1.6 kg); a row above another
+line (1.99 at 15.69/kg = 0.04 kg) is never its count. Quantities only: no amount, TPD, total or tax moves. **Proof:** the
+phone parse of 809 captures (every committed fixture + the production export), before and after: exactly pip81 and
+i7aiw moved (quantity 1 → 3 and 1 → 2), nothing else. The ungated rule would also have "fixed" c6xeg and infju, whose
+`N @` row belongs to another line; the printed count refuses both. Tests: `__tests__/costcoWeightedPacks.test.js`, the
+prod-capture ground truth (pip81 c1225 committed, i7aiw's `parserUnits` gap removed).
+
+**Maxim's second theory (2026-11-25: "the count of SKU lines in the PDF, not the OCR raw text").** On pip81's PDF: 16
+product lines with an item number, 18 with the two fee lines, 28 with the 10 TPD lines; the paper prints 24. Only the
+units (each line's quantity) give 24, on every receipt checked (293 of 314 stored receipts; the 21 others are reading
+errors). The app already counts units; what was wrong was a quantity.
+
+## RC-66 · A screenshot of the Costco app's receipt: no store detected, the generic reader drops every TPD (fixed, 2026-11-25)
+
+**Printed shape.** The Costco app shows a warehouse receipt under *Account › Orders and Purchases*. A shopper
+screenshots it: the screen's title (`Orders and Purchases` / `Commandes et achats`), the warehouse bar (`at Vaudreuil |
+Delivering to …`), the receipt body, and the app's tab bar (`Explore · Shop · Account · Warehouse · Cart`). No `COSTCO`,
+usually no header, no items-sold count; a TPD prints as `392204 / 2785602 100.00-` (no `TPD` word). A receipt longer than
+the screen comes as two screenshots.
+
+**What goes wrong.** `detectStore` finds no store (no `COSTCO`), the RC-63 claim needs a register stamp, so
+`parseReceiptText` hands the text to `parseGenericReceipt`: every TPD dropped (the lines stored at their shelf price, a
+false drop candidate each), the first row lost, a total that is not the paper's (zgcwd 552.10 for 460.69). The purchase
+type stays `unknown`, so the server's Gemini re-read (`aiReadRefusal`: Costco in-warehouse only) never runs either.
+
+**Proof.** The same captures with Costco forced through the Costco parser: zgcwd, wdg2o, o6k25, r5mp3 close to the cent
+(TPDs applied, first row kept); the two-part receipts close when joined (ift49 + lu84o = 443.97, n42sv + blv3e = 177.48).
+
+**Fix (2026-11-25, Maxim: "cant it be based on the template … to detect if it is a costco receipt screenshot from the
+app?").** `shared/costcoAppScreenshot.js`, one definition: the app's screen (title or warehouse bar) AND its tab bar
+(3+ labels, the Warehouse tab among them, EN or FR) AND 2+ item rows. The template is read as text: the app renders it,
+so Vision reads it whole (colours would not survive dark mode or a crop). Used by:
+- the phone: `receiptParsers.claimDetectedStore` claims Costco for it when no store was detected; `receiptParser` files
+  it a warehouse purchase (`screenshotPurchaseType`);
+- the server (installed builds): `POST /api/receipts` stores a Costco screenshot sent as `unknown` as `warehouse`, which
+  opens it to the server's proven Gemini re-read;
+- the two-part merge, `backend/lib/screenshotReceiptMerge.js` (RC-66b below).
+
+Measured on 809 captures before and after: 775 identical; the 34 that moved are all app screenshots, all read better.
+On the 796 production captures the detector names 31, all app screenshots: no false positive. **Open:** the French
+screenshot (`2r69p`, Candiac, TPD rows repeat the name: `396742 SALADEANETH2 2,00-`) still reads 1 line of 13 through the
+Costco parser (no worse than the generic reader); the Costco parser does not know that layout. A row whose price prints
+above its name (`29.99` / `2334476 TH 2PC PJ`) is named `Item #2334476`.
+
+**RC-66b · One receipt, two screenshots.** `planMerge`: two live screenshots of one shopper, scanned within an hour,
+neither corrected nor reviewed nor with history; exactly one prints the totals (the bottom part), and its own lines do
+not close; the top's last k lines are the bottom's first k (same number, same shelf amount; k ≥ 0, longest first); the
+merged lines add up to the printed SUBTOTAL to the cent and SUBTOTAL + TAX = TOTAL. The bottom part keeps the receipt
+(merged lines through `badScanRepair` mode `screenshot`, both parts' text, `warehouse`); the top part is deleted
+`merged` (migration 0065) with its price points and its staged-only drops, in one transaction. Runs after every upload
+(Admin switch `RECEIPT_SCREENSHOT_MERGE`, on). A drop the sweep only staged (pending, unreviewed, told nobody) is not
+history for this mode: it goes with its line and the sweep stages it once on the corrected line. Datafix CLI:
+`backend/scripts/fixScreenshotReceipts.js` (same proof, same apply path).
+
+| Receipt | Store | Scanned | What | Status |
+|---|---|---|---|---|
+| `r_1795577427681_zgcwd` | Costco (shopper's home Anjou #1446), iOS 3.6.4 | 2026-11-25 | 13 generic lines, 552.10; paper 409.73 + 50.96 = 460.69, 2 TPDs, KS WATR500 + fees lost | Repaired 2026-11-25 (`fixScreenshotReceipts`, 16 lines, 460.69) |
+| `r_1795582017661_wdg2o` | Gloucester #1362, iOS 3.6.4 | 2026-11-25 | 5 lines, 2 TPDs lost, TH 2PC PJ lost | Repaired 2026-11-25 (6 lines, 105.68 + 6.69) |
+| `r_1795577563763_ift49` + `r_1795577546522_lu84o` | Anjou #1446, iOS 3.6.4 | 2026-11-25 | one receipt in two screenshots (17 s apart); 7 TPDs lost; lu84o tax stored 49.70 (paper 52.27); SOFT CR CHSE and BATISTE staged as drops on both parts | Merged 2026-11-25 into lu84o (21 lines, 443.97 + 52.27 = 496.24); ift49 deleted `merged`; the 5 staged drops cleared |
+| `r_1794611155067_n42sv` + `r_1794611285838_blv3e` | Pointe-Claire #528 | 2026-11-13 | one receipt in two screenshots; reviewed by hand as two receipts (SPINACH counted twice, MARBLE CHEDD missing) | Merged 2026-11-25 into blv3e (13 lines, 177.48 + 3.59 = 181.07, 14 articles as printed); n42sv deleted `merged` |
+| `r_1792260873573_yvflx`, `r_1792667298198_o6k25`, `r_1794610958240_r5mp3`, `r_1793546065284_2r69p` | various | 2026-10 / 11 | app screenshots read by the generic reader | reviewed by hand earlier (o6k25, r5mp3 match the Costco parse); 2r69p deleted by the shopper; yvflx is a bottom part with no top |
+
+## RC-67 · An unpriced item row stripped as a street address (fixed, 2026-11-25)
+
+**Printed shape.** An item whose price Vision put on its own line, and whose name ends like a street: `3406306 GRAINS DE
+CH`, `2184440 FRITES DRIVE`, `2074458 PANETTONE CH`, `1950599 ASSIETTES LN`, `TSHIRT RD`, `ADVIL 280 CT`.
+
+**What goes wrong.** After the parse, `parseReceiptText` removes the warehouse header from the stored text with
+`stripWarehouseInfo` (`shared/ocrCleanup.js`). Its street-address rule
+`/^\s*\d{1,6}(?=.*[a-z])…\b(?:st|…|ch|chemin|…|dr|drive|…)\b\.?\s*$/i` was meant to skip ALL-CAPS rows (the lowercase
+lookahead), but the `/i` flag makes `[a-z]` match capitals: the guard never worked. The item is parsed (its line keeps
+its number), but `receipts.raw_ocr` loses the row, so the desk's `skus_on_paper` check cannot find the number. 9 rows
+in 592 receipts. Making the guard real would keep 100 real ALL-CAPS store addresses in the items text.
+
+**Fix.** `receiptParser.readItemRowMatcher`: a row that starts with an item number the parser read AND shares a word
+with that item's name is never stripped. The address rule itself is unchanged (an address that starts with a read number
+but names something else still leaves). Proven on 809 captures: only item rows came back to the stored text (11
+captures), nothing else moved. Test: `__tests__/receiptItemRowsKept.test.js` (lz1hk c1212).
+
+## RC-68 · A levy code read inside a product name: REDFINE SET filed as a fee (fixed, 2026-11-25)
+
+**What goes wrong.** `isIgnoredItemName` (`receiptParsingShared.js`) matched the levy codes `crf` / `edf` / `ehf` as
+substrings, so `2006543 REDFINE SET` ×3 was a fee: never watched, never counted (fvrlm, Candiac: 12 of 15 articles). Gemini
+was told the same in 2026-11-18 (normalizeProposal already decides by `feeLines`). In production no fee line ever printed
+the codes inside another word. **Fix:** whole words only, and two words join the list: `PROPANE LITR` (the register does
+not count propane sold by the litre; ey9rp) and `*E OFRAIS` (the eco fee with its C read as a space; unlinked c603).
+Proven on 809 captures: only those fee flags moved. Costco hash re-pinned.
+
+## RC-69 · "Fix automatically" replaced an item number with nothing (fixed, 2026-11-25)
+
+**What goes wrong.** The desk's proof (`receiptAutoFix.checkProposal` `skus_on_paper`, blocks Apply) looks for each
+number in the stored text. When the text lost the row (RC-67), kept another scan's text (`q0t7w`: lines of scan 1,
+text of scan 2 which misread the number) or printed it with a dot (`2051.308`, read whole by the parser), the parser's
+own reading **failed** while an AI answer that left the number blank **passed** (nothing to check), so the merge
+preferred dropping the number. **Fix (server, every build):** a number the scan's stored lines carry counts as read
+(`storedSkusRead`, desk confidence and Fix automatically, not after a shopper's correction, never a number the database
+filled); a number printed with a dot or comma before 3 digits is read whole (a price's 2 decimals never join); and an
+answer line with no number takes the stored line's number when exactly one stored line has its amount and quantity
+(`keepStoredItemNumbers`). An invented number is still refused. Tests: `backend/tests/receiptAutoFixSkuRead.test.js`.
 
 ---
 

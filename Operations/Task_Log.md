@@ -16,6 +16,29 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-25 — Item count (weighted packs), item numbers kept, Costco app screenshots + two-part merge, warehouse labels (DONE)
+
+- **Asked (Maxim, 2026-11-24/25):** the $576.67 PDF counted 22 for the paper's 24 ("count of SKU lines in the PDF"?);
+  a SKU the parser read but the desk "does not see", and "Fix automatically" setting it to null; the price screens
+  naming some warehouses and not others ("i dont want the user to guess"). Then: *"go for it for problem 1 and problem
+  2, make sure there is 0 regression risk … merge all changes"*; a new shopper's 3 Costco-app screenshots with TPDs
+  lost, one receipt in two screenshots (*"if you can automate this it will be perfect … i will let you handle the
+  datafix"*); *"there is more coming receipts as screenshots, fix them too"*; *"cant it be based on the template and
+  colors"*; finished major changes go to `main` (backend → prod) AND `main-test-features` (beta APK) — **new standing
+  rule** (CLAUDE.md); then build Android on EAS and submit to Play's beta track only.
+- **Done:**
+  - Warehouse labels (Priceback #722): one label from the official list on Deals, history, admin lookup; "No price yet at …".
+  - RC-65 weighted packs (count-proven + 0.2–10 kg guard), RC-67 item rows kept, RC-68 fee words whole-word (+ propane,
+    `*E OFRAIS`), RC-69 server: stored numbers count as read, dotted numbers, Fix automatically never blanks a number.
+  - RC-66 app screenshots: template detector (`shared/costcoAppScreenshot`), phone claim → Costco parser + warehouse
+    type, server stores installed builds' screenshots as warehouse (Gemini re-read opens), RC-66b automatic two-part
+    merge (`RECEIPT_SCREENSHOT_MERGE`, on), migration 0065 (applied to prod + dev by hand), datafix CLI.
+  - Datafix (prod): zgcwd, wdg2o read again; ift49 → lu84o and n42sv → blv3e merged (runbook log).
+  - Proof: 809 captures parsed before/after; only the intended lines moved (RC-65 ×2, fee flags ×3, kept rows ×11,
+    screenshots ×34). Membership "67 BUSINESS" (pez4s) **not** excluded: the OCR split it, too vague to match safely.
+- **Owed:** the French app screenshot layout (2r69p) through the Costco parser; the name of a screenshot row whose
+  price prints above it (`Item #…`).
+
 ### 2026-11-25 — PDF receipts App-approved when their totals close; the 22 vs 24 count is a weighted pack, not TPD (hotfix on `main` — DONE)
 
 - **Asked (Maxim, 2026-11-24):** *"(To be fixed on main then merged to main-test) … the last receipt i didnt approve but i already reviewed it, the receipt wasnt App-approved for the reason that the count is different on paper and on scan, the 22 vs 24 items … costco count the items (total) for any line having an SKU even if it is a TPD (discount) so this is the delta, i am expecting that any PDF scan should never be not App-approved also any PDF file should always have the Good receipt label, because there is never a quality issue on the PDF Receipt format except when a user scan a paper receipt and convert it to a PDF (happened already once in production). all app-approved also should have the Good receipt label, fix the problem"*. Then: *"no finish your task first"* (browse work first) and *"if the session will hit the limit prepare the work for the next session or dont start the last ask"*, so this was **prepared, not started**.
