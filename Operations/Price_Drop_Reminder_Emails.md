@@ -29,7 +29,7 @@ A live account (`status = true`, no deletion requested) with an email address an
 
 A **drop** is a `price_drop_notifications` row on a receipt line that is unclaimed, still watched and not deleted (the same filters as the push reminder). It is **fresh** when it can still be claimed today on the shopper's provincial day (`shared/claimDeadline`: the earlier of the store window and the saving's last day) **and** the line has no row in `price_drop_reminder_emails`.
 
-**Once per drop.** After an email, each line it covered is written to `price_drop_reminder_emails` (UNIQUE on `receipt_item_id`) before the next email goes. That line is never fresh again. A new drop for the same shopper has no row, so it is emailed in the next run, and the recap covers only the new drops.
+**Once per drop.** After an email, each line it covered is written to `price_drop_reminder_emails` (UNIQUE on `receipt_item_id`) before the next email goes. That line is never fresh again. A new drop for the same shopper has no row, so it is emailed in the next run. **The recap says everything still waiting, not only what is new (Maxim, 2026-11-25):** *"it should mention the total of all waiting claims."* The fresh drops only decide WHETHER an email goes; the amount, the count and the earliest deadline (and so the "last day" banner) cover every open drop of the shopper, fresh or already mentioned in an earlier email (`plan()` → `recap.total` / `count` / `earliestEnd`; `recap.freshTotal` / `freshCount` keep the new part for the owner recap).
 
 A drop whose window has closed is never a reason to email. It only counts in the missed total.
 
@@ -43,7 +43,7 @@ One language: the saved app language (`user_preferences.language`) when it is `e
 | Header | The real app icon (`backend/assets/email-logo.png`, `assets/icon.png` at 144 px, sent as an inline `cid:` attachment because mail clients block remote and data images) next to the wordmark "Price**Back**" (the website's green). |
 | Final reminder | When `earliestDaysLeft <= 1` (claimDeadline counts today as 1, so this is the last day itself): a red banner at the top, and the deadline reads *"last day today"* / *"dernier jour aujourd'hui"* instead of "1 day left". |
 | Amount | A highlighted green box with the total in 36 px. **Vague on purpose:** no count of drops, never "an item" or "1 price drop"; the details are in the app. |
-| Recap | Earliest claim deadline (date and days left). Only the fresh drops. |
+| Recap | Earliest claim deadline (date and days left), over ALL waiting drops (2026-11-25). |
 | Missed | When any unclaimed drop's window has ended (emailed before or not): *"Already missed: $X in price drops that were not claimed in time. Don't let the next one slip away."* |
 | Call to action | One sentence: open PriceBack for the details and to claim, **update the app and allow notifications** (this replaced the separate P.S.). Button to the **Canadian** App Store page (`apps.apple.com/ca/app/priceback/id6795860374`, the website's Get app link: the app is on the Canadian storefront only, the region-less link fails for some readers) / Google Play. Both when the platform is unknown. It cannot open the app directly: builds only register `priceback://`, which mail clients strip, and there are no universal links. |
 | Signature | *Kind regards, The PriceBack Team*, support@priceback.ca, priceback.ca |
