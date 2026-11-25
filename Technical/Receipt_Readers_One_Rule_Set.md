@@ -334,6 +334,18 @@ misread stamp was added): the date passes on 195 and fails on 3, all Best Buy on
 the invoice date, which is why another store is not judged). 12 have no stamp in the photo, 5 had stamps that
 disagreed, and on 53 the parser read no date. The tax passes on all 268.
 
+**The PDF rule (Maxim, 2026-11-24/25; Priceback hotfix 2026-11-25).** *"any PDF scan should never be not App-approved …
+there is never a quality issue on the PDF Receipt format"*, then *"Approve when the totals close"*. A receipt whose
+stored file is a PDF (`receiptAutoApproval.isPdfReceipt`, from `image_object_key`) is approved by
+`isApprovablePdf` when `reconciles`, `ground_rules`, `total_on_paper` and `tax_on_paper` all **pass**, no check that
+blocks a Gemini Apply fails (`subtotal_on_paper`, `prices_on_paper`, `skus_on_paper`, `tax_missing`, a total or a
+payment read as a line …) and `not_a_copy` does not fail. The items-sold count, the date stamp, an unread item number,
+`tax_possible` and a database fill no longer hold a PDF. A photo is judged as before (High, n of n).
+
+The exception for a paper photo saved as a PDF (once in prod) is **measured first**: each PDF's quality check stores
+`metrics.pdfPage` (`words`, `meanConf`, `faintPct`, `tiltDeg`, `pages`; `receiptQualityCheck.pdfPageMeasures`), judged
+by nothing. Once the measures separate the two, Maxim switches the exception on.
+
 ---
 
 ## 8. Sources (read 2026-11-12)

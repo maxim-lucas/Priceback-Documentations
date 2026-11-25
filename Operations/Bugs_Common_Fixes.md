@@ -15144,3 +15144,25 @@ Found by the 2026-10-14 Sentry triage (`Technical/Sentry_Triage_2026-10-14.md`).
 - Files: `server.js` (queue + Potential routes, `/health`), `priceDropNotifier.js` (`cleanQueue`, `queueCleanupStatus`), `jobs/harvestSavings.js` (`setAfterWriteListener`), `db/client.js` (`poolStats`), `config/defaults.js`.
 - Detect next time: an admin GET that writes, or runs the sweep, before answering. `/health?token=…` → `dbPool.lastHour.secondsWithWaiters > 0` means queries waited for a connection; the Railway log shows `[db-pool] waiting=N`.
 - Prevent: `tests/priceDropQueueCleanup.test.js`, `tests/dbPoolStats.test.js`, the "listing answers before the re-check" case in `priceDropQueueDb.test.js`. Measure (`pg_stat_statements`, `railway logs --http --json`) before blaming a job or the database: `Technical/Backend_Performance.md`.
+
+## 395. A Costco PDF that closed to the cent was left for a person: its items-sold count failed (2026-11-25, Priceback hotfix → main, synced to main-test-features)
+
+**Symptom.** `r_1795557087728_pip81` (Vaudreuil, PDF, $576.67) was not App-approved; the desk said the printed count
+(24) and the lines (22) differ. Maxim: a PDF has no quality problem and should never be left unapproved.
+
+**Cause.** The app approval (`receiptAutoApproval.isApprovable`) asked every receipt for High, n of n, so the
+items-sold check (an informational check) held a store PDF whose figures all closed. The count itself was right to
+fail: the parser read a weighted `3 @ 15,69` pack line as one pack (RC-65, roadmap RP-1; not TPD lines).
+
+**Fix.** The PDF rule: `isApprovablePdf` approves a PDF when its totals close (reconciles, ground rules, TOTAL and TAX
+on the paper pass; no Apply-blocking check fails; not a copy). Each PDF's quality check also records `metrics.pdfPage`
+(judged by nothing) to measure the "paper photo saved as a PDF" exception before it is switched on. The Good receipt
+label needed no change: `adminReceiptView.isGoodReceipt` has shown every PDF and every App-approved receipt as Good since
+3.6.4, and both desk routes send the file type.
+
+**Tests.** `backend/tests/receiptAutoApprovalPdf.test.js` (the pip81 replay: approved as a PDF, not as a photo, not
+when its total breaks), `receiptQualityCheck.test.js` (the PDF page measures).
+
+**Pattern.** An informational check is a reason to look, not a reason to hold a document that cannot have a photo's
+problems. Decide per source what holds it.
+

@@ -73,6 +73,14 @@ Full evidence and proposed fixes: `Roadmap/App_Audit_2026-11-09.md` (main @ `709
 
 ---
 
+## P2‴: receipt parser rows (Costco parser: Maxim builds them, Maxim's go each)
+
+| # | Gap | Proposed fix |
+|---|---|---|
+| RP-1 | **A weighted pack bought several times is read as one pack** (RC-65, `r_1795557087728_pip81`, 2026-11-25). `3 @ 15,69` (packs @ $/kg) above `POITRINE DÉS 99,19`: the parser believes `N @` only when N × unit = the amount, so the line is quantity 1 and the items-sold check fails 24 vs 22. Not TPD lines: 0 of 35 prod receipts count them. | In `costcoReceiptParser` (`auditCostcoItemsAgainstText`): take N packs when N × unit ≠ amount **only** when the printed items-sold count proves the missing N − 1; amount unchanged, unit = amount / N, line sold by the pack. Corpus-proven, Costco hash freeze updated, Maxim's go. Spec: `Technical/Receipt_Parser_Root_Causes.md` RC-65. |
+
+---
+
 ## P1: server-side hotfixes (one deploy fixes every build)
 
 | # | Item | Status | Fix (server only) | Old builds |

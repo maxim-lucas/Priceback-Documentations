@@ -16,7 +16,7 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
-### 2026-11-25 — HANDOFF: PDF receipts always App-approved + Good receipt; Costco counts TPD lines in items sold (hotfix on `main`, NOT STARTED)
+### 2026-11-25 — PDF receipts App-approved when their totals close; the 22 vs 24 count is a weighted pack, not TPD (hotfix on `main` — DONE)
 
 - **Asked (Maxim, 2026-11-24):** *"(To be fixed on main then merged to main-test) … the last receipt i didnt approve but i already reviewed it, the receipt wasnt App-approved for the reason that the count is different on paper and on scan, the 22 vs 24 items … costco count the items (total) for any line having an SKU even if it is a TPD (discount) so this is the delta, i am expecting that any PDF scan should never be not App-approved also any PDF file should always have the Good receipt label, because there is never a quality issue on the PDF Receipt format except when a user scan a paper receipt and convert it to a PDF (happened already once in production). all app-approved also should have the Good receipt label, fix the problem"*. Then: *"no finish your task first"* (browse work first) and *"if the session will hit the limit prepare the work for the next session or dont start the last ask"*, so this was **prepared, not started**.
 - **Where the code is (found 2026-11-25):**
@@ -24,6 +24,10 @@
   - App approval: `backend/lib/receiptAutoApproval.js` `isApprovable` (High + n of n). Maxim's rule: a PDF is never "not App-approved", **except a paper photo converted to PDF** (happened once in prod). That needs a "real store PDF" test (text layer present, the PDF's producer, no image-only page). Decide it with Maxim if it is not provable.
   - Good receipt label: `src/services/adminReceiptView.js` `isGoodReceipt` already returns Good for `sourceBadge(...) === "PDF"` and for `autoApproved`. Check why the desk row did not show it (does the list row carry `sourceType` / `imageContentType`?). The same rule for "every app-approved is Good" is already in the function, so verify the row data. Labelled Bad still wins.
   - Then: root-cause entry (`Receipt_Parser_Root_Causes.md` / `Receipt_Ground_Rules.md`), `Bugs_Common_Fixes.md`, hotfix PR to `main`, sync `main` → `main-test-features`.
+- **Done 2026-11-25.** Maxim's answers: count, *"The TPD is counted only if the TPD line has an SKU, check the format of the TPDs in the PDF file … i want to be sure before implementing the rule"*, then *"if you find the pattern document it only in priceback documentation repo and i will do it later … give me the roadmap item number"*; PDF approval, *"Approve when the totals close"*; paper→PDF, *"Measure first, ship the rule now"*.
+  - **Count: not TPD.** The PDF prints all 10 TPD lines WITH their item number; counting them gives 32. Prod: 0 of 35 receipts count TPD lines, fees are not counted either. The 2 missing units are `3 @ 15,69` (3 weighted packs, $/kg) above `POITRINE DÉS 99,19`, read as 1 pack because the parser believes `N @` only when N × unit = amount. **Documented only: RC-65, roadmap RP-1.** No count rule, no parser change.
+  - **PDF approval:** `receiptAutoApproval.isApprovablePdf` (totals pass, no Apply-blocking fail, not a copy). pip81 replay test. Paper→PDF: `metrics.pdfPage` recorded on each PDF's quality check, judged by nothing.
+  - **Good label:** no change needed (`isGoodReceipt` already Good for PDF and App-approved since 3.6.4; both routes send the file type).
 
 ### 2026-11-24 — French leaf names: Costco's own aisles and shelves (0064) — DONE
 
