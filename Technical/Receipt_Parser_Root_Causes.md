@@ -2567,6 +2567,51 @@ A related case, not this root cause: `r_1795449940077_3n19q` (St-Jérôme #529, 
 whose number sits on a fold (`PANTOLON CAT`, no number read). The photo shows the top half of `…0008`: 1640008
 (size 36), the same shopper's size on 2026-11-11. Repaired 2026-11-23 (Maxim's go).
 
+## RC-65 · A weighted pack bought several times: `N @ price/kg` above the line, read as one pack (open, 2026-11-25)
+
+**Printed shape (pip81, Vaudreuil #1213, PDF, 2026-10-28).** A product sold by weight, bought as several packs, prints
+its pack count and its **price per kg** above the line, not a unit price:
+
+```
+3 @ 15,69                     ← 3 packs, $15.69/kg
+55503 POITRINE DÉS 99,19 N    ← the 3 packs' total (≈ 6.32 kg)
+397558 POITRINE DÉS 15,00-
+```
+
+3 × 15.69 = 47.07, not 99.19. The paper counts 3 items for this line (`NOMBRE TOTAL D'ARTICLES VENDUS = 24`; every
+other line adds to 21).
+
+**What goes wrong.** The Costco parser believes an `N @ unit` row only when N × unit is **exactly** the line's amount:
+`restoreMultiBuyOrder` (`QTY_ROW`) and the final audit `auditCostcoItemsAgainstText` (`AUDIT_QTY_LINE`,
+`src/services/costcoReceiptParser.js`). A per-kg price never passes it, so the line is stored as **quantity 1** at
+$99.19. The figures still close to the cent (the amount is right); only the units are wrong. The items-sold check
+(`shared/receiptChecks` `items_sold`) then fails 24 vs 22, which held the receipt from the App-approved list.
+
+The exact-product guard is load-bearing: two prod PDFs (`r_1794006913406_c6xeg`, `r_1792365550305_i5erv`) have an
+`N @` row that does not belong to the line below it (the PDF's text order), and quantity 1 was right there (their
+printed counts match). So "always believe `N @`" would break them.
+
+**It is not the TPD lines (Maxim's theory, checked 2026-11-25).** The PDF prints all 10 of its TPD lines with their own
+item number (`392136 SUNRISE POUL 3,00-`, …). Counting them gives 32 (22 + 10), not 24. Across prod: 35 receipts with TPD lines
+and a printed count, 33 match the products alone, **none** match products + TPD. Fees (eco fee, deposit) are not
+counted either: 15 of 19 receipts with fee lines match the products alone (the other 4 are misread counts, not fees).
+
+**Proof.** Replay with the stored lines: units 22, printed 24. Change only POITRINE DÉS's quantity to 3: units 24,
+items_sold passes, every other check unchanged (totals untouched: the line amount is the same).
+
+**Proposed parser change (not built; Maxim builds it later, roadmap RP-1).** When an `N @ unit` row sits directly above
+a priced item line and N × unit is not the amount, take N packs **only when the printed items-sold count proves it**:
+the printed count minus the lines' units is exactly N − 1. Line total unchanged; unit price = amount / N.
+Mark the line sold by the pack (`priceDropRepo.soldByThePackIn`, rule 8: its drop is the official saving, never a
+per-pack shelf price). Costco parser: Maxim's go and the Costco hash freeze in the same PR, proven on the whole corpus.
+
+**Prod blast radius (read 2026-11-25).** One receipt of this shape in prod (regex over every live `raw_ocr`: an
+`N @ x` row above an item whose amount is not N × x, three hits, two of them the text-order cases above).
+
+| Receipt | Store | Scanned | What | Status |
+|---|---|---|---|---|
+| `r_1795557087728_pip81` | Costco Vaudreuil #1213 (PDF) | 2026-11-24 | POITRINE DÉS `3 @ 15,69` / 99,19 stored as 1 pack; printed 24, lines 22 | open; App-approved under the PDF rule (Priceback hotfix 2026-11-25), quantity left as read |
+
 ---
 
 ## Earlier root causes (before this register)
