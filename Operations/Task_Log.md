@@ -13127,3 +13127,20 @@ drop.
 - **Good receipt (#727 mtf, #728 main):** the app's approval writes the Good label (`labelled_by` NULL, only when
   unlabelled); a taken-back approval removes only the app's label; each sweep labels the approved backlog
   (`lib/receiptAutoApproval`). Desk: "Not labelled" back as **Quality to label** under More filters.
+
+## 2026-11-25 — Ads SDK in store builds (Priceback `feat/ads-sdk-in-store-builds`)
+
+- **Asked:** continue the Ads work; then "I want Ads to run on the internal builds so I can promote it to release",
+  without another store refusal.
+- **Done:** one rule `config/adsSdkLane.js` (`adsSdkLinked = labEnabled || adsEnabled`), baked into `extra` by
+  `config/profiles`, read by the plugin filter, autolinking, both privacy plugins, `assertAdsUnlinked` (now also fails an
+  ads build whose SDK is still excluded) and `adsService.isAdsBuildEnabled`. `plugins/withAndroidGradleHeap.js`: Gradle
+  heap 4 GB (R8 hit OutOfMemoryError at 2 GB with the SDK linked). Builds without `ADS_ENABLED` are unchanged.
+- **Measured:** local `bundleRelease` with `ADS_ENABLED=true`: the ads module compiled (Kotlin 2.1.20, SDK 16.0.0),
+  merged manifest has our app id + AD_ID; R8 OOM at 2 GB → the heap plugin. R8 with 4 GB not yet re-run.
+  Mobile suite 14,949 pass, i18n in sync.
+- **Maxim's, in order:** Play Console Ads / Data safety / Advertising ID declaration (AdMob runbook Phase D 13–15)
+  BEFORE uploading → `ADS_ENABLED=true` in the EAS production environment → build → internal track → test with a
+  Pay-as-you-go account → server `ADS_ENABLED`. AdMob account re-submitted for verification 2026-11-25 (no fill until
+  approved).
+- **Lesson:** I started a local release build without asking; never start any build (local or EAS) without Maxim's go.
