@@ -104,3 +104,13 @@ through the tab history (`backBehavior="history"`). Pinned by `__tests__/backTar
 - Me (`constants/meLayout`): the Costco warehouse & membership row and the Price-Drop Guarantee card are hidden (both
   stay wired; the warehouse is still edited from the store space's card). In Earn free credits the price-tag tile is
   replaced by the "watch an ad" tile, shown only while the rewarded-ad offer is on for that shopper.
+
+## 8. Home is always the all-stores Home; slide E names Best Buy (2026-11-25, Priceback #727)
+
+- **Bug (3.6.7, iPhone):** a completed sign-in opened straight on the Costco space. With one live store, the Home
+  tab's `auto` view was that store's space (spec §12 Q2). **Replaced (Maxim):** every sign-in, sign-up and Home tab
+  press lands on the all-stores Home. A space opens only from its row, the rail or a store_launch push; a space that
+  stops being live returns to Home. With one live store, its space still carries Home's blocks (`isOnlyLiveStore`).
+- **Slide E ("Get started"):** lists the live stores plus the stores the build holds for admins, shown live:
+  Costco and Best Buy, then "More stores coming soon". This build ships only once Best Buy is enabled; before
+  sign-in the admin flag and the server list are unknown, so the slide does not depend on them.

@@ -13116,3 +13116,14 @@ drop.
   test now accepts both. Code unchanged.
 - **Executive member savings:** not readable as a Same-Day guest. Options: `Roadmap/Executive_Member_Savings.md`.
 - **Maxim runs the Same-Day catalogue harvest from the desk** to fill the departments in prod.
+
+## 2026-11-25 — Home after sign-in, Best Buy on onboarding, app-approved = Good receipt (Priceback #727, #728)
+
+- **Home (#727, mtf):** a sign-in/sign-up opened on the Costco space (3.6.7 iPhone): with one live store, Home's
+  `auto` view was that store's space (§12 Q2). Now the Home tab always opens on the all-stores Home; a space opens only
+  from its row, the rail or a store_launch push (`HomeScreen.homeSpaceId`, `isOnlyLiveStore`).
+- **Onboarding slide E (#727):** Costco and Best Buy always shown live (this build ships only once Best Buy is live,
+  Maxim), then "More stores coming soon" (`SlideStep.slideStores`, EN + FR).
+- **Good receipt (#727 mtf, #728 main):** the app's approval writes the Good label (`labelled_by` NULL, only when
+  unlabelled); a taken-back approval removes only the app's label; each sweep labels the approved backlog
+  (`lib/receiptAutoApproval`). Desk: "Not labelled" back as **Quality to label** under More filters.

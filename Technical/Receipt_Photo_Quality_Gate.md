@@ -207,3 +207,15 @@ All of these are computed from the Vision answer the app already holds:
 
 - Whether a refused photo spends a scan credit: today an unreadable refusal is free; keep it free.
 - Whether to block, or only warn, below the thresholds. This page recommends warning, plus "use anyway".
+
+## App-approved receipts are labelled Good (2026-11-25, Priceback #727 / #728)
+
+Maxim: *"any app-approved receipt always label the receipt with Good receipt automatically"*.
+- On approval, `lib/receiptAutoApproval` sets `receipt_quality_checks.labelled_good = true` with `labelled_by` NULL
+  (the app's mark), only when the receipt has no label yet. A person's label always wins.
+- When the app takes its approval back, it clears only a Good label with `labelled_by` NULL.
+- Each `sweepPending` run labels every live app-approved receipt still unlabelled (one set-based UPDATE), so the
+  backlog is labelled with no script.
+- A receipt with no quality-check row (no photo measured) has nothing to label; its badge still reads Good.
+- Desk: the "Not labelled" chip is back as **Quality to label** (server key `quality_unlabelled`), under More
+  filters. It now lists what still needs a person's call.
