@@ -278,7 +278,8 @@ exists.
     `:react-native-google-mobile-ads:compileReleaseKotlin` passes on Expo 55's
     Kotlin 2.1.20 (SDK 16.0.0 / play-services-ads 24.6.0); the merged manifest
     carries our app id, `DELAY_APP_MEASUREMENT_INIT` and AD_ID; R8 ran out of
-    heap at the template's 2 GB, fixed by `plugins/withAndroidGradleHeap.js`
+    heap at the template's 2 GB, fixed by `plugins/withAndroidGradleHeap.js` (re-run at 4 GB: BUILD
+    SUCCESSFUL, R8 kept the AdMob classes)
     (4 GB).
 
     **Turning ads on in the internal (and then store) build**, in this order:

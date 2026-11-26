@@ -13137,7 +13137,10 @@ drop.
   ads build whose SDK is still excluded) and `adsService.isAdsBuildEnabled`. `plugins/withAndroidGradleHeap.js`: Gradle
   heap 4 GB (R8 hit OutOfMemoryError at 2 GB with the SDK linked). Builds without `ADS_ENABLED` are unchanged.
 - **Measured:** local `bundleRelease` with `ADS_ENABLED=true`: the ads module compiled (Kotlin 2.1.20, SDK 16.0.0),
-  merged manifest has our app id + AD_ID; R8 OOM at 2 GB → the heap plugin. R8 with 4 GB not yet re-run.
+  merged manifest has our app id + AD_ID; R8 OOM at 2 GB → the heap plugin. Re-run with 4 GB: BUILD SUCCESSFUL,
+  the .aab keeps io.invertase.googlemobileads.*, MobileAds, AdView, RewardedAd after R8; manifest app id + AD_ID.
+  Local trap: ~/.gradle/gradle.properties overrides the project jvmargs; pass -Dorg.gradle.jvmargs with the
+  Windows-ROOT trust-store flag (without it every download fails with PKIX).
   Mobile suite 14,949 pass, i18n in sync.
 - **Maxim's, in order:** Play Console Ads / Data safety / Advertising ID declaration (AdMob runbook Phase D 13–15)
   BEFORE uploading → `ADS_ENABLED=true` in the EAS production environment → build → internal track → test with a
