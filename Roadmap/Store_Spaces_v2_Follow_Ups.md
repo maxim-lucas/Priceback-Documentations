@@ -72,6 +72,18 @@ Full report: `Technical/Store_Spaces_v2_Pre_Merge_Audit_2026-11-22.md`. In short
    the pick was only the default, D5 the alerts-off popup on every scan, D6 duplicate social rows on Me, D7 tab label
    scaling, D8 the store policy overview lost with the Stores tab, D9 server-side Deals search + pull-to-refresh.
 
+## Home room on small screens (Maxim, 2026-11-25)
+
+Shipped on `main-test-features` (Priceback PR "Home room, receipts list, browse screens"):
+the "claims expiring soon" banner now sits inside the hero card (highlighted days-left pill), the low-balance strip
+takes the Price-Drop Guarantee strip's place, and the guarantee strip shows on a short window (< 800 pt) only on the
+first launch and every 3rd launch (`src/services/homeRoom.js`, the one rule). The hero pages auto-slide every 5 s
+back and forth until the first swipe.
+
+**Next, if Home still needs room:** turn the accordion tabs ("Your stores", "Your active receipts") into a single
+row of tabs on one line instead of stacked collapsible sections. Measure on a 5.5" phone first (does the first
+receipt row show above the fold?), then decide.
+
 ## Related roadmap entries
 
 - `Roadmap/Unlimited_Free_Trial.md` — the free week, now built here.
