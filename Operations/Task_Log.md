@@ -13180,3 +13180,20 @@ drop.
   Pay-as-you-go account → server `ADS_ENABLED`. AdMob account re-submitted for verification 2026-11-25 (no fill until
   approved).
 - **Lesson:** I started a local release build without asking; never start any build (local or EAS) without Maxim's go.
+
+## 2026-11-26 — Home shows every store, store policy page, account erasure, on-sale rule (Priceback feat/home-all-stores-account-erasure-2026-11-26)
+
+- **Home / Scan:** every store shown (live first, then "Coming soon"), receipts or not (`useAllStores`); a coming-soon
+  row or pill opens the new **Store policy** page (`StorePolicyScreen`: window via `windowDaysFor`, note, seasonal lines,
+  official link, notify-me). "Store policy" button at the end of each store's own page.
+- **Purchases tab:** no history links for a shopper with no receipt; "Expired receipts" link removed.
+- **Account erasure:** daily purge, `eraseAccount`, `consumed_trials` flag, late sign-in = new account
+  (`Technical/Account_Deletion_And_Erasure.md`). Prod 0066 applied; the two test accounts erased.
+- **Price drops:** whole-chicken drop (sku 55505, saving 409427, $4.50 off, Same-Day official, 11-26..11-27) exists in
+  the harvest; Potential holds 3 groups (Danskin Yoga AB, LEM Legging ON, Gilet BR BC), each below N. "Price lookup"
+  button on the queue, held and Potential cards (`utils/adminPriceLookupLink`).
+- **On sale:** `shared/priceSignal.isOnSale` = any saving or any non-regular ending; server "sale" filter and the chip
+  agree (`onSaleParity.test.js`). Admin "Savings only" at a warehouse follows the same listing rule as the chip
+  (SKU 284282 is listed at 6 of Ontario's 45 warehouses; OPEN: Maxim decides whether a Same-Day saving should count
+  province-wide on display). Sold-by-the-pack savings read as savings in the admin history and lookup rows.
+- **Pre-existing red:** `dealsDb` "the row shape" fails without these changes too.
