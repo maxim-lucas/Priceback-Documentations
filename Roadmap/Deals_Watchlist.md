@@ -21,3 +21,11 @@ drops or a new saving starts, even if they have not bought it yet.
 - Limits per plan (Pay as you go / Unlimited).
 
 Design reference: `Technical/Store_Spaces_v2_Design.md` §12 Q9.
+
+## Open (2026-11-26): Deals now lists sold-by-the-pack savings
+
+Deals now includes the official savings on sold-by-the-pack products (meat, fish, anything packed to weight). It didn't
+before. This is intended (rule 8: every savings drop is the saving), but the list is longer. To watch on the next beta:
+- whether the longer list needs grouping or a "Sold by the pack" filter chip;
+- whether pack rows read clearly (the saving, not a shelf price per pack).
+Nothing is decided yet. Maxim's call after the beta.
