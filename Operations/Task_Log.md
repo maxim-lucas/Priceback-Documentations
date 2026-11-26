@@ -16,12 +16,28 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-25 — Sweep tile drop count, release 3.6.9 (both stores, internal), ads recommendations (Priceback #735–#738)
+
+- **Asked (Maxim):** the Run sweep tile shows the drops the last run found, amber above 0; then *"merge all your work then
+  finish these recommandations … create the builds for both stores to go as internal version … i will promote it to
+  production through the stores tonight"*.
+- **Done:** #735 (tile, mtf). #736 `main-test-features` → `main` (compat audit in the PR; no migration; merged only after
+  catalogue run 101 finished). #737 bump 3.6.9 / 68. Tag `v3.6.9` (`69a7505e`), GitHub release with EN + FR store copy
+  and the App Review notes. #738 sync back. Play: Ads declaration + Data safety published. EAS: `ADS_ENABLED=true`
+  (production env). Builds from the tag: Android `e4305c90` → internal track, iOS `770c2751` → App Store Connect.
+  ASC version 3.6.9 created. Mobile suite 15,026 / 15,027 (the 2 red files pass alone: load flakes), i18n in sync.
+- **Categories (run 101):** 26 categories, 523 aisles/shelves, 4,352 products; 618 of 853 live savings (72 %).
+- **Owed (Maxim):** App Review notes on ASC 3.6.9 (Notes field full, see AdMob doc); age rating re-check (Apple's banner:
+  Location Sharing / Dating answers due 2027-01-15; Play's App content page would not load for me); AdMob approval →
+  `ADMOB_REWARDED_AD_UNITS` + server ads switch.
+
 ### 2026-11-25 — Category filter empty after the harvest: the store's menu is saved first (Priceback #733 → main, #734 → mtf)
 
 - **Asked (Maxim):** *"i ran the catalogue harvest and still no categories, fix these points and any remaining items before i build the next internal version on EAS tonight"*; then *"the filter is names department or category ? it should be category"*.
 - **Found:** prod run 97 killed by the #720 deploy after 2 h of its 2.5 h; the menu was written last → 0 departments. The other points of the 2026-11-24 recap were already closed (fetch repaired, #689–#711, plan review R1–R6). The filter's label is already **Category / Catégorie** (`browse.department` key, value "Category"); "department" is only a code name.
 - **Done:** menu read first + saved at once (`checkpointMenu`), `mode: "departments"`, one writer `writeStoreMenu`. Prod on `a71b9cb5`. Prod source `sameday_costco_departments` (id 16, disabled) added by SQL. Tests 130/130 unit, 68/68 DB (dev, 0 skipped). `Bugs_Common_Fixes.md` #396.
-- **Owed:** Maxim starts `sameday_costco_departments` from the desk (Admin · Harvest jobs; my token call was refused by the permission check), then check `store_departments` > 0. Heartbeat for the catalogue job (rule "a stopped job continues").
+- **Run 101 (started with Maxim's permission, 2026-11-26 02:30 UTC):** success in 15 min, 983 requests; menu saved at the start.
+- **Owed:** heartbeat for the catalogue job (rule "a stopped job continues").
 
 ### 2026-11-25 — Item count (weighted packs), item numbers kept, Costco app screenshots + two-part merge, warehouse labels (DONE)
 
