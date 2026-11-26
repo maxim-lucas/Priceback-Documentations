@@ -16,6 +16,13 @@
 > Each entry is one task. Keep it short — a few lines. This replaces relying on
 > wrapup/recall every session for "what did I already ask for."
 
+### 2026-11-25 — Category filter empty after the harvest: the store's menu is saved first (Priceback #733 → main, #734 → mtf)
+
+- **Asked (Maxim):** *"i ran the catalogue harvest and still no categories, fix these points and any remaining items before i build the next internal version on EAS tonight"*; then *"the filter is names department or category ? it should be category"*.
+- **Found:** prod run 97 killed by the #720 deploy after 2 h of its 2.5 h; the menu was written last → 0 departments. The other points of the 2026-11-24 recap were already closed (fetch repaired, #689–#711, plan review R1–R6). The filter's label is already **Category / Catégorie** (`browse.department` key, value "Category"); "department" is only a code name.
+- **Done:** menu read first + saved at once (`checkpointMenu`), `mode: "departments"`, one writer `writeStoreMenu`. Prod on `a71b9cb5`. Prod source `sameday_costco_departments` (id 16, disabled) added by SQL. Tests 130/130 unit, 68/68 DB (dev, 0 skipped). `Bugs_Common_Fixes.md` #396.
+- **Owed:** Maxim starts `sameday_costco_departments` from the desk (Admin · Harvest jobs; my token call was refused by the permission check), then check `store_departments` > 0. Heartbeat for the catalogue job (rule "a stopped job continues").
+
 ### 2026-11-25 — Item count (weighted packs), item numbers kept, Costco app screenshots + two-part merge, warehouse labels (DONE)
 
 - **Asked (Maxim, 2026-11-24/25):** the $576.67 PDF counted 22 for the paper's 24 ("count of SKU lines in the PDF"?);
