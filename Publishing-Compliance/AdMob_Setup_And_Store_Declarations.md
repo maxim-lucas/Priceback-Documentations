@@ -52,9 +52,16 @@ Advertising; Physical Address (postal code) added (it was in the manifest but mi
 a contradiction with both labels. Fixed EN + FR (§ 3a Advertising) in Priceback-Website PR #24. **Must be merged
 before the ads build reaches review.**
 
+**Done 2026-11-25 (evening, 3.6.9):** Play "Changes ready to publish" (Ads declaration + Data safety) published, read
+back empty with "App update published". `ADS_ENABLED=true` set in the EAS **production** environment (read back);
+3.6.9 / 68 built from tag `v3.6.9` with it (Android → Play internal, iOS → App Store Connect). iOS version **3.6.9**
+created in App Store Connect.
+
 **Still owed before / at submission:**
-- iOS: App Review notes (step 17) on the new version — that version does not exist yet; paste them when it is created.
-- iOS build must be made with `ADS_ENABLED=true` so the ATT prompt exists — the label now declares tracking.
+- iOS: App Review notes (step 17) on version 3.6.9 — **not pasted**: the Notes field carried over from 3.6.4 holds
+  3,971 of Apple's 4,000 characters (reviewer access instructions), so the ~520-character ads paragraph needs Maxim to
+  shorten the existing text first. The paragraph is in the v3.6.9 GitHub release notes.
+- ~~iOS build must be made with `ADS_ENABLED=true`~~ done (3.6.9).
 - Age rating re-check (step 18) on both stores.
 - `ADMOB_REWARDED_AD_UNITS` on prod `app_config` is **empty** (step 9d) — rewarded credits stay off until set;
   `/api/ads/ssv` is deployed on production (answers 400 to an unsigned call). SSV URL on the units unverified.
