@@ -14,7 +14,7 @@ behaviour is switched on only once measured).
 
 | Rule | Where it is enforced |
 |---|---|
-| A subscriber never sees an ad, anywhere, not for one frame. | `src/services/adsService.js` (`shouldShowAds`) fails closed: build switch `extra.adsEnabled` + lab lane, server `ADS_ENABLED`, a **resolved** free plan (`premium.active === false`), the server's Pay-as-you-go verdict `ads.payg` from `/api/me`, a configured unit id. The hook starts `false` and resets on blur. |
+| A subscriber never sees an ad, anywhere, not for one frame. | `src/services/adsService.js` (`shouldShowAds`) fails closed: build switch `extra.adsEnabled` + `extra.adsSdkLinked`, server `ADS_ENABLED`, a **resolved** free plan (`premium.active === false`), the server's Pay-as-you-go verdict `ads.payg` from `/api/me`, a configured unit id. The hook starts `false` and resets on blur. |
 | Pay-as-you-go only. A trial or a plan in force is not Pay-as-you-go. | `ads.payg` is the server's word (subscriberAccess / `isCreditExempt`), never the phone's cache. |
 | Before activation the app is exactly as today. | Screens mount **no ad component** while the gate is closed (`adsOn ? <AdBanner/> : null`), and the Deals list is **not interleaved** (`interleaveAds` only runs once the gate opened). Pinned by `__tests__/dealsAds.test.js`. |
 | A failed / no-fill / slow ad leaves no gap. | `components/AdBanner.js` invariant 3: until `onAdLoaded`, the slot is a bare unstyled view around the SDK view (zero height): no card, no padding, no label, none of the caller's margins. A failure renders `null`. Pinned by `__tests__/AdBanner.test.js` ("no gap before the ad loads"). |
@@ -48,15 +48,17 @@ Changing a rate (`firstAfter`, `every`, `max`) is one line in the table; every s
 
 ## 4. Turning it on (checklist)
 
-0. **Prerequisite — the SDK is not in store builds today (release audit 2026-11-24).** `react-native-google-mobile-ads`
-   links only in the lab lane (`labEnabled`), and `app.config.js` `assertLabIsOffInProduction` refuses a production
-   build with it, with no override (#293 / #295: play-services-ads Kotlin metadata vs Expo 55's Kotlin). Until the ads
-   SDK is moved out of the lab lane onto its own switch (its config plugins + autolinking, a Kotlin-compatible
-   play-services-ads), **no banner and no watch-an-ad tile can appear in a Play / App Store build**, whatever the
-   switches below say. That move is its own PR, proven by a production EAS build.
+0. ~~Prerequisite — the SDK is not in store builds.~~ **Done 2026-11-25** (Priceback `feat/ads-sdk-in-store-builds`):
+   one rule, `config/adsSdkLane.js` (`adsSdkLinked = labEnabled || adsEnabled`), read by the config plugin filter,
+   autolinking, the AD_ID / ATT / privacy-manifest plugins, `assertAdsUnlinked` and `adsService`. A production build
+   with `ADS_ENABLED=true` in the EAS production environment links the SDK; without it the build is unchanged.
+   Measured locally (`bundleRelease`): the ads module compiles on Kotlin 2.1.20 (SDK 16.0.0); R8 needed more than the
+   template's 2 GB heap → `plugins/withAndroidGradleHeap.js` (4 GB). **Store declarations (Play Advertising ID, Data
+   safety, Contains ads) must be done BEFORE the first upload of that build, internal track included** —
+   `Publishing-Compliance/AdMob_Setup_And_Store_Declarations.md` Phase D.
 
 1. AdMob: one banner unit per slot (`dealsFeed` MREC, `dealsFooter`, `warehousePricesFooter`), app-ads.txt crawled.
-2. Build: `extra.adsEnabled = true`, lab lane on, unit ids in `extra.admobBannerUnitId` (today one id serves every
+2. Build: `ADS_ENABLED=true` in the EAS production environment (no lab lane), unit ids in `extra.admobBannerUnitId` (today one id serves every
    slot; per-slot ids are a follow-up in `getBannerUnitId(slot)`).
 3. Server: `ADS_ENABLED` on; confirm `/api/me` sends `ads.payg` for a Pay-as-you-go test account and not for a
    subscriber, a trial or an admin.

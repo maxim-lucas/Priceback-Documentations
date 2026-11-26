@@ -1,6 +1,6 @@
 # AdMob Setup and Store Declarations
 
-**Status:** code merged and **ABSENT from production builds** (not merely inert —
+**Status (2026-11-25):** the SDK links in a production build made with `ADS_ENABLED=true` (`config/adsSdkLane.js`, Phase E step 19); without it, absent as before. Original status: code merged and **ABSENT from production builds** (not merely inert —
 the lab lane keeps the SDK out of the binary entirely). Buildable and testable
 on `eas build --profile lab` as of 2026-08-31.
 **Owner:** Maxim Lucas · **Date:** 2026-08-23, last revised 2026-08-31
@@ -176,6 +176,19 @@ the code map: `Technical/Rewarded_Ads_Earn_Credits.md`.
 
 These are **mandatory** and Play will block the release without D2/D3.
 
+> 🔴 **Order (2026-11-25): declarations first, upload second — the internal track
+> included.** Since ads left the lab lane, a production build made with
+> `ADS_ENABLED=true` carries `com.google.android.gms.permission.AD_ID` (measured
+> in the merged release manifest). Play checks the Advertising ID declaration
+> **at upload**, on every track, so an internal-track `eas submit` of that build
+> is refused exactly like the 2.8.x upload was (#306) if step 15 still says
+> "no". Do 13–15 in Play Console, then build and submit. The reverse holds too:
+> once step 15 says "yes", a build *without* the permission is fine (Play only
+> refuses the permission without the declaration). On iOS the ATT string and
+> the tracking privacy manifest ship with the same switch; App Store Connect
+> refuses **Submit for Review** (not the TestFlight upload) until step 16 is
+> done.
+
 ### Google Play Console
 
 13. **App content → Ads** → "Does your app contain ads?" → **Yes**. This adds
@@ -240,8 +253,8 @@ mounts. Phase E is about the last two.
 
 | gate | where | today |
 | --- | --- | --- |
-| the lab lane — is the SDK in the binary at all? | `config/profiles/common.js` → `labEnabled`, plus `expo.autolinking.exclude` in `package.json` | **off** in production; on for `eas build --profile lab` |
-| build-time ads switch | `config/profiles/common.js` → `adsEnabled` | **false**; set to `"true"` only on the `lab` EAS profile |
+| is the SDK in the binary at all? | `config/adsSdkLane.js` → `adsSdkLinked = labEnabled \|\| adsEnabled` (since 2026-11-25), applied to the config plugin, `expo.autolinking.exclude` (relaxed by `scripts/laneAutolinking.js`), the AD_ID / ATT / privacy-manifest plugins and `assertAdsUnlinked` | follows the build switch below |
+| build-time ads switch | `config/profiles/common.js` → `adsEnabled`; `ADS_ENABLED=true` in the **EAS production environment** (never committed in `eas.json`) | **false** in production until Maxim sets it; `"true"` on the `lab` profile |
 | remote kill switch | backend `app_config` → `ADS_ENABLED`, read via `/api/me` | **false** on both environments |
 | subscriber check | `src/services/adsService.js` | fails closed — "unknown" means hidden |
 
@@ -254,15 +267,35 @@ exists.
     committed defaults and the production profile sets no `ADS_ENABLED`. Ship
     and let the release reach users first.
 
-    Moving ads OFF the lab lane — so the SDK ships in production binaries — is a
-    separate, deliberate change: delete the `expo.autolinking.exclude` entry and
-    `ADS_ONLY_PLUGINS` in `app.config.js` together, in one PR, and only once
-    step 8's real app ids are in place. Splitting those two is what hard-fails
-    the Android manifest merger.
+    ~~Moving ads OFF the lab lane is a separate change~~ — **done 2026-11-25**
+    (Priceback `feat/ads-sdk-in-store-builds`). The exclusion and the plugin
+    filter were not deleted; both now follow one rule, `config/adsSdkLane.js`,
+    so a production build links the SDK exactly when it is built with
+    `ADS_ENABLED=true`, and a build without it is byte-identical to before.
+    `assertAdsUnlinked` (eas-build-post-install) now fails in both directions:
+    SDK linked without the switch, or the switch without the SDK (an ads build
+    that would earn $0). Measured locally, `bundleRelease` with the switch:
+    `:react-native-google-mobile-ads:compileReleaseKotlin` passes on Expo 55's
+    Kotlin 2.1.20 (SDK 16.0.0 / play-services-ads 24.6.0); the merged manifest
+    carries our app id, `DELAY_APP_MEASUREMENT_INIT` and AD_ID; R8 ran out of
+    heap at the template's 2 GB, fixed by `plugins/withAndroidGradleHeap.js` (re-run at 4 GB: BUILD
+    SUCCESSFUL, R8 kept the AdMob classes)
+    (4 GB).
 
-20. **Verify on real hardware** from a **`lab`-profile** release build — that is
-    the only profile that links the SDK, so it is the only build ads can be
-    tested on. Never a dev-client build:
+    **Turning ads on in the internal (and then store) build**, in this order:
+    Phase D steps 13–15 in Play Console → `eas env:create --environment
+    production --name ADS_ENABLED --value true` (the ADMOB_* units are already
+    there) → `<build app>` → internal track → step 20 on a real phone → step 21.
+    The internal binary is the one promoted to production, so it must be built
+    with the production profile, real units and the switch.
+
+20. **Verify on real hardware** from a release build that links the SDK — the
+    internal-track production build with `ADS_ENABLED=true`, or a `lab` build.
+    Never a dev-client build. Test with a **Pay-as-you-go** account: `ads.payg`
+    is `isPayAsYouGo` (`backend/server.js`), true only when the account has no
+    plan tier (or `free`) and is not the App Review account — an account on any
+    plan sees no ad, by design. Until AdMob approves the account, real
+    units no-fill and the slots stay collapsed (no gap) — that is not a bug:
     - free user + flag on → banner in all six slots, showing a **Test Ad**;
     - subscriber → **no banner and no gap**;
     - ATT prompt appears once, at the right moment, free users only;
