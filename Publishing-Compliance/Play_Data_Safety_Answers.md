@@ -21,7 +21,7 @@ Companion: `PUBLISH_CHECKLIST.md` §10 (permissions, deletion URL) and
 | Does your app collect or share any of the required user data types? | **Yes** |
 | Is all of the user data collected by your app encrypted in transit? | **Yes** (HTTPS/TLS everywhere) |
 | Do you provide a way for users to request that their data is deleted? | **Yes** — URL: `https://priceback.ca/delete-account` |
-| **Does your app use an advertising ID?** | **No** (the `AD_ID` permission is stripped from the manifest — see permission hygiene) |
+| **Does your app use an advertising ID?** | **Yes — Advertising or marketing** (since 2026-11-25: the AdMob SDK ships in production builds and `AD_ID` is kept in the manifest; Play blocks a release that carries `AD_ID` without this) |
 
 > **Scope note — Costco membership number is deliberately NOT declared.** It is
 > not a live feature: it isn't shown anywhere in the UI and isn't used by any
@@ -79,18 +79,18 @@ only if they use that feature.
 ### App activity
 | Data type | Collected | Purposes | Required/Optional | Notes |
 |---|---|---|---|---|
-| **App interactions** | Yes | Analytics | Optional | Product-interaction events (PII-scrubbed) for reliability/analytics. |
+| **App interactions** | Yes · **Shared** | Collected: Analytics, Advertising or marketing · Shared: Advertising or marketing | Required | Product-interaction events (PII-scrubbed); Google AdMob receives ad interactions (free tier). |
 
 ### App info and performance
 | Data type | Collected | Purposes | Required/Optional | Notes |
 |---|---|---|---|---|
-| **Crash logs** | Yes | Analytics (crash diagnostics) | Optional | Sentry; PII scrubbed before send (`sendDefaultPii:false`). |
-| **Diagnostics** | Yes | Analytics | Optional | Performance/diagnostic data via Sentry. |
+| **Crash logs** | Yes (not shared) | App functionality, Analytics | Required | Sentry; PII scrubbed before send (`sendDefaultPii:false`). |
+| **Diagnostics** | Yes (not shared) | App functionality, Analytics | Required | Performance/diagnostic data via Sentry. |
 
 ### Device or other IDs
 | Data type | Collected | Purposes | Required/Optional | Notes |
 |---|---|---|---|---|
-| **Device or other IDs** | Yes | App functionality, Fraud prevention | Required | Expo **push token** (`users.push_token`) for notifications; a **hashed** device fingerprint (`devices.device_hash`) for anti-abuse. Not the advertising ID. |
+| **Device or other IDs** | Yes · **Shared** | Collected: App functionality, Analytics, Advertising or marketing, Fraud prevention, Account management · Shared: Advertising or marketing | Required | Expo push token, hashed device fingerprint, and (since 2026-11-25) the **advertising ID**, shared with Google AdMob on the free tier. |
 
 ---
 
@@ -142,20 +142,20 @@ Expected result: **Everyone / PEGI 3 / ESRB Everyone / USK 0+**, with the
 
 | Screen | Answer |
 |---|---|
-| **Ads** — Does your app contain ads? | **No** |
+| **Ads** — Does your app contain ads? | **Yes** (since 2026-11-25; AdMob banners + optional rewarded video, free tier only) |
 | **Target audience & content** | Age groups **13+** (sign-in is Google/Apple, 13+ by their ToS). Not "designed for children". |
 | **News app** | No |
 | **COVID-19 contact tracing/status** | No |
 | **Government app** | No |
 | **Financial features** | It handles subscriptions & in-app credits, **not** banking/lending/crypto — answer the specific sub-questions **No** (no personal loans, no crypto exchange, no debt-management). Purchases are standard Play Billing IAP. |
-| **Data safety → data used for tracking across apps** | **None** |
+| **Data safety → data used for tracking across apps** | Advertising ID (AdMob). On iOS the App Privacy label says Device ID, Advertising Data, Product Interaction and Coarse Location are used for tracking (ATT-gated). |
 | **App access** (for review) | Provide the demo Google account + steps — see `REVIEWER_NOTES.md`. Sign-in is required, so a working test account is mandatory or the reviewer is blocked. |
 
 ---
 
 ## F. Why this should pass review cleanly
 
-- **Advertising ID = No** matches the shipped APK (AD_ID stripped) — no auto-flag.
+- **Advertising ID = Yes (Advertising)** matches a build made with `ADS_ENABLED=true`, which keeps `AD_ID`. A build without ads gets a skippable upload warning.
 - **No unjustified sensitive permissions** — RECORD_AUDIO, FINE_LOCATION and the
   broad media-read trio (READ_MEDIA_IMAGES / READ_MEDIA_VIDEO /
   READ_MEDIA_AUDIO) are removed; every remaining permission maps to a visible

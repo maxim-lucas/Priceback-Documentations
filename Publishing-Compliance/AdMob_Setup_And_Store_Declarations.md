@@ -31,6 +31,35 @@ multi-day latency.
 - **Not done yet:** server-side verification URL on the two rewarded units (needs a backend with `/api/ads/ssv` deployed); prod `app_config` `ADMOB_REWARDED_AD_UNITS` = `6545709469,9813377341` (needs that backend too); payments/tax (W-8BEN-E) in AdMob → Payments; store declarations (Phase D).
 - The build guard no longer requires TEST units to share the app id's publisher (Google serves them under any app id), so lab builds use the real app ids with the committed test units.
 
+## ✅ Done 2026-11-25 — Phase D store declarations (record)
+
+Made in the consoles on 2026-11-25, before the first ads build was uploaded.
+
+**Google Play** (Ads + first Data safety approved the same day; second Data safety update in review):
+- App content → **Ads: Yes**. **Advertising ID: Yes — Advertising or marketing.**
+- Data safety: **Device or other IDs** collected + shared (Advertising or marketing); **App interactions** collected
+  (Analytics, Advertising) + shared (Advertising); **Crash logs** and **Diagnostics** collected, not shared
+  (App functionality, Analytics). Crash logs/Diagnostics/App interactions were missing from the live form although
+  `Play_Data_Safety_Answers.md` listed them — the file and the console had drifted.
+- Developer website on the listing is `https://www.priceback.ca/` → 301 to `priceback.ca/app-ads.txt` (200,
+  text/plain). Google's crawler follows same-domain redirects.
+
+**App Store Connect → App Privacy** (live immediately): now mirrors `app.json` `ios.privacyManifests` exactly —
+Device ID, Advertising Data, Product Interaction, Coarse Location: linked, **used for tracking**, Third-Party
+Advertising; Physical Address (postal code) added (it was in the manifest but missing from ASC).
+
+**Privacy policy**: it said "we do not use data for cross-context behavioural advertising" and never named AdMob —
+a contradiction with both labels. Fixed EN + FR (§ 3a Advertising) in Priceback-Website PR #24. **Must be merged
+before the ads build reaches review.**
+
+**Still owed before / at submission:**
+- iOS: App Review notes (step 17) on the new version — that version does not exist yet; paste them when it is created.
+- iOS build must be made with `ADS_ENABLED=true` so the ATT prompt exists — the label now declares tracking.
+- Age rating re-check (step 18) on both stores.
+- `ADMOB_REWARDED_AD_UNITS` on prod `app_config` is **empty** (step 9d) — rewarded credits stay off until set;
+  `/api/ads/ssv` is deployed on production (answers 400 to an unsigned call). SSV URL on the units unverified.
+- `skAdNetworkItems` is still 13 ids and `NSPrivacyTrackingDomains` still the placeholder list (attribution only).
+
 ## 0. Read this first — expectations and the one irreversible risk
 
 **Revenue at current scale will be small.** Store availability is Canada +
