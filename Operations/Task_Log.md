@@ -13197,3 +13197,16 @@ drop.
   (SKU 284282 is listed at 6 of Ontario's 45 warehouses; OPEN: Maxim decides whether a Same-Day saving should count
   province-wide on display). Sold-by-the-pack savings read as savings in the admin history and lookup rows.
 - **Pre-existing red:** `dealsDb` "the row shape" fails without these changes too.
+
+## 2026-11-26 (cont.) — Coming soon is the admin's choice, lookup warehouses, pack savings (Priceback #748–#750)
+
+- **Coming soon:** `stores.coming_soon` (0067, default false; applied to dev and prod by hand). Admin · Stores has a
+  "Show to shoppers as Coming soon" switch (`POST /api/admin/stores/:code/coming-soon`); Home and the scan sheet show the
+  live stores, then only the announced ones. The desk's "Coming soon" availability now reads "Off". Prod: 0 announced.
+- **Price lookup:** a drop card opens it at the receipt's warehouse (else the drop's province); every row names the
+  warehouses where its official saving runs today (`priceHistoryService.savingPlaces`, `onSaleAt`).
+- **Same-Day savings are by warehouse only (Maxim, confirmed 2026-11-26):** never applied to an unlisted warehouse. SKU
+  284282: the Savings chip at its 6 listed Ontario warehouses (and the province view), Regular price at the other 39,
+  and "Savings only" now agrees with the chip.
+- **Sold by the pack:** Price Checker (and nearby rows) carry `packSaving` and say it is a saving; Warehouse prices,
+  its history, the admin history and lookup already did.
