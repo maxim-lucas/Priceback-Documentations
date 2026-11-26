@@ -15166,3 +15166,13 @@ when its total breaks), `receiptQualityCheck.test.js` (the PDF page measures).
 **Pattern.** An informational check is a reason to look, not a reason to hold a document that cannot have a photo's
 problems. Decide per source what holds it.
 
+
+## 396. The catalogue harvest ran and the Category filter stayed empty: a deploy killed the run before its last step (2026-11-25, Priceback #733 → main, #734 → main-test-features)
+
+- Date: 2026-11-25 · PR: #733 · Area: backend
+- Symptom: Maxim ran the Same-Day catalogue harvest from the desk; Deals and Warehouse prices still showed no Category filter. Production: `store_departments` 0 rows, `products.department_id` 0.
+- Root cause: run 97 (`sameday_costco_catalog`, 00:32 UTC) takes ~2.5 h and read and wrote the store's menu (departments, aisles, shelves) **last**. The `main` deploy of #720 at 02:13 UTC restarted the process; the run was closed at 04:35 as `abandoned: still 'running' past the timeout` with nothing written. A manual run is never retried, and the last good run (76, 2026-11-22) predates the department code.
+- Fix: `readStoreMenu()` runs **before** the discovery (it needs none: products are matched by their Same-Day id, already in `catalog_items`) and is saved at once through `checkpointMenu` → `catalogIngest.writeStoreMenu` (the one writer, also used at the end of the run, idempotent). New `mode: "departments"` reads the menu alone (~10 min); prod source `sameday_costco_departments` (id 16, disabled, run by hand).
+- Files: `backend/services/catalog/sources/samedayCatalogSource.js`, `services/catalog/catalogIngest.js`, `services/catalog/sources/index.js`, `jobs/harvestCatalog.js`; tests `catalogSources.test.js`, `catalogNationwideFill.test.js`.
+- Detect next time: `SELECT count(*) FROM priceback.store_departments;` and the run's `details.storeMenuSavedAtStart`. A Same-Day run with `error LIKE 'abandoned%'` lost everything not checkpointed.
+- Prevent: never merge to `main` while a long harvest is `running` (check `catalog_runs.status_id = 1` first). **Owed:** the catalogue job has no heartbeat (the savings harvest has one), so a restart is seen only after 240 min and a manual run is never re-run.
