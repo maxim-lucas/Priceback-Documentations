@@ -27,6 +27,16 @@
   (production env). Builds from the tag: Android `e4305c90` → internal track, iOS `770c2751` → App Store Connect.
   ASC version 3.6.9 created. Mobile suite 15,026 / 15,027 (the 2 red files pass alone: load flakes), i18n in sync.
 - **Categories (run 101):** 26 categories, 523 aisles/shelves, 4,352 products; 618 of 853 live savings (72 %).
+- **Store submission (later the same night):** ASC 3.6.9 — App Review notes fixed (the old text said the advertising
+  identifier was stripped and "no cross-app tracking", false for this build) + ADS AND TRACKING paragraph with the rewarded
+  path + Best Buy in STORES TAB (3,951 chars); What's New and description rewritten EN + FR (Best Buy, Price Checker,
+  free credits for a short video; the "we don't track you" line removed). Play: 3.6.9 promoted to Production (100 %,
+  release notes en-US / fr-CA / fr-FR ≤ 500), default listing short + full description in en-US, fr-CA, fr-FR, fr title
+  "PriceBack"; 9 changes sent for review, managed publishing (Maxim publishes). AI asset declaration left unanswered.
+- **Best Buy:** still `enabled = false` in prod. Maxim opens it after the listings are published, for builds 3.0.7+.
+  PR #739 (per-build gate, `STORE_MIN_BUILD { bestbuy: 68 }`) is **open, not merged**: lower it to 3.0.7's build or close it.
+- **Rewarded ads:** advertised in both listings; live only once AdMob approves + `ADMOB_REWARDED_AD_UNITS` + server switch.
+- **Hero card 15 s (#740, mtf):** app constant, ships in the next build.
 - **Owed (Maxim):** App Review notes on ASC 3.6.9 (Notes field full, see AdMob doc); age rating re-check (Apple's banner:
   Location Sharing / Dating answers due 2027-01-15; Play's App content page would not load for me); AdMob approval →
   `ADMOB_REWARDED_AD_UNITS` + server ads switch.
