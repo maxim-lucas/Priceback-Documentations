@@ -25,11 +25,16 @@ system, and splitting them is how the two drift.
 - `docs/instagram-playbook.md` — the working playbook (supersedes the Aug 2026
   launch playbook, archived beside it as
   `docs/archive/instagram-launch-playbook-2026-08.html`)
-- `sm-content/evergreen/` — the current content pack, its 14-day run
+- `sm-content/README.md` — the map of every content pack, numbered in posting
+  order (`00-brand` … `14-new-version-ads`); `sm-content/packs.json` is where the
+  publishers find each pack (by key, so a folder can move)
+- `sm-content/03-evergreen/` — the current content pack, its 14-day run
   (`CALENDAR.md`), the hook system (`HOOK-BANK.md`) and the scheduled publisher
   (`AUTOMATION.md`)
-- `sm-content/teaser/`, `sm-content/{reels,carousels,statics,stories}` — the
-  pre-launch and launch packs
+- `sm-content/01-teaser/`, `sm-content/02-launch-week/` — the pre-launch and
+  launch packs
+- `sm-content/14-new-version-ads/` — the Meta Ads for the new version, named for
+  upload (strategy: `14-launch-campaign-stop-asking-the-group.md` here)
 
 `02-social-media-strategy.md` below is the strategy layer and stays here; the
 execution layer is over there.
