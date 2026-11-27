@@ -522,6 +522,8 @@ const ADVAR = {
          screen: "deals", b: ["Drove 40 min for it… sold out 😩", "same 😭", "following 👀"] },
     4: { h1: "Missed the saving by a day?", h2: "See when every saving ends.", sub: "Every Costco saving at your warehouse, with its end date.",
          screen: "deals", b: ["Went today. The saving ended yesterday 🙃", "every time 😑"] },
+    6: { h1: "Savings in real time.", h2: "Not tonight. Not tomorrow.", sub: "PriceBack checks Costco every hour and posts each new saving as soon as it’s out.",
+         screen: "deals", b: ["Did anyone see the new savings yet?? 👀", "following"] },
     5: { h1: "Not the flyer. Your warehouse.", h2: "Every saving, live.", sub: "Every Costco saving in every Canadian warehouse. Business Centres too.",
          screen: "deals", b: ["Is the flyer deal at MY warehouse?? 🤷", "following 👀"] },
   },
@@ -581,27 +583,32 @@ const GL = {
   fb: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 21v-7.5h2.6l.4-3h-3V8.6c0-.9.3-1.5 1.5-1.5h1.6V4.4c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.2H7.8v3h2.6V21h3.1z"/></svg>`,
 };
 function footer(c) {
-  const k = c.fk, ic = 26 * k;
-  const item = (g, t, strong) => `<span style="display:inline-flex;align-items:center;gap:${8 * k}px;font-family:var(--T);font-weight:${strong ? 800 : 700};font-size:${21 * k}px;color:var(--ink);white-space:nowrap">${g}${t}</span>`;
-  const sep = `<span style="width:${2 * k}px;height:${30 * k}px;background:var(--border);display:inline-block"></span>`;
-  return `<div style="position:absolute;left:${c.fx}px;right:${c.fx}px;top:${c.fy}px;z-index:8;background:#fff;border-radius:${26 * k}px;padding:${16 * k}px ${22 * k}px;
-      box-shadow:0 18px 40px rgba(6,42,26,.35);display:flex;align-items:center;justify-content:space-between;gap:${12 * k}px">
-    ${item(`<span style="display:inline-flex;gap:${4 * k}px">${GL.apple(ic)}${GL.play(ic * .85)}</span>`, FOOT.dl, true)}${sep}
-    ${item(GL.web(ic), FOOT.web)}${sep}
-    ${item(`<span style="display:inline-flex;gap:${4 * k}px">${GL.ig(ic)}${GL.fb(ic)}</span>`, `${FOOT.follow} @priceback.ca`)}</div>`;
+  /* Maxim, 2026-11-27: the official badges, as in the weekly carousels (social-media-manager
+     sm-content/06-launch/badges, unaltered; Google's transparent margin trimmed). Apple has no French badge
+     there yet: the English one is used on FR until app-store-fr.svg is added (the carousels' rule). */
+  const k = c.fk, bh = 64 * k;
+  const circ = (svg) => `<span style="width:${40 * k}px;height:${40 * k}px;border-radius:50%;background:var(--lime);color:var(--inkDeep);display:inline-flex;align-items:center;justify-content:center;flex:none">${svg}</span>`;
+  return `<div style="position:absolute;left:${c.fx}px;right:${c.fx}px;top:${c.fy}px;z-index:8;border-radius:${30 * k}px;padding:${16 * k}px ${22 * k}px;
+      background:linear-gradient(160deg,#0d3d28,#062a1a);border:${1.5 * k}px solid rgba(190,242,100,.4);box-shadow:0 20px 44px rgba(0,0,0,.4);
+      display:flex;align-items:center;justify-content:space-between;gap:${16 * k}px">
+    <div style="display:flex;align-items:center;gap:${12 * k}px"><img src="badges/app-store-en.svg" style="height:${bh}px;display:block"><img src="badges/google-play-${LANG}.png" style="height:${bh}px;display:block"></div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:${7 * k}px">
+      <div style="font-family:var(--T);font-weight:800;font-size:${27 * k}px;color:#fff;letter-spacing:-.4px;line-height:1">priceback<span style="color:var(--lime)">.ca</span></div>
+      <div style="display:flex;align-items:center;gap:${8 * k}px;font-family:var(--J);font-weight:700;font-size:${18 * k}px;color:rgba(226,245,237,.92);white-space:nowrap">${circ(GL.ig(22 * k))}${circ(GL.fb(22 * k))}<span>${FOOT.follow} @priceback.ca</span></div>
+    </div></div>`;
 }
 
 /* per format: [W, H, logo{x,y,s}, head{y,size}, phone{x,y,w,rot}, stickers, bubbles/receipt, legal{y}] */
 const ADL = {
   poster: { W: 1080, H: 1350, lx: 64, ly: 56, ls: 58, hy: 150, hs: 84, ss: 30, px: 452, py: 470, pw: 560, pr: 4,
             fs: [790, 350, 236], bub: [[36, 560, 500, 1], [70, 800, 0, 0], [100, 900, 0, 0]], bx: 60, by: 1010, bk: .82,
-            rc: [40, 560, 420, -9, 1.05], ly2: 1170, fx: 40, fy: 1240, fk: 1 },
+            rc: [40, 560, 420, -9, 1.05], ly2: 1170, fx: 40, fy: 1232, fk: 1 },
   story:  { W: 1080, H: 1920, lx: 72, ly: 250, ls: 64, hy: 360, hs: 84, ss: 33, px: 400, py: 800, pw: 640, pr: 4,
             fs: [770, 600, 260], bub: [[40, 1000, 540, 1], [70, 1190, 0, 0], [100, 1290, 0, 0]], bx: 56, by: 1240, bk: .92,
             rc: [36, 920, 440, -9, 1.1], ly2: 1420, fx: 48, fy: 1500, fk: 1.05 },
   square: { W: 1080, H: 1080, lx: 56, ly: 44, ls: 50, hy: 122, hs: 70, ss: 26, px: 540, py: 380, pw: 460, pr: 4,
             fs: [830, 270, 200], bub: [[36, 430, 520, 1], [70, 650, 0, 0], [100, 740, 0, 0]], bx: 50, by: 770, bk: .72,
-            rc: [40, 440, 380, -9, .95], ly2: 930, fx: 32, fy: 990, fk: .92 },
+            rc: [40, 440, 380, -9, .95], ly2: 916, fx: 32, fy: 976, fk: .92 },
 };
 function ad(fmt) {
   const c = ADL[fmt], free = CAMP === "free";
@@ -614,7 +621,7 @@ function ad(fmt) {
   const head = `<div style="position:absolute;left:${c.lx}px;right:${c.lx}px;top:${c.hy}px">
       <div style="font-family:var(--T);font-weight:800;font-size:${hs}px;line-height:1.0;letter-spacing:${-hs * .035}px;color:#fff">${A.h1}<span style="display:block;color:var(--lime)">${A.h2}</span></div>
       <div style="font-family:var(--J);font-weight:600;font-size:${c.ss}px;line-height:1.35;color:rgba(255,255,255,.9);margin-top:${c.ss * .6}px;max-width:${free ? c.fs[0] - c.lx - 24 : c.W * .8}px">${A.sub}</div></div>`;
-  const legal = `<div style="position:absolute;left:${c.lx}px;top:${c.ly2}px;width:${free ? c.px - c.lx - 30 : c.W * .4}px;font-family:var(--J);font-weight:500;font-size:${c.W > 1000 && c.H > 1500 ? 16 : 14}px;line-height:1.35;color:rgba(255,255,255,.6);z-index:7">${A.legal}</div>`;
+  const legal = `<div style="position:absolute;left:${c.lx}px;top:${c.ly2}px;width:${c.px - c.lx - 30}px;font-family:var(--J);font-weight:500;font-size:${c.W > 1000 && c.H > 1500 ? 16 : 14}px;line-height:1.35;color:rgba(255,255,255,.6);z-index:7">${A.legal}</div>`;
   let body;
   if (free) {
     body = phone(c.px, c.py, c.pw, c.pr, (sw) => zoomed(A.screen === "wh" ? whScreen() : dealsScreen(), sw))

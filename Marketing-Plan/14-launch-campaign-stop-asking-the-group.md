@@ -208,13 +208,23 @@ group-style bubble). **English first; the French follows once the English hooks 
 | 3 | Drove to Costco. Sold out. / Check the stock before you go. | "Drove 40 min for it… sold out 😩" + "same 😭" | Deals (stock chips) | 1b above |
 | 4 | Missed the saving by a day? / See when every saving ends. | "Went today. The saving ended yesterday 🙃" | Deals ("Ending this week") | *Every Costco saving at your warehouse, with the day it ends. Filter "Ending this week" and never show up a day late again. Free.* |
 | 5 | Not the flyer. Your warehouse. / Every saving, live. | "Is the flyer deal at MY warehouse?? 🤷" | Deals | 1c above |
+| 6 | Savings in real time. / Not tonight. Not tomorrow. | "Did anyone see the new savings yet?? 👀" | Deals | *Costco posts a new saving, PriceBack has it within the hour: the harvest checks Costco's pages every hour (6 am–8 pm Toronto) and publishes a new saving as soon as it is read. Not tonight, not tomorrow. Free.* |
 
-Test them as one ad set with five ads (Meta's creative rotation picks the winner), EN only, then translate the best two.
+Hook 6 (Maxim, 2026-11-27: *"the app publish the savings in real time … the minute it is published not later in the
+day"*). The truth today is **within the hour**, not the minute: `Technical/Savings_Harvest_Schedule.md` probes each
+watched source hourly, 06:00–20:00 Toronto, and runs the full read when the probe sees a new saving. So the copy says
+"real time" / "as soon as it's out" with "every hour" beside it, never "the minute" or "instantly". If the probe
+interval is shortened, the copy can follow.
 
-**Footer on every ad (both campaigns):** a white band at the bottom: *Download free* (App Store + Google Play glyphs) ·
-*priceback.ca* · *Follow @priceback.ca* (Instagram + Facebook glyphs). Generic glyphs, never the official store badges
-or Meta logos. On Stories it sits above the zone the platform covers. **To confirm:** the Facebook page's @ handle (the
-band assumes it matches Instagram's `@priceback.ca`).
+Test them as one ad set with six ads (Meta's creative rotation picks the winner), EN only, then translate the best two.
+
+**Footer on every ad (both campaigns), revised 2026-11-27:** a dark-green panel with a lime hairline at the bottom:
+Apple's and Google's **official badges** on the left (the same artwork as the weekly carousels,
+`social-media-manager/sm-content/06-launch/badges`, copied to `launch-2026-12/source/badges/`, unaltered except
+Google's transparent margin, trimmed as the carousels do); on the right **priceback.ca** and *Follow @priceback.ca*
+with Instagram and Facebook icons in lime circles. Google's French badge ("Disponible sur Google Play") on FR; Apple's
+English badge on FR until `app-store-fr.svg` is added to the carousel badges (the carousels' rule). Both pages use
+`@priceback.ca` (confirmed by Maxim).
 
 ### Campaign 2 — Receipt scanner + BLACK (retargeting first)
 
