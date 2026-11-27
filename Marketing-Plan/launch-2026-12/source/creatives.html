@@ -199,7 +199,7 @@ const COPY = {
     prod: "Dyson V15 Detect", prodMeta: "Jusqu’au 7 déc. · −13 %", save: "−120 $",
     whs: [["Merivale #542 · ON", "En stock · aujourd’hui", "g", "799,99 $"], ["Laval · QC", "En stock · aujourd’hui", "g", "799,99 $"], ["Burnaby · BC", "En rupture · hier", "r", "799,99 $"]],
     example: "Exemple",
-    h1: "Fini de demander au groupe.", h2: "Demandez à PriceBack.",
+    h1: "Arrêtez de demander au groupe.", h2: "Demandez à PriceBack.",
     sub: "<b>Tous les rabais et prix Costco</b>, dans chaque entrepôt au Canada, Centres d’affaires inclus. Dernier stock connu. <b>Gratuit.</b>",
     plus: "En plus : numérisez vos reçus Costco et Best Buy et soyez alerté quand le prix baisse.",
     cap: "Code promo", perk: "+20 % de crédits bonis", until: "Jusqu’au<br>31 déc.",
@@ -493,7 +493,7 @@ const ADCOPY = {
           s1: "100%", s2: "FREE", s3: "No credit card",
           b: ["Anyone seen the Dyson V15 on sale at their warehouse?? 🙏", "following 👀", "following"],
           legal: "Example prices. Independent app, not affiliated with Costco." },
-    fr: { h1: "Fini de demander au groupe.", h2: "Demandez à PriceBack.", sub: "Tous les rabais et prix Costco, dans chaque entrepôt au Canada.",
+    fr: { h1: "Arrêtez de demander au groupe.", h2: "Demandez à PriceBack.", sub: "Tous les rabais et prix Costco, dans chaque entrepôt au Canada.",
           s1: "100 %", s2: "GRATUIT", s3: "Aucune carte",
           b: ["Quelqu’un a vu le Dyson V15 en rabais à son entrepôt?? 🙏", "Suivi 👀", "je suis"],
           legal: "Prix en exemple. App indépendante, non affiliée à Costco." },
@@ -510,6 +510,29 @@ const ADCOPY = {
   },
 };
 const A = ADCOPY[CAMP][LANG];
+
+/* Campaign 1 hooks (Maxim, 2026-11-27: "Are you looking for the real warehouse prices? Did you go to Costco and it
+   was too late or out of stock?"). v=1 the group (default) … v=5. English first; French once the English is settled. */
+const V = Number(q.get("v") || 1);
+const ADVAR = {
+  en: {
+    2: { h1: "Need the real warehouse price?", h2: "Every Costco. Every price.", sub: "Shelf prices at any warehouse in Canada. Search by name or item number.",
+         screen: "wh", b: ["What’s the price at Laval? 🤔", "following 👀"] },
+    3: { h1: "Drove to Costco. Sold out.", h2: "Check the stock before you go.", sub: "The last known stock at every Canadian warehouse.",
+         screen: "deals", b: ["Drove 40 min for it… sold out 😩", "same 😭", "following 👀"] },
+    4: { h1: "Missed the saving by a day?", h2: "See when every saving ends.", sub: "Every Costco saving at your warehouse, with its end date.",
+         screen: "deals", b: ["Went today. The saving ended yesterday 🙃", "every time 😑"] },
+    5: { h1: "Not the flyer. Your warehouse.", h2: "Every saving, live.", sub: "Every Costco saving in every Canadian warehouse. Business Centres too.",
+         screen: "deals", b: ["Is the flyer deal at MY warehouse?? 🤷", "following 👀"] },
+  },
+};
+const FOOT = {
+  en: { dl: "Download free", web: "priceback.ca", follow: "Follow" },
+  fr: { dl: "Téléchargez gratuitement", web: "priceback.ca", follow: "Suivez" },
+}[LANG];
+
+const AV = CAMP === "free" && V > 1 ? ((ADVAR[LANG] || ADVAR.en)[V] || null) : null;
+if (AV) Object.assign(A, AV);
 
 function phone(x, y, w, rot, inner) {
   const pad = w * .022, r = w * .16;
@@ -548,33 +571,54 @@ function blackSticker(x, y, k) {
   return `<div style="position:absolute;left:${x}px;top:${y}px;transform:rotate(-7deg);z-index:6;filter:drop-shadow(0 18px 30px rgba(0,0,0,.4))">${ticket(k, "transparent")}</div>`;
 }
 
+
+/* the footer band: download, website, follow (Maxim, 2026-11-27). Generic glyphs, never the stores' or Meta's badges. */
+const GL = {
+  apple: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.9-3-.9C6.9 7.3 5.4 8.2 4.6 9.7c-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.7 2.4 2.9 2.4 1.2 0 1.6-.8 3-.8s1.8.8 3 .8c1.3 0 2.1-1.2 2.8-2.3.9-1.3 1.3-2.6 1.3-2.7 0 0-2.4-.9-2.4-4.1zM14.1 5.6c.6-.8 1.1-1.8 1-2.9-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2.1-.5 2.7-1.3z"/></svg>`,
+  play: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3.5v17a1 1 0 0 0 1.5.9l14-8.5a1 1 0 0 0 0-1.8l-14-8.5A1 1 0 0 0 5 3.5z"/></svg>`,
+  web: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18"/></svg>`,
+  ig: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="5.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1.2" fill="currentColor" stroke="none"/></svg>`,
+  fb: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 21v-7.5h2.6l.4-3h-3V8.6c0-.9.3-1.5 1.5-1.5h1.6V4.4c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.2H7.8v3h2.6V21h3.1z"/></svg>`,
+};
+function footer(c) {
+  const k = c.fk, ic = 26 * k;
+  const item = (g, t, strong) => `<span style="display:inline-flex;align-items:center;gap:${8 * k}px;font-family:var(--T);font-weight:${strong ? 800 : 700};font-size:${21 * k}px;color:var(--ink);white-space:nowrap">${g}${t}</span>`;
+  const sep = `<span style="width:${2 * k}px;height:${30 * k}px;background:var(--border);display:inline-block"></span>`;
+  return `<div style="position:absolute;left:${c.fx}px;right:${c.fx}px;top:${c.fy}px;z-index:8;background:#fff;border-radius:${26 * k}px;padding:${16 * k}px ${22 * k}px;
+      box-shadow:0 18px 40px rgba(6,42,26,.35);display:flex;align-items:center;justify-content:space-between;gap:${12 * k}px">
+    ${item(`<span style="display:inline-flex;gap:${4 * k}px">${GL.apple(ic)}${GL.play(ic * .85)}</span>`, FOOT.dl, true)}${sep}
+    ${item(GL.web(ic), FOOT.web)}${sep}
+    ${item(`<span style="display:inline-flex;gap:${4 * k}px">${GL.ig(ic)}${GL.fb(ic)}</span>`, `${FOOT.follow} @priceback.ca`)}</div>`;
+}
+
 /* per format: [W, H, logo{x,y,s}, head{y,size}, phone{x,y,w,rot}, stickers, bubbles/receipt, legal{y}] */
 const ADL = {
   poster: { W: 1080, H: 1350, lx: 64, ly: 56, ls: 58, hy: 150, hs: 84, ss: 30, px: 452, py: 470, pw: 560, pr: 4,
-            fs: [790, 350, 236], bub: [[36, 560, 500, 1], [70, 800, 0, 0], [100, 900, 0, 0]], bx: 60, by: 1080, bk: .82,
-            rc: [40, 560, 420, -9, 1.05], ly2: 1300 },
-  story:  { W: 1080, H: 1920, lx: 72, ly: 250, ls: 64, hy: 360, hs: 92, ss: 33, px: 400, py: 800, pw: 640, pr: 4,
-            fs: [770, 600, 260], bub: [[40, 1060, 540, 1], [70, 1330, 0, 0], [100, 1440, 0, 0]], bx: 56, by: 1400, bk: .92,
-            rc: [36, 920, 440, -9, 1.1], ly2: 1600 },
+            fs: [790, 350, 236], bub: [[36, 560, 500, 1], [70, 800, 0, 0], [100, 900, 0, 0]], bx: 60, by: 1010, bk: .82,
+            rc: [40, 560, 420, -9, 1.05], ly2: 1170, fx: 40, fy: 1240, fk: 1 },
+  story:  { W: 1080, H: 1920, lx: 72, ly: 250, ls: 64, hy: 360, hs: 84, ss: 33, px: 400, py: 800, pw: 640, pr: 4,
+            fs: [770, 600, 260], bub: [[40, 1000, 540, 1], [70, 1190, 0, 0], [100, 1290, 0, 0]], bx: 56, by: 1240, bk: .92,
+            rc: [36, 920, 440, -9, 1.1], ly2: 1420, fx: 48, fy: 1500, fk: 1.05 },
   square: { W: 1080, H: 1080, lx: 56, ly: 44, ls: 50, hy: 122, hs: 70, ss: 26, px: 540, py: 380, pw: 460, pr: 4,
-            fs: [830, 270, 200], bub: [[36, 430, 520, 1], [70, 650, 0, 0], [100, 740, 0, 0]], bx: 50, by: 860, bk: .72,
-            rc: [40, 440, 380, -9, .95], ly2: 1044 },
+            fs: [830, 270, 200], bub: [[36, 430, 520, 1], [70, 650, 0, 0], [100, 740, 0, 0]], bx: 50, by: 770, bk: .72,
+            rc: [40, 440, 380, -9, .95], ly2: 930, fx: 32, fy: 990, fk: .92 },
 };
 function ad(fmt) {
   const c = ADL[fmt], free = CAMP === "free";
-  const hs = A.h1.length > 26 ? c.hs * .78 : A.h1.length > 24 ? c.hs * .86 : c.hs;
+  const hl = Math.max(A.h1.length, A.h2.length * 1.06);
+  const hs = hl > 30 ? c.hs * .72 : hl > 26 ? c.hs * .78 : hl > 24 ? c.hs * .86 : c.hs;
   const bg = free
     ? "radial-gradient(80% 50% at 95% 0%, rgba(255,255,255,.22), transparent 60%), radial-gradient(60% 40% at 0% 100%, rgba(190,242,100,.35), transparent 60%), linear-gradient(165deg,#10b981 0%,#047857 100%)"
     : "radial-gradient(80% 50% at 95% 0%, rgba(16,185,129,.38), transparent 60%), radial-gradient(60% 40% at 0% 100%, rgba(190,242,100,.18), transparent 60%), linear-gradient(165deg,#0d3d28 0%,#062a1a 100%)";
   const logo = `<div style="position:absolute;left:${c.lx}px;top:${c.ly}px;display:flex;align-items:center;gap:${c.ls * .28}px">${tile(c.ls)}<b style="font-family:var(--T);font-weight:800;font-size:${c.ls * .62}px;letter-spacing:-1px;color:#fff">PriceBack</b></div>`;
   const head = `<div style="position:absolute;left:${c.lx}px;right:${c.lx}px;top:${c.hy}px">
       <div style="font-family:var(--T);font-weight:800;font-size:${hs}px;line-height:1.0;letter-spacing:${-hs * .035}px;color:#fff">${A.h1}<span style="display:block;color:var(--lime)">${A.h2}</span></div>
-      <div style="font-family:var(--J);font-weight:600;font-size:${c.ss}px;line-height:1.35;color:rgba(255,255,255,.9);margin-top:${c.ss * .6}px;max-width:${c.W * .8}px">${A.sub}</div></div>`;
+      <div style="font-family:var(--J);font-weight:600;font-size:${c.ss}px;line-height:1.35;color:rgba(255,255,255,.9);margin-top:${c.ss * .6}px;max-width:${free ? c.fs[0] - c.lx - 24 : c.W * .8}px">${A.sub}</div></div>`;
   const legal = `<div style="position:absolute;left:${c.lx}px;top:${c.ly2}px;width:${free ? c.px - c.lx - 30 : c.W * .4}px;font-family:var(--J);font-weight:500;font-size:${c.W > 1000 && c.H > 1500 ? 16 : 14}px;line-height:1.35;color:rgba(255,255,255,.6);z-index:7">${A.legal}</div>`;
   let body;
   if (free) {
-    body = phone(c.px, c.py, c.pw, c.pr, (sw) => zoomed(dealsScreen(), sw))
-      + c.bub.map(([x, y, w, big], i) => bubble(x, y, big ? w : 420, A.b[i], big, i, i ? 0 : -2)).join("")
+    body = phone(c.px, c.py, c.pw, c.pr, (sw) => zoomed(A.screen === "wh" ? whScreen() : dealsScreen(), sw))
+      + c.bub.slice(0, A.b.length).map(([x, y, w, big], i) => bubble(x, y, big ? w : 420, A.b[i], big, i, i ? 0 : -2)).join("")
       + freeSticker(c.fs[0], c.fs[1], c.fs[2]);
   } else {
     const [rx, ry, rw, rr, rk] = c.rc;
@@ -582,7 +626,7 @@ function ad(fmt) {
       + phone(c.px, c.py, c.pw, c.pr, lockScreen)
       + blackSticker(c.bx, c.by, c.bk);
   }
-  return `<div class="art" style="width:${c.W}px;height:${c.H}px;background:${bg}">${logo}${head}${body}${legal}</div>`;
+  return `<div class="art" style="width:${c.W}px;height:${c.H}px;background:${bg}">${logo}${head}${body}${legal}${footer(c)}</div>`;
 }
 
 const R = { poster: () => ad("poster"), story: () => ad("story"), square: () => ad("square"), info4x5: poster, info9x16: story, info1x1: square, store1, store2 }[F] || (() => ad("poster"));

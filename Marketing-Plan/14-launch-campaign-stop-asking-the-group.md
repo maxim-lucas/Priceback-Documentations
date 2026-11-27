@@ -182,7 +182,7 @@ people are waiting for an answer"; 5–12 s open PriceBack → Deals → pick th
 - FR: *« Quelqu'un l'a vu en rabais à son entrepôt? » … « Suivi 👀 » … Passez les 64 commentaires. PriceBack montre
   tous les rabais et prix Costco, dans chaque entrepôt au Canada (Centres d'affaires inclus), avec le dernier stock
   connu. 100 % gratuit. Aucune carte de crédit.*
-- Headline: *Stop asking the group. Ask PriceBack.* / *Fini de demander au groupe. Demandez à PriceBack.*
+- Headline: *Stop asking the group. Ask PriceBack.* / *Arrêtez de demander au groupe. Demandez à PriceBack.*
 - Description: *Free on iPhone and Android* / *Gratuit sur iPhone et Android*
 
 **1b — The stock run.** *Driving 40 minutes for something that's sold out? Check the last known stock at any Canadian
@@ -192,6 +192,29 @@ le dernier stock connu à n'importe quel entrepôt au Canada. Gratuit dans Price
 **1c — Not a flyer.** *Not a flyer. Every Costco saving running right now, at your warehouse and every other one in
 Canada, with the regular price beside it. Free.* / *Pas une circulaire. Tous les rabais Costco en cours, à votre
 entrepôt et dans tous les autres au Canada, avec le prix régulier à côté. Gratuit.*
+
+### Campaign 1 — five hooks to test (2026-11-27)
+
+Maxim: *"Are you looking for the real warehouse prices? Did you go to Costco and it was too late or out of stock?
+These are just ideas, rephrase and create something in this angle … mention also to follow the social media pages and
+download the app and the website"*. Same layout for all five (emerald, the app on a phone, the 100 % FREE sticker, one
+group-style bubble). **English first; the French follows once the English hooks are chosen.** Images:
+`launch-2026-12/meta-ads/campaign-1-free-tools/en/<hook>/`.
+
+| # | Image headline (white / lime) | Bubble | Screen | Primary text to pair it with (EN) |
+|---|---|---|---|---|
+| 1 | Stop asking the group. / Ask PriceBack. | "Anyone seen the Dyson V15 on sale at their warehouse?? 🙏" + "following 👀" | Deals | 1a above |
+| 2 | Need the real warehouse price? / Every Costco. Every price. | "What's the price at Laval? 🤔" | Warehouse prices | *The flyer shows one price. Your warehouse might show another. PriceBack shows the shelf price at any Costco in Canada, by name or item number. Free, no credit card.* |
+| 3 | Drove to Costco. Sold out. / Check the stock before you go. | "Drove 40 min for it… sold out 😩" + "same 😭" | Deals (stock chips) | 1b above |
+| 4 | Missed the saving by a day? / See when every saving ends. | "Went today. The saving ended yesterday 🙃" | Deals ("Ending this week") | *Every Costco saving at your warehouse, with the day it ends. Filter "Ending this week" and never show up a day late again. Free.* |
+| 5 | Not the flyer. Your warehouse. / Every saving, live. | "Is the flyer deal at MY warehouse?? 🤷" | Deals | 1c above |
+
+Test them as one ad set with five ads (Meta's creative rotation picks the winner), EN only, then translate the best two.
+
+**Footer on every ad (both campaigns):** a white band at the bottom: *Download free* (App Store + Google Play glyphs) ·
+*priceback.ca* · *Follow @priceback.ca* (Instagram + Facebook glyphs). Generic glyphs, never the official store badges
+or Meta logos. On Stories it sits above the zone the platform covers. **To confirm:** the Facebook page's @ handle (the
+band assumes it matches Instagram's `@priceback.ca`).
 
 ### Campaign 2 — Receipt scanner + BLACK (retargeting first)
 
@@ -217,7 +240,7 @@ images say "Costco" as descriptive use with the disclaimer, and Google decides a
 
 | Campaign 1 headlines (≤ 30) EN | FR |
 |---|---|
-| Stop asking the group | Fini de demander au groupe |
+| Stop asking the group | Arrêtez de demander au groupe |
 | Every warehouse saving, free | Les rabais de votre entrepôt |
 | Prices at every warehouse | Le prix à chaque entrepôt |
 | Is it in stock? Check first | En stock? Vérifiez avant |
