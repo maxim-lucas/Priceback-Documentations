@@ -18,13 +18,13 @@ told the viewer two things at once. Now:
 | Shows | Deals + Warehouse prices + last known stock (Costco) | Receipt scan, price-drop alerts (Costco + Best Buy) |
 | Never mentions | The scanner, credits, the code, the trial | Nothing hidden: the free start and the code are the offer |
 | Role | Cold audiences, installs, home warehouse set | Retargeting (installed, no receipt) + cold "bought it" audiences |
-| Creatives (Meta ads) | `launch-2026-12/meta-ads/campaign-1-free-tools/` | `launch-2026-12/meta-ads/campaign-2-receipt-scan-black/` |
+| Creatives (Meta ads) | `social-media-manager`: `sm-content/14-new-version-ads/ready-to-upload/` (`C1-H…`) | same folder (`C2_ReceiptScan-BLACK`) |
 
 **Status:** creatives rendered (EN + FR, 4:5, 9:16, 1:1 for each campaign; store screenshots 1–2). Nothing posted,
 nothing uploaded. Post and spend only once the build is live in **both** stores.
 
-**What goes where:** `launch-2026-12/README.md`. `meta-ads/` = Facebook + Instagram ads (and Google Display); `app-store-screenshots/`
-= App Store Connect and Google Play. Source: `launch-2026-12/source/creatives.html`. The current store set in [`app-store-screenshots/`](app-store-screenshots/)
+**What goes where:** `launch-2026-12/README.md`. The Meta ads, their rules and their source moved to the `social-media-manager`
+repo on 2026-11-27 (`sm-content/14-new-version-ads/`); the App Store / Google Play screenshots stay in `launch-2026-12/app-store-screenshots/`. The current store set in [`app-store-screenshots/`](app-store-screenshots/)
 stays live until the new set is finished and approved.
 
 ---
@@ -199,7 +199,7 @@ Maxim: *"Are you looking for the real warehouse prices? Did you go to Costco and
 These are just ideas, rephrase and create something in this angle … mention also to follow the social media pages and
 download the app and the website"*. Same layout for all five (emerald, the app on a phone, the 100 % FREE sticker, one
 group-style bubble). **English first; the French follows once the English hooks are chosen.** Images:
-`launch-2026-12/meta-ads/campaign-1-free-tools/en/<hook>/`.
+`social-media-manager/sm-content/14-new-version-ads/ready-to-upload/`.
 
 | # | Image headline (white / lime) | Bubble | Screen | Primary text to pair it with (EN) |
 |---|---|---|---|---|
@@ -225,6 +225,10 @@ Google's transparent margin, trimmed as the carousels do); on the right **priceb
 with Instagram and Facebook icons in lime circles. Google's French badge ("Disponible sur Google Play") on FR; Apple's
 English badge on FR until `app-store-fr.svg` is added to the carousel badges (the carousels' rule). Both pages use
 `@priceback.ca` (confirmed by Maxim).
+
+**Kept (Maxim, 2026-11-27): hooks 1, 2, 3 and 6**, in English and French, every Meta placement (Feed, Stories, Reels,
+Square). Hooks 4 and 5 are dropped. The shipped files, their names and the rules now live in the `social-media-manager`
+repo, `sm-content/14-new-version-ads/README.md`.
 
 ### Campaign 2 — Receipt scanner + BLACK (retargeting first)
 
