@@ -109,3 +109,17 @@ store not offering the week in Egypt is what keeps it off screen H there.
 - ~~Pack prices~~ left as they are in both stores (Maxim, 2026-11-19).
 - Data per code: `apple_code_monthly`, `apple_code_annual`, `play_offer_id` columns on `promo_codes`, so a new code
   stays a row (plus its store offers).
+
+## Home banner + approved push (2026-11-27)
+
+Design: `Technical/Home_Promo_Banner_Design.md`. How to run an event: `Operations/Home_Promo_Banner_Runbook.md`.
+
+| Piece | Definition |
+| --- | --- |
+| Config | `app_config` key `HOME_PROMO` (`id`, `enabled`, `code`, `startsAt`, `endsAt` EXCLUSIVE, `copy.{en,fr}.{title,body,cta}`), written only by the admin switch (`configService.setOpsJson`) or `backend/scripts/seed-home-promo.js` |
+| Rules | `backend/lib/homePromo.js`: `parseConfig`, `isLive` (the one "is it on" rule), `viewFor`, `audienceFor` (= `promoCodes.accountEligibility`, same as taking a code), `resolveHomePromo` (the route's decision, a subscriber in force by `isCreditExempt` gets nothing) |
+| Shopper route | `GET /api/me/home-promo` behind `X-App-Caps: home-promo` (otherwise 404 as an unknown path); `{ promo: null }` on anything unexpected, never a 5xx |
+| Phone | the banner under the Home hero; a tap goes to the code entry and the paywall; zero space when off |
+| Admin | Admin → Promo codes → Home banner: state, live flag, both languages' preview, the switch |
+| Push | approval-gated: `POST /api/admin/home-promo/push/preview` then `/send` with the preview token; ledger `home_promo_pushes` (migration 0068), one send per campaign; nothing sends from a scheduler, a boot or a deploy (`backend/lib/homePromoPush.js`) |
+| Push audience | marketing-push consent, a push token, not a subscriber, never subscribed, a Canadian province, a build that can enter a code (3.6.5+) |
