@@ -18,13 +18,13 @@ told the viewer two things at once. Now:
 | Shows | Deals + Warehouse prices + last known stock (Costco) | Receipt scan, price-drop alerts (Costco + Best Buy) |
 | Never mentions | The scanner, credits, the code, the trial | Nothing hidden: the free start and the code are the offer |
 | Role | Cold audiences, installs, home warehouse set | Retargeting (installed, no receipt) + cold "bought it" audiences |
-| Creatives | `launch-2026-12/free/{en,fr}/` | `launch-2026-12/scan/{en,fr}/` |
+| Creatives (Meta ads) | `launch-2026-12/meta-ads/campaign-1-free-tools/` | `launch-2026-12/meta-ads/campaign-2-receipt-scan-black/` |
 
 **Status:** creatives rendered (EN + FR, 4:5, 9:16, 1:1 for each campaign; store screenshots 1–2). Nothing posted,
 nothing uploaded. Post and spend only once the build is live in **both** stores.
 
-Source: `launch-2026-12/source/creatives.html`, render with `?c=free|scan&f=poster|story|square|store1|store2&lang=en|fr`
-(1080×1350, 1080×1920, 1080×1080, 1320×2868). The current store set in [`app-store-screenshots/`](app-store-screenshots/)
+**What goes where:** `launch-2026-12/README.md`. `meta-ads/` = Facebook + Instagram ads (and Google Display); `app-store-screenshots/`
+= App Store Connect and Google Play. Source: `launch-2026-12/source/creatives.html`. The current store set in [`app-store-screenshots/`](app-store-screenshots/)
 stays live until the new set is finished and approved.
 
 ---
@@ -107,6 +107,22 @@ share the bottom half, so they read as one launch:
 Tokens: bg `#eef5f1`, ink `#0d3d28`, accent `#10b981`, accentInk `#15803d`, lime `#bef264`
 (`src/components/spaces/tokens.js`). Fonts: Inter Tight, Plus Jakarta Sans, IBM Plex Mono (the stubs and receipts).
 
+### The ads are ad-native (revised 2026-11-27)
+
+Maxim: *"i dont understand what you created is for the apple store or for the facebook and IG ads campaign ? i think the
+format is good but it is not for an ad"*. The first ad images were info sheets (a post, a card, a paragraph, a button,
+a legal block). In Ads Manager the primary text, the headline and the **Install** button sit under the image, so the
+image only has to stop the thumb. Each ad is now three things:
+
+1. **A hook** of two lines, white then lime, and one short line under it.
+2. **The real app on a phone**, big and cropped by the frame: the Deals screen (campaign 1), a lock screen with three
+   PriceBack price-drop pushes (campaign 2).
+3. **One sticker**: the round lime **100 % FREE · No credit card** (campaign 1), the **BLACK** receipt stub (campaign 2).
+
+Campaign 1 floats the group question and two "following" bubbles beside the phone; campaign 2 puts the Costco receipt
+behind it. Full-bleed colour: emerald for the free campaign, ink for the scanner, so the two never read as the same ad.
+The legal line stays, small, bottom-left. Stories keep the hook and the sticker between y 250 and 1640.
+
 ---
 
 ## 4. Deliverables
@@ -115,11 +131,11 @@ Tokens: bg `#eef5f1`, ink `#0d3d28`, accent `#10b981`, accentInk `#15803d`, lime
 
 | Folder / file | Size | Use |
 |---|---|---|
-| `free/*/meta-feed-4x5.png`, `scan/*/meta-feed-4x5.png` | 1080×1350 | Meta feed ads (FB + IG), organic launch posts |
-| `free/*/meta-story-9x16.png`, `scan/*/…` | 1080×1920 | Stories / Reels. Content kept between y 250 and 1640; the bottom is left for the platform's button |
-| `free/*/feed-square-1x1.png`, `scan/*/…` | 1080×1080 | Feed alternative, Google Display / Demand Gen square |
-| `store/en/01-deals`, `store/fr/01-rabais` | 1320×2868 | App Store 6.9" slot 1 (Play takes the same file) |
-| `store/en/02-warehouse-prices`, `store/fr/02-prix-en-entrepot` | 1320×2868 | Store slot 2 |
+| `meta-ads/<campaign>/<lang>/feed-4x5.png` | 1080×1350 | **Facebook + Instagram ad**, Feed placements |
+| `meta-ads/<campaign>/<lang>/story-reel-9x16.png` | 1080×1920 | **Facebook + Instagram ad**, Stories and Reels placements |
+| `meta-ads/<campaign>/<lang>/square-1x1.png` | 1080×1080 | Feed alternative, Google Display / Demand Gen square |
+| `app-store-screenshots/en/01-deals`, `…/fr/01-rabais` | 1320×2868 | **App Store** 6.9" slot 1 and **Google Play** phone screenshot 1 |
+| `app-store-screenshots/en/02-warehouse-prices`, `…/fr/02-prix-en-entrepot` | 1320×2868 | Store slot 2 |
 
 Store slots 1–2 carry a lime **Free** chip beside the logo: the two screens they show are free.
 
@@ -137,7 +153,7 @@ Store slots 1–2 carry a lime **Free** chip beside the logo: the two screens th
 | 6 | The moment it drops, **you know.** | Dès que le prix baisse, **vous le savez.** | Price-drop push (onboarding slide B) | — |
 | 7 | Claim it at the desk **in minutes.** | Réclamez au comptoir **en quelques minutes.** | Claim card (onboarding slide C) | — |
 | 8 | Costco **and Best Buy.** One app. | Costco **et Best Buy.** Une seule app. | Store spaces (onboarding slide E) | — |
-| 9 | Scan a barcode. **See everything.** | Scannez un code-barres. **Voyez tout.** | Price Checker (name pending, §7) | — |
+| 9 | **Product Scan.** Scan a barcode, see everything. | **Scan produit.** Scannez un code-barres, voyez tout. | Product Scan (§7) | — |
 | 10 | Private by design. Independent. | Privé dès la conception. Indépendant. | Disclaimer slide (keep the current one) | — |
 
 **Google Play feature graphic** (1024×500): campaign 1's headline and answer card, no code.
@@ -257,24 +273,14 @@ free-*period* wording (`app-store-screenshots/README.md`) and so does this one.
 
 ---
 
-## 7. Renaming the Price Checker
+## 7. Renaming the Price Checker: **Product Scan / Scan produit**
 
-**X-Ray / Rayon X: refused (Maxim, 2026-11-27).** Other names that work in both languages:
-
-| EN | FR | Note |
-|---|---|---|
-| Item Lookup | Fiche produit | Plain, says what the screen is; "fiche produit" is the natural French term |
-| Barcode Lookup | Recherche code-barres | Names the gesture; long in French |
-| Product Scan | Scan produit | Short; close to "Scan a receipt", which may confuse |
-| Item Check | Vérif article | Short and verb-like; informal in French |
-| Know Before You Buy | Avant d'acheter | A promise, not a name; works as a tagline under any of the above |
-
-Store slot 9's headline waits on the choice.
+Chosen by Maxim, 2026-11-27 (X-Ray / Rayon X was refused). Every campaign piece and store slot 9 use it. The app's own
+label is not renamed yet: that is an i18n change (EN + FR) in the `priceback` repo, done when Maxim asks for it.
 
 ---
 
 ## 8. Open decisions for Maxim
 
 1. Approve the two campaigns before store screenshots 3–10, the carousel and the two Reels are built.
-2. The Price Checker name (§7).
-3. Meta budget, the 70/30 split and the start date (after both stores are live).
+2. Meta budget, the 70/30 split and the start date (after both stores are live).

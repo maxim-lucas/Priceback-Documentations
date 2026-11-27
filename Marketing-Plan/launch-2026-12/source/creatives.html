@@ -481,7 +481,111 @@ function storeShot(a, b, c, sub, screen, theme) {
 function store1() { return storeShot(L.s1a, L.s1b, L.s1c, L.s1sub, dealsScreen()); }
 function store2() { return storeShot(L.s2a, `<span style="color:var(--accentInk)">${L.s2b}</span>`, "", L.s2sub, whScreen()); }
 
-const R = { poster, story, square, store1, store2 }[F] || poster;
+
+/* ===================== ADS (Meta feed 4:5, Stories/Reels 9:16, square 1:1) =====================
+   Ad-native, revised 2026-11-27 (Maxim: "the format is good but it is not for an ad"): one hook, the real app
+   on a phone, one sticker. No button and no paragraph in the image: Meta prints the primary text, the headline
+   and the Install button under it. The previous info-sheet layouts stay as f=info4x5|info9x16|info1x1
+   (organic posts, the carousel's last slide). */
+const ADCOPY = {
+  free: {
+    en: { h1: "Stop asking the group.", h2: "Ask PriceBack.", sub: "Every Costco saving and price, at every warehouse in Canada.",
+          s1: "100%", s2: "FREE", s3: "No credit card",
+          b: ["Anyone seen the Dyson V15 on sale at their warehouse?? 🙏", "following 👀", "following"],
+          legal: "Example prices. Independent app, not affiliated with Costco." },
+    fr: { h1: "Fini de demander au groupe.", h2: "Demandez à PriceBack.", sub: "Tous les rabais et prix Costco, dans chaque entrepôt au Canada.",
+          s1: "100 %", s2: "GRATUIT", s3: "Aucune carte",
+          b: ["Quelqu’un a vu le Dyson V15 en rabais à son entrepôt?? 🙏", "Suivi 👀", "je suis"],
+          legal: "Prix en exemple. App indépendante, non affiliée à Costco." },
+  },
+  scan: {
+    en: { h1: "Prices drop after you buy?", h2: "Get the difference back.", sub: "Scan your Costco or Best Buy receipt. Start free.",
+          date: "Thursday, December 4", app: "PRICEBACK", now: "now",
+          n: [["Price drop!", "Dyson V15 Detect is $120 lower. Claim by Dec 7.", "+$120"], ["Price drop!", "Sony WH-1000XM5 at Best Buy. Claim by Dec 9.", "+$50"], ["Price drop!", "Ninja Air Fryer AF101. Claim by Dec 12.", "+$30"]],
+          legal: "Example amounts. The store decides each adjustment. Not affiliated with Costco or Best Buy." },
+    fr: { h1: "Le prix a baissé après l’achat?", h2: "Récupérez la différence.", sub: "Numérisez votre reçu Costco ou Best Buy. Commencez gratuitement.",
+          date: "jeudi 4 décembre", app: "PRICEBACK", now: "maintenant",
+          n: [["Baisse de prix!", "Le Dyson V15 Detect a baissé de 120 $. Réclamez avant le 7 déc.", "+120 $"], ["Baisse de prix!", "Sony WH-1000XM5 chez Best Buy. Réclamez avant le 9 déc.", "+50 $"], ["Baisse de prix!", "Friteuse à air Ninja AF101. Réclamez avant le 12 déc.", "+30 $"]],
+          legal: "Montants en exemple. Le magasin décide de chaque ajustement. Non affiliée à Costco ni à Best Buy." },
+  },
+};
+const A = ADCOPY[CAMP][LANG];
+
+function phone(x, y, w, rot, inner) {
+  const pad = w * .022, r = w * .16;
+  return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${w * 2.16}px;transform:rotate(${rot}deg);border-radius:${r}px;background:#0b0f0d;padding:${pad}px;box-shadow:0 0 0 ${w * .005}px #2a3330, 0 40px 90px rgba(0,0,0,.45)">
+    <div style="width:100%;height:100%;border-radius:${r - pad}px;overflow:hidden;position:relative;background:var(--bg)">
+      <div style="position:absolute;top:${w * .028}px;left:50%;transform:translateX(-50%);width:${w * .27}px;height:${w * .075}px;border-radius:${w * .04}px;background:#000;z-index:9"></div>
+      ${inner(w - 2 * pad)}</div></div>`;
+}
+const zoomed = (html, sw) => html.replace(/<div class="zoom">/, `<div class="zoom" style="zoom:${sw / 390}">`);
+function lockScreen(sw) {
+  const cards = A.n.map(([t, b, a], i) => `<div style="background:rgba(255,255,255,${i ? .78 : .94});border-radius:22px;padding:11px 13px;margin-top:8px;color:var(--ink);${i ? `transform:scale(${1 - i * .04});opacity:${1 - i * .2}` : ""}">
+      <div style="display:flex;align-items:center;gap:7px;font-family:var(--J);font-weight:700;font-size:10.5px;color:var(--sub);letter-spacing:.4px">${tile(19)}${A.app}<span style="margin-left:auto;font-weight:500;letter-spacing:0">${A.now}</span></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:6px"><div style="flex:1;min-width:0"><div style="font-family:var(--T);font-weight:800;font-size:14px">${t}</div>
+        <div style="font-family:var(--J);font-weight:500;font-size:12px;color:#334155;line-height:1.35;margin-top:1px">${b}</div></div>
+        <div style="font-family:var(--T);font-weight:800;font-size:19px;color:var(--accentInk);letter-spacing:-.4px">${a}</div></div></div>`).join("");
+  return `<div style="zoom:${sw / 390};width:390px;height:844px;position:relative;background:radial-gradient(90% 50% at 80% 10%, rgba(190,242,100,.45), transparent 60%), linear-gradient(170deg,#10b981 0%,#065f46 55%,#062a1a 100%);color:#fff">
+    <div class="sb" style="color:#fff"><span>9:41</span><span>●●● ▲ ▮</span></div>
+    <div style="text-align:center;font-family:var(--J);font-weight:600;font-size:17px;margin-top:22px;opacity:.9">${A.date}</div>
+    <div style="text-align:center;font-family:var(--T);font-weight:700;font-size:86px;letter-spacing:-2px;line-height:1">9:41</div>
+    <div style="padding:22px 12px 0">${cards}</div></div>`;
+}
+function bubble(x, y, w, text, big, i, rot) {
+  return `<div style="position:absolute;left:${x}px;top:${y}px;max-width:${w}px;display:flex;align-items:flex-end;gap:12px;transform:rotate(${rot}deg);z-index:5">
+    <div class="av" style="width:${big ? 58 : 46}px;height:${big ? 58 : 46}px;font-size:${big ? 21 : 17}px;background:${AVC[i][0]};color:${AVC[i][1]};box-shadow:0 6px 14px rgba(0,0,0,.18)">${["JM", "MR", "SL"][i]}</div>
+    <div style="background:#fff;border-radius:26px 26px 26px 8px;padding:${big ? "18px 22px" : "12px 20px"};font-family:var(--J);font-weight:${big ? 700 : 600};font-size:${big ? 27 : 25}px;line-height:1.3;color:#1c2b23;box-shadow:0 16px 36px rgba(6,42,26,.28)">${text}</div></div>`;
+}
+function freeSticker(x, y, d) {
+  return `<div style="position:absolute;left:${x}px;top:${y}px;width:${d}px;height:${d}px;border-radius:50%;background:var(--lime);transform:rotate(-12deg);z-index:6;
+      box-shadow:0 18px 40px rgba(6,42,26,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--inkDeep)">
+    <div style="position:absolute;inset:${d * .05}px;border-radius:50%;border:${d * .012}px dashed rgba(6,42,26,.35)"></div>
+    <div style="font-family:var(--T);font-weight:800;font-size:${d * .15}px;line-height:1">${A.s1}</div>
+    <div style="font-family:var(--M);font-weight:700;font-size:${d * (A.s2.length > 4 ? .17 : .25)}px;letter-spacing:${d * .01}px;line-height:1.05">${A.s2}</div>
+    <div style="font-family:var(--J);font-weight:800;font-size:${d * .075}px;margin-top:${d * .03}px">${A.s3}</div></div>`;
+}
+function blackSticker(x, y, k) {
+  return `<div style="position:absolute;left:${x}px;top:${y}px;transform:rotate(-7deg);z-index:6;filter:drop-shadow(0 18px 30px rgba(0,0,0,.4))">${ticket(k, "transparent")}</div>`;
+}
+
+/* per format: [W, H, logo{x,y,s}, head{y,size}, phone{x,y,w,rot}, stickers, bubbles/receipt, legal{y}] */
+const ADL = {
+  poster: { W: 1080, H: 1350, lx: 64, ly: 56, ls: 58, hy: 150, hs: 84, ss: 30, px: 452, py: 470, pw: 560, pr: 4,
+            fs: [790, 350, 236], bub: [[36, 560, 500, 1], [70, 800, 0, 0], [100, 900, 0, 0]], bx: 60, by: 1080, bk: .82,
+            rc: [40, 560, 420, -9, 1.05], ly2: 1300 },
+  story:  { W: 1080, H: 1920, lx: 72, ly: 250, ls: 64, hy: 360, hs: 92, ss: 33, px: 400, py: 800, pw: 640, pr: 4,
+            fs: [770, 600, 260], bub: [[40, 1060, 540, 1], [70, 1330, 0, 0], [100, 1440, 0, 0]], bx: 56, by: 1400, bk: .92,
+            rc: [36, 920, 440, -9, 1.1], ly2: 1600 },
+  square: { W: 1080, H: 1080, lx: 56, ly: 44, ls: 50, hy: 122, hs: 70, ss: 26, px: 540, py: 380, pw: 460, pr: 4,
+            fs: [830, 270, 200], bub: [[36, 430, 520, 1], [70, 650, 0, 0], [100, 740, 0, 0]], bx: 50, by: 860, bk: .72,
+            rc: [40, 440, 380, -9, .95], ly2: 1044 },
+};
+function ad(fmt) {
+  const c = ADL[fmt], free = CAMP === "free";
+  const hs = A.h1.length > 26 ? c.hs * .78 : A.h1.length > 24 ? c.hs * .86 : c.hs;
+  const bg = free
+    ? "radial-gradient(80% 50% at 95% 0%, rgba(255,255,255,.22), transparent 60%), radial-gradient(60% 40% at 0% 100%, rgba(190,242,100,.35), transparent 60%), linear-gradient(165deg,#10b981 0%,#047857 100%)"
+    : "radial-gradient(80% 50% at 95% 0%, rgba(16,185,129,.38), transparent 60%), radial-gradient(60% 40% at 0% 100%, rgba(190,242,100,.18), transparent 60%), linear-gradient(165deg,#0d3d28 0%,#062a1a 100%)";
+  const logo = `<div style="position:absolute;left:${c.lx}px;top:${c.ly}px;display:flex;align-items:center;gap:${c.ls * .28}px">${tile(c.ls)}<b style="font-family:var(--T);font-weight:800;font-size:${c.ls * .62}px;letter-spacing:-1px;color:#fff">PriceBack</b></div>`;
+  const head = `<div style="position:absolute;left:${c.lx}px;right:${c.lx}px;top:${c.hy}px">
+      <div style="font-family:var(--T);font-weight:800;font-size:${hs}px;line-height:1.0;letter-spacing:${-hs * .035}px;color:#fff">${A.h1}<span style="display:block;color:var(--lime)">${A.h2}</span></div>
+      <div style="font-family:var(--J);font-weight:600;font-size:${c.ss}px;line-height:1.35;color:rgba(255,255,255,.9);margin-top:${c.ss * .6}px;max-width:${c.W * .8}px">${A.sub}</div></div>`;
+  const legal = `<div style="position:absolute;left:${c.lx}px;top:${c.ly2}px;width:${free ? c.px - c.lx - 30 : c.W * .4}px;font-family:var(--J);font-weight:500;font-size:${c.W > 1000 && c.H > 1500 ? 16 : 14}px;line-height:1.35;color:rgba(255,255,255,.6);z-index:7">${A.legal}</div>`;
+  let body;
+  if (free) {
+    body = phone(c.px, c.py, c.pw, c.pr, (sw) => zoomed(dealsScreen(), sw))
+      + c.bub.map(([x, y, w, big], i) => bubble(x, y, big ? w : 420, A.b[i], big, i, i ? 0 : -2)).join("")
+      + freeSticker(c.fs[0], c.fs[1], c.fs[2]);
+  } else {
+    const [rx, ry, rw, rr, rk] = c.rc;
+    body = receipt(rx, ry, rw, rr, rk, "COSTCO WHOLESALE", "#542 MERIVALE · 2026-11-20", [["KS OLIVE OIL 2L", "21.99"], ["DYSON V15 DETECT", "919.99"], ["NINJA AF101", "129.99"], ["TIDE PODS 152", "34.99"]], "1,106.96", 1)
+      + phone(c.px, c.py, c.pw, c.pr, lockScreen)
+      + blackSticker(c.bx, c.by, c.bk);
+  }
+  return `<div class="art" style="width:${c.W}px;height:${c.H}px;background:${bg}">${logo}${head}${body}${legal}</div>`;
+}
+
+const R = { poster: () => ad("poster"), story: () => ad("story"), square: () => ad("square"), info4x5: poster, info9x16: story, info1x1: square, store1, store2 }[F] || (() => ad("poster"));
 document.getElementById("root").innerHTML = R();
 document.fonts.ready.then(() => { fixNotches(); document.body.dataset.ready = "1"; });
 </script>
