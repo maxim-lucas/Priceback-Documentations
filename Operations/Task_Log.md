@@ -13210,3 +13210,30 @@ drop.
   and "Savings only" now agrees with the chip.
 - **Sold by the pack:** Price Checker (and nearby rows) carry `packSaving` and say it is a saving; Warehouse prices,
   its history, the admin history and lookup already did.
+
+## 2026-11-27 — Home promo banner + approved push (Priceback feat/home-promo-banner-2026-11-27)
+
+- **Shipped:** server-driven Home banner (`app_config` `HOME_PROMO`, `backend/lib/homePromo.js`, `GET /api/me/home-promo`
+  behind cap `home-promo`), phone banner under the hero (tap → code entry → paywall), admin switch (Admin → Promo codes →
+  Home banner, `setOpsJson`), approval-gated push (preview token, ledger `home_promo_pushes`, migration 0068), and the
+  first event config script `backend/scripts/seed-home-promo.js` (BLACK, to Cyber Monday, EN + FR, `enabled:false`,
+  dry run by default). Docs: `Technical/Home_Promo_Banner_Design.md`, `Operations/Home_Promo_Banner_Runbook.md`,
+  `Operations/Home_Promo_Banner_PR_Notes.md`, `Technical/Promo_Codes_Design.md`.
+- **Maxim's to do:** apply 0068 to dev then prod (then move it into `PROD_LEDGER`); run the seed (`--write`) on the target
+  database; enable the banner in Admin; preview and approve the push.
+- **Open follow-ups:** store the phone's `storeCountry` on the account for the push audience (today: province); PR to
+  `main-test-features`, then `main` after the prod migration and the compatibility audit.
+
+## 2026-11-27 (cont.) — Home promo live in prod, audience change, consent decisions (Priceback #757–#759)
+
+- **Shipped and merged** (#757 → `main-test-features`, #758 → `main`, #759 sync): banner for every non-subscriber, `action: "none"` announcement mode
+  (code and cta optional), admin switch, approval-gated push (preview → approve; nothing auto-sends). Prod: migration 0068 applied by hand + ledger row;
+  `HOME_PROMO` row `black-friday-2026` inserted **enabled** (ends 2026-12-01 05:00Z = Cyber Monday end, Toronto). Route live (404 no cap / 401 cap).
+- **Push NOT sent.** Copy shown to Maxim in chat. Audience in prod: 464 tokens, 4 marketing-push consents, 1 on build ≥ 3.6.5. Maxim asked to bulk-enable
+  consent "as of signup", default it on at signup, and send to all / email all: declined (CASL: no fabricated or pre-ticked consent; 0 of 627 email
+  consents; no unsubscribe mechanism). Approved instead: ONE combined "Tips & offers" opt-in (push + email rows), two equal buttons, unticked at signup,
+  one-time ask for existing users — to build next session.
+- **AirPods Pro 3 overlap (investigated, nothing changed):** two live Same-Day savings per province ($70 Nov 19–25 and $55 Nov 23–Dec 20). The harvest
+  kept both listings and retired the $70 on its own end date; not a job bug. Maxim: do not change the overlap handling. Roadmap added:
+  `Roadmap/Deeper_Discount_On_Discounted_Items.md` (Costco customer service: an already-discounted item can get a deeper discount; vanilla bean paste, Business Centre).
+- **Next session:** `Operations/Next_Session_Tasks_2026-11-28.md`.
