@@ -91,7 +91,7 @@
   /* ---------- store screenshots ---------- */
   .storeart { width:1320px; height:2868px; }
   .shead { position:absolute; left:96px; right:96px; top:140px; }
-  .shead .brand { margin-bottom:46px; }
+  .shead > div:first-child { margin-bottom:46px; }
   .sh1 { font-family:var(--T); font-weight:800; font-size:124px; line-height:1.0; letter-spacing:-4.5px; color:var(--ink); }
   .sh1 em { font-style:normal; color:var(--accentInk); display:block; }
   .ssub { margin-top:34px; font-family:var(--J); font-weight:500; font-size:50px; line-height:1.32; color:#2f5d49; max-width:1120px; }
@@ -237,6 +237,47 @@ const COPY = {
   },
 };
 const L = COPY[LANG];
+
+/* Two campaigns (Maxim, 2026-11-27): c=free — Deals + Warehouse prices, said FREE, no scanner, no code;
+   c=scan — the receipt scanner, its free start and code BLACK. */
+const CAMP = q.get("c") === "scan" ? "scan" : "free";
+const CAMPAIGNS = {
+  free: {
+    en: {
+      sub: "<b>Every Costco saving and shelf price</b>, in every Canadian warehouse, Business Centres too, with the last known stock. <b>100% free.</b>",
+      cap: "Savings + warehouse prices", code: "FREE", perk: "No credit card needed", until: "All of<br>Canada",
+      trial: "<b>Free</b> on iPhone and Android.<br>No credit card.", btn: "Download free", freeChip: "Free",
+      legal: "Example prices. Deals and Warehouse prices are free. PriceBack is independent and not affiliated with Costco.",
+    },
+    fr: {
+      sub: "<b>Tous les rabais et prix Costco</b>, dans chaque entrepôt au Canada, Centres d’affaires inclus, avec le dernier stock connu. <b>100 % gratuit.</b>",
+      cap: "Rabais + prix en entrepôt", code: "GRATUIT", perk: "Aucune carte de crédit", until: "Partout<br>au Canada",
+      trial: "<b>Gratuit</b> sur iPhone et Android.<br>Aucune carte de crédit.", btn: "Téléchargez gratuitement", freeChip: "Gratuit",
+      legal: "Prix donnés en exemple. Les Rabais et les Prix en entrepôt sont gratuits. PriceBack est indépendant et n’est pas affilié à Costco.",
+    },
+  },
+  scan: {
+    en: {
+      h1: "Bought it. Then it dropped?", h2: "Get the difference back.",
+      sub: "<b>Scan your Costco or Best Buy receipt.</b> PriceBack watches every item and tells you what to claim, how much, and by when.",
+      cap: "Promo code", code: "BLACK", perk: "+20% bonus credits", until: "Until<br>Dec 31",
+      trial: "Start free: <b>1 week of Unlimited</b><br>or <b>75 free credits</b>", btn: "Start free",
+      legal: "Example amounts. The store decides each price adjustment. PriceBack is independent and not affiliated with Costco or Best Buy.",
+      watching: "Watching 14 items", nApp: "PriceBack · now", nTitle: "Price drop!", nBody: "Dyson V15 Detect is $120 lower at Merivale #542. Claim by Dec 7.", nAmt: "+$120",
+      n2Title: "Sony WH-1000XM5", n2Body: "Best Buy · Claim by Dec 9", n2Amt: "+$50", big: "+$170.00",
+    },
+    fr: {
+      h1: "Acheté, puis le prix a baissé?", h2: "Récupérez la différence.",
+      sub: "<b>Numérisez votre reçu Costco ou Best Buy.</b> PriceBack surveille chaque article et vous dit quoi réclamer, combien et avant quelle date.",
+      cap: "Code promo", code: "BLACK", perk: "+20 % de crédits bonis", until: "Jusqu’au<br>31 déc.",
+      trial: "Commencez gratuitement : <b>1 semaine d’Unlimited</b><br>ou <b>75 crédits gratuits</b>", btn: "Commencer gratuitement",
+      legal: "Montants donnés en exemple. Le magasin décide de chaque ajustement de prix. PriceBack est indépendant et n’est pas affilié à Costco ni à Best Buy.",
+      watching: "14 articles surveillés", nApp: "PriceBack · maintenant", nTitle: "Baisse de prix!", nBody: "Le Dyson V15 Detect a baissé de 120 $ à Merivale #542. Réclamez avant le 7 déc.", nAmt: "+120 $",
+      n2Title: "Sony WH-1000XM5", n2Body: "Best Buy · Réclamez avant le 9 déc.", n2Amt: "+50 $", big: "+170,00 $",
+    },
+  },
+};
+Object.assign(L, CAMPAIGNS[CAMP][LANG]);
 const VAC = (s) => `<svg width="${s}" height="${s}" viewBox="0 0 48 48"><path d="M33 5 L19 37" stroke="#64748b" stroke-width="3.5" stroke-linecap="round"/><rect x="28" y="2.5" width="10" height="7" rx="2.5" fill="#475569" transform="rotate(24 33 6)"/><rect x="21.5" y="12.5" width="9" height="16" rx="4.5" fill="#8b5cf6" transform="rotate(24 26 20.5)"/><circle cx="26" cy="20.5" r="2" fill="#fff"/><rect x="9" y="35" width="21" height="7.5" rx="3.75" fill="#334155"/></svg>`;
 const pic = (e, s) => (e === "VAC" ? VAC(s) : e);
 
@@ -269,7 +310,7 @@ function answer(x, y, w, rot, k) {
       <div class="n" style="font-size:${24 * k}px">${n}<div style="font-family:var(--J);font-weight:600;font-size:${18 * k}px;color:${c === "g" ? "var(--accentInk)" : "#b91c1c"};margin-top:${2 * k}px">${s}</div></div>
       <div class="p" style="font-size:${28 * k}px">${p}</div></div>`).join("");
   return `<div class="ans" style="left:${x}px;top:${y}px;width:${w}px;padding:${28 * k}px ${32 * k}px ${26 * k}px;transform:rotate(${rot}deg)">
-    <div class="top">${tile(36 * k)}<div class="app" style="font-size:${20 * k}px">${L.app}</div><span class="chip c-lime" style="font-size:${17 * k}px;padding:${7 * k}px ${14 * k}px">✓ ${L.answered}</span></div>
+    <div class="top">${tile(36 * k)}<div class="app" style="font-size:${20 * k}px">${L.app}</div><span class="chip c-lime" style="font-size:${17 * k}px;padding:${7 * k}px ${14 * k}px">✓ ${L.answered}</span>${L.freeChip ? `<span class="chip c-ink" style="font-size:${17 * k}px;padding:${7 * k}px ${14 * k}px;margin-left:${8 * k}px">${L.freeChip}</span>` : ""}</div>
     <div class="prod" style="margin-top:${20 * k}px">
       <div class="ptile" style="width:${84 * k}px;height:${84 * k}px;background:#e0f2fe;font-size:${44 * k}px">${VAC(60 * k)}</div>
       <div style="flex:1"><div class="pname" style="font-size:${32 * k}px">${L.prod}</div><div class="pmeta" style="font-size:${20 * k}px;margin-top:${4 * k}px">${L.prodMeta}</div></div>
@@ -285,7 +326,7 @@ function ticket(k, bg) {
   return `<div class="ticket" style="border-radius:${24 * k}px">
     <div class="l" style="padding:${20 * k}px ${26 * k}px ${20 * k}px ${30 * k}px">
       <div class="cap" style="font-size:${15 * k}px">${L.cap}</div>
-      <div class="code" style="font-size:${64 * k}px;margin-top:${6 * k}px">BLACK</div>
+      <div class="code" style="font-size:${(L.code.length > 5 ? 54 : 64) * k}px;margin-top:${6 * k}px">${L.code}</div>
       <div class="perk" style="font-size:${21 * k}px;margin-top:${8 * k}px">${L.perk}</div></div>
     <div class="r" style="padding:0 ${24 * k}px;font-size:${18 * k}px;line-height:1.3;text-align:center">${L.until}</div>
     <span class="notch" style="width:${26 * k}px;height:${26 * k}px;top:-${13 * k}px;right:${calcNotch(k)}px;background:${nb}"></span>
@@ -300,17 +341,59 @@ function fixNotches() {
   });
 }
 
+
+/* ---------- campaign 2's stage: the onboarding receipt (slide A) + the price-drop notes (slide B) ---------- */
+function receipt(x, y, w, rot, k, head, meta, rows, total, hi) {
+  const r = rows.map(([n, p], i) => `<div style="display:flex;justify-content:space-between;padding:${5 * k}px ${8 * k}px;margin:0 -${8 * k}px;border-radius:${5 * k}px;background:${i === hi ? "rgba(190,242,100,.75)" : "transparent"}"><span>${n}</span><span>${p}</span></div>`).join("");
+  return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;transform:rotate(${rot}deg);background:#fff;border-radius:${16 * k}px ${16 * k}px ${5 * k}px ${5 * k}px;padding:${22 * k}px ${22 * k}px ${20 * k}px;box-shadow:0 26px 60px rgba(6,42,26,.28);font-family:var(--M);color:var(--ink)">
+    <div style="text-align:center;font-weight:700;font-size:${17 * k}px;letter-spacing:1.5px">${head}</div>
+    <div style="text-align:center;font-size:${12.5 * k}px;color:var(--sub);margin-top:${4 * k}px">${meta}</div>
+    <div style="border-top:2px dashed #cbd5e1;margin:${14 * k}px 0 ${8 * k}px"></div>
+    <div style="font-size:${14.5 * k}px">${r}</div>
+    <div style="border-top:2px dashed #cbd5e1;margin:${8 * k}px 0"></div>
+    <div style="display:flex;justify-content:space-between;font-weight:700;font-size:${16.5 * k}px"><span>TOTAL</span><span>${total}</span></div></div>`;
+}
+function note(x, y, w, title, body, amt, extra) {
+  return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;background:#fff;border-radius:28px;padding:18px 22px;box-shadow:0 22px 50px rgba(13,61,40,.22);${extra || ""}">
+    <div style="display:flex;align-items:center;gap:10px">${tile(28)}<span style="font-family:var(--J);font-weight:700;font-size:16px;color:var(--sub)">${L.nApp}</span></div>
+    <div style="display:flex;align-items:center;gap:16px;margin-top:10px">
+      <div style="flex:1"><div style="font-family:var(--T);font-weight:800;font-size:22px">${title}</div>
+        <div style="font-family:var(--J);font-weight:500;font-size:17px;color:var(--sub);margin-top:3px;line-height:1.35">${body}</div></div>
+      <div style="font-family:var(--T);font-weight:800;font-size:30px;color:var(--accentInk);letter-spacing:-.6px">${amt}</div></div></div>`;
+}
+/* drawn on a 1000x720 stage, placed and scaled per format */
+function scanStage(x, y, sc) {
+  return `<div style="position:absolute;left:${x}px;top:${y}px;width:1000px;height:720px;transform:scale(${sc});transform-origin:0 0">
+    ${receipt(540, 0, 380, 5, 1.0, "BEST BUY", "STORE 942 · 2026-11-18", [["SONY WH1000XM5", "449.99"], ["USB-C CABLE 2M", "24.99"]], "474.98", 0)}
+    ${receipt(10, 34, 430, -4, 1.15, "COSTCO WHOLESALE", "#542 MERIVALE · 2026-11-20", [["KS OLIVE OIL 2L", "21.99"], ["DYSON V15 DETECT", "919.99"], ["NINJA AF101", "129.99"], ["TIDE PODS 152", "34.99"]], "1,106.96", 1)}
+    <div style="position:absolute;left:60px;top:520px;display:flex;align-items:center;gap:12px;padding:16px 24px;border-radius:999px;background:var(--ink);box-shadow:0 14px 30px rgba(6,42,26,.3)">
+      <span class="dot" style="width:12px;height:12px"></span><span style="font-family:var(--T);font-weight:800;font-size:21px;color:#fff">${L.watching}</span></div>
+    ${note(450, 262, 530, L.n2Title, L.n2Body, L.n2Amt, "transform:scale(.92);opacity:.6;transform-origin:50% 100%")}
+    ${note(420, 372, 570, L.nTitle, L.nBody, L.nAmt)}
+    <div style="position:absolute;left:570px;top:540px;padding:14px 32px;border-radius:30px;background:var(--ink);box-shadow:0 18px 36px rgba(13,61,40,.3)">
+      <div style="font-family:var(--T);font-weight:800;font-size:72px;letter-spacing:-2.6px;color:var(--lime);line-height:1">${L.big}</div></div>
+    <div class="example" style="position:absolute;left:800px;top:650px;font-size:15px">${L.example}</div>
+  </div>`;
+}
+function hero(fmt) {
+  if (CAMP === "scan") return { poster: scanStage(40, 128, 1.0), square: scanStage(56, 112, .74), story: scanStage(30, 290, 1.02) }[fmt];
+  return {
+    poster: post(52, 138, 740, -3, .9, 3) + answer(400, 404, 628, 2.2, .9),
+    square: post(48, 120, 640, -3, .78, 2) + answer(452, 270, 570, 2.2, .8),
+    story: post(56, 262, 800, -3, .98, 3) + answer(336, 560, 690, 2.2, .98),
+  }[fmt];
+}
+
 /* ---------- Meta feed 4:5, 1080x1350 ---------- */
 function poster() {
   return `<div class="art" style="width:1080px;height:1350px">
     <div class="glow" style="width:620px;height:620px;right:-240px;top:-260px;background:rgba(16,185,129,.18)"></div>
     <div class="glow" style="width:420px;height:420px;left:-200px;top:380px;background:rgba(190,242,100,.35)"></div>
     <div style="position:absolute;left:60px;top:50px">${brand(64)}</div>
-    ${post(52, 138, 740, -3, .9, 3)}
-    ${answer(400, 404, 628, 2.2, .9)}
+    ${hero("poster")}
     <div class="panel" style="height:500px;border-radius:52px 52px 0 0;padding:44px 60px 0">
       <div class="glow" style="width:520px;height:520px;right:-220px;top:-300px;background:rgba(16,185,129,.28)"></div>
-      <div class="h" style="font-size:${LANG === "fr" ? 64 : 72}px;line-height:1.0;letter-spacing:-2.6px;position:relative">${L.h1}<em>${L.h2}</em></div>
+      <div class="h" style="font-size:${L.h1.length > 24 ? 64 : 72}px;line-height:1.0;letter-spacing:-2.6px;position:relative">${L.h1}<em>${L.h2}</em></div>
       <div class="sub" style="font-size:24.5px;line-height:1.36;margin-top:16px;max-width:960px;position:relative">${L.sub}</div>
       <div style="display:flex;align-items:center;gap:26px;margin-top:22px;position:relative">
         ${ticket(.86)}
@@ -327,13 +410,12 @@ function square() {
   return `<div class="art" style="width:1080px;height:1080px">
     <div class="glow" style="width:560px;height:560px;right:-220px;top:-240px;background:rgba(16,185,129,.18)"></div>
     <div style="position:absolute;left:56px;top:44px">${brand(56)}</div>
-    ${post(48, 120, 640, -3, .78, 2)}
-    ${answer(452, 270, 570, 2.2, .8)}
+    ${hero("square")}
     <div class="panel" style="height:446px;border-radius:48px 48px 0 0;padding:40px 56px 0">
-      <div class="h" style="font-size:${LANG === "fr" ? 58 : 64}px;line-height:1.0;letter-spacing:-2.4px">${L.h1}<em>${L.h2}</em></div>
+      <div class="h" style="font-size:${L.h1.length > 24 ? 58 : 64}px;line-height:1.0;letter-spacing:-2.4px">${L.h1}<em>${L.h2}</em></div>
       <div class="sub" style="font-size:22.5px;line-height:1.36;margin-top:14px">${L.sub}</div>
       <div style="display:flex;align-items:center;gap:24px;margin-top:20px">${ticket(.74)}
-        <div class="btn" style="font-size:23px;padding:18px 26px">${L.btn} →</div></div>
+        <div style="display:flex;flex-direction:column;gap:10px"><div class="btn" style="font-size:23px;padding:18px 26px">${L.btn} →</div><div class="trial" style="font-size:16px;line-height:1.35">${L.trial}</div></div></div>
       <div class="legal" style="position:absolute;left:56px;right:56px;bottom:14px;font-size:12.5px">${L.legal}</div>
     </div></div>`;
 }
@@ -344,11 +426,10 @@ function story() {
     <div class="glow" style="width:760px;height:760px;right:-300px;top:-300px;background:rgba(16,185,129,.2)"></div>
     <div class="glow" style="width:520px;height:520px;left:-260px;top:700px;background:rgba(190,242,100,.35)"></div>
     <div style="position:absolute;left:0;right:0;top:150px;display:flex;justify-content:center">${brand(68)}</div>
-    ${post(56, 262, 800, -3, .98, 3)}
-    ${answer(336, 560, 690, 2.2, .98)}
+    ${hero("story")}
     <div class="panel" style="height:880px;border-radius:60px 60px 0 0;padding:64px 64px 0">
       <div class="glow" style="width:620px;height:620px;right:-260px;top:-340px;background:rgba(16,185,129,.28)"></div>
-      <div class="h" style="font-size:${LANG === "fr" ? 78 : 88}px;line-height:1.0;letter-spacing:-3.2px;position:relative">${L.h1}<em>${L.h2}</em></div>
+      <div class="h" style="font-size:${L.h1.length > 28 ? 68 : L.h1.length > 24 ? 78 : 88}px;line-height:1.0;letter-spacing:-3.2px;position:relative">${L.h1}<em>${L.h2}</em></div>
       <div class="sub" style="font-size:31px;line-height:1.4;margin-top:26px;position:relative">${L.sub}</div>
       <div style="display:flex;align-items:center;gap:26px;margin-top:34px;position:relative">${ticket(1)}
         <div class="trial" style="font-size:23px;line-height:1.4;flex:1">${L.trial}</div></div>
@@ -388,9 +469,10 @@ function whScreen() {
   </div></div>${tabs(1)}`;
 }
 function storeShot(a, b, c, sub, screen, theme) {
+  const free = `<span class="chip c-lime" style="font-size:26px;padding:12px 24px;margin-left:8px;letter-spacing:1px;text-transform:uppercase">${LANG === "fr" ? "Gratuit" : "Free"}</span>`;
   return `<div class="art storeart" style="background:radial-gradient(100% 45% at 12% 0%, #ffffff, transparent 70%), linear-gradient(170deg,#e4f4ec 0%,#bfe8d3 100%)">
     <div class="glow" style="width:900px;height:900px;right:-420px;top:900px;background:rgba(190,242,100,.35)"></div>
-    <div class="shead">${brand(92)}
+    <div class="shead"><div style="display:flex;align-items:center">${brand(92)}${free}</div>
       <div class="sh1">${a}<br>${b}${c ? `<em>${c}</em>` : ""}</div>
       <div class="ssub">${sub}</div></div>
     <div class="phone"><div class="screen"><div class="island"></div>${screen}</div></div>
