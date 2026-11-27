@@ -220,7 +220,7 @@ Test them as one ad set with six ads (Meta's creative rotation picks the winner)
 
 **Footer on every ad (both campaigns), revised 2026-11-27:** a dark-green panel with a lime hairline at the bottom:
 Apple's and Google's **official badges** on the left (the same artwork as the weekly carousels,
-`social-media-manager/sm-content/06-launch/badges`, copied to `launch-2026-12/source/badges/`, unaltered except
+`social-media-manager/sm-content/06-launch/badges`, copied to `social-media-manager/sm-content/14-new-version-ads/scenes/badges/`, unaltered except
 Google's transparent margin, trimmed as the carousels do); on the right **priceback.ca** and *Follow @priceback.ca*
 with Instagram and Facebook icons in lime circles. Google's French badge ("Disponible sur Google Play") on FR; Apple's
 English badge on FR until `app-store-fr.svg` is added to the carousel badges (the carousels' rule). Both pages use
