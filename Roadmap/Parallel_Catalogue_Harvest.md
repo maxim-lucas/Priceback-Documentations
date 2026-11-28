@@ -150,6 +150,39 @@ The plan's $5 leaves **~$1.40 / month** of headroom. Hard limit $10.
   hours. It is taken only if Phase 0 measures it inside the ~$1.40 headroom with a margin, and it alarms before the bill passes $5.
 - Either way the design is the same (queue, shards, checkpoint, lock); B is A with `node workers/harvester.js` as the entry point.
 
+### 5.5 Separate workers for every harvest (Maxim, 2026-11-28)
+
+> *"if we can implement another worker with no cost i prefer to keep as from now all the harvest on a separate worker and the main
+> service is kept entirely for production users … or even few workers, one for savings, one for catalogue harvest and even one for
+> price drop sweep and on the long run the harvest gets more workers"*
+
+**Option A is shipped first** (Priceback #785, OFF): the night run inside the API. The worker split below is the next step, taken only
+once its cost is measured inside the plan.
+
+**How a worker costs nothing while idle:** a Railway service with a **cron schedule** starts, runs one job and exits. It is billed only
+for the minutes it runs (memory × time, CPU). Several services in one project are allowed; a second *environment* would copy every
+service and cost more.
+
+**Estimate from this month's bill** (Nov 8 → Dec 8: $2.36 used by day 20, $3.59 estimated; memory $2.04, so the always-on API costs about
+$3.1 / month, or **≈ $0.004 per process-hour** at the API's memory):
+
+| Worker | When it runs | Hours / month | Estimate |
+|---|---|---|---|
+| catalogue (`node workers/catalog.js`) | every night 23:00 → 07:00 | ~240 | ~$1.00 |
+| savings (`workers/savings.js`) | hourly probe 06–20 (~2 min) + the full run when something is new | ~40 | ~$0.20 |
+| price sweep (`workers/sweep.js`) | the daily sweep + the priority checks every 2 h (minutes each) | ~30 | ~$0.15 |
+| **total** | | | **~$1.35** |
+
+$3.59 + $1.35 ≈ **$4.95**: right at the $5 included, so it is not "no cost" with certainty. What lowers it: the API stops carrying the
+harvests' memory peaks (measure the API's memory after the move), and a worker's memory is smaller than the API's (no HTTP server, no
+caches). **Rule:** one worker at a time, the catalogue first; after one week read `railway usage` and keep the next worker only if the
+projected bill stays under $5 with a margin. A worker alarms (`sendBudgetAlert`) when the projected bill passes $4.50.
+
+**What each worker needs (same code, new entry points):** `jobs/nightCatalog.run`, `jobs/harvestSavings.tick`, the sweep's `run`. Each
+entry point takes the `catalogue_harvest` / Same-Day lock in Postgres (no in-process flags across services), runs, and exits. The API's
+crons for that job turn off with one flag per job (`HARVEST_IN_API`), so the two never run together. More workers for the harvest later =
+more shards at once, under the same request budget (§3.3).
+
 ## 6. Rules this must keep
 - Official prices only, written by `writeRegularPrices` (price-history rule 5: every replaced price is kept).
 - A province is priced in the province it was read in (sweep rule 10). A shard never borrows another province's price.
