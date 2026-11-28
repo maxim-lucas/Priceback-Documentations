@@ -29,6 +29,9 @@ Branch to work from: `main-test-features` (clean, synced with `main`). Read `Ope
    Evidence: two live Same-Day rows per province for AirPods Pro 3 (SKU 7472260), $70 (Nov 19–25, run 213→280) and $55 (Nov 23–Dec 20, run 253→301,
    also in the coupon book). The harvest did not create the overlap and retired the $70 on its own end date.
 
+## Progress 2026-11-28
+Done and merged into `main-test-features` (#760–#762): task 7, task 8, task 12 (partly). Task 6 investigated, waiting on Maxim's screenshot (see Task_Log 2026-11-28). Still open: 1 (Maxim), 2, 3, 4, 5, 9, 10, 11. None of this is in `main` yet.
+
 ## Tasks, in order
 1. **Maxim: build a beta APK from `main-test-features`** (version bump his call) so the banner and the admin push screen exist on a device.
    Until then: banner shows to nobody; push can't be approved from the app. Cyber Monday is 2026-11-30 — the banner and push both end 2026-12-01 00:00 Toronto.

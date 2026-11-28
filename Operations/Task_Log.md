@@ -13237,3 +13237,22 @@ drop.
   kept both listings and retired the $70 on its own end date; not a job bug. Maxim: do not change the overlap handling. Roadmap added:
   `Roadmap/Deeper_Discount_On_Discounted_Items.md` (Costco customer service: an already-discounted item can get a deeper discount; vanilla bean paste, Business Centre).
 - **Next session:** `Operations/Next_Session_Tasks_2026-11-28.md`.
+
+## 2026-11-28 — Next-session tasks 7, 8, 12 (Priceback #760–#762, all into `main-test-features`; not yet in `main`)
+
+- **Bug 7, Sweep tile (#760):** root cause: the tile showed `drops.candidates`, which is `found.length` in `priceDropNotifier._run`, i.e. every drop
+  that still applies, including drops already waiting in the review queue. `priceDropQueueRepo.stage` is idempotent (a no-op for a waiting row), so every
+  sweep re-found the same drop and the tile said "1 drop found" in amber. Now "N found · M new" / "none new", amber only when M > 0 (`sweepState`,
+  `AdminHomeScreen.js`); a server with no `staged` keeps the old reading. Price checks already said "found · new in the review queue · sent".
+- **Task 8, hero (#761):** autoplay `HERO_AUTOPLAY_MS` 15 s → 7 s; the slide is drawn by eased frames (`HERO_SLIDE_MS` 700 ms, `slideOffset`) because
+  `scrollTo({animated:true})` has a fixed OS duration. Slide 1 ("To claim now") shows `home.heroMissed` (EN + FR) under its footer when `found.missed > 0`.
+- **Task 12 (#762):** push result green when sent, single Approve alert (`askingRef`), static test pins the 403 on both push routes. Left open: `failed_count`
+  column (migration), FR "Cyberlundi" in the push copy (approved copy), `storeCountry`, key grouping, `audience()` export (a test uses it).
+- **Bug 6, Apple iPad search — NOT fixed, needs the screenshot (read-only prod queries, 2026-11-28):** the two products with live savings and no image are
+  `234593` / `234594` (APPLE IPAD AIR 11" / 13" 256GB M4, SKU 2045325 / 2045332), created 2026-11-25 by the savings harvest (upper-case coupon-book name),
+  with no `catalog_items` row (so no image). Their regular prices exist for **ON only** ($1,165.99 / $1,465.99, `sameday_costco`) and AB Business Centre,
+  while the $150 saving runs in 9 provinces (2026-11-23 → 2026-12-20). So a non-ON shopper has a saving and no regular price. For an ON shopper the
+  data has a price, so the symptom does not reproduce from data alone: needs the screen and the province. **Systemic size:** of 5,659 (product, province)
+  pairs with a live saving, 990 have no regular price in that province, 389 have none at all; 131 products with a live saving have no image; 128 have no
+  catalogue item. Options for Maxim: say it plainly on the card ("regular price not read for your province"), fall back to another province's regular
+  price (changes a price rule, labelled), or fix coverage at the source (catalogue harvest by SKU for savings-only products). Not decided.
