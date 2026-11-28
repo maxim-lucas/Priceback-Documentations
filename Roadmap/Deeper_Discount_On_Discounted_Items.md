@@ -1,6 +1,6 @@
 # Deeper discount on an already-discounted item — roadmap
 
-Added 2026-11-27 (Maxim). Status: **designed 2026-11-28, waiting on two confirmations (§ Design, open points) before code.**
+Added 2026-11-27 (Maxim). Status: **built 2026-11-28** (A and C behind switches, off; B on). Rules: `Technical/Price_Drop_Sweep_Rules.md` §8f.
 
 ## What Maxim learned
 Costco customer service told him that an item that is **already discounted can get a deeper discount** later. It happened to him a few days
@@ -68,3 +68,11 @@ the extra only. For A, the "told" price is the price actually paid (nothing was 
 **Open points for Maxim before code:**
 1. A's formula: deeper saving − the discount already printed on the receipt (e.g. paid with $3 off, $5 off now → a $2 drop)?
 2. C: may a **claimed** line come back for a deeper saving (the rule 5 exception), knowing the shopper goes to the desk a second time for the same item?
+
+## Answers (2026-11-28) and what was built
+1. A: yes, the difference. Built behind `SAVING_DEEPER_ON_DISCOUNTED_LINES`.
+2. C: yes, the rule 5 exception, the difference only; for a line told and not claimed, the full new drop said to be deeper, charged the
+   extra only. Built behind `SAVING_DEEPER_AFTER_CLAIM`, build 71+ (needs the next app build).
+- **Production example (B, already working before this):** Caroline's AirPods Pro 3 (line 10291, paid $298.99): told $228.99 on Nov 19 ($70 off,
+  Nov 19–25, not claimed, 1,050 credits); on Nov 28 the $71 saving (Nov 28–30) is $1 deeper: told $227.99, charged 15 credits (the $1 only).
+  Had it been $70 again, it would have been a free re-notice (a re-drop), not a drop.

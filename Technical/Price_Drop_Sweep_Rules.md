@@ -397,8 +397,16 @@ produce by its category, so the deploy closes nothing; it stops new ones.
 - **B. A line told, not claimed:** a deeper saving makes it a drop again (told at a higher price), the **full** new drop is said, with
   "It is a deeper saving than before" (`verifiedDrop.deeperNote`, EN + FR); the commission bills the extra only (the telescoping total
   of *commission charged once*). On by default: this already happened, only the words are new.
-- **C. A claimed line** (rule 5 exception approved 2026-11-28): **not built yet**. It also needs the phone's claim flow (a second claim of
-  the same line) and the drain's "claimed while queued: no push" rule changed. `Roadmap/Deeper_Discount_On_Discounted_Items.md`.
+- **C. A claimed line** (the rule 5 exception, 2026-11-28): a line told a drop BEFORE its claim comes back when an official saving now is
+  strictly below every price it was told, for the **difference**, behind `SAVING_DEEPER_AFTER_CLAIM` (off) and only for build 71+
+  (`appBuildStamp.FIRST_BUILD_DEEPER_AFTER_CLAIM`; older builds leave a claimed line alone). The claim is kept (re-opening it would be undone
+  by the phone's next sync). One rule in two places, pinned by `deeperAfterClaimDb.test.js`: `savingDropRepo` `claimedDeeper` and
+  `priceDropQueueRepo.releasedForUser`. Staged despite the claim (`stage`), live because claimed before staging (`live`,
+  `claimedWhileQueued` false, so the push goes), its window judged like an open line's (the desk's hygiene `afterClaim`). The push says the
+  difference from the lowest told price (`verifiedDrop.deeperAfterClaimNote`); the commission bills the extra only. The app gets
+  `afterClaim` on the released item, shows "Deeper saving: claim $x more" (`releasedDrops.deeperAfterClaimOf`), and "claim again"
+  (`storageService.claimDeeperAgain`) raises `claimed_savings` through the existing claim route (which keeps the first `claimed_at`); the
+  line leaves the list once `claimed_savings` reaches paid − that price.
 
 ### 9. The harvest is never a price tag; an ended saving is a missed drop (2026-11-19)
 
