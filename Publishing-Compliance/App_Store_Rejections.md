@@ -57,6 +57,10 @@ Check the whole path, not just the last fix.
 - [ ] The App Privacy answers match what the binary actually does. They are
       maintained by hand and nothing syncs them to the build — if the ads lane
       is off, the binary declares no tracking, and ASC must agree.
+- [ ] **The App Description of EVERY localization (en-CA, fr-CA, any other)
+      ends with the Terms of Use (EULA) and Privacy Policy links.** The in-app
+      paywall links do not count; App Review checks the product page. See
+      rejection #4 below.
 - [ ] Screenshots match the current build.
 - [ ] Support URL and Privacy Policy URL both resolve.
 
@@ -70,6 +74,47 @@ Check the whole path, not just the last fix.
 - [ ] Every paid feature is reachable by the reviewer account without buying
       anything — Play reviewers cannot purchase or start a trial. Any new
       subscription gate must be checked against `reviewer:appstore`.
+
+---
+
+## 4. Guideline 3.1.2 — no Terms of Use link in the product-page metadata (3.6.9, 2026-11-28)
+
+### What Apple said
+
+Automated message, review could not proceed: the submission offers
+auto-renewable subscriptions (Unlimited Monthly, Unlimited Annual, Unlimited
+Monthly (Free Week)) *"but does not include a functional link to the Terms of
+Use (EULA) in the app metadata that appears on the app's App Store product
+page."* Standard EULA → link in the App Description of every localization;
+custom EULA → add it in App Store Connect.
+
+### What was actually wrong
+
+Metadata only, nothing in the binary. The paywall already carries the Terms and
+Privacy links (§0), but the check is run against the **product page**, and the
+App Description had no Terms link. **Root cause (Maxim, 2026-11-28):** an earlier
+Claude session, working on another account, rewrote the App Description, and the
+rewrite dropped the legal links that had been there. The paywall did not change.
+
+### What shipped
+
+No code change. Maxim resubmitted on 2026-11-28 with the build switched to
+**4.0.1**, after this block was appended to the App Description of **every**
+localization (full copy: `App_Store_Listing_Copy.md`):
+
+- EN: `Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`,
+  `Terms of Service: https://priceback.ca/terms-of-service`,
+  `Privacy Policy: https://priceback.ca/privacy-policy`
+- FR: the same Apple EULA link, `https://priceback.ca/terms-fr`, `https://priceback.ca/privacy-fr`
+
+All four priceback.ca pages were checked as returning 200 on 2026-11-28.
+
+### Durable rule
+
+> Every localization's App Description ends with the Terms of Use (EULA) and
+> Privacy Policy links, as plain URLs. A new localization or a description
+> rewrite keeps that block. The in-app links are a separate requirement and do
+> not cover this one.
 
 ---
 
