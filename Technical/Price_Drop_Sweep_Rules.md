@@ -378,6 +378,28 @@ null }`. Admin · Price lookup and Price history show "fresh produce" beside "so
 sweep reads the column. Read on 2026-11-23: no waiting (pending or approved) price-group row on prod is fresh
 produce by its category, so the deploy closes nothing; it stops new ones.
 
+### 8f. A deeper saving (Maxim, 2026-11-28)
+
+> *"for deeper savings that hasnt been claimed before it come back as a full drop updated from the previous one but mention also that
+> it is a deeper drop, always only the difference is charged if the first one was charged before"*; *"paid with $3 off, $5 off now → a
+> $2 drop"* (yes).
+
+- **Replace, never stack:** on a day, the largest running official saving counts (`ORDER BY` the largest drop; the price history's
+  `officialLine`). The data is never ended or deleted to make an overlap go away (Maxim, 2026-11-27).
+- **A. A line bought already discounted** (its receipt prints the instant discount: `original_price > line_total`): offered only for a
+  strictly deeper official saving, for the **difference**: new price = paid − (saving − discount received per unit)
+  (`savingRules.savingNewPrice({ received })`, SQL twin `savingDropRepo.findSavingDrops`). The receipt's own discount is proof it was sold
+  at the sale price, so `savingRunningAtPurchase` (a full-price line during a printed saving is a misread) does not apply to it. Such a
+  line is created unwatched by the receipt's rule ("full-price lines only"), never by the shopper: it counts as watched for a strictly
+  deeper saving, and staging the drop sets `watch_enabled` (`priceDropQueueRepo.stage`) so the drain, the desk and the reminders see it;
+  the desk's "barred" check lets a savings row deeper than the receipt's discount through. Known edge: a shopper who switched such a
+  line on and then off again is treated as never having chosen. **Behind `SAVING_DEEPER_ON_DISCOUNTED_LINES` (off).**
+- **B. A line told, not claimed:** a deeper saving makes it a drop again (told at a higher price), the **full** new drop is said, with
+  "It is a deeper saving than before" (`verifiedDrop.deeperNote`, EN + FR); the commission bills the extra only (the telescoping total
+  of *commission charged once*). On by default: this already happened, only the words are new.
+- **C. A claimed line** (rule 5 exception approved 2026-11-28): **not built yet**. It also needs the phone's claim flow (a second claim of
+  the same line) and the drain's "claimed while queued: no push" rule changed. `Roadmap/Deeper_Discount_On_Discounted_Items.md`.
+
 ### 9. The harvest is never a price tag; an ended saving is a missed drop (2026-11-19)
 
 Maxim, 2026-11-19: *"Harvesting should never be a price tag labeled because this will give false numbers for the
