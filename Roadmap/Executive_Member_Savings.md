@@ -32,6 +32,28 @@ gate Executive-only prices on it (`g.executive_only = false OR u.costco_membersh
 writes `executiveOnly`, Deals shows the chip and the quick filter and lists those savings only to Executive members,
 with no new rule.
 
+## Probe, 2026-11-28 (Maxim: the soundbar SKU 2336300 shows "Executive Members Only" in green on costco.ca)
+
+Vantage point: the dev workstation, through `services/savings/httpFetch` (the harvest's own client), not Railway.
+
+- **`https://www.costco.ca/kirkland-signature-exec-coupons.html`** (Maxim's link, "Executive Member Offers"): HTTP 200,
+  server-rendered like the coupon book, but the slot `r-ks-exec-coupon_Slot 1` held Costco's *expired offers*
+  placeholder ("Content is currently unavailable, please check back soon"). No offer tile, no item number. Its tiles,
+  when the book is live, are expected in the coupon book's template (`costcoWebSource.parseOfferLines`): to confirm on
+  the first live capture.
+- **`https://www.costco.ca/s?keyword=executive%20only`** (Maxim's link): the results are rendered in the browser from
+  costco.ca's search API (`gdx-api.costco.com/catalog/search/api/v1/search`, POST, named with its headers in the page's
+  own published config). The server-rendered HTML holds no product. Reading that API is a different kind of access
+  from reading a public page; the call was held for Maxim's decision (not made).
+- The product page (`/p/-/samsung-hw-b630fzc-31-ch-soundbar-with-subwoofer/4000357885`) server-renders only the
+  JSON-LD offer (online price $248, out of stock); the "Executive Members Only" mark comes from the browser-side product
+  API too.
+- Same-Day (guest) still shows the $50 off at every warehouse with no member mark.
+
+**Decision needed (Maxim):** which source to read: (a) the exec coupon page, parsed like the coupon book, read when it is
+live (cheap, public HTML, but empty between books); (b) costco.ca's search API for "executive only" (complete, but an
+undocumented API); (c) both, (a) first.
+
 ## Next step
 
 Probe costco.ca for member-only offers from a Canadian vantage point (record the vantage point, Abercrombie lesson).
