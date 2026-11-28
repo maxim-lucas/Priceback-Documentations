@@ -13256,3 +13256,24 @@ drop.
   pairs with a live saving, 990 have no regular price in that province, 389 have none at all; 131 products with a live saving have no image; 128 have no
   catalogue item. Options for Maxim: say it plainly on the card ("regular price not read for your province"), fall back to another province's regular
   price (changes a price rule, labelled), or fix coverage at the source (catalogue harvest by SKU for savings-only products). Not decided.
+
+## 2026-11-28 (cont.) — tasks 3, 5, 9, 12 shipped; released to `main` (Priceback #763–#767)
+
+- **Task 3, Tips & offers (#763):** ONE choice, two consent rows (`marketing_push` + `marketing_email`), built by `src/services/tipsAndOffers.js`
+  (`tipsConsentEvents`, `shouldAskTips`, `answerTips`). Signup tick stays UNTICKED and now names notification + email; Settings switch records both;
+  one-time ask on Home (`TipsAskCard`, two equal buttons, either answer recorded and remembered, only for a shopper with no `marketing_email` event).
+  New client-reportable consent source `home_prompt` (`lib/consentEvents.js`, seed). **Data row `consent_sources.home_prompt` applied to dev and prod by hand.**
+  Nothing sends marketing email yet (still no unsubscribe mechanism): the rows are the record only.
+- **Task 9 + failed_count (#764), migration 0069 applied to dev and prod by hand with its ledger row (`e0cad053860d`, when 1796300000000):**
+  `users.push_token_dead_at` = the FIRST `DeviceNotRegistered` time, stamped by `usersRepo.clearPushTokens` (the single writer), never moved by a later
+  report, cleared when the phone saves a token again. Approximate by nature (iOS reports days late, no exact Android event without Firebase Analytics).
+  `home_promo_pushes.failed_count` counts pushes that threw (subset of skipped).
+- **Task 5 (#765), the specified parts:** price history: the warehouse under the price ("Last seen at …"), the regular price under it, the evaluation said once
+  (the chip appears only when it says more than "Regular price"), stock note ("checked for items with a saving"); warehouse in the Prices count line and a
+  larger warehouse line on Deals. **Open, needs Maxim:** the search toggle for both warehouse types + nearby warehouses (which warehouse's price does a row
+  show? does the Business Centre mix in?), and "everything from the search result visible in the history screen".
+- **Released:** #766 `main-test-features` → `main` (backend deploys), #767 sync back. **Trap hit again:** merging #766 with `main-test-features` as the PR head
+  auto-deleted the branch on GitHub (auto-delete is ON). Restored by pushing the local tip (`5841ea59`) to `refs/heads/main-test-features` before the sync PR.
+  A release PR's head is a long-lived branch: use `gh pr merge` only if the branch is recreated right after, or merge through a throwaway head.
+- **Not done:** bug 6 (iPad search: needs the screenshot + a decision, findings above), task 4 (onboarding third option: needs a brainstorm), tasks 1/2
+  (Maxim: build the beta, approve the push), 10 (AirPods screenshot), 11 (deeper-discount design: three open questions), FR "Cyberlundi", `storeCountry`.
