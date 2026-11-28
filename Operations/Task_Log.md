@@ -13277,3 +13277,19 @@ drop.
   A release PR's head is a long-lived branch: use `gh pr merge` only if the branch is recreated right after, or merge through a throwaway head.
 - **Not done:** bug 6 (iPad search: needs the screenshot + a decision, findings above), task 4 (onboarding third option: needs a brainstorm), tasks 1/2
   (Maxim: build the beta, approve the push), 10 (AirPods screenshot), 11 (deeper-discount design: three open questions), FR "Cyberlundi", `storeCountry`.
+
+## 2026-11-28 (cont. 2) — Cyberlundi, compact Home banner, bug 6 started (Priceback #770–#773)
+
+- **Maxim's answers (2026-11-28):** bug 6 = fix at source + say it on the card; task 5 toggle = the row keeps the home warehouse's price, the other
+  warehouses listed below it on the history screen; FR copy = "Cyberlundi"; deeper discount = the deeper saving replaces the shallower one from its
+  start day, and a shopper who claimed the shallower one gets a new drop for the difference only.
+- **Cyberlundi (#770 → `main` #771, sync #772):** FR push + seed. Prod `HOME_PROMO` FR body updated as data. Trap again: Maxim's #769 release merge
+  auto-deleted `main-test-features`; restored at `main`'s tip (`b5ac628d`). Releases now go through a throwaway head (`release/…`).
+- **Home (#773, `main-test-features` only, needs a build):** small one-row promo banner; `homeStripKind` = ONE slot under the hero (low balance → promo
+  → guarantee); Tips ask on Home off (`TIPS_ASK_ON_HOME`); short copy "Annual plan: 20% off. Credit packs: 20% extra credits." (EN + FR), prod row updated.
+  New standing rule (memory `home-fits-without-scrolling`): stores + receipts visible on startup without scrolling.
+- **Bug 6 root cause:** the savings harvest stores only the DELIVERY regular, read once per SKU at the first warehouse that has it (ON); the in-store
+  regulars it reads at every warehouse are never written to `product_regular_prices`, and Same-Day's sitemap does not list 28 products with a live
+  saving (some since October), so they have no catalogue item (no photo). WIP on `fix/savings-only-regular-prices-2026-11-28`: `fillRegularPriceGaps`
+  (gaps only, `planRegularPrices`, never over a catalogue answer) + `registerSavingsListings` (never over a catalogue row, no rename). Owed: DB tests,
+  the card note, PR.
