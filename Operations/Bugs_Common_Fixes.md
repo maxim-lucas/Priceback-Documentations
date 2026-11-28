@@ -15176,3 +15176,22 @@ problems. Decide per source what holds it.
 - Files: `backend/services/catalog/sources/samedayCatalogSource.js`, `services/catalog/catalogIngest.js`, `services/catalog/sources/index.js`, `jobs/harvestCatalog.js`; tests `catalogSources.test.js`, `catalogNationwideFill.test.js`.
 - Detect next time: `SELECT count(*) FROM priceback.store_departments;` and the run's `details.storeMenuSavedAtStart`. A Same-Day run with `error LIKE 'abandoned%'` lost everything not checkpointed.
 - Prevent: never merge to `main` while a long harvest is `running` (check `catalog_runs.status_id = 1` first). **Owed:** the catalogue job has no heartbeat (the savings harvest has one), so a restart is seen only after 240 min and a manual run is never re-run.
+
+## 397. A saving with no price after it: the regular price was read in one province only (2026-11-28, Priceback bug 6)
+
+**Symptom.** Apple iPad Air 11"/13" M4: a $150 Same-Day saving in 9 provinces, no photo and no regular price, so no "now" price. Prod, 2026-11-28:
+990 of 5,659 (product, province) pairs with a live saving had no regular price there; 28 Same-Day products with a live saving had no catalogue item.
+
+**Root cause.** Two gaps, both in what the savings harvest kept of what it read:
+1. `savingsRepo.writeHarvest` wrote only the DELIVERY regular (`plan.online`), read once per SKU at the first warehouse that had it (Ontario for the
+   iPad). The in-store regular it reads at every warehouse of every province (`shelfRegular`) went to `price_points` only, never to
+   `product_regular_prices`, which is what Deals and the price history read.
+2. Same-Day's products sitemap does not list every product it sells, so those never got a catalogue item (no photo, no Instacart id for the stock re-check).
+
+**Fix.** `productCatalogRepo.fillRegularPriceGaps` (in-store regulars, kind `warehouse`, planned by `planRegularPrices`, **gaps only**: a province the
+catalogue answered is never overwritten or thinned) and `registerSavingsListings` (a Same-Day catalogue item where none exists, never over a
+catalogue row, never a rename), both called from `writeHarvest`. Deals says "Regular price not read yet in your province" when there is still none
+(never for a pack, rule 8). Tests: `savingsOnlyCatalogDb.test.js`, `savingsIngest.test.js`, `deals.test.js`.
+
+**Not fixed by this:** a product with NO saving still has regular prices from the weekly full run's 2 warehouses per province only. The permanent
+answer is the parallel per-province catalogue harvest: `Roadmap/Parallel_Catalogue_Harvest.md`.
