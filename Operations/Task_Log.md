@@ -13293,3 +13293,16 @@ drop.
   saving (some since October), so they have no catalogue item (no photo). WIP on `fix/savings-only-regular-prices-2026-11-28`: `fillRegularPriceGaps`
   (gaps only, `planRegularPrices`, never over a catalogue answer) + `registerSavingsListings` (never over a catalogue row, no rename). Owed: DB tests,
   the card note, PR.
+
+## 2026-11-28 (cont. 3) — Tips slot rotation, bug 6 shipped, catalogue roadmap, task 5 toggle (Priceback #774–#780)
+
+- **#774 Tips slot:** the Tips & offers ask shares the ONE slot under the hero with the guarantee, one launch each (`homeRoom.homeStripKind`,
+  `tipsTurn`: odd launch guarantee, even launch ask; the ask takes the slot when the guarantee cannot draw). Card is strip-sized, EN + FR.
+- **#775 bug 6 (→ `main` #776, sync #777):** `fillRegularPriceGaps` + `registerSavingsListings` from the savings harvest; Deals says "Regular price
+  not read yet in your province". Fills on the next savings run in prod. Bugs_Common_Fixes #397.
+- **Roadmap:** `Roadmap/Parallel_Catalogue_Harvest.md`: separate worker service, province shards in a Postgres queue (SKIP LOCKED), cap 2 then
+  measured, then the savings harvest. Measured: harvests run inside the API process; serial province fills ≈ 11 h (ON max 644 min). Phase 0 owed.
+- **#778 task 5 toggle (→ `main` #779, sync #780):** `shared/priceHistory.comparisonWarehouses`; history route `nearby=1` / `businessCentres=1` →
+  `compare` (additive); `priceCheck.pricesAt` shared with the Price Checker; "Compare nearby" / "+ Business Centres" pills on both screens.
+- **Still open:** deeper-discount rule (answered: deeper replaces from its start day, the difference is a new drop; design + build owed), roadmap
+  Phase 0 + its 3 questions, task 4 (onboarding third option brainstorm), tasks 1/2/10 (Maxim). Home/compare need a new build to be seen.
