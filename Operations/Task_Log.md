@@ -13315,3 +13315,19 @@ drop.
   `catalogue_harvest` lock that competing jobs defer to, 2 → 3 workers, $0 option A (night shards in the API) before B (worker service).
   Railway: $2.36 used / $3.59 estimated this period (memory $2.04). To verify: the server clock of the 03:xx maintenance crons (no `TZ` found).
 - Housekeeping slip: `Roadmap/Auto_Reload_Credit_Packs.md` (not mine) was committed in 6173828 and untracked right after; it stays in that commit's history.
+
+## 2026-11-28 (cont. 5) — night catalogue harvest, Home slot order, deeper saving A/B/C (Priceback #782–#790)
+
+- **#782 (→ `main` #783):** the Black Friday banner comes before low balance; `/api/me` `guarantee.everSubscribed` (promoCodesRepo.everSubscribed) hides the
+  guarantee for good once an account ever subscribed (it counts a chosen trial week too: that one definition).
+- **#785 (→ `main` #786), Option A, OFF:** `jobs/nightCatalog` 23:00 → 07:00 Toronto (measured), the due weekly source then the 11 fill shards on
+  `CATALOG_NIGHT_WORKERS` (2, max 3); `shouldStop` stops a shard before its next warehouse at 07:00 (no province row from a half read); the sweeps are
+  held and replayed (`sweepScheduler` `hold`). Server cron is UTC (03:xx maintenance = 22:xx Toronto, before the window). Switch: `CATALOG_NIGHT_ENABLED`.
+- **#788 (→ `main` #789, sync #790), deeper saving (rule 8f):** A discounted lines, the difference (`SAVING_DEEPER_ON_DISCOUNTED_LINES`, off; prod upper
+  bound today 24 lines / 18 shoppers); B told lines say "deeper" (on); C claimed lines claim the difference (`SAVING_DEEPER_AFTER_CLAIM`, off, build 71+:
+  needs the next app build). Rule 5 in `CLAUDE.md` carries the exception. Prod example: Caroline's AirPods (line 10291) $70 → $71, charged 15 credits.
+- **Tests:** the "5 failing commission tests" came from running files without `test.env` (review on) — 7/7 with it. The commission pin's marker was stale
+  since 0060 (fixed). `toolScreensPickedStore` broke with #778 (fixed). **Still open:** 4 pre-existing failures in `priceDropQueueRulesDb.test.js`
+  (same with and without these PRs; test untouched since #621; not the Black Friday period: dev has no policy periods).
+- **Next session:** `Roadmap/Catalogue_Worker_Handover.md` (turn Option A on for a week first), then the savings / sweep workers (§5.5 cost).
+  Always run DB suites as `node --env-file=.env --env-file=test.env --test --test-concurrency=1 …` (what run-suite does).
