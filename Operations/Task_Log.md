@@ -13306,3 +13306,12 @@ drop.
   `compare` (additive); `priceCheck.pricesAt` shared with the Price Checker; "Compare nearby" / "+ Business Centres" pills on both screens.
 - **Still open:** deeper-discount rule (answered: deeper replaces from its start day, the difference is a new drop; design + build owed), roadmap
   Phase 0 + its 3 questions, task 4 (onboarding third option brainstorm), tasks 1/2/10 (Maxim). Home/compare need a new build to be seen.
+
+## 2026-11-28 (cont. 4) — Home slot rules, catalogue harvest window and cost (Priceback #781)
+
+- **#781 (`main-test-features` only, phone):** `homeStripKind` = one rule: a subscriber sees no balance / guarantee / trial / promo (only an
+  unanswered Tips ask); else low balance → promo → trial / guarantee / Tips ask taking turns one launch each; the trial no longer stacks.
+- **Roadmap §5:** measured dead time 23:00–07:00 Toronto (22:00 = 47 events, 08:00 = 39; 01–06 ≤ 19/h), nightly daily runs, a
+  `catalogue_harvest` lock that competing jobs defer to, 2 → 3 workers, $0 option A (night shards in the API) before B (worker service).
+  Railway: $2.36 used / $3.59 estimated this period (memory $2.04). To verify: the server clock of the 03:xx maintenance crons (no `TZ` found).
+- Housekeeping slip: `Roadmap/Auto_Reload_Credit_Packs.md` (not mine) was committed in 6173828 and untracked right after; it stays in that commit's history.
