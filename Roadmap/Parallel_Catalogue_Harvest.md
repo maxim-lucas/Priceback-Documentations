@@ -6,7 +6,7 @@ doesnt impact the app speed and at the same time it is more scalable so every ha
 warehouse and they all work in parallel to reduce harvesting time, once it is working we will do the same with the savings
 harvest, we need to be more real time than today."*
 
-Status: **planned, not built.** Phase 0 is the go/no-go measurement; nothing is switched on without Maxim (ground rule 6).
+Status: **planned, not built** (window, workers and cost answered by Maxim 2026-11-28, §5). Phase 0 is the go/no-go measurement; nothing is switched on without Maxim (ground rule 6).
 
 ## 1. Where we are (measured on prod, 2026-11-28)
 
@@ -93,17 +93,62 @@ Expected time at cap 2: the ~11 h serial fill becomes **≈ 5–6 h** (ON alone 
 
 | Phase | What | Exit bar |
 |---|---|---|
-| **0. Measure** (no code shipped to prod) | From Railway, run 2 province fills at once against Same-Day for one week-night; record requests/min, blocks, minutes, memory | 0 blocks at cap 2, and a memory figure. Maxim decides the cap |
-| **1. Worker service** | `workers/harvester.js` + `harvest_shards` + planner; catalogue **prices** shards only (discovery stays in the API for now); ships **OFF** | every province priced in one week on **dev**; desk shows the shards |
+| **0. Measure** (no code shipped to prod) | From Railway, 2 then 3 province fills at once, 23:00–07:00 Toronto, one night; record requests/min, blocks, minutes, memory, and the bill delta | 0 blocks at 3; memory → Option A or B (§5.4) |
+| **1. Night queue** | `harvest_shards` + nightly planner + the `catalogue_harvest` lock that competing jobs defer to; catalogue **prices** shards (Option A in the API, or B as `workers/harvester.js`); ships **OFF** | every province priced within 2 nights on **dev**; desk shows the shards |
 | **2. Catalogue on** | Maxim switches it on in prod; the old in-API fills and the weekly full run's price pass retire | one full week: every (product, province) with a known product has a regular price ≤ 7 days old; 0 runs lost to a deploy |
 | **3. Discovery moves too** | the sitemap / names / departments run becomes a shard | the API runs no harvest at all |
 | **4. Savings harvest the same way** | savings shards per storefront × province, run on the existing hourly probe (`Technical/Savings_Harvest_Schedule.md`): a probe that sees something new enqueues its province's shards | a new saving read within **≤ 1 h** of publication in every province (today one run reads every warehouse in series) |
 | **5. More real time** | per-warehouse shards for the big provinces (ON, QC, BC); daily price shards for products that moved last week | ON's shard ≤ 60 min; daily freshness for movers |
 
-## 5. Open questions for Maxim
-1. **Parallel cap:** start at 2 workers per storefront and raise on Phase 0's measurement? (Recommended.)
-2. **Weekly window:** Sunday night Toronto (before Monday's flyer), or spread over the week (one or two provinces a night)?
-3. **Railway plan:** a second service is billed separately. Is a monthly ceiling to stay under OK, to be measured in Phase 0?
+## 5. Maxim's answers (2026-11-28) and what they change
+
+> *"the catalogue harvest should run mainly all days when there is less traffic … (i think by night on Toronto timezone after
+> 10 pm untill 8 am), when a catalogue harvest is running you can hold any other workflows that can have a competition like a
+> sweep job … you can start at 2 or 3 parallel workers … No extra monthly cost for a second railway service … the catalogue
+> can run every day on dead time … not only once a week."*
+
+### 5.1 The window: every night, 23:00 → 07:00 Toronto (measured)
+Shopper activity per Toronto hour, prod, last 30 days (sign-ins in `auth_outcomes` + receipts scanned):
+
+| Hour | 22 | 23 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | peak (10–19) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| events | 47 | 32 | 41 | 19 | 10 | 7 | 2 | 0 | 4 | 16 | 39 | 66 | 56–109 / h |
+
+- **22:00 is still busy** (47, about the level of 13:00), and **08:00 already is** (39). The dead time is **23:00 → 07:00**; 01:00–06:00
+  is almost empty (≤ 19 / h).
+- So: shards start at **23:00 Toronto**, a shard never STARTS after **06:30**, and every shard stops at **07:00** (checkpoint
+  kept, resumed the next night). Maxim's 22:00–08:00 is the outer bound; the window is a config row, so it can widen later.
+- **Daily, not weekly:** every night takes the next shards, oldest-read province first. With 2–3 workers and ~8 h a night, every
+  province is re-read every **1–2 nights** (the serial total is ~11 h). Then Ontario per warehouse (§4 Phase 5).
+
+### 5.2 Hold what competes while a shard runs
+One Postgres advisory lock, `catalogue_harvest` (the pattern of `scripts/runLock.js`), held by the night run. A job that competes
+**checks it and defers** to its next tick after the window, never runs alongside:
+- reads Same-Day: the savings harvest (its watch is 06–20 Toronto, so it already sleeps then; its 20:00 fallback stays outside the
+  window), the stock read, an admin "Run now";
+- writes prices or reads them at scale: the price sweep and the drop sweep (`PRICE_SWEEP_INTERVAL_MINUTES`), the priority
+  price check;
+- heavy database work: the backup (04:10) and retention jobs (03:15–04:00) run on the **server clock**. node-cron has no
+  timezone here, so that is UTC unless `TZ` is set: **to verify**. If they are 22:15–23:10 Toronto, they finish before the window
+  opens; if they are Toronto 03:xx, they move to 07:00.
+- Light jobs (admin alerts, push receipts, reminders) are not held.
+
+### 5.3 Workers: 2, then 3
+Start at **2** parallel shards per storefront, raise to **3** after one clean night (0 blocks). A shared request budget per minute
+(§3.3) keeps 3 workers from sending 3× the requests.
+
+### 5.4 No extra monthly cost
+Measured: Railway this period (Nov 8 → Dec 8): **$2.36 used, $3.59 estimated**. Memory is $2.04 of it, CPU $0.04, egress $0.28.
+The plan's $5 leaves **~$1.40 / month** of headroom. Hard limit $10.
+- **Several services in one project are allowed.** Railway bills each service by what it uses (memory × time, CPU, egress), not
+  per service. A **second environment** is NOT cheaper: it copies every service (API included), so it costs more. Not used.
+- **Option A, $0 extra (recommended first):** the shards run **inside the API process, at night only**, from the same queue
+  (`harvest_shards`). At 23:00–07:00 the app is nearly idle, so the harvest cannot slow shoppers. The short, checkpointed shards
+  fix "a deploy kills a 5 h run". The memory is the API's own (no second copy of Node).
+- **Option B, the worker service:** one extra service running 2–3 shards in ONE Node process (the work is I/O-bound), started at
+  23:00 and exiting at 07:00 or when the queue is empty, so it is billed ~8 h a day. It costs a second Node's memory for those
+  hours. It is taken only if Phase 0 measures it inside the ~$1.40 headroom with a margin, and it alarms before the bill passes $5.
+- Either way the design is the same (queue, shards, checkpoint, lock); B is A with `node workers/harvester.js` as the entry point.
 
 ## 6. Rules this must keep
 - Official prices only, written by `writeRegularPrices` (price-history rule 5: every replaced price is kept).
