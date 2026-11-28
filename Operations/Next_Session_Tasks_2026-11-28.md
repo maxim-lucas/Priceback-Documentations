@@ -29,6 +29,9 @@ Branch to work from: `main-test-features` (clean, synced with `main`). Read `Ope
    Evidence: two live Same-Day rows per province for AirPods Pro 3 (SKU 7472260), $70 (Nov 19–25, run 213→280) and $55 (Nov 23–Dec 20, run 253→301,
    also in the coupon book). The harvest did not create the overlap and retired the $70 on its own end date.
 
+## Update, end of 2026-11-28
+DONE and in `main` + `main-test-features`: 3, 5 (specified parts), 7, 8, 9, 12 (partly). Migration 0069 and the `home_prompt` consent source are on prod. STILL OPEN: 1 and 2 (Maxim), 4 (brainstorm), 5 (the nearby / both-warehouse-types toggle: needs answers), 6 (screenshot + decision), 10, 11. See Task_Log 2026-11-28 (cont.).
+
 ## Progress 2026-11-28
 Done and merged into `main-test-features` (#760–#762): task 7, task 8, task 12 (partly). Task 6 investigated, waiting on Maxim's screenshot (see Task_Log 2026-11-28). Still open: 1 (Maxim), 2, 3, 4, 5, 9, 10, 11. None of this is in `main` yet.
 
